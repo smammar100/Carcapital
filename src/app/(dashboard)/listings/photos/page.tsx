@@ -2,31 +2,16 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Image as ImageIcon, Loader2, Sparkles, Wand2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, Wand2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import {
-  backdropPrompt,
-  carPhotoPrompt,
-  photoService,
-  type PhotoSize,
-} from "@/lib/services/photo-service";
 import type { Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
@@ -46,28 +31,12 @@ const BACKGROUNDS = [
   { id: "black", label: "Plain Black", swatch: "bg-black", hint: "infinite black void with rim lighting" },
 ];
 
-const SIZES: { value: PhotoSize; label: string }[] = [
-  { value: "1024x1024", label: "Square (1024×1024)" },
-  { value: "1536x1024", label: "Landscape (1536×1024)" },
-  { value: "1024x1536", label: "Portrait (1024×1536)" },
-];
-
 export default function PhotoProcessingPage() {
   const { company } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [bgRemoved, setBgRemoved] = useState(false);
   const [bg, setBg] = useState("white");
-
-  // Generation state
-  const [mode, setMode] = useState<"car" | "backdrop">("car");
-  const [prompt, setPrompt] = useState("");
-  const [size, setSize] = useState<PhotoSize>("1536x1024");
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState<{
-    dataUrl: string;
-    label: string;
-  } | null>(null);
 
   useEffect(() => {
     if (!company) return;
@@ -82,24 +51,6 @@ export default function PhotoProcessingPage() {
 
   const vehicle = vehicles?.find((v) => v.id === selected) ?? null;
   const swatch = BACKGROUNDS.find((b) => b.id === bg)!;
-
-  // Auto-fill prompt when mode / vehicle / backdrop changes
-  useEffect(() => {
-    if (mode === "car" && vehicle) {
-      setPrompt(
-        carPhotoPrompt({
-          year: vehicle.year,
-          make: vehicle.make,
-          model: vehicle.model,
-          colour: vehicle.colour,
-          variant: vehicle.variantCode,
-          backdrop: swatch.hint,
-        }),
-      );
-    } else if (mode === "backdrop") {
-      setPrompt(backdropPrompt(swatch.label, swatch.hint));
-    }
-  }, [mode, vehicle, swatch]);
 
   // Processed (BG-removed white-studio) and composed (car on selected backdrop)
   // tiles: ephemeral URLs returned by /api/photo/vehicle and cached on disk.
@@ -174,37 +125,6 @@ export default function PhotoProcessingPage() {
     };
   }, [vehicle, swatch.id, swatch.hint]);
 
-  async function handleGenerate() {
-    const trimmed = prompt.trim();
-    if (!trimmed) {
-      toast.error("Prompt required");
-      return;
-    }
-    setGenerating(true);
-    setGenerated(null);
-    try {
-      const { dataUrl } = await photoService.generate({
-        prompt: trimmed,
-        size,
-      });
-      setGenerated({
-        dataUrl,
-        label:
-          mode === "car"
-            ? vehicle
-              ? `${vehicle.make} ${vehicle.model} (${vehicle.registration})`
-              : "Car"
-            : swatch.label,
-      });
-      toast.success("Image generated");
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : "Image generation failed.",
-      );
-    } finally {
-      setGenerating(false);
-    }
-  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -235,7 +155,6 @@ export default function PhotoProcessingPage() {
                 onClick={() => {
                   setSelected(v.id);
                   setBgRemoved(false);
-                  setGenerated(null);
                 }}
                 className={cn(
                   "flex items-center gap-2 rounded-md p-2 text-left transition-colors",
@@ -272,16 +191,7 @@ export default function PhotoProcessingPage() {
                   </Button>
                 </div>
 
-                <Tabs defaultValue="manage">
-                  <TabsList>
-                    <TabsTrigger value="manage">Manage</TabsTrigger>
-                    <TabsTrigger value="generate">
-                      <Sparkles className="mr-1.5 h-3.5 w-3.5" />
-                      Generate (AI)
-                    </TabsTrigger>
-                  </TabsList>
-
-                  <TabsContent value="manage" className="mt-4 space-y-4">
+                <div className="mt-4 space-y-4">
                     <div className="grid gap-3 sm:grid-cols-3">
                       <div className="relative overflow-hidden rounded-md border">
                         <VehicleImage
@@ -359,112 +269,7 @@ export default function PhotoProcessingPage() {
                         ))}
                       </div>
                     </div>
-                  </TabsContent>
-
-                  <TabsContent value="generate" className="mt-4 space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-[1fr_220px]">
-                      <div>
-                        <Label className="text-xs">Mode</Label>
-                        <Tabs
-                          value={mode}
-                          onValueChange={(v) =>
-                            setMode(v as "car" | "backdrop")
-                          }
-                          className="mt-1"
-                        >
-                          <TabsList>
-                            <TabsTrigger value="car">Car concept</TabsTrigger>
-                            <TabsTrigger value="backdrop">Backdrop</TabsTrigger>
-                          </TabsList>
-                        </Tabs>
-                      </div>
-                      <div>
-                        <Label className="text-xs">Size</Label>
-                        <Select
-                          value={size}
-                          onValueChange={(v) => setSize(v as PhotoSize)}
-                        >
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SIZES.map((s) => (
-                              <SelectItem key={s.value} value={s.value}>
-                                {s.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <div>
-                      <Label className="text-xs">Prompt</Label>
-                      <Textarea
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        className="mt-1 min-h-32 font-mono text-xs"
-                      />
-                      <p className="mt-1 text-[10px] text-muted-foreground">
-                        Auto-built from the selected vehicle + backdrop. Edit freely.
-                      </p>
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-[10px] text-muted-foreground">
-                        Calls /api/photo/generate → OpenAI <code>gpt-image-1</code>.
-                      </p>
-                      <Button
-                        size="sm"
-                        onClick={handleGenerate}
-                        disabled={generating || !prompt.trim()}
-                      >
-                        {generating ? (
-                          <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Sparkles className="mr-1.5 h-4 w-4" />
-                        )}
-                        Generate
-                      </Button>
-                    </div>
-
-                    {generating && (
-                      <Skeleton className="h-72 w-full" />
-                    )}
-                    {generated && !generating && (
-                      <div className="overflow-hidden rounded-md border">
-                        <img
-                          src={generated.dataUrl}
-                          alt={generated.label}
-                          className="block w-full object-contain bg-zinc-50"
-                        />
-                        <div className="flex items-center justify-between border-t bg-background px-3 py-2 text-xs">
-                          <span className="font-medium">
-                            {generated.label}
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="secondary" className="text-[10px]">
-                              {mode === "car" ? "Car concept" : "Backdrop"}
-                            </Badge>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              asChild
-                              className="h-7 text-[11px]"
-                            >
-                              <a
-                                href={generated.dataUrl}
-                                download={`${mode}-${Date.now()}.png`}
-                              >
-                                Download
-                              </a>
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
+                </div>
               </>
             )}
           </Card>

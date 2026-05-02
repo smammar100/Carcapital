@@ -7,7 +7,6 @@ import {
   Building2,
   ChevronDown,
   LogOut,
-  Menu,
   Search,
 } from "lucide-react";
 import { titleFromPath } from "./sidebar-config";
@@ -19,7 +18,14 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetTrigger, SheetTitle } from "@/components/ui/sheet";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbList,
+  BreadcrumbPage,
+} from "@/components/ui/breadcrumb";
+import { Separator } from "@/components/ui/separator";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -30,7 +36,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
-import { AppSidebar } from "./app-sidebar";
 import { toast } from "sonner";
 import type { Company } from "@/lib/types";
 import { useEffect } from "react";
@@ -79,20 +84,19 @@ export function AppHeader() {
 
   return (
     <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur md:px-6">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Open navigation</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="w-72 p-0">
-          <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <AppSidebar />
-        </SheetContent>
-      </Sheet>
-
-      <div className="text-sm font-medium tracking-tight">
+      <SidebarTrigger className="-ml-1" />
+      <Separator
+        orientation="vertical"
+        className="mr-2 hidden data-[orientation=vertical]:h-4 md:block"
+      />
+      <Breadcrumb className="hidden md:block">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbPage>{titleFromPath(pathname)}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <div className="text-sm font-medium tracking-tight md:hidden">
         {titleFromPath(pathname)}
       </div>
 
