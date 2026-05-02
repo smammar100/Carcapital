@@ -330,7 +330,7 @@ export default function LeadsPage() {
         </Dialog>
       </div>
 
-      <Card className="flex flex-wrap items-center gap-2 p-3">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-sm">
         <Select
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v as LeadStatus | "all")}
@@ -362,7 +362,7 @@ export default function LeadsPage() {
             ))}
           </SelectContent>
         </Select>
-      </Card>
+      </div>
 
       {!filtered ? (
         <Skeleton className="h-72" />

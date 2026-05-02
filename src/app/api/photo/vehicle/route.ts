@@ -1,12 +1,12 @@
-import { promises as fs } from "node:fs";
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { CAR_ANGLES, carPhotoPrompt, type CarAngle } from "@/lib/services/photo-service";
+import {
+  readCarImageUrl,
+  writeCarImage,
+} from "@/lib/services/photo-storage";
 
 export const runtime = "nodejs";
-
-const PUBLIC_DIR = path.join(process.cwd(), "public", "generated", "cars");
 
 const SAFE_KEY = /^[a-z0-9-_]{1,32}$/i;
 
@@ -15,31 +15,6 @@ function fileBase(angle: CarAngle, backdropKey?: string): string {
     return `composed-${backdropKey}`;
   }
   return angle;
-}
-
-function urlFor(
-  vehicleId: string,
-  angle: CarAngle,
-  backdropKey?: string,
-): string {
-  return `/generated/cars/${vehicleId}/${fileBase(angle, backdropKey)}.png`;
-}
-
-function fileFor(
-  vehicleId: string,
-  angle: CarAngle,
-  backdropKey?: string,
-): string {
-  return path.join(PUBLIC_DIR, vehicleId, `${fileBase(angle, backdropKey)}.png`);
-}
-
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.access(p);
-    return true;
-  } catch {
-    return false;
-  }
 }
 
 // ---- In-flight dedupe ----------------------------------------------------
@@ -93,39 +68,15 @@ async function generateAndPersist(
   backdropKey?: string,
 ): Promise<string> {
   const b64 = await callOpenAI(prompt, apiKey);
-  const filePath = fileFor(vehicleId, angle, backdropKey);
-  const dir = path.dirname(filePath);
-
-  // Try to persist to the public/ filesystem. On platforms with read-only
-  // FS at runtime (Netlify, Vercel, most serverless), writing fails — fall
-  // back to returning the image as an inline data URL. The browser still
-  // renders it; it just doesn't survive a refresh on those platforms.
-  try {
-    await fs.mkdir(dir, { recursive: true });
-    await fs.writeFile(filePath, Buffer.from(b64, "base64"));
-    const url = urlFor(vehicleId, angle, backdropKey);
-    if (angle === "hero") {
-      await vehicleService.setHeroImageUrl(vehicleId, url);
-    }
-    // eslint-disable-next-line no-console
-    console.log(
-      `[photo] generated ${vehicleId}/${fileBase(angle, backdropKey)} (disk)`,
-    );
-    return url;
-  } catch (err) {
-    const code = (err as NodeJS.ErrnoException)?.code;
-    // EROFS / EACCES = read-only or non-writable filesystem (serverless prod)
-    if (code !== "EROFS" && code !== "EACCES") throw err;
-    const dataUrl = `data:image/png;base64,${b64}`;
-    if (angle === "hero") {
-      await vehicleService.setHeroImageUrl(vehicleId, dataUrl);
-    }
-    // eslint-disable-next-line no-console
-    console.log(
-      `[photo] generated ${vehicleId}/${fileBase(angle, backdropKey)} (data-url, FS read-only)`,
-    );
-    return dataUrl;
+  const buf = Buffer.from(b64, "base64");
+  const base = fileBase(angle, backdropKey);
+  const url = await writeCarImage(vehicleId, base, buf);
+  if (angle === "hero") {
+    await vehicleService.setHeroImageUrl(vehicleId, url);
   }
+  // eslint-disable-next-line no-console
+  console.log(`[photo] generated ${vehicleId}/${base} → ${url}`);
+  return url;
 }
 
 export async function POST(request: Request) {
@@ -188,14 +139,15 @@ export async function POST(request: Request) {
         : undefined;
   }
 
-  // 1. Already on disk? Return immediately.
-  const existingPath = fileFor(vehicleId, angle, backdropKey);
-  if (await fileExists(existingPath)) {
-    const url = urlFor(vehicleId, angle, backdropKey);
+  const base = fileBase(angle, backdropKey);
+
+  // 1. Already in storage? Return immediately.
+  const existingUrl = await readCarImageUrl(vehicleId, base);
+  if (existingUrl) {
     if (angle === "hero") {
-      await vehicleService.setHeroImageUrl(vehicleId, url);
+      await vehicleService.setHeroImageUrl(vehicleId, existingUrl);
     }
-    return NextResponse.json({ url, cached: true });
+    return NextResponse.json({ url: existingUrl, cached: true });
   }
 
   // 2. In-flight dedupe.

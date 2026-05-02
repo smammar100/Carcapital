@@ -124,7 +124,7 @@ export default function MasterCalendarPage() {
           Overlay of appointments, workshop walk-ins, and maintenance dues.
         </p>
       </div>
-      <Card className="flex flex-wrap items-center gap-4 p-3 text-sm">
+      <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-3 text-sm shadow-sm">
         <Toggle
           checked={showAppt}
           onChange={setShowAppt}
@@ -143,7 +143,7 @@ export default function MasterCalendarPage() {
           color={COLORS.maintenance}
           label="Maintenance"
         />
-      </Card>
+      </div>
       <Card className="p-3">
         {loading ? (
           <Skeleton className="h-[600px] w-full" />
