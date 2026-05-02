@@ -1,10 +1,25 @@
-import type { TodoItem, Vehicle } from "@/lib/types";
+import type { Invoice, TodoItem, Vehicle, Warranty } from "@/lib/types";
 
 export interface JobCardPdfInput {
   vehicle: Vehicle;
   todos: TodoItem[];
   preparedBy: string;
   companyName: string;
+}
+
+export interface WarrantyPdfInput {
+  warranty: Warranty;
+  vehicle: Vehicle | null;
+  companyName: string;
+  companyAddress: string;
+  vatNumber: string | null;
+}
+
+export interface InvoicePdfInput {
+  invoice: Invoice;
+  companyName: string;
+  companyAddress: string;
+  vatNumber: string | null;
 }
 
 /**
@@ -21,6 +36,24 @@ export const pdfService = {
     const doc = pdf(JobCardTemplate(input));
     return doc.toBlob();
   },
+
+  async generateWarrantyCertificate(input: WarrantyPdfInput): Promise<Blob> {
+    const [{ pdf }, { WarrantyCertificateTemplate }] = await Promise.all([
+      import("@react-pdf/renderer"),
+      import("@/components/pdf/warranty-certificate-template"),
+    ]);
+    const doc = pdf(WarrantyCertificateTemplate(input));
+    return doc.toBlob();
+  },
+
+  async generateInvoice(input: InvoicePdfInput): Promise<Blob> {
+    const [{ pdf }, { InvoiceTemplate }] = await Promise.all([
+      import("@react-pdf/renderer"),
+      import("@/components/pdf/invoice-template"),
+    ]);
+    const doc = pdf(InvoiceTemplate(input));
+    return doc.toBlob();
+  },
 };
 
 export function downloadBlob(blob: Blob, filename: string): void {
@@ -32,4 +65,10 @@ export function downloadBlob(blob: Blob, filename: string): void {
   a.click();
   document.body.removeChild(a);
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+export function openBlobInNewTab(blob: Blob): void {
+  const url = URL.createObjectURL(blob);
+  window.open(url, "_blank", "noopener,noreferrer");
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
