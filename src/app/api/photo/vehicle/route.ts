@@ -8,12 +8,29 @@ export const runtime = "nodejs";
 
 const PUBLIC_DIR = path.join(process.cwd(), "public", "generated", "cars");
 
-function urlFor(vehicleId: string, angle: CarAngle): string {
-  return `/generated/cars/${vehicleId}/${angle}.png`;
+const SAFE_KEY = /^[a-z0-9-_]{1,32}$/i;
+
+function fileBase(angle: CarAngle, backdropKey?: string): string {
+  if (angle === "composed" && backdropKey) {
+    return `composed-${backdropKey}`;
+  }
+  return angle;
 }
 
-function fileFor(vehicleId: string, angle: CarAngle): string {
-  return path.join(PUBLIC_DIR, vehicleId, `${angle}.png`);
+function urlFor(
+  vehicleId: string,
+  angle: CarAngle,
+  backdropKey?: string,
+): string {
+  return `/generated/cars/${vehicleId}/${fileBase(angle, backdropKey)}.png`;
+}
+
+function fileFor(
+  vehicleId: string,
+  angle: CarAngle,
+  backdropKey?: string,
+): string {
+  return path.join(PUBLIC_DIR, vehicleId, `${fileBase(angle, backdropKey)}.png`);
 }
 
 async function fileExists(p: string): Promise<boolean> {
@@ -73,18 +90,21 @@ async function generateAndPersist(
   angle: CarAngle,
   prompt: string,
   apiKey: string,
+  backdropKey?: string,
 ): Promise<string> {
-  const filePath = fileFor(vehicleId, angle);
+  const filePath = fileFor(vehicleId, angle, backdropKey);
   const dir = path.dirname(filePath);
   await fs.mkdir(dir, { recursive: true });
   const b64 = await callOpenAI(prompt, apiKey);
   await fs.writeFile(filePath, Buffer.from(b64, "base64"));
-  const url = urlFor(vehicleId, angle);
+  const url = urlFor(vehicleId, angle, backdropKey);
   if (angle === "hero") {
     await vehicleService.setHeroImageUrl(vehicleId, url);
   }
   // eslint-disable-next-line no-console
-  console.log(`[photo] generated ${vehicleId}/${angle}`);
+  console.log(
+    `[photo] generated ${vehicleId}/${fileBase(angle, backdropKey)}`,
+  );
   return url;
 }
 
@@ -97,7 +117,12 @@ export async function POST(request: Request) {
     );
   }
 
-  let body: { vehicleId?: unknown; angle?: unknown };
+  let body: {
+    vehicleId?: unknown;
+    angle?: unknown;
+    backdropKey?: unknown;
+    backdropHint?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -127,10 +152,26 @@ export async function POST(request: Request) {
   }
   const angle = angleRaw as CarAngle;
 
+  let backdropKey: string | undefined;
+  let backdropHint: string | undefined;
+  if (angle === "composed") {
+    if (typeof body.backdropKey !== "string" || !SAFE_KEY.test(body.backdropKey)) {
+      return NextResponse.json(
+        { error: "`backdropKey` is required for composed (a-z, 0-9, -, _; max 32)." },
+        { status: 400 },
+      );
+    }
+    backdropKey = body.backdropKey;
+    backdropHint =
+      typeof body.backdropHint === "string"
+        ? body.backdropHint.slice(0, 200)
+        : undefined;
+  }
+
   // 1. Already on disk? Return immediately.
-  const existingPath = fileFor(vehicleId, angle);
+  const existingPath = fileFor(vehicleId, angle, backdropKey);
   if (await fileExists(existingPath)) {
-    const url = urlFor(vehicleId, angle);
+    const url = urlFor(vehicleId, angle, backdropKey);
     if (angle === "hero") {
       await vehicleService.setHeroImageUrl(vehicleId, url);
     }
@@ -138,7 +179,7 @@ export async function POST(request: Request) {
   }
 
   // 2. In-flight dedupe.
-  const key = `${vehicleId}:${angle}`;
+  const key = `${vehicleId}:${angle}${backdropKey ? `:${backdropKey}` : ""}`;
   const existing = inFlight.get(key);
   if (existing) {
     try {
@@ -180,10 +221,17 @@ export async function POST(request: Request) {
     colour: vehicle.colour,
     variant: vehicle.variantCode,
     angle,
+    backdrop: angle === "composed" ? backdropHint : undefined,
   });
 
   // 5. Kick off generation, register the in-flight promise.
-  const promise = generateAndPersist(vehicleId, angle, prompt, apiKey);
+  const promise = generateAndPersist(
+    vehicleId,
+    angle,
+    prompt,
+    apiKey,
+    backdropKey,
+  );
   inFlight.set(key, promise);
   try {
     const url = await promise;

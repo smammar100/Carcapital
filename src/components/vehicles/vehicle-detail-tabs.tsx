@@ -286,6 +286,8 @@ function PhotosGrid({ vehicle }: { vehicle: Vehicle }) {
     rear: 0,
     side: 0,
     interior: 0,
+    processed: 0,
+    composed: 0,
   });
   function regenerate(angle: CarAngle) {
     setForced((f) => ({ ...f, [angle]: f[angle] + 1 }));

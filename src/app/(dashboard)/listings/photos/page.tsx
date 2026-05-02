@@ -101,10 +101,78 @@ export default function PhotoProcessingPage() {
     }
   }, [mode, vehicle, swatch]);
 
-  function handleProcess() {
-    setBgRemoved(true);
-    toast.success("Background removed (mock)");
+  // Processed (BG-removed white-studio) and composed (car on selected backdrop)
+  // tiles: ephemeral URLs returned by /api/photo/vehicle and cached on disk.
+  const [processedUrl, setProcessedUrl] = useState<string | null>(null);
+  const [processedLoading, setProcessedLoading] = useState(false);
+  const [composedUrl, setComposedUrl] = useState<string | null>(null);
+  const [composedLoading, setComposedLoading] = useState(false);
+
+  // Reset tiles when the selected vehicle changes
+  useEffect(() => {
+    setProcessedUrl(null);
+    setComposedUrl(null);
+  }, [selected]);
+
+  async function fetchAngle(
+    vehicleId: string,
+    angle: "processed" | "composed",
+    extra?: { backdropKey: string; backdropHint: string },
+  ): Promise<string> {
+    const res = await fetch("/api/photo/vehicle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vehicleId, angle, ...extra }),
+    });
+    const json = (await res.json()) as { url?: string; error?: string };
+    if (!res.ok || !json.url) {
+      throw new Error(json.error ?? `HTTP ${res.status}`);
+    }
+    return json.url;
   }
+
+  async function handleProcess() {
+    if (!vehicle) return;
+    setProcessedLoading(true);
+    try {
+      const url = await fetchAngle(vehicle.id, "processed");
+      setProcessedUrl(url);
+      setBgRemoved(true);
+      toast.success("Background removed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Process failed");
+    } finally {
+      setProcessedLoading(false);
+    }
+  }
+
+  // Auto-generate composed when the backdrop changes (cached per vehicle+key)
+  useEffect(() => {
+    if (!vehicle) return;
+    let cancelled = false;
+    setComposedLoading(true);
+    setComposedUrl(null);
+    fetchAngle(vehicle.id, "composed", {
+      backdropKey: swatch.id,
+      backdropHint: swatch.hint,
+    })
+      .then((u) => {
+        if (cancelled) return;
+        setComposedUrl(u);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        toast.error(
+          e instanceof Error ? e.message : "Compose failed",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setComposedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicle, swatch.id, swatch.hint]);
 
   async function handleGenerate() {
     const trimmed = prompt.trim();
@@ -228,23 +296,27 @@ export default function PhotoProcessingPage() {
                           </Badge>
                         </div>
                       </div>
-                      <PhotoTile
+                      <ImageTile
                         label="Processed"
-                        badge={bgRemoved ? "BG removed" : "Pending"}
-                        tone="bg-zinc-50"
+                        badge={processedUrl ? "BG removed" : "Click to process"}
+                        url={processedUrl}
+                        loading={processedLoading}
+                        fallbackTone="bg-zinc-50"
                         overlay={
-                          bgRemoved ? null : (
+                          !processedUrl && !processedLoading ? (
                             <Button size="sm" onClick={handleProcess}>
                               <Wand2 className="mr-1.5 h-4 w-4" />
                               Process Background
                             </Button>
-                          )
+                          ) : null
                         }
                       />
-                      <PhotoTile
+                      <ImageTile
                         label="Composed"
                         badge={swatch.label}
-                        tone={swatch.swatch}
+                        url={composedUrl}
+                        loading={composedLoading}
+                        fallbackTone={swatch.swatch}
                       />
                     </div>
 
@@ -402,25 +474,50 @@ export default function PhotoProcessingPage() {
   );
 }
 
-function PhotoTile({
+function ImageTile({
   label,
   badge,
-  tone,
+  url,
+  loading,
+  fallbackTone,
   overlay,
 }: {
   label: string;
   badge: string;
-  tone: string;
+  url: string | null;
+  loading: boolean;
+  fallbackTone: string;
   overlay?: React.ReactNode;
 }) {
   return (
     <div className="relative overflow-hidden rounded-md border">
-      <div className={cn("flex h-44 w-full items-center justify-center", tone)}>
-        <ImageIcon className="h-10 w-10 text-zinc-400" />
-        {overlay && (
+      <div
+        className={cn(
+          "relative flex h-44 w-full items-center justify-center",
+          !url && fallbackTone,
+        )}
+      >
+        {url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={url}
+            alt={label}
+            className="h-full w-full object-cover"
+          />
+        ) : !loading ? (
+          <ImageIcon className="h-10 w-10 text-zinc-400" />
+        ) : null}
+        {loading && <Skeleton className="absolute inset-0 h-full w-full rounded-none" />}
+        {overlay && !loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/0 backdrop-blur-[1px]">
             {overlay}
           </div>
+        )}
+        {loading && (
+          <span className="absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground backdrop-blur">
+            <Loader2 className="h-2.5 w-2.5 animate-spin" />
+            Generating
+          </span>
         )}
       </div>
       <div className="flex items-center justify-between border-t bg-background px-2 py-1.5 text-xs">
