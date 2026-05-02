@@ -1,10 +1,488 @@
-import { ComingSoon } from "@/components/shared/coming-soon";
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { Megaphone, Plus, Search as SearchIcon } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { useAuth } from "@/contexts/auth-context";
+import { listingService } from "@/lib/services/listing-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import type {
+  Listing,
+  ListingStatus,
+  Vehicle,
+} from "@/lib/types";
+import { Card } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { RegPlate } from "@/components/shared/reg-plate";
+import { EmptyState } from "@/components/shared/empty-state";
+import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
+import { formatCurrency, cn } from "@/lib/utils";
+import { toast } from "sonner";
+
+const CHANNELS = ["website", "autotrader", "ebay", "facebook"] as const;
+type Channel = (typeof CHANNELS)[number];
+
+const AT_COLORS: Record<Listing["atPriceIndicator"], string> = {
+  great: "text-emerald-700 bg-emerald-100 border-emerald-200",
+  good: "text-sky-700 bg-sky-100 border-sky-200",
+  above_average: "text-amber-700 bg-amber-100 border-amber-200",
+  unrated: "text-zinc-700 bg-zinc-100 border-zinc-200",
+};
+
+const schema = z.object({
+  vehicleId: z.string().min(1, "Pick a vehicle"),
+  title: z.string().min(1),
+  description: z.string().min(1),
+  price: z.coerce.number().min(0),
+  specialFeatures: z.string(),
+  atPriceIndicator: z.enum(["great", "good", "above_average", "unrated"]),
+  website: z.boolean(),
+  autotrader: z.boolean(),
+  ebay: z.boolean(),
+  facebook: z.boolean(),
+});
+type FormInput = z.input<typeof schema>;
+type FormOutput = z.output<typeof schema>;
 
 export default function ListingsPage() {
+  const { user, company } = useAuth();
+  const [listings, setListings] = useState<Listing[] | null>(null);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [statusFilter, setStatusFilter] = useState<ListingStatus | "all">("all");
+  const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const form = useForm<FormInput, unknown, FormOutput>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      vehicleId: "",
+      title: "",
+      description: "",
+      price: 0,
+      specialFeatures: "Bluetooth, Cruise Control, Parking Sensors, Alloy Wheels",
+      atPriceIndicator: "unrated",
+      website: true,
+      autotrader: false,
+      ebay: false,
+      facebook: false,
+    },
+  });
+
+  useEffect(() => {
+    if (!company) return;
+    void Promise.all([
+      listingService.getAll(company.id),
+      vehicleService.getAll(company.id),
+    ]).then(([l, v]) => {
+      setListings(l);
+      setVehicles(v);
+    });
+  }, [company]);
+
+  const readyVehicles = useMemo(
+    () =>
+      vehicles.filter(
+        (v) =>
+          (v.status === "ready" || v.status === "listed") &&
+          !listings?.some((l) => l.vehicleId === v.id),
+      ),
+    [vehicles, listings],
+  );
+
+  const filtered = useMemo(() => {
+    if (!listings) return null;
+    let out = [...listings];
+    if (statusFilter !== "all") out = out.filter((l) => l.status === statusFilter);
+    if (channelFilter !== "all")
+      out = out.filter((l) => l.channels[channelFilter]);
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      out = out.filter((l) => {
+        const v = vehicles.find((x) => x.id === l.vehicleId);
+        return (
+          l.title.toLowerCase().includes(q) ||
+          (v &&
+            (v.registration.toLowerCase().includes(q) ||
+              v.stockId.toLowerCase().includes(q)))
+        );
+      });
+    }
+    return out;
+  }, [listings, statusFilter, channelFilter, search, vehicles]);
+
+  const watchedVehicle = form.watch("vehicleId");
+  useEffect(() => {
+    const v = vehicles.find((x) => x.id === watchedVehicle);
+    if (!v) return;
+    form.setValue(
+      "title",
+      `${v.year} ${v.make} ${v.model} ${v.variantCode ?? ""}`.trim(),
+    );
+    form.setValue(
+      "description",
+      `Stunning ${v.colour.toLowerCase()} ${v.make} ${v.model} with ${v.mileage.toLocaleString()} miles. ${v.serviceHistory === "full" ? "Full service history. " : ""}Drives superb.`,
+    );
+    if (v.listingPrice) form.setValue("price", v.listingPrice);
+  }, [watchedVehicle, vehicles, form]);
+
+  async function onSubmit(values: FormOutput) {
+    if (!user || !company) return;
+    const v = vehicles.find((x) => x.id === values.vehicleId);
+    if (!v) return;
+    await listingService.create(
+      {
+        companyId: company.id,
+        vehicleId: values.vehicleId,
+        title: values.title,
+        description: values.description,
+        price: values.price,
+        specialFeatures: values.specialFeatures,
+        channels: {
+          website: values.website,
+          autotrader: values.autotrader,
+          ebay: values.ebay,
+          facebook: values.facebook,
+        },
+        atPriceIndicator: values.atPriceIndicator,
+      },
+      user.id,
+    );
+    const fresh = await listingService.getAll(company.id);
+    setListings(fresh);
+    toast.success("Listing created (draft)");
+    setOpen(false);
+    form.reset();
+  }
+
+  async function handlePublish(id: string) {
+    if (!user || !company) return;
+    await listingService.publish(id, user.id);
+    setListings(await listingService.getAll(company.id));
+    toast.success("Listing published");
+  }
+
+  async function handleToggleChannel(id: string, ch: Channel) {
+    if (!company) return;
+    await listingService.toggleChannel(id, ch);
+    setListings(await listingService.getAll(company.id));
+  }
+
   return (
-    <ComingSoon
-      title="Work List"
-      description="Listings table with channel publish status and AT indicator. Lands in Step 6."
-    />
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">Work List</h1>
+          <p className="text-sm text-muted-foreground">
+            {filtered ? `${filtered.length} listings` : "Loading…"}
+          </p>
+        </div>
+        <Dialog open={open} onOpenChange={setOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="mr-1.5 h-4 w-4" /> Create Listing
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle>Create Listing</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-3">
+              <div>
+                <Label>Vehicle</Label>
+                <Select
+                  value={form.watch("vehicleId")}
+                  onValueChange={(v) => form.setValue("vehicleId", v)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Pick a ready / listed vehicle" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {readyVehicles.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No vehicles available
+                      </SelectItem>
+                    ) : (
+                      readyVehicles.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.registration} — {v.make} {v.model}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Title</Label>
+                <Input {...form.register("title")} />
+              </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea
+                  {...form.register("description")}
+                  className="min-h-24"
+                />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Price</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    {...form.register("price")}
+                  />
+                </div>
+                <div>
+                  <Label>AT indicator</Label>
+                  <Select
+                    value={form.watch("atPriceIndicator")}
+                    onValueChange={(v) =>
+                      form.setValue(
+                        "atPriceIndicator",
+                        v as Listing["atPriceIndicator"],
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="great">Great</SelectItem>
+                      <SelectItem value="good">Good</SelectItem>
+                      <SelectItem value="above_average">Above Avg</SelectItem>
+                      <SelectItem value="unrated">Unrated</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div>
+                <Label>Special features</Label>
+                <Input {...form.register("specialFeatures")} />
+              </div>
+              <div className="grid gap-2">
+                <Label>Publish channels</Label>
+                <div className="flex flex-wrap gap-3">
+                  {CHANNELS.map((c) => (
+                    <label
+                      key={c}
+                      className="flex items-center gap-2 text-sm capitalize"
+                    >
+                      <Switch
+                        checked={form.watch(c)}
+                        onCheckedChange={(v) => form.setValue(c, v)}
+                      />
+                      {c}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit">Save Draft</Button>
+              </DialogFooter>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      <Card className="flex flex-wrap items-center gap-2 p-3">
+        <div className="relative w-full max-w-xs">
+          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search title, reg, stock…"
+            className="pl-8"
+          />
+        </div>
+        <Select
+          value={statusFilter}
+          onValueChange={(v) => setStatusFilter(v as ListingStatus | "all")}
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All</SelectItem>
+            <SelectItem value="draft">Draft</SelectItem>
+            <SelectItem value="live">Live</SelectItem>
+            <SelectItem value="reserved">Reserved</SelectItem>
+            <SelectItem value="sold">Sold</SelectItem>
+            <SelectItem value="archived">Archived</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select
+          value={channelFilter}
+          onValueChange={(v) => setChannelFilter(v as Channel | "all")}
+        >
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Channel" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All channels</SelectItem>
+            {CHANNELS.map((c) => (
+              <SelectItem key={c} value={c} className="capitalize">
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Card>
+
+      {!filtered ? (
+        <Skeleton className="h-72" />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Megaphone}
+          title="No listings yet"
+          description="Mark a vehicle as ready, then create a listing."
+        />
+      ) : (
+        <Card className="p-0 overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Reg</TableHead>
+                <TableHead>Make / Model</TableHead>
+                <TableHead>Days</TableHead>
+                <TableHead className="text-right">Web Price</TableHead>
+                <TableHead>AT</TableHead>
+                <TableHead>Channels</TableHead>
+                <TableHead>Enq.</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filtered.map((l) => {
+                const v = vehicles.find((x) => x.id === l.vehicleId);
+                return (
+                  <TableRow key={l.id}>
+                    <TableCell>
+                      {v ? (
+                        <RegPlate registration={v.registration} size="sm" />
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+                    <TableCell className="max-w-[260px] truncate">
+                      <Link
+                        href={v ? `/vehicles/${v.id}` : "#"}
+                        className="hover:underline"
+                      >
+                        <div className="flex flex-col leading-tight">
+                          <span className="font-medium">
+                            {v ? `${v.make} ${v.model}` : l.title}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            {v?.stockId}
+                          </span>
+                        </div>
+                      </Link>
+                    </TableCell>
+                    <TableCell>
+                      {v ? <DaysInStockChip days={v.daysInStock} /> : "—"}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {formatCurrency(l.price)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "capitalize",
+                          AT_COLORS[l.atPriceIndicator],
+                        )}
+                      >
+                        {l.atPriceIndicator.replace("_", " ")}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {CHANNELS.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            title={`${l.channels[c] ? "Disable" : "Enable"} ${c}`}
+                            onClick={() => void handleToggleChannel(l.id, c)}
+                            className={cn(
+                              "rounded border px-1.5 py-0.5 text-[10px] capitalize",
+                              l.channels[c]
+                                ? "border-emerald-300 bg-emerald-100 text-emerald-800"
+                                : "border-zinc-200 bg-zinc-50 text-zinc-400",
+                            )}
+                          >
+                            {c.slice(0, 2).toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    </TableCell>
+                    <TableCell>{l.enquiriesCount}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className="capitalize">
+                        {l.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {l.status === "draft" ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handlePublish(l.id)}
+                        >
+                          Publish
+                        </Button>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Live
+                        </span>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+    </div>
   );
 }
