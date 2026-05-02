@@ -276,7 +276,9 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     status: s.status,
     daysInStock: s.daysInStock,
     imagesCount: ["listed", "ready"].includes(s.status) ? 12 : 0,
-    heroImageUrl: null,
+    // Pre-generated seed image baked into the deployment. Vehicles added via
+    // the arrival form get heroImageUrl=null and lazy-generate via the API.
+    heroImageUrl: `/cars/seed/${s.id}.png`,
     createdAt: `${daysAgo(s.daysInStock)}T09:00:00.000Z`,
     updatedAt: NOW,
   };
