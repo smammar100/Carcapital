@@ -34,6 +34,19 @@ export const photoService = {
   },
 };
 
+export type CarAngle = "hero" | "front" | "rear" | "side" | "interior";
+
+export const CAR_ANGLES: CarAngle[] = ["hero", "front", "rear", "side", "interior"];
+
+const ANGLE_FRAMING: Record<CarAngle, string> = {
+  hero: "three-quarter front view, eye-level, exterior, full vehicle visible",
+  front: "dead-on front, slightly low angle, headlights as focal point, exterior",
+  rear: "three-quarter rear view, taillights and badging visible, exterior",
+  side: "strict profile shot, full body in frame, shows wheelbase and silhouette, exterior",
+  interior:
+    "driver's seat looking over the dashboard, steering wheel and infotainment screen, no occupants, interior cabin",
+};
+
 export function carPhotoPrompt(args: {
   year: number;
   make: string;
@@ -41,10 +54,13 @@ export function carPhotoPrompt(args: {
   colour: string;
   variant?: string | null;
   backdrop?: string;
+  angle?: CarAngle;
 }): string {
   const variant = args.variant ? ` ${args.variant}` : "";
   const backdrop = args.backdrop ?? "neutral grey studio";
-  return `Photorealistic ${args.year} ${args.make} ${args.model}${variant} in ${args.colour.toLowerCase()}, three-quarter front view, sharp clean lines, ${backdrop} background, studio lighting, no logos, dealership marketing photo, 16:9 framing.`;
+  const angle = args.angle ?? "hero";
+  const framing = ANGLE_FRAMING[angle];
+  return `Photorealistic ${args.year} ${args.make} ${args.model}${variant} in ${args.colour.toLowerCase()}, ${framing}, sharp clean lines, ${backdrop} background, studio lighting, no logos, dealership marketing photo.`;
 }
 
 export function backdropPrompt(label: string, hint?: string): string {

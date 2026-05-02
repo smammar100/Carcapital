@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
-  Image as ImageIcon,
   Megaphone,
   History,
   ClipboardCheck,
   Coins,
+  RefreshCw,
 } from "lucide-react";
 import {
   Tabs,
@@ -22,6 +22,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { ThingsToDoList } from "./things-to-do-list";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VehicleImage } from "@/components/shared/vehicle-image";
+import type { CarAngle } from "@/lib/services/photo-service";
 import { CostSummaryPanel } from "./cost-summary-panel";
 import {
   formatCurrency,
@@ -267,20 +269,68 @@ function InspectionTab({ vehicle }: { vehicle: Vehicle }) {
 }
 
 function PhotosTab({ vehicle }: { vehicle: Vehicle }) {
-  if (vehicle.imagesCount === 0) {
-    return (
-      <EmptyState
-        icon={ImageIcon}
-        title="No photos uploaded"
-        description="Photo upload + background processing land in Step 6."
-      />
-    );
+  return <PhotosGrid vehicle={vehicle} />;
+}
+
+const PHOTO_TILES: { angle: CarAngle; label: string }[] = [
+  { angle: "hero", label: "Hero" },
+  { angle: "front", label: "Front" },
+  { angle: "rear", label: "Rear" },
+  { angle: "side", label: "Side" },
+];
+
+function PhotosGrid({ vehicle }: { vehicle: Vehicle }) {
+  const [forced, setForced] = useState<Record<CarAngle, number>>({
+    hero: 0,
+    front: 0,
+    rear: 0,
+    side: 0,
+    interior: 0,
+  });
+  function regenerate(angle: CarAngle) {
+    setForced((f) => ({ ...f, [angle]: f[angle] + 1 }));
   }
   return (
     <Card className="p-5">
-      <p className="text-sm text-muted-foreground">
-        {vehicle.imagesCount} photos on file. Photo processing UI is built in Step 6.
-      </p>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold">Gallery</h3>
+          <p className="text-xs text-muted-foreground">
+            AI-generated for now. Each tile is one OpenAI call when first viewed.
+          </p>
+        </div>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {PHOTO_TILES.map((tile) => {
+          const force = forced[tile.angle];
+          return (
+            <div key={tile.angle} className="flex flex-col gap-2">
+              <VehicleImage
+                key={`${tile.angle}-${force}`}
+                vehicle={vehicle}
+                angle={tile.angle}
+                variant="card"
+                forceRegenerate={force > 0}
+                alt={`${vehicle.make} ${vehicle.model} ${tile.label}`}
+              />
+              <div className="flex items-center justify-between">
+                <Badge variant="secondary" className="text-[10px]">
+                  {tile.label}
+                </Badge>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-7 text-[11px]"
+                  onClick={() => regenerate(tile.angle)}
+                >
+                  <RefreshCw className="mr-1 h-3 w-3" />
+                  Regenerate
+                </Button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </Card>
   );
 }

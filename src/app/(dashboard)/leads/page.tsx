@@ -49,6 +49,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import { formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -455,6 +456,13 @@ export default function LeadsPage() {
                   {drillLead.customerEmail ?? "no email"}
                 </DialogDescription>
               </DialogHeader>
+              {drillLead.vehicleId &&
+                (() => {
+                  const v = vehicles.find((x) => x.id === drillLead.vehicleId);
+                  return v ? (
+                    <VehicleImage vehicle={v} variant="card" />
+                  ) : null;
+                })()}
               <div className="grid gap-2 text-sm">
                 <Field label="Vehicle of interest">
                   {drillLead.vehicleInterest}

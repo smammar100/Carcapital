@@ -43,6 +43,7 @@ import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 
 type SortKey = "daysInStock" | "make" | "year" | "listingPrice" | "status";
 type SortDir = "asc" | "desc";
@@ -329,6 +330,7 @@ export default function VehiclesPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-20">Image</TableHead>
                 <TableHead>Reg</TableHead>
                 <TableHead
                   onClick={() => toggleSort("make")}
@@ -373,6 +375,13 @@ export default function VehiclesPage() {
                     className="cursor-pointer"
                     onClick={() => router.push(`/vehicles/${v.id}`)}
                   >
+                    <TableCell>
+                      <VehicleImage
+                        vehicle={v}
+                        variant="thumb"
+                        className="w-16"
+                      />
+                    </TableCell>
                     <TableCell>
                       <RegPlate registration={v.registration} size="sm" />
                     </TableCell>
@@ -429,10 +438,12 @@ export default function VehiclesPage() {
           {filtered.map((v) => (
             <Card
               key={v.id}
-              className="cursor-pointer p-4 transition-colors hover:bg-muted/40"
+              className="cursor-pointer overflow-hidden p-0 transition-colors hover:bg-muted/40"
               onClick={() => router.push(`/vehicles/${v.id}`)}
             >
-              <div className="mb-3 flex items-center justify-between">
+              <VehicleImage vehicle={v} variant="card" className="rounded-none" />
+              <div className="flex flex-col gap-3 p-4">
+              <div className="flex items-center justify-between">
                 <RegPlate registration={v.registration} size="md" />
                 <VehicleStatusBadge status={v.status} />
               </div>
@@ -468,13 +479,14 @@ export default function VehiclesPage() {
                   <span className="ml-1">Days</span>
                 </div>
               </div>
-              <div className="mt-3 flex items-end justify-between">
+              <div className="flex items-end justify-between">
                 <span className="text-xs text-muted-foreground">
                   {v.stockId}
                 </span>
                 <span className="text-base font-semibold tabular-nums">
                   {formatCurrency(v.listingPrice)}
                 </span>
+              </div>
               </div>
             </Card>
           ))}

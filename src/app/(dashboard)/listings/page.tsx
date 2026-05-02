@@ -48,6 +48,7 @@ import {
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import { formatCurrency, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -380,6 +381,7 @@ export default function ListingsPage() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-20">Image</TableHead>
                 <TableHead>Reg</TableHead>
                 <TableHead>Make / Model</TableHead>
                 <TableHead>Days</TableHead>
@@ -396,6 +398,17 @@ export default function ListingsPage() {
                 const v = vehicles.find((x) => x.id === l.vehicleId);
                 return (
                   <TableRow key={l.id}>
+                    <TableCell>
+                      {v ? (
+                        <VehicleImage
+                          vehicle={v}
+                          variant="thumb"
+                          className="w-16"
+                        />
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>
                       {v ? (
                         <RegPlate registration={v.registration} size="sm" />

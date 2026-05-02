@@ -239,6 +239,7 @@ export function ArrivalForm() {
           status: "received",
           daysInStock: 0,
           imagesCount: 0,
+          heroImageUrl: null,
         },
         user.id,
       );

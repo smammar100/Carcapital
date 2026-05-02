@@ -157,6 +157,9 @@ export interface Vehicle {
   daysInStock: number;
   imagesCount: number;
 
+  // AI-generated hero image (lazy, persisted to public/generated/cars/<id>/hero.png)
+  heroImageUrl: string | null;
+
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

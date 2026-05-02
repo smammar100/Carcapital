@@ -21,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleStatusBadge } from "@/components/shared/status-badge";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import { VehicleDetailTabs } from "@/components/vehicles/vehicle-detail-tabs";
 import {
   DropdownMenu,
@@ -101,6 +102,8 @@ export default function VehicleDetailPage({
           <ChevronLeft className="mr-1 h-4 w-4" /> Back to inventory
         </Link>
       </Button>
+
+      <VehicleImage vehicle={vehicle} variant="hero" />
 
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border bg-card p-4">
         <div className="flex flex-col gap-2">

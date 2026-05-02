@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RegPlate } from "@/components/shared/reg-plate";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import {
   BigCalendar,
   type CalendarEvent,
@@ -306,8 +307,13 @@ export default function AppointmentsPage() {
                           {v ? (
                             <Link
                               href={`/vehicles/${v.id}`}
-                              className="hover:underline"
+                              className="flex items-center gap-2 hover:underline"
                             >
+                              <VehicleImage
+                                vehicle={v}
+                                variant="thumb"
+                                className="w-12"
+                              />
                               <RegPlate
                                 registration={v.registration}
                                 size="sm"

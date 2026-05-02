@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -148,7 +149,15 @@ export default function SalesPipelinePage() {
                         d.stage === "deposit_taken" ||
                         d.stage === "completed_sale";
                       return (
-                        <Card key={d.id} className="border bg-background p-2.5">
+                        <Card key={d.id} className="overflow-hidden border bg-background p-0">
+                          {v && (
+                            <VehicleImage
+                              vehicle={v}
+                              variant="card"
+                              className="rounded-none"
+                            />
+                          )}
+                          <div className="flex flex-col gap-1.5 p-2.5">
                           <div className="flex items-center justify-between gap-1">
                             {v && (
                               <RegPlate
@@ -214,6 +223,7 @@ export default function SalesPipelinePage() {
                           <p className="mt-1 text-[9px] text-muted-foreground">
                             Updated {formatRelativeTime(d.updatedAt)}
                           </p>
+                          </div>
                         </Card>
                       );
                     })

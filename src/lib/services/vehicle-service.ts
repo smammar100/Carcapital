@@ -166,6 +166,13 @@ export const vehicleService = {
     });
     return mockVehicles[idx];
   },
+
+  async setHeroImageUrl(id: UUID, url: string): Promise<void> {
+    // TODO: Supabase: update vehicles set hero_image_url = $1 where id = $2
+    const idx = mockVehicles.findIndex((v) => v.id === id);
+    if (idx === -1) return;
+    mockVehicles[idx] = { ...mockVehicles[idx], heroImageUrl: url };
+  },
 };
 
 function generateStockId(companyId: UUID): string {

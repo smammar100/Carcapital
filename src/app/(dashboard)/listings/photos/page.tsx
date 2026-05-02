@@ -29,6 +29,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -214,7 +215,19 @@ export default function PhotoProcessingPage() {
 
                   <TabsContent value="manage" className="mt-4 space-y-4">
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <PhotoTile label="Original" badge="Raw" tone="bg-zinc-100" />
+                      <div className="relative overflow-hidden rounded-md border">
+                        <VehicleImage
+                          vehicle={vehicle}
+                          variant="card"
+                          className="h-44 rounded-none"
+                        />
+                        <div className="flex items-center justify-between border-t bg-background px-2 py-1.5 text-xs">
+                          <span className="font-medium">Original</span>
+                          <Badge variant="secondary" className="text-[10px]">
+                            AI hero
+                          </Badge>
+                        </div>
+                      </div>
                       <PhotoTile
                         label="Processed"
                         badge={bgRemoved ? "BG removed" : "Pending"}

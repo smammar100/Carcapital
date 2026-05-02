@@ -1,0 +1,199 @@
+import { promises as fs } from "node:fs";
+import path from "node:path";
+import { NextResponse } from "next/server";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import { CAR_ANGLES, carPhotoPrompt, type CarAngle } from "@/lib/services/photo-service";
+
+export const runtime = "nodejs";
+
+const PUBLIC_DIR = path.join(process.cwd(), "public", "generated", "cars");
+
+function urlFor(vehicleId: string, angle: CarAngle): string {
+  return `/generated/cars/${vehicleId}/${angle}.png`;
+}
+
+function fileFor(vehicleId: string, angle: CarAngle): string {
+  return path.join(PUBLIC_DIR, vehicleId, `${angle}.png`);
+}
+
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---- In-flight dedupe ----------------------------------------------------
+const inFlight = new Map<string, Promise<string>>();
+
+// ---- Rate limit: 30 generations / 60s rolling window ---------------------
+const WINDOW_MS = 60_000;
+const MAX_PER_WINDOW = 30;
+const recentTimestamps: number[] = [];
+
+function rateLimitOk(): boolean {
+  const now = Date.now();
+  while (recentTimestamps.length && now - recentTimestamps[0] > WINDOW_MS) {
+    recentTimestamps.shift();
+  }
+  if (recentTimestamps.length >= MAX_PER_WINDOW) return false;
+  recentTimestamps.push(now);
+  return true;
+}
+
+async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
+  // Returns base64 PNG.
+  const res = await fetch("https://api.openai.com/v1/images/generations", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-image-1",
+      prompt,
+      size: "1536x1024",
+      n: 1,
+    }),
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`OpenAI ${res.status}: ${text.slice(0, 300)}`);
+  }
+  const json = (await res.json()) as { data?: { b64_json?: string }[] };
+  const b64 = json.data?.[0]?.b64_json;
+  if (!b64) throw new Error("OpenAI returned no image data.");
+  return b64;
+}
+
+async function generateAndPersist(
+  vehicleId: string,
+  angle: CarAngle,
+  prompt: string,
+  apiKey: string,
+): Promise<string> {
+  const filePath = fileFor(vehicleId, angle);
+  const dir = path.dirname(filePath);
+  await fs.mkdir(dir, { recursive: true });
+  const b64 = await callOpenAI(prompt, apiKey);
+  await fs.writeFile(filePath, Buffer.from(b64, "base64"));
+  const url = urlFor(vehicleId, angle);
+  if (angle === "hero") {
+    await vehicleService.setHeroImageUrl(vehicleId, url);
+  }
+  // eslint-disable-next-line no-console
+  console.log(`[photo] generated ${vehicleId}/${angle}`);
+  return url;
+}
+
+export async function POST(request: Request) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    return NextResponse.json(
+      { error: "OPENAI_API_KEY not configured on the server." },
+      { status: 503 },
+    );
+  }
+
+  let body: { vehicleId?: unknown; angle?: unknown };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+  const vehicleId =
+    typeof body.vehicleId === "string" ? body.vehicleId.trim() : "";
+  if (!vehicleId) {
+    return NextResponse.json(
+      { error: "`vehicleId` is required." },
+      { status: 400 },
+    );
+  }
+  // Defensive: prevent path traversal
+  if (vehicleId.includes("/") || vehicleId.includes("\\") || vehicleId.includes("..")) {
+    return NextResponse.json(
+      { error: "Invalid vehicleId." },
+      { status: 400 },
+    );
+  }
+  const angleRaw = typeof body.angle === "string" ? body.angle : "hero";
+  if (!CAR_ANGLES.includes(angleRaw as CarAngle)) {
+    return NextResponse.json(
+      { error: `\`angle\` must be one of ${CAR_ANGLES.join(", ")}.` },
+      { status: 400 },
+    );
+  }
+  const angle = angleRaw as CarAngle;
+
+  // 1. Already on disk? Return immediately.
+  const existingPath = fileFor(vehicleId, angle);
+  if (await fileExists(existingPath)) {
+    const url = urlFor(vehicleId, angle);
+    if (angle === "hero") {
+      await vehicleService.setHeroImageUrl(vehicleId, url);
+    }
+    return NextResponse.json({ url, cached: true });
+  }
+
+  // 2. In-flight dedupe.
+  const key = `${vehicleId}:${angle}`;
+  const existing = inFlight.get(key);
+  if (existing) {
+    try {
+      const url = await existing;
+      return NextResponse.json({ url, cached: false, deduped: true });
+    } catch (e) {
+      return NextResponse.json(
+        {
+          error:
+            e instanceof Error ? e.message : "In-flight generation failed.",
+        },
+        { status: 502 },
+      );
+    }
+  }
+
+  // 3. Rate limit.
+  if (!rateLimitOk()) {
+    return NextResponse.json(
+      {
+        error: `Rate limit hit (${MAX_PER_WINDOW} generations / ${WINDOW_MS / 1000}s). Try again in a minute.`,
+      },
+      { status: 429 },
+    );
+  }
+
+  // 4. Resolve vehicle and build prompt.
+  const vehicle = await vehicleService.getById(vehicleId);
+  if (!vehicle) {
+    return NextResponse.json(
+      { error: `Vehicle ${vehicleId} not found.` },
+      { status: 404 },
+    );
+  }
+  const prompt = carPhotoPrompt({
+    year: vehicle.year,
+    make: vehicle.make,
+    model: vehicle.model,
+    colour: vehicle.colour,
+    variant: vehicle.variantCode,
+    angle,
+  });
+
+  // 5. Kick off generation, register the in-flight promise.
+  const promise = generateAndPersist(vehicleId, angle, prompt, apiKey);
+  inFlight.set(key, promise);
+  try {
+    const url = await promise;
+    return NextResponse.json({ url, cached: false });
+  } catch (e) {
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Generation failed." },
+      { status: 502 },
+    );
+  } finally {
+    inFlight.delete(key);
+  }
+}
