@@ -1,4 +1,4 @@
-import { mockVehicles } from "@/lib/mock-data";
+import { mockMaintenanceJobs, mockVehicles } from "@/lib/mock-data";
 import type { UUID, Vehicle, VehicleStatus } from "@/lib/types";
 import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
@@ -85,6 +85,35 @@ export const vehicleService = {
       actionType: "vehicle_arrived",
       description: `${vehicle.make} ${vehicle.model} (${vehicle.registration}) received`,
       metadata: { stockId },
+    });
+    // Auto-create a pending maintenance job — every new stock car needs prep.
+    const dueDate = new Date();
+    dueDate.setDate(dueDate.getDate() + 3);
+    const jobId = newId("maint");
+    mockMaintenanceJobs.push({
+      id: jobId,
+      companyId: vehicle.companyId,
+      vehicleId: vehicle.id,
+      description: "New stock — needs inspection + readiness",
+      assignedTo: null,
+      vendorId: null,
+      estimatedCost: null,
+      actualCost: null,
+      estimatedDurationHours: 2,
+      startDate: null,
+      dueDate: dueDate.toISOString().slice(0, 10),
+      completedDate: null,
+      status: "pending",
+      notes: null,
+      createdAt: now,
+    });
+    await activityService.log({
+      companyId: vehicle.companyId,
+      userId: actorId,
+      vehicleId: vehicle.id,
+      actionType: "maintenance_job_created",
+      description: `New stock maintenance job created for ${vehicle.registration}`,
+      metadata: { jobId },
     });
     return vehicle;
   },
