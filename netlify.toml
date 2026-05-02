@@ -1,0 +1,15 @@
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  # pnpm with corepack — keeps the same lockfile we use locally
+  NODE_VERSION = "20"
+  PNPM_VERSION = "10.33.2"
+  # Next.js 16 + Turbopack telemetry off
+  NEXT_TELEMETRY_DISABLED = "1"
+
+# Netlify auto-installs @netlify/plugin-nextjs when it detects Next.js, but
+# declaring it explicitly avoids the auto-detect failing on the worktree.
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

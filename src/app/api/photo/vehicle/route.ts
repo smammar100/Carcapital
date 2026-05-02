@@ -92,20 +92,40 @@ async function generateAndPersist(
   apiKey: string,
   backdropKey?: string,
 ): Promise<string> {
+  const b64 = await callOpenAI(prompt, apiKey);
   const filePath = fileFor(vehicleId, angle, backdropKey);
   const dir = path.dirname(filePath);
-  await fs.mkdir(dir, { recursive: true });
-  const b64 = await callOpenAI(prompt, apiKey);
-  await fs.writeFile(filePath, Buffer.from(b64, "base64"));
-  const url = urlFor(vehicleId, angle, backdropKey);
-  if (angle === "hero") {
-    await vehicleService.setHeroImageUrl(vehicleId, url);
+
+  // Try to persist to the public/ filesystem. On platforms with read-only
+  // FS at runtime (Netlify, Vercel, most serverless), writing fails — fall
+  // back to returning the image as an inline data URL. The browser still
+  // renders it; it just doesn't survive a refresh on those platforms.
+  try {
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(filePath, Buffer.from(b64, "base64"));
+    const url = urlFor(vehicleId, angle, backdropKey);
+    if (angle === "hero") {
+      await vehicleService.setHeroImageUrl(vehicleId, url);
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[photo] generated ${vehicleId}/${fileBase(angle, backdropKey)} (disk)`,
+    );
+    return url;
+  } catch (err) {
+    const code = (err as NodeJS.ErrnoException)?.code;
+    // EROFS / EACCES = read-only or non-writable filesystem (serverless prod)
+    if (code !== "EROFS" && code !== "EACCES") throw err;
+    const dataUrl = `data:image/png;base64,${b64}`;
+    if (angle === "hero") {
+      await vehicleService.setHeroImageUrl(vehicleId, dataUrl);
+    }
+    // eslint-disable-next-line no-console
+    console.log(
+      `[photo] generated ${vehicleId}/${fileBase(angle, backdropKey)} (data-url, FS read-only)`,
+    );
+    return dataUrl;
   }
-  // eslint-disable-next-line no-console
-  console.log(
-    `[photo] generated ${vehicleId}/${fileBase(angle, backdropKey)}`,
-  );
-  return url;
 }
 
 export async function POST(request: Request) {
