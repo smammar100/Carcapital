@@ -294,7 +294,7 @@ export function DataGridRow<T>({
             "group-hover/row:bg-muted/40",
           )}
         >
-          <div className="flex h-9 items-center justify-center">
+          <div className="flex h-13 items-center justify-center">
             <span className="text-[11px] tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
               {index + 1}
             </span>
@@ -327,7 +327,7 @@ export function DataGridRow<T>({
           >
             <div
               className={cn(
-                "flex h-9 items-center",
+                "flex h-13 items-center",
                 align === "right" && "justify-end",
                 align === "center" && "justify-center",
               )}
@@ -419,7 +419,7 @@ interface FooterProps {
 
 export function DataGridFooterRow({ label, href, onClick, span }: FooterProps) {
   const inner = (
-    <span className="flex h-9 items-center gap-1.5 px-3 text-xs text-muted-foreground hover:text-foreground">
+    <span className="flex h-13 items-center gap-1.5 px-3 text-xs text-muted-foreground hover:text-foreground">
       <Plus className="h-3.5 w-3.5" />
       {label}
     </span>
