@@ -1,14 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Download, FileSpreadsheet, SlidersHorizontal } from "lucide-react";
+import {
+  Calendar as CalendarIcon,
+  Car,
+  Check,
+  Download,
+  FileSpreadsheet,
+  Hash,
+  Plus,
+  PoundSterling,
+  Search,
+  SlidersHorizontal,
+  Tag,
+  Type,
+  X,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import type { Vehicle } from "@/lib/types";
+import type { Vehicle, VehicleStatus } from "@/lib/types";
+import { VEHICLE_STATUSES } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -17,66 +33,114 @@ import {
 import { Label } from "@/components/ui/label";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState } from "@/components/shared/empty-state";
+import { RegPlate } from "@/components/shared/reg-plate";
+import { VehicleImage } from "@/components/shared/vehicle-image";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+
+type ColType =
+  | "vehicle"
+  | "text"
+  | "number"
+  | "currency"
+  | "date"
+  | "boolean"
+  | "select"
+  | "status";
 
 interface ColDef {
   key: keyof Vehicle | "profit";
   label: string;
-  width?: string;
+  type: ColType;
+  width: number;
   format?: (v: Vehicle) => string;
+  sticky?: boolean;
 }
 
 const COLS: ColDef[] = [
-  { key: "stockId", label: "Stock ID" },
-  { key: "registration", label: "Reg" },
-  { key: "make", label: "Make" },
-  { key: "model", label: "Model" },
-  { key: "variantCode", label: "Variant" },
-  { key: "year", label: "Year" },
-  { key: "colour", label: "Colour" },
-  { key: "mileage", label: "Mileage" },
-  { key: "vehicleType", label: "Type" },
-  { key: "bodyType", label: "Body" },
-  { key: "fuelType", label: "Fuel" },
-  { key: "transmission", label: "Trans" },
-  { key: "engineSizeCC", label: "Engine cc" },
-  { key: "receivedDate", label: "Received" },
-  { key: "sellerName", label: "Seller" },
-  { key: "sellerPhone", label: "Phone" },
-  { key: "sourceType", label: "Source" },
-  { key: "auctionHouse", label: "Auction" },
-  { key: "v5Received", label: "V5", format: (v) => (v.v5Received ? "Y" : "N") },
-  { key: "serviceHistory", label: "SH" },
-  { key: "numKeys", label: "Keys" },
-  { key: "lockNut", label: "Lock", format: (v) => (v.lockNut ? "Y" : "N") },
-  { key: "motExpiry", label: "MOT" },
-  { key: "buyingPrice", label: "Buying £" },
-  { key: "buyersFee", label: "Buyer fee" },
-  { key: "collectionFee", label: "Coll. fee" },
-  { key: "totalBuyingPrice", label: "Total buying" },
-  { key: "financeProvider", label: "Finance" },
-  { key: "stockingCharges", label: "Stocking £" },
-  { key: "valueAddition", label: "Value add" },
-  { key: "warrantyCost", label: "Warranty" },
-  { key: "landedCost", label: "Landed" },
-  { key: "baseCost", label: "Base cost" },
-  { key: "minimumSalePrice", label: "Min sale" },
-  { key: "listingPrice", label: "Listing" },
-  { key: "sellingPrice", label: "Sold" },
-  { key: "dateSold", label: "Sold date" },
-  { key: "sellingAgent", label: "Agent" },
-  { key: "grossEarning", label: "Gross" },
+  {
+    key: "stockId",
+    label: "Vehicle",
+    type: "vehicle",
+    width: 170,
+    sticky: true,
+  },
+  { key: "make", label: "Make", type: "select", width: 110 },
+  { key: "model", label: "Model", type: "text", width: 130 },
+  { key: "variantCode", label: "Variant", type: "text", width: 220 },
+  { key: "year", label: "Year", type: "number", width: 70 },
+  { key: "colour", label: "Colour", type: "select", width: 100 },
+  { key: "mileage", label: "Mileage", type: "number", width: 90 },
+  { key: "vehicleType", label: "Type", type: "select", width: 80 },
+  { key: "bodyType", label: "Body", type: "select", width: 110 },
+  { key: "fuelType", label: "Fuel", type: "select", width: 90 },
+  { key: "transmission", label: "Trans", type: "select", width: 110 },
+  { key: "engineSizeCC", label: "Engine cc", type: "number", width: 90 },
+  { key: "receivedDate", label: "Received", type: "date", width: 120 },
+  { key: "sellerName", label: "Seller", type: "text", width: 140 },
+  { key: "sellerPhone", label: "Phone", type: "text", width: 120 },
+  { key: "sourceType", label: "Source", type: "select", width: 110 },
+  { key: "auctionHouse", label: "Auction", type: "text", width: 130 },
+  { key: "v5Received", label: "V5", type: "boolean", width: 60 },
+  { key: "serviceHistory", label: "SH", type: "select", width: 90 },
+  { key: "numKeys", label: "Keys", type: "number", width: 60 },
+  { key: "lockNut", label: "Lock", type: "boolean", width: 60 },
+  { key: "motExpiry", label: "MOT", type: "date", width: 120 },
+  { key: "buyingPrice", label: "Buying", type: "currency", width: 110 },
+  { key: "buyersFee", label: "Buyer fee", type: "currency", width: 100 },
+  { key: "collectionFee", label: "Coll. fee", type: "currency", width: 100 },
+  { key: "totalBuyingPrice", label: "Total buying", type: "currency", width: 120 },
+  { key: "financeProvider", label: "Finance", type: "select", width: 130 },
+  { key: "stockingCharges", label: "Stocking", type: "currency", width: 110 },
+  { key: "valueAddition", label: "Value add", type: "currency", width: 110 },
+  { key: "warrantyCost", label: "Warranty", type: "currency", width: 110 },
+  { key: "landedCost", label: "Landed", type: "currency", width: 110 },
+  { key: "baseCost", label: "Base cost", type: "currency", width: 110 },
+  { key: "minimumSalePrice", label: "Min sale", type: "currency", width: 110 },
+  { key: "listingPrice", label: "Listing", type: "currency", width: 110 },
+  { key: "sellingPrice", label: "Sold", type: "currency", width: 110 },
+  { key: "dateSold", label: "Sold date", type: "date", width: 120 },
+  { key: "sellingAgent", label: "Agent", type: "text", width: 130 },
+  { key: "grossEarning", label: "Gross", type: "currency", width: 110 },
   {
     key: "profit",
     label: "Est. profit",
+    type: "currency",
+    width: 110,
     format: (v) =>
       v.listingPrice !== null
         ? String(Math.round(v.listingPrice - v.baseCost))
         : "",
   },
-  { key: "status", label: "Status" },
-  { key: "daysInStock", label: "Days" },
-  { key: "imagesCount", label: "Imgs" },
+  { key: "status", label: "Status", type: "status", width: 140 },
+  { key: "daysInStock", label: "Days", type: "number", width: 70 },
+  { key: "imagesCount", label: "Imgs", type: "number", width: 70 },
 ];
+
+const TYPE_ICON: Record<ColType, typeof Type> = {
+  vehicle: Car,
+  text: Type,
+  number: Hash,
+  currency: PoundSterling,
+  date: CalendarIcon,
+  boolean: Check,
+  select: Tag,
+  status: Tag,
+};
+
+const STATUS_TONE: Record<VehicleStatus, string> = {
+  received: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
+  inspection_pending:
+    "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300",
+  being_prepared:
+    "bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300",
+  ready: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300",
+  listed:
+    "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300",
+  reserved:
+    "bg-pink-50 text-pink-700 dark:bg-pink-950/30 dark:text-pink-300",
+  sold: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  returned: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300",
+};
 
 function csvEscape(s: string) {
   if (s.includes(",") || s.includes('"') || s.includes("\n")) {
@@ -85,17 +149,115 @@ function csvEscape(s: string) {
   return s;
 }
 
-function cellValue(col: ColDef, v: Vehicle): string {
+function rawValue(col: ColDef, v: Vehicle): unknown {
   if (col.format) return col.format(v);
   if (col.key === "profit") {
     return v.listingPrice !== null
-      ? String(Math.round(v.listingPrice - v.baseCost))
-      : "";
+      ? Math.round(v.listingPrice - v.baseCost)
+      : null;
   }
-  const raw = v[col.key as keyof Vehicle];
+  return v[col.key as keyof Vehicle];
+}
+
+function cellCsv(col: ColDef, v: Vehicle): string {
+  const raw = rawValue(col, v);
   if (raw === null || raw === undefined) return "";
   if (typeof raw === "boolean") return raw ? "Y" : "N";
   return String(raw);
+}
+
+function formatNumber(n: number): string {
+  return new Intl.NumberFormat("en-GB").format(n);
+}
+
+function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
+  const raw = rawValue(col, v);
+
+  if (raw === null || raw === undefined || raw === "") {
+    return <span className="text-muted-foreground/40">—</span>;
+  }
+
+  switch (col.type) {
+    case "vehicle":
+      return (
+        <div className="flex items-center gap-2">
+          <VehicleImage
+            vehicle={v}
+            variant="thumb"
+            className="h-9 w-12 shrink-0 rounded"
+          />
+          <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
+            <RegPlate registration={v.registration} size="sm" />
+            <span className="font-mono text-[10px] text-muted-foreground">
+              {v.stockId}
+            </span>
+          </div>
+        </div>
+      );
+    case "currency":
+      return (
+        <span className="font-medium tabular-nums">
+          {formatCurrency(typeof raw === "number" ? raw : null)}
+        </span>
+      );
+    case "date":
+      return (
+        <span className="tabular-nums">{formatDate(String(raw))}</span>
+      );
+    case "number": {
+      const n = typeof raw === "number" ? raw : Number(raw);
+      if (Number.isNaN(n)) return <span>{String(raw)}</span>;
+      return <span className="tabular-nums">{formatNumber(n)}</span>;
+    }
+    case "boolean":
+      return raw ? (
+        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300">
+          <Check className="h-2.5 w-2.5" />
+        </span>
+      ) : (
+        <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-muted text-muted-foreground">
+          <X className="h-2.5 w-2.5" />
+        </span>
+      );
+    case "select":
+      return (
+        <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
+          <span className="truncate">{String(raw)}</span>
+        </span>
+      );
+    case "status": {
+      const status = String(raw) as VehicleStatus;
+      const def = VEHICLE_STATUSES.find((s) => s.value === status);
+      return (
+        <span
+          className={cn(
+            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+            STATUS_TONE[status],
+          )}
+        >
+          {def?.label ?? status}
+        </span>
+      );
+    }
+    case "text":
+    default:
+      return <span className="truncate">{String(raw)}</span>;
+  }
+}
+
+function searchableText(v: Vehicle): string {
+  return [
+    v.stockId,
+    v.registration,
+    v.make,
+    v.model,
+    v.variantName,
+    v.colour,
+    v.sellerName,
+    v.auctionHouse ?? "",
+  ]
+    .join(" ")
+    .toLowerCase();
 }
 
 export default function MasterSheetPage() {
@@ -104,6 +266,8 @@ export default function MasterSheetPage() {
   const [visible, setVisible] = useState<Set<string>>(
     new Set(COLS.map((c) => String(c.key))),
   );
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!company) return;
@@ -115,6 +279,13 @@ export default function MasterSheetPage() {
     [visible],
   );
 
+  const filtered = useMemo(() => {
+    if (!vehicles) return null;
+    const q = query.trim().toLowerCase();
+    if (!q) return vehicles;
+    return vehicles.filter((v) => searchableText(v).includes(q));
+  }, [vehicles, query]);
+
   function toggle(k: string) {
     setVisible((prev) => {
       const next = new Set(prev);
@@ -124,11 +295,29 @@ export default function MasterSheetPage() {
     });
   }
 
+  function toggleRow(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    if (!filtered) return;
+    setSelected((prev) =>
+      prev.size === filtered.length
+        ? new Set()
+        : new Set(filtered.map((v) => v.id)),
+    );
+  }
+
   function exportCsv() {
-    if (!vehicles) return;
+    if (!filtered) return;
     const head = cols.map((c) => csvEscape(c.label)).join(",");
-    const body = vehicles
-      .map((v) => cols.map((c) => csvEscape(cellValue(c, v))).join(","))
+    const body = filtered
+      .map((v) => cols.map((c) => csvEscape(cellCsv(c, v))).join(","))
       .join("\n");
     const csv = `${head}\n${body}`;
     const blob = new Blob([csv], { type: "text/csv" });
@@ -143,15 +332,26 @@ export default function MasterSheetPage() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Master Sheet</h1>
           <p className="text-sm text-muted-foreground">
-            All vehicle fields in one wide grid. Replaces the legacy 132-column Excel.
+            All vehicle fields in one wide grid. {filtered?.length ?? "—"}{" "}
+            row{filtered?.length === 1 ? "" : "s"}
+            {selected.size > 0 ? ` · ${selected.size} selected` : ""}.
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search reg, stock ID, make…"
+              className="h-8 w-64 pl-8 text-xs"
+            />
+          </div>
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
@@ -181,49 +381,158 @@ export default function MasterSheetPage() {
               </ScrollArea>
             </PopoverContent>
           </Popover>
-          <Button size="sm" onClick={exportCsv} disabled={!vehicles}>
+          <Button size="sm" onClick={exportCsv} disabled={!filtered}>
             <Download className="mr-1.5 h-4 w-4" />
             Export CSV
           </Button>
         </div>
       </div>
 
-      {!vehicles ? (
+      {!filtered ? (
         <Skeleton className="h-72" />
-      ) : vehicles.length === 0 ? (
-        <EmptyState icon={FileSpreadsheet} title="No vehicles" />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={FileSpreadsheet}
+          title={query ? "No matches" : "No vehicles"}
+          description={query ? `No vehicles match "${query}".` : undefined}
+        />
       ) : (
-        <Card className="p-0">
-          <div className="max-w-full overflow-x-auto">
-            <table className="text-xs">
-              <thead className="sticky top-0 z-10 border-b bg-muted/40">
+        <Card className="flex min-h-0 flex-1 flex-col p-0">
+          <div className="relative min-h-0 flex-1 overflow-auto">
+            <table
+              className="w-max border-separate text-xs"
+              style={{ borderSpacing: 0 }}
+            >
+              <colgroup>
+                <col style={{ width: 40 }} />
+                {cols.map((c) => (
+                  <col key={String(c.key)} style={{ width: c.width }} />
+                ))}
+                <col style={{ width: 40 }} />
+              </colgroup>
+              <thead className="sticky top-0 z-20 bg-muted/60 backdrop-blur">
                 <tr>
-                  {cols.map((c) => (
-                    <th
-                      key={String(c.key)}
-                      className="whitespace-nowrap px-2 py-1.5 text-left font-medium"
-                    >
-                      {c.label}
-                    </th>
-                  ))}
+                  <th className="sticky left-0 z-30 border-b border-r bg-muted/60 backdrop-blur">
+                    <div className="flex h-8 items-center justify-center">
+                      <Checkbox
+                        checked={
+                          filtered.length > 0 &&
+                          selected.size === filtered.length
+                        }
+                        onCheckedChange={toggleAll}
+                        aria-label="Select all"
+                      />
+                    </div>
+                  </th>
+                  {cols.map((c, i) => {
+                    const Icon = TYPE_ICON[c.type];
+                    return (
+                      <th
+                        key={String(c.key)}
+                        className={cn(
+                          "border-b border-r px-2 text-left font-medium",
+                          c.sticky && "sticky z-30 bg-muted/60 backdrop-blur",
+                        )}
+                        style={c.sticky ? { left: 40 } : undefined}
+                      >
+                        <div className="flex h-8 items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <Icon className="h-3 w-3 shrink-0" />
+                          <span className="truncate text-foreground">
+                            {c.label}
+                          </span>
+                        </div>
+                        {/* Drop hint placeholder for visual cue between cols */}
+                        {i === cols.length - 1 ? null : null}
+                      </th>
+                    );
+                  })}
+                  <th className="border-b">
+                    <div className="flex h-8 items-center justify-center text-muted-foreground">
+                      <Plus className="h-3.5 w-3.5" />
+                    </div>
+                  </th>
                 </tr>
               </thead>
-              <tbody>
-                {vehicles.map((v) => (
-                  <tr
-                    key={v.id}
-                    className="border-b last:border-0 hover:bg-muted/30"
-                  >
-                    {cols.map((c) => (
+              <tbody className="bg-background">
+                {filtered.map((v, idx) => {
+                  const isSelected = selected.has(v.id);
+                  return (
+                    <tr
+                      key={v.id}
+                      className={cn(
+                        "group/row",
+                        isSelected && "bg-primary/5",
+                      )}
+                    >
                       <td
-                        key={String(c.key)}
-                        className="whitespace-nowrap px-2 py-1 tabular-nums"
+                        className={cn(
+                          "sticky left-0 z-10 border-b border-r bg-background text-center",
+                          isSelected && "bg-primary/5",
+                          "group-hover/row:bg-muted/40",
+                        )}
                       >
-                        {cellValue(c, v)}
+                        <div className="flex h-11 items-center justify-center">
+                          <span className="text-[11px] tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
+                            {idx + 1}
+                          </span>
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleRow(v.id)}
+                            aria-label={`Select row ${idx + 1}`}
+                            className={cn(
+                              "hidden group-hover/row:inline-flex",
+                              isSelected && "inline-flex",
+                            )}
+                          />
+                        </div>
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      {cols.map((c) => (
+                        <td
+                          key={String(c.key)}
+                          className={cn(
+                            "border-b border-r px-2",
+                            c.sticky &&
+                              "sticky z-10 bg-background group-hover/row:bg-muted/40",
+                            isSelected && c.sticky && "bg-primary/5",
+                            !c.sticky && "group-hover/row:bg-muted/40",
+                          )}
+                          style={c.sticky ? { left: 40 } : undefined}
+                        >
+                          <div
+                            className={cn(
+                              "flex h-11 items-center",
+                              c.type === "currency" ||
+                                c.type === "number"
+                                ? "justify-end"
+                                : "justify-start",
+                            )}
+                          >
+                            <CellContent col={c} v={v} />
+                          </div>
+                        </td>
+                      ))}
+                      <td className="border-b group-hover/row:bg-muted/40" />
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td
+                    colSpan={cols.length + 2}
+                    className="border-b bg-muted/30 px-2"
+                  >
+                    <button
+                      type="button"
+                      className="flex h-11 w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => {
+                        // Add-row UX is out of scope; route to vehicle creation.
+                        window.location.href = "/vehicles/new";
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      New vehicle
+                    </button>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>
