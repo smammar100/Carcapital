@@ -146,7 +146,9 @@ export function DashboardRevenueChart() {
                   borderRadius: 8,
                   fontSize: 12,
                 }}
-                formatter={(v: number) => formatCurrency(v)}
+                formatter={(v) =>
+                  formatCurrency(typeof v === "number" ? v : null)
+                }
               />
               <Bar
                 dataKey="current"
