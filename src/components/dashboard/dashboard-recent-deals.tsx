@@ -1,44 +1,35 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ClipboardList, Filter, Search } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { salesService } from "@/lib/services/sales-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import type { SalesDeal, SalesStage, Vehicle } from "@/lib/types";
+import type { SalesDeal, Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { VehicleImage } from "@/components/shared/vehicle-image";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  type ColumnDef,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  VehicleCell,
+} from "@/components/data-grid";
 
-const STAGE_TONE: Partial<Record<SalesStage, string>> = {
-  new_lead: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  contacted: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  test_drive: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-  offer_made: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  deposit_taken: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  collection_delivery: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  completed_sale: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-  lost: "bg-red-500/15 text-red-700 dark:text-red-300",
-};
-
-const STAGE_LABEL: Record<SalesStage, string> = {
-  new_lead: "New Lead",
-  contacted: "Contacted",
-  test_drive: "Test Drive",
-  offer_made: "Offer Made",
-  deposit_taken: "Deposit Taken",
-  collection_delivery: "Collection",
-  completed_sale: "Completed",
-  lost: "Lost",
-};
+interface DealRow extends SalesDeal {
+  vehicle: Vehicle | null;
+  total: number | null;
+  date: string;
+}
 
 export function DashboardRecentDeals() {
   const { company } = useAuth();
+  const router = useRouter();
   const [deals, setDeals] = useState<SalesDeal[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [query, setQuery] = useState("");
@@ -54,7 +45,7 @@ export function DashboardRecentDeals() {
     });
   }, [company]);
 
-  const rows = useMemo(() => {
+  const rows = useMemo<DealRow[] | null>(() => {
     if (!deals) return null;
     const byMostRecent = [...deals].sort((a, b) =>
       b.updatedAt.localeCompare(a.updatedAt),
@@ -67,8 +58,35 @@ export function DashboardRecentDeals() {
           return hay.includes(query.trim().toLowerCase());
         })
       : byMostRecent;
-    return filtered.slice(0, 20);
+    return filtered.slice(0, 20).map((d) => {
+      const dt =
+        d.completionDate ?? d.depositDate ?? d.collectionDate ?? d.updatedAt;
+      return {
+        ...d,
+        vehicle: vehicles.find((v) => v.id === d.vehicleId) ?? null,
+        total: d.agreedPrice ?? d.offerPrice,
+        date: dt.slice(0, 10),
+      };
+    });
   }, [deals, vehicles, query]);
+
+  const cols = useMemo<ColumnDef<DealRow>[]>(
+    () => [
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        sticky: true,
+        width: 200,
+        render: (r) => <VehicleCell vehicle={r.vehicle} />,
+      },
+      { key: "customerName", label: "Customer", type: "text", width: 160 },
+      { key: "stage", label: "Stage", type: "salesStage", width: 130 },
+      { key: "total", label: "Total", type: "currency", width: 110 },
+      { key: "date", label: "Date", type: "date", width: 120 },
+    ],
+    [],
+  );
 
   return (
     <Card className="flex flex-col gap-4 p-5" size="sm">
@@ -97,98 +115,32 @@ export function DashboardRecentDeals() {
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b text-left text-xs text-muted-foreground">
-              <th className="w-10 py-2 pr-2 font-medium">#</th>
-              <th className="py-2 pr-2 font-medium">Vehicle</th>
-              <th className="py-2 pr-2 font-medium">Customer</th>
-              <th className="py-2 pr-2 font-medium">Stage</th>
-              <th className="py-2 pr-2 text-right font-medium">Total</th>
-              <th className="py-2 pr-2 text-right font-medium">Date</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows === null ? (
-              [0, 1, 2, 3, 4].map((i) => (
-                <tr key={i} className="border-b last:border-b-0">
-                  <td colSpan={6} className="py-2">
-                    <Skeleton className="h-7 w-full" />
-                  </td>
-                </tr>
-              ))
-            ) : rows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="py-6 text-center text-xs text-muted-foreground"
-                >
-                  No deals match.
-                </td>
-              </tr>
-            ) : (
-              rows.map((d, idx) => {
-                const v = vehicles.find((x) => x.id === d.vehicleId);
-                const total = d.agreedPrice ?? d.offerPrice;
-                const dt =
-                  d.completionDate ??
-                  d.depositDate ??
-                  d.collectionDate ??
-                  d.updatedAt;
-                return (
-                  <tr
-                    key={d.id}
-                    className="border-b text-sm last:border-b-0 hover:bg-muted/30"
-                  >
-                    <td className="py-2.5 pr-2 text-xs text-muted-foreground tabular-nums">
-                      {idx + 1}
-                    </td>
-                    <td className="py-2.5 pr-2">
-                      {v ? (
-                        <Link
-                          href={`/vehicles/${v.id}`}
-                          className="flex items-center gap-2.5 hover:[&>div:last-child>span:first-child]:underline"
-                        >
-                          <VehicleImage
-                            vehicle={v}
-                            variant="thumb"
-                            className="w-12 shrink-0 rounded-md"
-                          />
-                          <div className="flex flex-col leading-tight">
-                            <span className="font-mono text-xs font-semibold uppercase">
-                              {v.registration}
-                            </span>
-                            <span className="text-[11px] text-muted-foreground">
-                              {v.make} {v.model}
-                            </span>
-                          </div>
-                        </Link>
-                      ) : (
-                        "—"
-                      )}
-                    </td>
-                    <td className="py-2.5 pr-2 text-sm">{d.customerName}</td>
-                    <td className="py-2.5 pr-2">
-                      <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ${STAGE_TONE[d.stage] ?? "bg-muted text-muted-foreground"}`}
-                      >
-                        {STAGE_LABEL[d.stage]}
-                      </span>
-                    </td>
-                    <td className="py-2.5 pr-2 text-right font-medium tabular-nums">
-                      {formatCurrency(total)}
-                    </td>
-                    <td className="py-2.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
-                      {formatDate(dt.slice(0, 10))}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+      {rows === null ? (
+        <Skeleton className="h-72" />
+      ) : rows.length === 0 ? (
+        <p className="py-6 text-center text-xs text-muted-foreground">
+          No deals match.
+        </p>
+      ) : (
+        <DataGridShell bare>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {rows.map((r, i) => (
+                <DataGridRow
+                  key={r.id}
+                  row={r}
+                  cols={cols}
+                  index={i}
+                  onClick={(row) =>
+                    row.vehicle && router.push(`/vehicles/${row.vehicle.id}`)
+                  }
+                />
+              ))}
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
+      )}
     </Card>
   );
 }

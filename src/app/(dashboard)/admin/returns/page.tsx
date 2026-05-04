@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Plus, Undo2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,13 +13,11 @@ import type {
   Vehicle,
   VehicleReturn,
 } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -35,18 +33,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RegPlate } from "@/components/shared/reg-plate";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  type ColumnDef,
+  DataGridFooterRow,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  VehicleCell,
+} from "@/components/data-grid";
 import { toast } from "sonner";
+
+interface ReturnRow extends VehicleReturn {
+  vehicle: Vehicle | null;
+}
 
 const PATHS: { value: ReturnResolutionPath; label: string }[] = [
   { value: "vendor", label: "Vendor" },
@@ -98,6 +99,40 @@ export default function ReturnsPage() {
       setVehicles(v);
     });
   }, [company]);
+
+  const rows = useMemo<ReturnRow[] | null>(() => {
+    if (!returns) return null;
+    return returns.map((r) => ({
+      ...r,
+      vehicle: vehicles.find((v) => v.id === r.vehicleId) ?? null,
+    }));
+  }, [returns, vehicles]);
+
+  const cols = useMemo<ColumnDef<ReturnRow>[]>(
+    () => [
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        sticky: true,
+        width: 200,
+        render: (r) => <VehicleCell vehicle={r.vehicle} />,
+      },
+      { key: "customerName", label: "Customer", type: "text", width: 160 },
+      { key: "customerPhone", label: "Phone", type: "phone", width: 140 },
+      { key: "returnDate", label: "Return date", type: "date", width: 130 },
+      { key: "reason", label: "Reason", type: "text", width: 240 },
+      {
+        key: "resolutionPath",
+        label: "Resolution",
+        type: "returnResolution",
+        width: 130,
+      },
+      { key: "refundAmount", label: "Refund", type: "currency", width: 120 },
+      { key: "status", label: "Status", type: "returnStatus", width: 130 },
+    ],
+    [],
+  );
 
   async function onSubmit(values: FormOutput) {
     if (!user || !company) return;
@@ -233,66 +268,30 @@ export default function ReturnsPage() {
         </Dialog>
       </div>
 
-      {!returns ? (
+      {!rows ? (
         <Skeleton className="h-72" />
-      ) : returns.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Undo2}
           title="No returns yet"
           description="Process customer returns and track resolution paths."
         />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Return date</TableHead>
-                <TableHead>Reason</TableHead>
-                <TableHead>Resolution</TableHead>
-                <TableHead className="text-right">Refund</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {returns.map((r) => {
-                const v = vehicles.find((x) => x.id === r.vehicleId);
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      {v ? (
-                        <RegPlate registration={v.registration} size="sm" />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {r.customerName}
-                    </TableCell>
-                    <TableCell>{formatDate(r.returnDate)}</TableCell>
-                    <TableCell className="max-w-[260px] truncate">
-                      {r.reason}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      <Badge variant="outline">
-                        {r.resolutionPath.replace("_", "-")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(r.refundAmount)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {r.status.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {rows.map((r, i) => (
+                <DataGridRow key={r.id} row={r} cols={cols} index={i} />
+              ))}
+              <DataGridFooterRow
+                label="New return"
+                span={cols.length}
+                onClick={() => setOpen(true)}
+              />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       )}
     </div>
   );

@@ -12,7 +12,6 @@ import type {
   Vendor,
   VendorSpeciality,
 } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -34,16 +33,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { formatCurrency } from "@/lib/utils";
+import {
+  type ColumnDef,
+  DataGridFooterRow,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+} from "@/components/data-grid";
 import { toast } from "sonner";
 
 const SPECIALITIES: VendorSpeciality[] = [
@@ -71,6 +69,11 @@ const EMPTY_DRAFT: DraftVendor = {
   active: true,
 };
 
+interface VendorRow extends Vendor {
+  activeCount: number;
+  totalSpent: number;
+}
+
 export default function VendorsPage() {
   const { company } = useAuth();
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
@@ -86,37 +89,75 @@ export default function VendorsPage() {
     ]).then(async ([v, m]) => {
       setVendors(v);
       setMaintJobs(m);
-      // todos for cost aggregation — pull all by vehicle is heavy; keep stub:
       setTodos([]);
     });
-    // populate todos by aggregating across mock vehicles in service layer is
-    // out of scope; vendor cost is approximated by maintenance jobs below.
     void todoService;
   }, [company]);
 
-  const stats = useMemo(() => {
-    const map = new Map<
-      string,
-      { activeCount: number; totalSpent: number }
-    >();
-    for (const v of vendors ?? []) {
-      map.set(v.id, { activeCount: 0, totalSpent: 0 });
-    }
+  const rows = useMemo<VendorRow[] | null>(() => {
+    if (!vendors) return null;
+    const stats = new Map<string, { activeCount: number; totalSpent: number }>();
+    for (const v of vendors) stats.set(v.id, { activeCount: 0, totalSpent: 0 });
     for (const j of maintJobs) {
       if (!j.vendorId) continue;
-      const s = map.get(j.vendorId);
+      const s = stats.get(j.vendorId);
       if (!s) continue;
       if (j.status !== "completed") s.activeCount++;
       s.totalSpent += j.actualCost ?? j.estimatedCost ?? 0;
     }
     for (const t of todos) {
       if (!t.vendorId) continue;
-      const s = map.get(t.vendorId);
+      const s = stats.get(t.vendorId);
       if (!s) continue;
       s.totalSpent += t.cost ?? 0;
     }
-    return map;
+    return vendors.map((v) => ({
+      ...v,
+      activeCount: stats.get(v.id)?.activeCount ?? 0,
+      totalSpent: stats.get(v.id)?.totalSpent ?? 0,
+    }));
   }, [vendors, maintJobs, todos]);
+
+  const cols = useMemo<ColumnDef<VendorRow>[]>(
+    () => [
+      { key: "name", label: "Name", type: "text", sticky: true, width: 220 },
+      { key: "phone", label: "Phone", type: "phone", width: 160 },
+      { key: "speciality", label: "Speciality", type: "select", width: 140 },
+      {
+        key: "activeCount",
+        label: "Active jobs",
+        type: "custom",
+        width: 110,
+        align: "right",
+        render: (v) =>
+          v.activeCount > 0 ? (
+            <Badge variant="secondary" className="tabular-nums">
+              {v.activeCount}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">0</span>
+          ),
+      },
+      {
+        key: "totalSpent",
+        label: "Total spent",
+        type: "currency",
+        width: 130,
+      },
+      { key: "active", label: "Active", type: "boolean", width: 80 },
+    ],
+    [],
+  );
+
+  function openEdit(v: VendorRow) {
+    setDraft({
+      id: v.id,
+      name: v.name,
+      phone: v.phone,
+      speciality: v.speciality,
+      active: v.active,
+    });
+  }
 
   async function handleSave() {
     if (!company || !draft) return;
@@ -223,70 +264,36 @@ export default function VendorsPage() {
         </Dialog>
       </div>
 
-      {!vendors ? (
+      {!rows ? (
         <Skeleton className="h-72" />
-      ) : vendors.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Store}
           title="No vendors yet"
           description="Add the garages and parts suppliers you work with."
         />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Speciality</TableHead>
-                <TableHead>Active jobs</TableHead>
-                <TableHead className="text-right">Total spent</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {vendors.map((v) => {
-                const s = stats.get(v.id) ?? { activeCount: 0, totalSpent: 0 };
-                return (
-                  <TableRow
-                    key={v.id}
-                    className="cursor-pointer"
-                    onClick={() =>
-                      setDraft({
-                        id: v.id,
-                        name: v.name,
-                        phone: v.phone,
-                        speciality: v.speciality,
-                        active: v.active,
-                      })
-                    }
-                  >
-                    <TableCell className="font-medium">{v.name}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {v.phone}
-                    </TableCell>
-                    <TableCell className="capitalize">{v.speciality}</TableCell>
-                    <TableCell>
-                      {s.activeCount > 0 ? (
-                        <Badge variant="secondary">{s.activeCount}</Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">0</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(s.totalSpent)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={v.active ? "default" : "secondary"}>
-                        {v.active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {rows.map((row, i) => (
+                <DataGridRow
+                  key={row.id}
+                  row={row}
+                  cols={cols}
+                  index={i}
+                  onClick={openEdit}
+                />
+              ))}
+              <DataGridFooterRow
+                label="New vendor"
+                span={cols.length}
+                onClick={() => setDraft({ ...EMPTY_DRAFT })}
+              />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       )}
     </div>
   );

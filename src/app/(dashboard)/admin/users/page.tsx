@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Mail, Plus, Users } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { authService } from "@/lib/services/auth-service";
@@ -37,8 +37,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { formatDate, getInitials } from "@/lib/utils";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  type ColumnDef,
+  DataGridFooterRow,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  UserCell,
+} from "@/components/data-grid";
 import { toast } from "sonner";
 
 export default function UsersPage() {
@@ -50,6 +57,29 @@ export default function UsersPage() {
     email: "",
     role: "sales" as UserRole,
   });
+
+  const cols = useMemo<ColumnDef<User>[]>(
+    () => [
+      {
+        key: "name",
+        label: "Name",
+        type: "user",
+        sticky: true,
+        width: 220,
+        render: (u) => <UserCell name={u.name} email={u.email} />,
+      },
+      { key: "role", label: "Role", type: "select", width: 160 },
+      { key: "active", label: "Active", type: "boolean", width: 80 },
+      {
+        key: "createdAt",
+        label: "Joined",
+        type: "date",
+        width: 130,
+        get: (u) => u.createdAt.slice(0, 10),
+      },
+    ],
+    [],
+  );
 
   useEffect(() => {
     if (!company) return;
@@ -154,53 +184,21 @@ export default function UsersPage() {
         ) : users.length === 0 ? (
           <EmptyState icon={Users} title="No users" />
         ) : (
-          <div className="overflow-hidden rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Role</TableHead>
-                  <TableHead>Active</TableHead>
-                  <TableHead>Created</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {users.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-7 w-7">
-                          <AvatarFallback className="text-[11px]">
-                            {getInitials(u.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="font-medium">{u.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {u.email}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      <Badge variant="outline">
-                        {u.role.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {u.active ? (
-                        <Badge variant="default">Active</Badge>
-                      ) : (
-                        <Badge variant="secondary">Inactive</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(u.createdAt.slice(0, 10))}
-                    </TableCell>
-                  </TableRow>
+          <DataGridShell>
+            <DataGridTable cols={cols}>
+              <DataGridHeaderRow cols={cols} />
+              <tbody>
+                {users.map((u, i) => (
+                  <DataGridRow key={u.id} row={u} cols={cols} index={i} />
                 ))}
-              </TableBody>
-            </Table>
-          </div>
+                <DataGridFooterRow
+                  label="Invite user"
+                  span={cols.length}
+                  onClick={() => setOpen(true)}
+                />
+              </tbody>
+            </DataGridTable>
+          </DataGridShell>
         )}
       </Card>
 

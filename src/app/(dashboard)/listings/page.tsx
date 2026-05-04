@@ -14,22 +14,12 @@ import type {
   ListingStatus,
   Vehicle,
 } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Select,
   SelectContent,
@@ -45,22 +35,25 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
-import { VehicleImage } from "@/components/shared/vehicle-image";
-import { formatCurrency, cn } from "@/lib/utils";
+import {
+  type ColumnDef,
+  ChannelsCell,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  VehicleCell,
+} from "@/components/data-grid";
 import { toast } from "sonner";
 
 const CHANNELS = ["website", "autotrader", "ebay", "facebook"] as const;
 type Channel = (typeof CHANNELS)[number];
 
-const AT_COLORS: Record<Listing["atPriceIndicator"], string> = {
-  great: "text-emerald-700 bg-emerald-100 border-emerald-200",
-  good: "text-sky-700 bg-sky-100 border-sky-200",
-  above_average: "text-amber-700 bg-amber-100 border-amber-200",
-  unrated: "text-zinc-700 bg-zinc-100 border-zinc-200",
-};
+interface ListingRow extends Listing {
+  vehicle: Vehicle | null;
+}
 
 const schema = z.object({
   vehicleId: z.string().min(1, "Pick a vehicle"),
@@ -123,7 +116,7 @@ export default function ListingsPage() {
     [vehicles, listings],
   );
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo<ListingRow[] | null>(() => {
     if (!listings) return null;
     let out = [...listings];
     if (statusFilter !== "all") out = out.filter((l) => l.status === statusFilter);
@@ -141,8 +134,78 @@ export default function ListingsPage() {
         );
       });
     }
-    return out;
+    return out.map((l) => ({
+      ...l,
+      vehicle: vehicles.find((v) => v.id === l.vehicleId) ?? null,
+    }));
   }, [listings, statusFilter, channelFilter, search, vehicles]);
+
+  const cols = useMemo<ColumnDef<ListingRow>[]>(
+    () => [
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        sticky: true,
+        width: 200,
+        render: (l) => <VehicleCell vehicle={l.vehicle} />,
+      },
+      { key: "title", label: "Title", type: "text", width: 240 },
+      { key: "price", label: "Web price", type: "currency", width: 120 },
+      {
+        key: "atPriceIndicator",
+        label: "AT",
+        type: "atIndicator",
+        width: 130,
+      },
+      {
+        key: "channels",
+        label: "Channels",
+        type: "channels",
+        width: 200,
+        render: (l) => (
+          <ChannelsCell
+            channels={l.channels as unknown as Record<string, boolean>}
+            onToggle={(c) => void handleToggleChannel(l.id, c as Channel)}
+          />
+        ),
+      },
+      {
+        key: "daysListed",
+        label: "Days",
+        type: "custom",
+        width: 80,
+        render: (l) =>
+          l.vehicle ? <DaysInStockChip days={l.vehicle.daysInStock} /> : null,
+      },
+      { key: "enquiriesCount", label: "Enq.", type: "number", width: 80 },
+      { key: "status", label: "Status", type: "select", width: 110 },
+      {
+        key: "action",
+        label: " ",
+        type: "custom",
+        width: 100,
+        align: "right",
+        render: (l) =>
+          l.status === "draft" ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handlePublish(l.id);
+              }}
+            >
+              Publish
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Live</span>
+          ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const watchedVehicle = form.watch("vehicleId");
   useEffect(() => {
@@ -377,124 +440,16 @@ export default function ListingsPage() {
           description="Mark a vehicle as ready, then create a listing."
         />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20">Image</TableHead>
-                <TableHead>Reg</TableHead>
-                <TableHead>Make / Model</TableHead>
-                <TableHead>Days</TableHead>
-                <TableHead className="text-right">Web Price</TableHead>
-                <TableHead>AT</TableHead>
-                <TableHead>Channels</TableHead>
-                <TableHead>Enq.</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((l) => {
-                const v = vehicles.find((x) => x.id === l.vehicleId);
-                return (
-                  <TableRow key={l.id}>
-                    <TableCell>
-                      {v ? (
-                        <VehicleImage
-                          vehicle={v}
-                          variant="thumb"
-                          className="w-16"
-                        />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {v ? (
-                        <RegPlate registration={v.registration} size="sm" />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="max-w-[260px] truncate">
-                      <Link
-                        href={v ? `/vehicles/${v.id}` : "#"}
-                        className="hover:underline"
-                      >
-                        <div className="flex flex-col leading-tight">
-                          <span className="font-medium">
-                            {v ? `${v.make} ${v.model}` : l.title}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {v?.stockId}
-                          </span>
-                        </div>
-                      </Link>
-                    </TableCell>
-                    <TableCell>
-                      {v ? <DaysInStockChip days={v.daysInStock} /> : "—"}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(l.price)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "capitalize",
-                          AT_COLORS[l.atPriceIndicator],
-                        )}
-                      >
-                        {l.atPriceIndicator.replace("_", " ")}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {CHANNELS.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            title={`${l.channels[c] ? "Disable" : "Enable"} ${c}`}
-                            onClick={() => void handleToggleChannel(l.id, c)}
-                            className={cn(
-                              "rounded border px-1.5 py-0.5 text-[10px] capitalize",
-                              l.channels[c]
-                                ? "border-emerald-300 bg-emerald-100 text-emerald-800"
-                                : "border-zinc-200 bg-zinc-50 text-zinc-400",
-                            )}
-                          >
-                            {c.slice(0, 2).toUpperCase()}
-                          </button>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>{l.enquiriesCount}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {l.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {l.status === "draft" ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void handlePublish(l.id)}
-                        >
-                          Publish
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">
-                          Live
-                        </span>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {filtered.map((l, i) => (
+                <DataGridRow key={l.id} row={l} cols={cols} index={i} />
+              ))}
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       )}
     </div>
   );

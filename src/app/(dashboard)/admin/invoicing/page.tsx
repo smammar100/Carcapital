@@ -46,26 +46,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
+import {
+  type ColumnDef,
+  DataGridFooterRow,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+} from "@/components/data-grid";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Filter = InvoiceType | "all";
-
-const STATUS_BADGE: Record<Invoice["status"], string> = {
-  draft: "bg-zinc-100 text-zinc-800",
-  sent: "bg-sky-100 text-sky-900",
-  paid: "bg-emerald-100 text-emerald-900",
-  overdue: "bg-rose-100 text-rose-900",
-};
 
 export default function InvoicingPage() {
   const { user, company } = useAuth();
@@ -126,6 +119,77 @@ export default function InvoicingPage() {
     if (filter === "all") return invoices;
     return invoices.filter((i) => i.type === filter);
   }, [invoices, filter]);
+
+  const cols = useMemo<ColumnDef<Invoice>[]>(
+    () => [
+      {
+        key: "invoiceNumber",
+        label: "Invoice #",
+        type: "text",
+        sticky: true,
+        width: 130,
+        render: (i) => (
+          <span className="font-mono text-xs">{i.invoiceNumber}</span>
+        ),
+      },
+      { key: "type", label: "Type", type: "select", width: 110 },
+      { key: "partyName", label: "Party", type: "text", width: 180 },
+      { key: "invoiceDate", label: "Date", type: "date", width: 120 },
+      { key: "subtotal", label: "Subtotal", type: "currency", width: 110 },
+      { key: "vatAmount", label: "VAT", type: "currency", width: 100 },
+      { key: "total", label: "Total", type: "currency", width: 120 },
+      { key: "status", label: "Status", type: "invoiceStatus", width: 110 },
+      {
+        key: "actions",
+        label: " ",
+        type: "custom",
+        width: 130,
+        align: "right",
+        render: (i) => (
+          <div className="flex justify-end gap-1">
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                setViewing(i);
+              }}
+              title="View"
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEmailing(i);
+              }}
+              title="Email"
+            >
+              <Mail className="h-4 w-4" />
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handlePrint(i);
+              }}
+              title="Print PDF"
+            >
+              <Printer className="h-4 w-4" />
+            </Button>
+          </div>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   async function handleSendEmail() {
     if (!emailing || !user) return;
@@ -313,85 +377,27 @@ export default function InvoicingPage() {
           description="Switch tabs or create one."
         />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice #</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Party</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Subtotal</TableHead>
-                <TableHead className="text-right">VAT</TableHead>
-                <TableHead className="text-right">Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((i) => (
-                <TableRow key={i.id}>
-                  <TableCell className="font-mono text-xs">
-                    {i.invoiceNumber}
-                  </TableCell>
-                  <TableCell className="capitalize">{i.type}</TableCell>
-                  <TableCell className="font-medium">{i.partyName}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatDate(i.invoiceDate)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatCurrency(i.subtotal)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {formatCurrency(i.vatAmount)}
-                  </TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">
-                    {formatCurrency(i.total)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={`capitalize ${STATUS_BADGE[i.status]}`}
-                    >
-                      {i.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => setViewing(i)}
-                        title="View"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => setEmailing(i)}
-                        title="Email"
-                      >
-                        <Mail className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8"
-                        onClick={() => void handlePrint(i)}
-                        title="Print PDF"
-                      >
-                        <Printer className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {filtered.map((row, i) => (
+                <DataGridRow
+                  key={row.id}
+                  row={row}
+                  cols={cols}
+                  index={i}
+                  onClick={(r) => setViewing(r)}
+                />
               ))}
-            </TableBody>
-          </Table>
-        </Card>
+              <DataGridFooterRow
+                label="Upload invoice"
+                span={cols.length}
+                onClick={() => setUploadOpen(true)}
+              />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       )}
 
       <Card className="grid gap-4 p-5 sm:grid-cols-[1fr_220px]">
@@ -450,36 +456,38 @@ export default function InvoicingPage() {
                 </DialogDescription>
               </DialogHeader>
               <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right">Qty</TableHead>
-                      <TableHead className="text-right">Unit</TableHead>
-                      <TableHead className="text-right">VAT</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b text-left text-muted-foreground">
+                      <th className="py-1.5 pr-2 font-medium">Description</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Qty</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Unit</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">VAT</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {viewing.lineItems.map((li) => (
-                      <TableRow key={li.id}>
-                        <TableCell>{li.description}</TableCell>
-                        <TableCell className="text-right">{li.quantity}</TableCell>
-                        <TableCell className="text-right">
+                      <tr key={li.id} className="border-b last:border-b-0">
+                        <td className="py-1.5 pr-2">{li.description}</td>
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
+                          {li.quantity}
+                        </td>
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(li.unitPrice)}
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </td>
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {(li.vatRate * 100).toFixed(0)}%
-                        </TableCell>
-                        <TableCell className="text-right">
+                        </td>
+                        <td className="py-1.5 pr-2 text-right tabular-nums">
                           {formatCurrency(
                             li.quantity * li.unitPrice * (1 + li.vatRate),
                           )}
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     ))}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
               <div className="grid gap-1 text-right text-sm tabular-nums">
                 <div>

@@ -25,14 +25,6 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -44,6 +36,15 @@ import { VehicleStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import {
+  type ColumnDef,
+  DataGridFooterRow,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  VehicleCell,
+} from "@/components/data-grid";
 
 type SortKey = "daysInStock" | "make" | "year" | "listingPrice" | "status";
 type SortDir = "asc" | "desc";
@@ -176,8 +177,85 @@ export default function VehiclesPage() {
           return a.status.localeCompare(b.status) * dir;
       }
     });
+
     return out;
   }, [vehicles, search, statusFilter, bodyFilter, fuelFilter, sortKey, sortDir]);
+
+  const tableCols = useMemo<ColumnDef<Vehicle>[]>(
+    () => [
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        sticky: true,
+        width: 200,
+        render: (v) => <VehicleCell vehicle={v} />,
+      },
+      {
+        key: "makeModel",
+        label: "Make / Model",
+        type: "text",
+        width: 180,
+        render: (v) => (
+          <div className="flex flex-col leading-tight">
+            <span className="font-medium">
+              {v.make} {v.model}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              {v.year}
+            </span>
+          </div>
+        ),
+      },
+      { key: "variantCode", label: "Variant", type: "text", width: 220 },
+      { key: "fuelType", label: "Fuel", type: "select", width: 100 },
+      { key: "bodyType", label: "Body", type: "select", width: 110 },
+      { key: "mileage", label: "Mileage", type: "number", width: 100 },
+      {
+        key: "daysInStock",
+        label: "Days",
+        type: "custom",
+        width: 80,
+        render: (v) => <DaysInStockChip days={v.daysInStock} />,
+      },
+      {
+        key: "status",
+        label: "Status",
+        type: "vehicleStatus",
+        width: 140,
+        render: (v) => <VehicleStatusBadge status={v.status} />,
+      },
+      { key: "baseCost", label: "Total cost", type: "currency", width: 110 },
+      { key: "listingPrice", label: "Web price", type: "currency", width: 110 },
+      {
+        key: "profit",
+        label: "Profit",
+        type: "currency",
+        width: 110,
+        get: (v) =>
+          v.listingPrice !== null ? v.listingPrice - v.baseCost : null,
+        render: (v) => {
+          const profit =
+            v.listingPrice !== null ? v.listingPrice - v.baseCost : null;
+          if (profit === null)
+            return <span className="text-muted-foreground/40">—</span>;
+          return (
+            <span
+              className={cn(
+                "tabular-nums font-medium",
+                profit > 0 && "text-emerald-600",
+                profit < 0 && "text-rose-600",
+              )}
+            >
+              {formatCurrency(profit)}
+            </span>
+          );
+        },
+      },
+      { key: "motExpiry", label: "MOT", type: "date", width: 120 },
+    ],
+    [],
+  );
 
   function toggleSort(k: SortKey) {
     if (k === sortKey) {
@@ -326,113 +404,27 @@ export default function VehiclesPage() {
           }
         />
       ) : view === "table" ? (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-20">Image</TableHead>
-                <TableHead>Reg</TableHead>
-                <TableHead
-                  onClick={() => toggleSort("make")}
-                  className="cursor-pointer select-none"
-                >
-                  Make / Model
-                </TableHead>
-                <TableHead>Variant</TableHead>
-                <TableHead>Fuel</TableHead>
-                <TableHead>Body</TableHead>
-                <TableHead>Mileage</TableHead>
-                <TableHead
-                  onClick={() => toggleSort("daysInStock")}
-                  className="cursor-pointer select-none"
-                >
-                  Days
-                </TableHead>
-                <TableHead
-                  onClick={() => toggleSort("status")}
-                  className="cursor-pointer select-none"
-                >
-                  Status
-                </TableHead>
-                <TableHead className="text-right">Total Cost</TableHead>
-                <TableHead
-                  onClick={() => toggleSort("listingPrice")}
-                  className="cursor-pointer select-none text-right"
-                >
-                  Web Price
-                </TableHead>
-                <TableHead className="text-right">Profit</TableHead>
-                <TableHead>MOT</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((v) => {
-                const profit =
-                  v.listingPrice !== null ? v.listingPrice - v.baseCost : null;
-                return (
-                  <TableRow
-                    key={v.id}
-                    className="cursor-pointer"
-                    onClick={() => router.push(`/vehicles/${v.id}`)}
-                  >
-                    <TableCell>
-                      <VehicleImage
-                        vehicle={v}
-                        variant="thumb"
-                        className="w-16"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <RegPlate registration={v.registration} size="sm" />
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex flex-col leading-tight">
-                        <span className="font-medium">
-                          {v.make} {v.model}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          {v.year} · {v.stockId}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate text-muted-foreground">
-                      {v.variantCode ?? "—"}
-                    </TableCell>
-                    <TableCell className="capitalize">{v.fuelType}</TableCell>
-                    <TableCell className="capitalize">{v.bodyType}</TableCell>
-                    <TableCell className="tabular-nums">
-                      {v.mileage.toLocaleString()}
-                    </TableCell>
-                    <TableCell>
-                      <DaysInStockChip days={v.daysInStock} />
-                    </TableCell>
-                    <TableCell>
-                      <VehicleStatusBadge status={v.status} />
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(v.baseCost)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {formatCurrency(v.listingPrice)}
-                    </TableCell>
-                    <TableCell
-                      className={cn(
-                        "text-right tabular-nums",
-                        profit !== null && profit > 0 && "text-emerald-600",
-                        profit !== null && profit < 0 && "text-rose-600",
-                      )}
-                    >
-                      {profit !== null ? formatCurrency(profit) : "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(v.motExpiry)}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <DataGridShell>
+          <DataGridTable cols={tableCols}>
+            <DataGridHeaderRow cols={tableCols} />
+            <tbody>
+              {filtered.map((v, i) => (
+                <DataGridRow
+                  key={v.id}
+                  row={v}
+                  cols={tableCols}
+                  index={i}
+                  onClick={(row) => router.push(`/vehicles/${row.id}`)}
+                />
+              ))}
+              <DataGridFooterRow
+                label="New vehicle"
+                span={tableCols.length}
+                href="/vehicles/new"
+              />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((v) => (

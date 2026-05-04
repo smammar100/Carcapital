@@ -19,7 +19,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -36,23 +35,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RegPlate } from "@/components/shared/reg-plate";
-import { VehicleImage } from "@/components/shared/vehicle-image";
 import {
   BigCalendar,
   type CalendarEvent,
 } from "@/components/shared/big-calendar";
+import {
+  type ColumnDef,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  VehicleCell,
+} from "@/components/data-grid";
 import { formatDate, formatTime12 } from "@/lib/utils";
 import { toast } from "sonner";
+
+interface ApptRow extends Appointment {
+  vehicle: Vehicle | null;
+}
 
 const STATUS_COLOR: Record<string, string> = {
   upcoming: "#3b82f6",
@@ -112,6 +113,56 @@ export default function AppointmentsPage() {
       setVehicles(v);
     });
   }, [company]);
+
+  const apptRows = useMemo<ApptRow[] | null>(() => {
+    if (!appts) return null;
+    return appts.map((a) => ({
+      ...a,
+      vehicle: vehicles.find((v) => v.id === a.vehicleId) ?? null,
+    }));
+  }, [appts, vehicles]);
+
+  const cols = useMemo<ColumnDef<ApptRow>[]>(
+    () => [
+      { key: "date", label: "Date", type: "date", width: 120 },
+      {
+        key: "time",
+        label: "Time",
+        type: "text",
+        width: 90,
+        render: (a) => (
+          <span className="tabular-nums">{formatTime12(a.time)}</span>
+        ),
+      },
+      {
+        key: "customerName",
+        label: "Customer",
+        type: "text",
+        sticky: true,
+        width: 180,
+      },
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        width: 200,
+        render: (a) => <VehicleCell vehicle={a.vehicle} />,
+      },
+      {
+        key: "status",
+        label: "Status",
+        type: "appointmentStatus",
+        width: 130,
+      },
+      {
+        key: "outcome",
+        label: "Outcome",
+        type: "appointmentOutcome",
+        width: 130,
+      },
+    ],
+    [],
+  );
 
   const events: CalendarEvent[] = useMemo(() => {
     if (!appts) return [];
@@ -280,72 +331,22 @@ export default function AppointmentsPage() {
             </Card>
           </TabsContent>
           <TabsContent value="list" className="mt-3">
-            <Card className="p-0 overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Time</TableHead>
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Vehicle</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Outcome</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {appts.map((a) => {
-                    const v = vehicles.find((x) => x.id === a.vehicleId);
-                    return (
-                      <TableRow key={a.id}>
-                        <TableCell>{formatDate(a.date)}</TableCell>
-                        <TableCell>{formatTime12(a.time)}</TableCell>
-                        <TableCell className="font-medium">
-                          {a.customerName}
-                        </TableCell>
-                        <TableCell>
-                          {v ? (
-                            <Link
-                              href={`/vehicles/${v.id}`}
-                              className="flex items-center gap-2 hover:underline"
-                            >
-                              <VehicleImage
-                                vehicle={v}
-                                variant="thumb"
-                                className="w-12"
-                              />
-                              <RegPlate
-                                registration={v.registration}
-                                size="sm"
-                              />
-                            </Link>
-                          ) : (
-                            "—"
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline" className="capitalize">
-                            {a.status.replace("_", " ")}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="capitalize">
-                          {a.outcome.replace("_", " ")}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => setDrill(a)}
-                          >
-                            Open
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </Card>
+            <DataGridShell>
+              <DataGridTable cols={cols}>
+                <DataGridHeaderRow cols={cols} />
+                <tbody>
+                  {(apptRows ?? []).map((a, i) => (
+                    <DataGridRow
+                      key={a.id}
+                      row={a}
+                      cols={cols}
+                      index={i}
+                      onClick={(row) => setDrill(row)}
+                    />
+                  ))}
+                </tbody>
+              </DataGridTable>
+            </DataGridShell>
           </TabsContent>
         </Tabs>
       )}

@@ -43,18 +43,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RegPlate } from "@/components/shared/reg-plate";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import {
+  type ColumnDef,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  VehicleCell,
+} from "@/components/data-grid";
+import { Badge as ClaimBadge } from "@/components/ui/badge";
+import { formatCurrency } from "@/lib/utils";
 import { toast } from "sonner";
+
+type WarrantyRow = Warranty & {
+  vehicle: Vehicle | null;
+  claimCount: number;
+  period: { start: string; end: string };
+};
 
 const STATUS_TABS: { value: WarrantyStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
@@ -118,11 +124,64 @@ export default function WarrantiesPage() {
     });
   }, [company]);
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo<WarrantyRow[] | null>(() => {
     if (!warranties) return null;
-    if (tab === "all") return warranties;
-    return warranties.filter((w) => w.status === tab);
-  }, [warranties, tab]);
+    const base = tab === "all" ? warranties : warranties.filter((w) => w.status === tab);
+    return base.map((w) => ({
+      ...w,
+      vehicle: vehicles.find((v) => v.id === w.vehicleId) ?? null,
+      claimCount: claims.filter((c) => c.warrantyId === w.id).length,
+      period: { start: w.startDate, end: w.endDate },
+    }));
+  }, [warranties, tab, vehicles, claims]);
+
+  const cols = useMemo<ColumnDef<WarrantyRow>[]>(
+    () => [
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        sticky: true,
+        width: 200,
+        render: (w) => <VehicleCell vehicle={w.vehicle} />,
+      },
+      { key: "customerName", label: "Customer", type: "text", width: 160 },
+      { key: "type", label: "Type", type: "select", width: 130 },
+      { key: "provider", label: "Provider", type: "text", width: 150 },
+      {
+        key: "period",
+        label: "Period",
+        type: "dateRange",
+        width: 200,
+      },
+      { key: "status", label: "Status", type: "warrantyStatus", width: 120 },
+      {
+        key: "claimCount",
+        label: "Claims",
+        type: "custom",
+        width: 90,
+        render: (w) =>
+          w.claimCount > 0 ? (
+            <ClaimBadge variant="destructive">{w.claimCount}</ClaimBadge>
+          ) : (
+            <span className="text-xs text-muted-foreground">0</span>
+          ),
+      },
+      {
+        key: "action",
+        label: " ",
+        type: "custom",
+        width: 100,
+        align: "right",
+        render: (w) => (
+          <Button asChild size="sm" variant="outline">
+            <Link href={`/warranties/${w.id}`}>Open</Link>
+          </Button>
+        ),
+      },
+    ],
+    [],
+  );
 
   const watchType = form.watch("type");
 
@@ -304,70 +363,16 @@ export default function WarrantiesPage() {
           description="Switch tabs or create a new warranty."
         />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Vehicle</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Period</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Claims</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((w) => {
-                const v = vehicles.find((x) => x.id === w.vehicleId);
-                const claimCount = claims.filter(
-                  (c) => c.warrantyId === w.id,
-                ).length;
-                return (
-                  <TableRow key={w.id}>
-                    <TableCell>
-                      {v ? (
-                        <RegPlate registration={v.registration} size="sm" />
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {w.customerName}
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {w.type.replace("_", " ")}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {w.provider ?? "—"}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(w.startDate)} → {formatDate(w.endDate)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="capitalize">
-                        {w.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      {claimCount > 0 ? (
-                        <Badge variant="destructive">{claimCount}</Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">0</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/warranties/${w.id}`}>Open</Link>
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {filtered.map((w, i) => (
+                <DataGridRow key={w.id} row={w} cols={cols} index={i} />
+              ))}
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       )}
     </div>
   );

@@ -17,13 +17,11 @@ import type {
   User,
   Vehicle,
 } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -40,18 +38,22 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
-import { formatRelativeTime } from "@/lib/utils";
+import {
+  type ColumnDef,
+  DataGridFooterRow,
+  DataGridHeaderRow,
+  DataGridRow,
+  DataGridShell,
+  DataGridTable,
+  UserCell,
+} from "@/components/data-grid";
 import { toast } from "sonner";
+
+interface LeadRow extends Lead {
+  assigneeName: string;
+}
 
 const SOURCES: LeadSource[] = [
   "website",
@@ -63,13 +65,6 @@ const SOURCES: LeadSource[] = [
   "referral",
   "other",
 ];
-
-const STATUS_BADGE: Record<LeadStatus, string> = {
-  new: "bg-sky-100 text-sky-900",
-  contacted: "bg-amber-100 text-amber-900",
-  appointment_booked: "bg-emerald-100 text-emerald-900",
-  lost: "bg-zinc-100 text-zinc-700",
-};
 
 const createSchema = z.object({
   customerName: z.string().min(1),
@@ -150,13 +145,52 @@ export default function LeadsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company]);
 
-  const filtered = useMemo(() => {
+  const filtered = useMemo<LeadRow[] | null>(() => {
     if (!leads) return null;
     let out = [...leads];
     if (statusFilter !== "all") out = out.filter((l) => l.status === statusFilter);
     if (sourceFilter !== "all") out = out.filter((l) => l.source === sourceFilter);
-    return out;
-  }, [leads, statusFilter, sourceFilter]);
+    return out.map((l) => ({
+      ...l,
+      assigneeName: users.find((u) => u.id === l.assignedTo)?.name ?? "—",
+    }));
+  }, [leads, statusFilter, sourceFilter, users]);
+
+  const cols = useMemo<ColumnDef<LeadRow>[]>(
+    () => [
+      {
+        key: "customerName",
+        label: "Customer",
+        type: "text",
+        sticky: true,
+        width: 180,
+      },
+      { key: "customerPhone", label: "Phone", type: "phone", width: 140 },
+      {
+        key: "vehicleInterest",
+        label: "Vehicle interest",
+        type: "text",
+        width: 240,
+      },
+      { key: "source", label: "Source", type: "select", width: 130 },
+      { key: "status", label: "Status", type: "leadStatus", width: 150 },
+      {
+        key: "assignedTo",
+        label: "Assigned",
+        type: "user",
+        width: 160,
+        render: (l) => <UserCell name={l.assigneeName} />,
+      },
+      {
+        key: "createdAt",
+        label: "Created",
+        type: "date",
+        width: 120,
+        get: (l) => l.createdAt.slice(0, 10),
+      },
+    ],
+    [],
+  );
 
   async function onCreate(values: CreateOutput) {
     if (!user || !company) return;
@@ -373,70 +407,27 @@ export default function LeadsPage() {
           description="When new enquiries land, they'll appear here."
         />
       ) : (
-        <Card className="p-0 overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Phone</TableHead>
-                <TableHead>Vehicle interest</TableHead>
-                <TableHead>Source</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Assigned</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((l) => (
-                <TableRow
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              {filtered.map((l, i) => (
+                <DataGridRow
                   key={l.id}
-                  className="cursor-pointer"
-                  onClick={() => setDrillLead(l)}
-                >
-                  <TableCell className="font-medium">
-                    {l.customerName}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {l.customerPhone}
-                  </TableCell>
-                  <TableCell className="max-w-[260px] truncate">
-                    {l.vehicleInterest}
-                  </TableCell>
-                  <TableCell className="capitalize">
-                    {l.source.replace("_", " ")}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={`capitalize ${STATUS_BADGE[l.status]}`}
-                    >
-                      {l.status.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {users.find((u) => u.id === l.assignedTo)?.name ?? "—"}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {formatRelativeTime(l.createdAt)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDrillLead(l);
-                      }}
-                    >
-                      Open
-                    </Button>
-                  </TableCell>
-                </TableRow>
+                  row={l}
+                  cols={cols}
+                  index={i}
+                  onClick={(row) => setDrillLead(row)}
+                />
               ))}
-            </TableBody>
-          </Table>
-        </Card>
+              <DataGridFooterRow
+                label="New lead"
+                span={cols.length}
+                onClick={() => setCreateOpen(true)}
+              />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       )}
 
       {/* Drill modal */}
