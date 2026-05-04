@@ -1,0 +1,410 @@
+"use client";
+
+import {
+  Calendar as CalendarIcon,
+  Car,
+  Check,
+  Hash,
+  Phone,
+  Plus,
+  PoundSterling,
+  Tag,
+  Type,
+  User as UserIcon,
+} from "lucide-react";
+import Link from "next/link";
+import type { LucideIcon } from "lucide-react";
+import type { ReactNode } from "react";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
+import {
+  AppointmentOutcomeCell,
+  AppointmentStatusCell,
+  AtIndicatorCell,
+  BooleanCell,
+  ChannelsCell,
+  CurrencyCell,
+  DateCell,
+  DateRangeCell,
+  EmptyCell,
+  InvoiceStatusCell,
+  LeadStatusCell,
+  MaintenanceStatusCell,
+  NumberCell,
+  PhoneCell,
+  ReturnResolutionCell,
+  ReturnStatusCell,
+  SalesStageCell,
+  SelectCell,
+  TextCell,
+  UserCell,
+  VehicleCell,
+  VehicleStatusCell,
+  WarrantyStatusCell,
+} from "./cells";
+import type { ColumnDef, ColType, SelectionState } from "./types";
+
+const TYPE_ICON: Record<ColType, LucideIcon> = {
+  vehicle: Car,
+  user: UserIcon,
+  text: Type,
+  phone: Phone,
+  number: Hash,
+  currency: PoundSterling,
+  date: CalendarIcon,
+  dateRange: CalendarIcon,
+  boolean: Check,
+  select: Tag,
+  channels: Tag,
+  vehicleStatus: Tag,
+  salesStage: Tag,
+  leadStatus: Tag,
+  appointmentStatus: Tag,
+  appointmentOutcome: Tag,
+  warrantyStatus: Tag,
+  invoiceStatus: Tag,
+  returnStatus: Tag,
+  returnResolution: Tag,
+  atIndicator: Tag,
+  custom: Type,
+};
+
+function alignFor(col: ColumnDef<unknown>): "left" | "right" | "center" {
+  if (col.align) return col.align;
+  if (col.type === "number" || col.type === "currency") return "right";
+  return "left";
+}
+
+function getValue<T>(col: ColumnDef<T>, row: T): unknown {
+  if (col.get) return col.get(row);
+  return (row as Record<string, unknown>)[col.key];
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Shell
+// ────────────────────────────────────────────────────────────────────────────
+
+interface ShellProps {
+  children: ReactNode;
+  className?: string;
+  /** When true, renders as a plain div instead of a Card (use when embedding in another Card). */
+  bare?: boolean;
+}
+
+export function DataGridShell({ children, className, bare }: ShellProps) {
+  if (bare) {
+    return (
+      <div className={cn("relative overflow-auto", className)}>{children}</div>
+    );
+  }
+  return (
+    <Card className={cn("flex min-h-0 flex-col p-0", className)}>
+      <div className="relative min-h-0 flex-1 overflow-auto">{children}</div>
+    </Card>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Table wrapper — handles colgroup, sets w-max vs w-full
+// ────────────────────────────────────────────────────────────────────────────
+
+interface TableProps<T> {
+  cols: ColumnDef<T>[];
+  selection?: SelectionState;
+  trailing?: boolean;
+  fluid?: boolean;
+  children: ReactNode;
+}
+
+export function DataGridTable<T>({
+  cols,
+  selection,
+  trailing,
+  fluid,
+  children,
+}: TableProps<T>) {
+  return (
+    <table
+      className={cn(
+        "border-separate text-xs",
+        fluid ? "w-full" : "w-max",
+      )}
+      style={{ borderSpacing: 0 }}
+      data-grid=""
+    >
+      <colgroup>
+        {selection ? <col style={{ width: 40 }} /> : null}
+        {cols.map((c) => (
+          <col key={c.key} style={c.width ? { width: c.width } : undefined} />
+        ))}
+        {trailing ? <col style={{ width: 40 }} /> : null}
+      </colgroup>
+      {children}
+    </table>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Header
+// ────────────────────────────────────────────────────────────────────────────
+
+interface HeaderProps<T> {
+  cols: ColumnDef<T>[];
+  selection?: SelectionState;
+  trailing?: boolean;
+}
+
+export function DataGridHeaderRow<T>({
+  cols,
+  selection,
+  trailing,
+}: HeaderProps<T>) {
+  return (
+    <thead className="sticky top-0 z-20 bg-muted/60 backdrop-blur">
+      <tr>
+        {selection ? (
+          <th className="sticky left-0 z-30 border-b border-r bg-muted/60 backdrop-blur">
+            <div className="flex h-8 items-center justify-center">
+              <Checkbox
+                checked={selection.allSelected}
+                onCheckedChange={selection.toggleAll}
+                aria-label="Select all"
+              />
+            </div>
+          </th>
+        ) : null}
+        {cols.map((c) => {
+          const Icon = c.headerIcon ?? TYPE_ICON[c.type];
+          const align = alignFor(c as ColumnDef<unknown>);
+          return (
+            <th
+              key={c.key}
+              className={cn(
+                "border-b border-r px-2 text-left font-medium",
+                c.sticky && "sticky z-30 bg-muted/60 backdrop-blur",
+              )}
+              style={c.sticky ? { left: selection ? 40 : 0 } : undefined}
+            >
+              <div
+                className={cn(
+                  "flex h-8 items-center gap-1.5 text-[11px] text-muted-foreground",
+                  align === "right" && "justify-end",
+                  align === "center" && "justify-center",
+                )}
+              >
+                <Icon className="h-3 w-3 shrink-0" />
+                <span className="truncate text-foreground">{c.label}</span>
+              </div>
+            </th>
+          );
+        })}
+        {trailing ? (
+          <th className="border-b">
+            <div className="flex h-8 items-center justify-center text-muted-foreground">
+              <Plus className="h-3.5 w-3.5" />
+            </div>
+          </th>
+        ) : null}
+      </tr>
+    </thead>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Row + cell
+// ────────────────────────────────────────────────────────────────────────────
+
+interface RowProps<T> {
+  row: T;
+  cols: ColumnDef<T>[];
+  index: number;
+  selection?: SelectionState;
+  rowId?: string;
+  trailing?: boolean;
+  onClick?: (row: T) => void;
+}
+
+const INTERACTIVE_SELECTOR =
+  "button, a, [role='checkbox'], input, select, textarea, [data-stop]";
+
+export function DataGridRow<T>({
+  row,
+  cols,
+  index,
+  selection,
+  rowId,
+  trailing,
+  onClick,
+}: RowProps<T>) {
+  const isSelected = rowId !== undefined && selection?.selected.has(rowId);
+  const clickable = onClick !== undefined;
+
+  function handleClick(e: React.MouseEvent<HTMLTableRowElement>) {
+    if (!onClick) return;
+    const target = e.target as HTMLElement;
+    if (target.closest(INTERACTIVE_SELECTOR)) return;
+    onClick(row);
+  }
+
+  return (
+    <tr
+      className={cn(
+        "group/row",
+        isSelected && "bg-primary/5",
+        clickable && "cursor-pointer",
+      )}
+      onClick={handleClick}
+    >
+      {selection && rowId ? (
+        <td
+          className={cn(
+            "sticky left-0 z-10 border-b border-r bg-background text-center",
+            isSelected && "bg-primary/5",
+            "group-hover/row:bg-muted/40",
+          )}
+        >
+          <div className="flex h-9 items-center justify-center">
+            <span className="text-[11px] tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
+              {index + 1}
+            </span>
+            <Checkbox
+              checked={isSelected}
+              onCheckedChange={() => selection.toggle(rowId)}
+              aria-label={`Select row ${index + 1}`}
+              className={cn(
+                "hidden group-hover/row:inline-flex",
+                isSelected && "inline-flex",
+              )}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </td>
+      ) : null}
+      {cols.map((c) => {
+        const align = alignFor(c as ColumnDef<unknown>);
+        return (
+          <td
+            key={c.key}
+            className={cn(
+              "border-b border-r px-2",
+              c.sticky &&
+                "sticky z-10 bg-background group-hover/row:bg-muted/40",
+              isSelected && c.sticky && "bg-primary/5",
+              !c.sticky && "group-hover/row:bg-muted/40",
+            )}
+            style={c.sticky ? { left: selection ? 40 : 0 } : undefined}
+          >
+            <div
+              className={cn(
+                "flex h-9 items-center",
+                align === "right" && "justify-end",
+                align === "center" && "justify-center",
+              )}
+            >
+              <DataGridCell col={c} row={row} index={index} />
+            </div>
+          </td>
+        );
+      })}
+      {trailing ? <td className="border-b group-hover/row:bg-muted/40" /> : null}
+    </tr>
+  );
+}
+
+interface CellProps<T> {
+  col: ColumnDef<T>;
+  row: T;
+  index: number;
+}
+
+export function DataGridCell<T>({ col, row, index }: CellProps<T>) {
+  if (col.render) return <>{col.render(row, index)}</>;
+  const value = getValue(col, row);
+  if (value === null || value === undefined || value === "") return <EmptyCell />;
+  switch (col.type) {
+    case "vehicle":
+      return <VehicleCell vehicle={value as never} />;
+    case "user":
+      return <UserCell name={String(value)} />;
+    case "phone":
+      return <PhoneCell value={String(value)} />;
+    case "number":
+      return <NumberCell value={Number(value)} />;
+    case "currency":
+      return <CurrencyCell value={Number(value)} />;
+    case "date":
+      return <DateCell value={String(value)} />;
+    case "dateRange": {
+      const v = value as { start?: string; end?: string } | null;
+      return <DateRangeCell start={v?.start} end={v?.end} />;
+    }
+    case "boolean":
+      return <BooleanCell value={Boolean(value)} />;
+    case "select":
+      return <SelectCell value={value} />;
+    case "channels":
+      return <ChannelsCell channels={value as Record<string, boolean>} />;
+    case "vehicleStatus":
+      return <VehicleStatusCell status={value as never} />;
+    case "salesStage":
+      return <SalesStageCell stage={value as never} />;
+    case "leadStatus":
+      return <LeadStatusCell status={value as never} />;
+    case "appointmentStatus":
+      return <AppointmentStatusCell status={value as never} />;
+    case "appointmentOutcome":
+      return <AppointmentOutcomeCell outcome={value as never} />;
+    case "warrantyStatus":
+      return <WarrantyStatusCell status={value as never} />;
+    case "invoiceStatus":
+      return <InvoiceStatusCell status={value as never} />;
+    case "returnStatus":
+      return <ReturnStatusCell status={value as never} />;
+    case "returnResolution":
+      return <ReturnResolutionCell resolution={value as never} />;
+    case "atIndicator":
+      return <AtIndicatorCell indicator={String(value)} />;
+    case "text":
+    case "custom":
+    default:
+      return <TextCell value={value} />;
+  }
+}
+
+// Dummy import so TS doesn't grumble about unused MaintenanceStatusCell —
+// it's part of the public API even if no consumer uses it via dispatch.
+void MaintenanceStatusCell;
+
+// ────────────────────────────────────────────────────────────────────────────
+// Footer (+ New)
+// ────────────────────────────────────────────────────────────────────────────
+
+interface FooterProps {
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  span: number;
+}
+
+export function DataGridFooterRow({ label, href, onClick, span }: FooterProps) {
+  const inner = (
+    <span className="flex h-9 items-center gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground">
+      <Plus className="h-3.5 w-3.5" />
+      {label}
+    </span>
+  );
+  return (
+    <tr>
+      <td colSpan={span} className="border-b bg-muted/30">
+        {href ? (
+          <Link href={href}>{inner}</Link>
+        ) : (
+          <button type="button" onClick={onClick} className="w-full text-left">
+            {inner}
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
