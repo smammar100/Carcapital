@@ -15,8 +15,11 @@ interface Props {
   subtitle?: string;
 }
 
+// Receipt outline: rounded top corners (4px, matching --radius), straight
+// sides, zigzag torn-paper bottom. Top corners approximated with a 3-point
+// quarter-arc so the rounding follows the global radius scale.
 const TEAR =
-  "polygon(0 0, 100% 0, 100% calc(100% - 8px), 95.65% 100%, 91.30% calc(100% - 8px), 86.96% 100%, 82.61% calc(100% - 8px), 78.26% 100%, 73.91% calc(100% - 8px), 69.57% 100%, 65.22% calc(100% - 8px), 60.87% 100%, 56.52% calc(100% - 8px), 52.17% 100%, 47.83% calc(100% - 8px), 43.48% 100%, 39.13% calc(100% - 8px), 34.78% 100%, 30.43% calc(100% - 8px), 26.09% 100%, 21.74% calc(100% - 8px), 17.39% 100%, 13.04% calc(100% - 8px), 8.70% 100%, 4.35% calc(100% - 8px), 0 100%)";
+  "polygon(0 4px, 1.17px 1.17px, 4px 0, calc(100% - 4px) 0, calc(100% - 1.17px) 1.17px, 100% 4px, 100% calc(100% - 8px), 95.65% 100%, 91.30% calc(100% - 8px), 86.96% 100%, 82.61% calc(100% - 8px), 78.26% 100%, 73.91% calc(100% - 8px), 69.57% 100%, 65.22% calc(100% - 8px), 60.87% 100%, 56.52% calc(100% - 8px), 52.17% 100%, 47.83% calc(100% - 8px), 43.48% 100%, 39.13% calc(100% - 8px), 34.78% 100%, 30.43% calc(100% - 8px), 26.09% 100%, 21.74% calc(100% - 8px), 17.39% 100%, 13.04% calc(100% - 8px), 8.70% 100%, 4.35% calc(100% - 8px), 0 100%)";
 
 export function CostSummaryReceipt({
   buyingPrice,
@@ -36,11 +39,12 @@ export function CostSummaryReceipt({
     <div
       className={cn("relative", className)}
       style={{
-        // 1px outline traced via drop-shadow chain so it follows the clip-path
-        // zigzag. Opacity matches `--border` (≈10% black) for parity with the
-        // form Card's edge on the left.
+        // 1px ring at 5% foreground (matches `ring-1 ring-foreground/5` on the
+        // shadcn Card) plus the maybe `shadow-md` recipe — both traced via
+        // drop-shadow so they follow the clip-path zigzag instead of clipping
+        // to a rectangle.
         filter:
-          "drop-shadow(1px 0 0 rgba(11,11,11,0.10)) drop-shadow(-1px 0 0 rgba(11,11,11,0.10)) drop-shadow(0 1px 0 rgba(11,11,11,0.10)) drop-shadow(0 -1px 0 rgba(11,11,11,0.10))",
+          "drop-shadow(1px 0 0 rgba(23,23,23,0.05)) drop-shadow(-1px 0 0 rgba(23,23,23,0.05)) drop-shadow(0 1px 0 rgba(23,23,23,0.05)) drop-shadow(0 -1px 0 rgba(23,23,23,0.05)) drop-shadow(0 4px 8px rgba(11,11,11,0.06))",
       }}
     >
       {/* Paperclip — pinned to the right edge */}
