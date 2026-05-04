@@ -36,9 +36,11 @@ export function CostSummaryReceipt({
     <div
       className={cn("relative", className)}
       style={{
-        // Outline + soft shadow that follows the clip-path zigzag.
+        // 1px outline traced via drop-shadow chain so it follows the clip-path
+        // zigzag. Opacity matches `--border` (≈10% black) for parity with the
+        // form Card's edge on the left.
         filter:
-          "drop-shadow(1px 0 0 rgba(11,11,11,0.18)) drop-shadow(-1px 0 0 rgba(11,11,11,0.18)) drop-shadow(0 1px 0 rgba(11,11,11,0.18)) drop-shadow(0 -1px 0 rgba(11,11,11,0.18)) drop-shadow(0 10px 24px rgba(0,0,0,0.12))",
+          "drop-shadow(1px 0 0 rgba(11,11,11,0.10)) drop-shadow(-1px 0 0 rgba(11,11,11,0.10)) drop-shadow(0 1px 0 rgba(11,11,11,0.10)) drop-shadow(0 -1px 0 rgba(11,11,11,0.10))",
       }}
     >
       {/* Paperclip — pinned to the right edge */}
