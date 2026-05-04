@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { VehicleImage } from "@/components/shared/vehicle-image";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
 const STAGE_TONE: Partial<Record<SalesStage, string>> = {
@@ -147,14 +148,21 @@ export function DashboardRecentDeals() {
                       {v ? (
                         <Link
                           href={`/vehicles/${v.id}`}
-                          className="flex flex-col leading-tight hover:underline"
+                          className="flex items-center gap-2.5 hover:[&>div:last-child>span:first-child]:underline"
                         >
-                          <span className="font-mono text-xs font-semibold uppercase">
-                            {v.registration}
-                          </span>
-                          <span className="text-[11px] text-muted-foreground">
-                            {v.make} {v.model}
-                          </span>
+                          <VehicleImage
+                            vehicle={v}
+                            variant="thumb"
+                            className="w-12 shrink-0 rounded-md"
+                          />
+                          <div className="flex flex-col leading-tight">
+                            <span className="font-mono text-xs font-semibold uppercase">
+                              {v.registration}
+                            </span>
+                            <span className="text-[11px] text-muted-foreground">
+                              {v.make} {v.model}
+                            </span>
+                          </div>
                         </Link>
                       ) : (
                         "—"
