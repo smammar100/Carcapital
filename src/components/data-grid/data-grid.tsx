@@ -113,6 +113,11 @@ interface TableProps<T> {
   cols: ColumnDef<T>[];
   selection?: SelectionState;
   trailing?: boolean;
+  /**
+   * When true (default), the table fills the available width so columns
+   * spread to use the viewport. Pass `fluid={false}` for very wide tables
+   * (master-sheet) where horizontal scroll is preferable.
+   */
   fluid?: boolean;
   children: ReactNode;
 }
@@ -121,25 +126,33 @@ export function DataGridTable<T>({
   cols,
   selection,
   trailing,
-  fluid,
+  fluid = true,
   children,
 }: TableProps<T>) {
   return (
     <table
       className={cn(
         "border-separate text-xs",
-        fluid ? "w-full" : "w-max",
+        fluid ? "w-full min-w-max" : "w-max",
       )}
       style={{ borderSpacing: 0 }}
       data-grid=""
+      data-fluid={fluid ? "" : undefined}
     >
-      <colgroup>
-        {selection ? <col style={{ width: 40 }} /> : null}
-        {cols.map((c) => (
-          <col key={c.key} style={c.width ? { width: c.width } : undefined} />
-        ))}
-        {trailing ? <col style={{ width: 40 }} /> : null}
-      </colgroup>
+      {/* In non-fluid mode (master-sheet style), pin column widths via colgroup
+       * so very wide tables stay at min-content width and scroll horizontally.
+       * In fluid mode the colgroup is omitted; widths become min-widths on the
+       * <th> cells (see DataGridHeaderRow below) so columns flex up to fill
+       * the available space. */}
+      {!fluid ? (
+        <colgroup>
+          {selection ? <col style={{ width: 40 }} /> : null}
+          {cols.map((c) => (
+            <col key={c.key} style={c.width ? { width: c.width } : undefined} />
+          ))}
+          {trailing ? <col style={{ width: 40 }} /> : null}
+        </colgroup>
+      ) : null}
       {children}
     </table>
   );
@@ -153,18 +166,24 @@ interface HeaderProps<T> {
   cols: ColumnDef<T>[];
   selection?: SelectionState;
   trailing?: boolean;
+  /** Pass-through from DataGridTable. Only used to attach min-width hints. */
+  fluid?: boolean;
 }
 
 export function DataGridHeaderRow<T>({
   cols,
   selection,
   trailing,
+  fluid = true,
 }: HeaderProps<T>) {
   return (
     <thead className="sticky top-0 z-20 bg-muted/60 backdrop-blur">
       <tr>
         {selection ? (
-          <th className="sticky left-0 z-30 border-b border-r bg-muted/60 backdrop-blur">
+          <th
+            className="sticky left-0 z-30 border-b border-r bg-muted/60 backdrop-blur"
+            style={{ width: 40 }}
+          >
             <div className="flex h-8 items-center justify-center">
               <Checkbox
                 checked={selection.allSelected}
@@ -177,14 +196,25 @@ export function DataGridHeaderRow<T>({
         {cols.map((c) => {
           const Icon = c.headerIcon ?? TYPE_ICON[c.type];
           const align = alignFor(c as ColumnDef<unknown>);
+          // In fluid mode, widths become min-widths so columns can grow to
+          // fill the available width via the table's `w-full` rule. In
+          // non-fluid mode the colgroup pins exact widths instead.
+          const widthStyle: React.CSSProperties = c.width
+            ? fluid
+              ? { minWidth: c.width }
+              : {}
+            : {};
+          const stickyStyle: React.CSSProperties = c.sticky
+            ? { left: selection ? 40 : 0 }
+            : {};
           return (
             <th
               key={c.key}
               className={cn(
-                "border-b border-r px-2 text-left font-medium",
+                "border-b border-r px-3 text-left font-medium",
                 c.sticky && "sticky z-30 bg-muted/60 backdrop-blur",
               )}
-              style={c.sticky ? { left: selection ? 40 : 0 } : undefined}
+              style={{ ...widthStyle, ...stickyStyle }}
             >
               <div
                 className={cn(
@@ -287,7 +317,7 @@ export function DataGridRow<T>({
           <td
             key={c.key}
             className={cn(
-              "border-b border-r px-2",
+              "border-b border-r px-3",
               c.sticky &&
                 "sticky z-10 bg-background group-hover/row:bg-muted/40",
               isSelected && c.sticky && "bg-primary/5",
@@ -389,7 +419,7 @@ interface FooterProps {
 
 export function DataGridFooterRow({ label, href, onClick, span }: FooterProps) {
   const inner = (
-    <span className="flex h-9 items-center gap-1.5 px-2 text-xs text-muted-foreground hover:text-foreground">
+    <span className="flex h-9 items-center gap-1.5 px-3 text-xs text-muted-foreground hover:text-foreground">
       <Plus className="h-3.5 w-3.5" />
       {label}
     </span>
