@@ -62,10 +62,13 @@ function Shell({ children }: { children: React.ReactNode }) {
       data-sidebar-collapsed={collapsed ? "true" : "false"}
       className="grid h-screen w-screen overflow-hidden bg-background"
       style={{
-        gridTemplateColumns: collapsed
-          ? "var(--shell-sidebar-collapsed-w) 1fr"
-          : "var(--shell-sidebar-w) 1fr",
-        gridTemplateRows: "var(--shell-header-h) 1fr",
+        // Literal px values here (not var(--shell-sidebar-w) etc) — the
+        // variables resolved correctly via getPropertyValue but the grid
+        // engine read them as the *expanded* value, suspect Tailwind v4
+        // `@theme inline` is shadowing them. Source-of-truth tokens still
+        // live in globals.css for any other consumer.
+        gridTemplateColumns: collapsed ? "64px 1fr" : "260px 1fr",
+        gridTemplateRows: "56px 1fr",
         gridTemplateAreas: '"sidebar header" "sidebar main"',
         transition: "grid-template-columns 200ms ease",
       }}

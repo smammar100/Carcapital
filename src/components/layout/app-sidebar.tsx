@@ -2,15 +2,8 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  ChevronDown,
-  ChevronsLeft,
-  ChevronsRight,
-  Info,
-  LogOut,
-  Settings as SettingsIcon,
-} from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ChevronDown, ChevronsLeft, ChevronsRight } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -20,7 +13,6 @@ import { useAuth } from "@/contexts/auth-context";
 import { useSidebarState } from "@/contexts/sidebar-state-context";
 import { SIDEBAR_GROUPS, type SidebarItem } from "./sidebar-config";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 const COLLAPSED_KEY = "cc:sidebar:collapsed";
 
@@ -44,8 +36,7 @@ function saveCollapsed(s: Set<string>): void {
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { company, signOut } = useAuth();
+  const { company } = useAuth();
   const { collapsed: railCollapsed, toggle: toggleRail } = useSidebarState();
   const [groupCollapsed, setGroupCollapsed] = React.useState<Set<string>>(
     () => new Set(),
@@ -70,12 +61,6 @@ export function AppSidebar() {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  function handleSignOut() {
-    signOut();
-    toast.success("Signed out");
-    router.push("/login");
-  }
-
   return (
     <div
       data-collapsed={railCollapsed ? "true" : "false"}
@@ -86,9 +71,13 @@ export function AppSidebar() {
         paddingBottom: "var(--space-6)",
       }}
     >
-      {/* Brand row */}
+      {/* Brand row — logo + name on the left; collapse toggle inline on the
+          right when expanded, on a separate row beneath when railed. */}
       <div
-        className="flex items-center"
+        className={cn(
+          "flex items-center",
+          railCollapsed ? "justify-center" : "justify-between",
+        )}
         style={{
           paddingLeft: "var(--space-4)",
           paddingRight: "var(--space-4)",
@@ -97,7 +86,7 @@ export function AppSidebar() {
       >
         <Link
           href="/dashboard"
-          className="flex items-center"
+          className="flex min-w-0 items-center"
           style={{ gap: "var(--space-3)" }}
         >
           <div
@@ -107,15 +96,43 @@ export function AppSidebar() {
             CC
           </div>
           {!railCollapsed && (
-            <div className="flex flex-col leading-tight">
-              <span className="text-sm font-medium">Car Capital UK</span>
-              <span className="text-[11px] text-muted-foreground">
+            <div className="flex min-w-0 flex-col leading-tight">
+              <span className="truncate text-sm font-medium">Car Capital UK</span>
+              <span className="truncate text-[11px] text-muted-foreground">
                 {company?.name ?? "—"}
               </span>
             </div>
           )}
         </Link>
+        {!railCollapsed && (
+          <button
+            type="button"
+            onClick={toggleRail}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Collapse sidebar"
+          >
+            <ChevronsLeft className="h-4 w-4" />
+          </button>
+        )}
       </div>
+
+      {/* Rail-mode expand button — placed directly beneath the logo so the
+          user always has a way back to the expanded state. */}
+      {railCollapsed && (
+        <div
+          className="flex justify-center"
+          style={{ marginTop: "var(--space-3)" }}
+        >
+          <button
+            type="button"
+            onClick={toggleRail}
+            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Expand sidebar"
+          >
+            <ChevronsRight className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* Brand → first nav-item gap */}
       <div style={{ height: "var(--space-8)" }} />
@@ -222,63 +239,6 @@ export function AppSidebar() {
         })}
       </nav>
 
-      {/* Footer — Settings / Info / Sign out / Collapse */}
-      <div
-        className="flex flex-col"
-        style={{
-          paddingLeft: "var(--space-3)",
-          paddingRight: "var(--space-3)",
-          gap: "var(--space-1)",
-          marginTop: "var(--space-5)",
-        }}
-      >
-        <FooterRow
-          icon={SettingsIcon}
-          label="Settings"
-          href="/admin/settings"
-          collapsed={railCollapsed}
-          active={isActive("/admin/settings")}
-        />
-        <FooterRow
-          icon={Info}
-          label="Info"
-          collapsed={railCollapsed}
-          onClick={() =>
-            toast.info("Car Capital UK v4.1 — single-tenant demo build.")
-          }
-        />
-        <FooterRow
-          icon={LogOut}
-          label="Sign out"
-          collapsed={railCollapsed}
-          onClick={handleSignOut}
-        />
-        <button
-          type="button"
-          onClick={toggleRail}
-          className={cn(
-            "mt-1 flex items-center rounded-md text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
-            railCollapsed ? "justify-center" : "justify-start",
-          )}
-          style={{
-            paddingLeft: "var(--space-3)",
-            paddingRight: "var(--space-3)",
-            paddingTop: "var(--space-2)",
-            paddingBottom: "var(--space-2)",
-            gap: "var(--space-3)",
-          }}
-          aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {railCollapsed ? (
-            <ChevronsRight className="h-4 w-4" />
-          ) : (
-            <>
-              <ChevronsLeft className="h-4 w-4" />
-              <span>Collapse</span>
-            </>
-          )}
-        </button>
-      </div>
     </div>
   );
 }
@@ -336,53 +296,3 @@ function NavRow({ item, active, collapsed }: NavRowProps) {
   );
 }
 
-interface FooterRowProps {
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-  href?: string;
-  collapsed: boolean;
-  active?: boolean;
-  onClick?: () => void;
-}
-
-function FooterRow({
-  icon: Icon,
-  label,
-  href,
-  collapsed,
-  active,
-  onClick,
-}: FooterRowProps) {
-  const className = cn(
-    "flex items-center rounded-md text-sm transition-colors",
-    active
-      ? "bg-accent font-medium text-foreground"
-      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-    collapsed ? "justify-center" : "",
-  );
-  const style: React.CSSProperties = {
-    paddingLeft: "var(--space-3)",
-    paddingRight: "var(--space-3)",
-    paddingTop: "var(--space-2)",
-    paddingBottom: "var(--space-2)",
-    gap: "var(--space-3)",
-  };
-  const content = (
-    <>
-      <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span className="truncate">{label}</span>}
-    </>
-  );
-  if (href) {
-    return (
-      <Link href={href} className={className} style={style}>
-        {content}
-      </Link>
-    );
-  }
-  return (
-    <button type="button" onClick={onClick} className={className} style={style}>
-      {content}
-    </button>
-  );
-}
