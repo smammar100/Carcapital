@@ -11,6 +11,7 @@ import {
   Upload,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import {
   downloadBlob,
@@ -62,6 +63,7 @@ type Filter = InvoiceType | "all";
 
 export default function InvoicingPage() {
   const { user, company } = useAuth();
+  const { can } = usePermissions();
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [vat, setVat] = useState<{
@@ -163,11 +165,12 @@ export default function InvoicingPage() {
               size="icon"
               variant="ghost"
               className="h-8 w-8"
+              disabled={!can("invoice:send")}
               onClick={(e) => {
                 e.stopPropagation();
                 setEmailing(i);
               }}
-              title="Email"
+              title={can("invoice:send") ? "Email" : "Permission required: Send Invoice"}
             >
               <Mail className="h-4 w-4" />
             </Button>
@@ -187,8 +190,9 @@ export default function InvoicingPage() {
         ),
       },
     ],
+    // Re-build cols when permissions change so the Email gate updates.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [can],
   );
 
   async function handleSendEmail() {
@@ -238,14 +242,18 @@ export default function InvoicingPage() {
         partyEmail: null,
         invoiceDate: uploadFields.invoiceDate,
         dueDate: null,
+        vatScheme: "zero_rated",
         lineItems: [
           {
+            lineType: "fee",
+            addonType: null,
             description: "Uploaded invoice",
             quantity: 1,
             unitPrice: total,
             vatRate: 0,
           },
         ],
+        payment: null,
         notes: uploadFile ? `Attached: ${uploadFile.name}` : null,
         attachmentUrl: uploadFile ? `mock://${uploadFile.name}` : null,
       },
@@ -477,12 +485,10 @@ export default function InvoicingPage() {
                           {formatCurrency(li.unitPrice)}
                         </td>
                         <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {(li.vatRate * 100).toFixed(0)}%
+                          {formatCurrency(li.vatAmount)}
                         </td>
                         <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {formatCurrency(
-                            li.quantity * li.unitPrice * (1 + li.vatRate),
-                          )}
+                          {formatCurrency(li.subtotal + li.vatAmount)}
                         </td>
                       </tr>
                     ))}

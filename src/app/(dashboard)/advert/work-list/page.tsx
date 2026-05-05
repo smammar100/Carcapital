@@ -134,6 +134,12 @@ export default function ListingsPage() {
         );
       });
     }
+    // v4.1 Gap 1 / TC-P6-003: hide listings whose vehicle has been removed
+    // from website. Sold vehicles still show until that step is taken.
+    out = out.filter((l) => {
+      const v = vehicles.find((x) => x.id === l.vehicleId);
+      return !v || v.removedFromWebsiteAt === null;
+    });
     return out.map((l) => ({
       ...l,
       vehicle: vehicles.find((v) => v.id === l.vehicleId) ?? null,
@@ -143,10 +149,21 @@ export default function ListingsPage() {
   const cols = useMemo<ColumnDef<ListingRow>[]>(
     () => [
       {
+        key: "stockId",
+        label: "Stock ID",
+        type: "text",
+        sticky: true,
+        width: 100,
+        render: (l) => (
+          <span className="font-mono text-xs font-medium">
+            {l.vehicle?.stockId ?? "—"}
+          </span>
+        ),
+      },
+      {
         key: "vehicle",
         label: "Vehicle",
         type: "vehicle",
-        sticky: true,
         width: 200,
         render: (l) => <VehicleCell vehicle={l.vehicle} />,
       },

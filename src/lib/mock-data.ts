@@ -11,14 +11,17 @@ import type {
   ActivityLogEntry,
   Appointment,
   Company,
+  InspectionNote,
   Invoice,
   Lead,
   Listing,
   MaintenanceJob,
+  MaintenanceJobNote,
   Notification,
   SalesDeal,
   TodoItem,
   User,
+  UserPermission,
   Vehicle,
   VehicleReturn,
   Vendor,
@@ -26,6 +29,7 @@ import type {
   WarrantyClaim,
   WorkshopJob,
 } from "./types";
+import type { Capability } from "./capabilities";
 
 // ---- Date helpers (file-local) ----
 const TODAY = "2026-05-01";
@@ -61,14 +65,7 @@ export const mockCompanies: Company[] = [
     vatNumber: "GB123456789",
     logoUrl: null,
     stockIdPrefix: "CC",
-  },
-  {
-    id: "company-2",
-    name: "Car Giant",
-    address: "44 Hythe Rd, London, NW10 6RS",
-    vatNumber: "GB987654321",
-    logoUrl: null,
-    stockIdPrefix: "CG",
+    nextStockSeq: 16,
   },
 ];
 
@@ -80,10 +77,16 @@ export const mockUsers: User[] = [
   {
     id: "user-1",
     companyId: "company-1",
-    name: "Bass Bhai",
-    email: "bass@carcapital.uk",
+    name: "Abbas Bhai",
+    email: "abbas@carcapital.uk",
     role: "owner",
     avatarUrl: null,
+    isSuperUser: true,
+    roles: ["owner"],
+    invitedAt: null,
+    acceptedAt: "2024-01-15T09:00:00.000Z",
+    lastLoginAt: NOW,
+    twoStepEnabled: true,
     active: true,
     createdAt: "2024-01-15T09:00:00.000Z",
   },
@@ -94,6 +97,12 @@ export const mockUsers: User[] = [
     email: "amjad@carcapital.uk",
     role: "inventory_manager",
     avatarUrl: null,
+    isSuperUser: false,
+    roles: ["inventory_manager"],
+    invitedAt: "2024-02-01T09:00:00.000Z",
+    acceptedAt: "2024-02-02T11:00:00.000Z",
+    lastLoginAt: hoursAgo(6),
+    twoStepEnabled: true,
     active: true,
     createdAt: "2024-02-01T09:00:00.000Z",
   },
@@ -104,6 +113,12 @@ export const mockUsers: User[] = [
     email: "raza@carcapital.uk",
     role: "driver",
     avatarUrl: null,
+    isSuperUser: false,
+    roles: ["driver"],
+    invitedAt: "2024-03-01T09:00:00.000Z",
+    acceptedAt: "2024-03-02T11:00:00.000Z",
+    lastLoginAt: daysAgo(2) + "T08:00:00.000Z",
+    twoStepEnabled: false,
     active: true,
     createdAt: "2024-03-01T09:00:00.000Z",
   },
@@ -114,6 +129,12 @@ export const mockUsers: User[] = [
     email: "mohsin@carcapital.uk",
     role: "driver",
     avatarUrl: null,
+    isSuperUser: false,
+    roles: ["driver"],
+    invitedAt: "2024-03-15T09:00:00.000Z",
+    acceptedAt: "2024-03-15T15:00:00.000Z",
+    lastLoginAt: daysAgo(5) + "T09:00:00.000Z",
+    twoStepEnabled: false,
     active: true,
     createdAt: "2024-03-15T09:00:00.000Z",
   },
@@ -124,6 +145,12 @@ export const mockUsers: User[] = [
     email: "kami@carcapital.uk",
     role: "inspector",
     avatarUrl: null,
+    isSuperUser: false,
+    roles: ["inspector"],
+    invitedAt: "2024-04-01T09:00:00.000Z",
+    acceptedAt: "2024-04-02T10:00:00.000Z",
+    lastLoginAt: hoursAgo(28),
+    twoStepEnabled: false,
     active: true,
     createdAt: "2024-04-01T09:00:00.000Z",
   },
@@ -134,6 +161,12 @@ export const mockUsers: User[] = [
     email: "sikander@carcapital.uk",
     role: "sales",
     avatarUrl: null,
+    isSuperUser: false,
+    roles: ["sales_manager"],
+    invitedAt: "2024-04-15T09:00:00.000Z",
+    acceptedAt: "2024-04-15T14:00:00.000Z",
+    lastLoginAt: hoursAgo(2),
+    twoStepEnabled: true,
     active: true,
     createdAt: "2024-04-15T09:00:00.000Z",
   },
@@ -144,19 +177,86 @@ export const mockUsers: User[] = [
     email: "shan@carcapital.uk",
     role: "prep_lead",
     avatarUrl: null,
+    isSuperUser: false,
+    roles: ["workshop_lead"],
+    invitedAt: "2024-05-01T09:00:00.000Z",
+    acceptedAt: "2024-05-02T09:00:00.000Z",
+    lastLoginAt: hoursAgo(12),
+    twoStepEnabled: false,
     active: true,
     createdAt: "2024-05-01T09:00:00.000Z",
   },
-  {
-    id: "user-8",
-    companyId: "company-2",
-    name: "Tariq",
-    email: "tariq@cargiant.uk",
-    role: "admin",
-    avatarUrl: null,
-    active: true,
-    createdAt: "2024-06-01T09:00:00.000Z",
-  },
+];
+
+// ============================================================
+// USER PERMISSIONS — v4.1 Gap 3 capability grid
+// ============================================================
+// Abbas (user-1) is super-user — granted automatically via isSuperUser, no rows needed.
+// Other users get capability sets that loosely mirror their legacy role label
+// so the demo behaves intuitively before an admin tweaks the grid.
+
+function grants(userId: string, caps: Capability[]): UserPermission[] {
+  return caps.map((c, i) => ({
+    id: `perm-${userId}-${i + 1}`,
+    userId,
+    capability: c,
+    grantedBy: "user-1",
+    grantedAt: "2024-06-01T09:00:00.000Z",
+  }));
+}
+
+// Inspection notes (Phase 5 / Gap 4) — append-only sub-entity per vehicle.
+export const mockInspectionNotes: InspectionNote[] = [];
+
+// Maintenance job notes (Phase 5 / Gap 5) — call_log / status_update / vendor_update / note.
+export const mockMaintenanceJobNotes: MaintenanceJobNote[] = [];
+
+export const mockUserPermissions: UserPermission[] = [
+  // user-2 Amjad — Inventory Manager
+  ...grants("user-2", [
+    "inventory:add",
+    "inventory:edit",
+    "inventory:edit_costs",
+    "maintenance:create",
+    "photos:process",
+    "advert:create",
+    "advert:edit",
+    "admin:view_master_sheet",
+    "admin:view_financials",
+  ]),
+  // user-3 Raza — Driver
+  ...grants("user-3", ["inventory:add"]),
+  // user-4 Mohsin — Driver
+  ...grants("user-4", ["inventory:add"]),
+  // user-5 Kami — Inspector
+  ...grants("user-5", [
+    "inspection:run",
+    "inspection:add_note",
+    "maintenance:create",
+    "workshop:add_note",
+  ]),
+  // user-6 Sikander — Sales
+  ...grants("user-6", [
+    "sales:create_lead",
+    "sales:edit_lead",
+    "sales:book_appointment",
+    "sales:edit_appointment",
+    "sales:edit_pipeline_stage",
+    "sales:mark_sold",
+    "invoice:generate",
+    "invoice:send",
+    "warranty:create",
+    "warranty:raise_claim",
+    "admin:view_master_calendar",
+  ]),
+  // user-7 Shan — Prep Lead
+  ...grants("user-7", [
+    "maintenance:create",
+    "maintenance:edit",
+    "maintenance:complete",
+    "workshop:add_note",
+    "photos:process",
+  ]),
 ];
 
 // ============================================================
@@ -274,6 +374,7 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     sellingAgent: sellingPrice ? "Sikander" : null,
     grossEarning,
     status: s.status,
+    removedFromWebsiteAt: null,
     daysInStock: s.daysInStock,
     imagesCount: ["listed", "ready"].includes(s.status) ? 12 : 0,
     // Pre-generated seed image baked into the deployment. Vehicles added via
@@ -421,7 +522,7 @@ export const mockWarranties: Warranty[] = [
   { id: "warranty-2", companyId: "company-1", vehicleId: "vehicle-10", saleDealId: "deal-6", customerName: "Peter Hill", customerPhone: "07700300003", customerEmail: "ph@example.com", type: "in_house", provider: null, coverageDetails: "1-month basic cover", startDate: daysAgo(5), endDate: inDays(25), costToDealership: 0, costToCustomer: 0, status: "active", certificateGenerated: true, createdAt: daysAgo(5) + "T17:30:00.000Z" },
   { id: "warranty-3", companyId: "company-1", vehicleId: "vehicle-9", saleDealId: null, customerName: "Mary Johnson", customerPhone: "07700300002", customerEmail: "mj@example.com", type: "third_party", provider: "AA Warranty", coverageDetails: "12-month comprehensive — engine, gearbox, electrics", startDate: daysAgo(5), endDate: inDays(360), costToDealership: 250, costToCustomer: 350, status: "active", certificateGenerated: true, createdAt: daysAgo(5) + "T16:30:00.000Z" },
   { id: "warranty-4", companyId: "company-1", vehicleId: "vehicle-10", saleDealId: null, customerName: "Earlier Customer", customerPhone: "07700400001", customerEmail: null, type: "in_house", provider: null, coverageDetails: "Expired 3-month cover", startDate: daysAgo(120), endDate: daysAgo(30), costToDealership: 0, costToCustomer: 0, status: "expired", certificateGenerated: true, createdAt: daysAgo(120) + "T09:00:00.000Z" },
-  { id: "warranty-5", companyId: "company-1", vehicleId: "vehicle-9", saleDealId: null, customerName: "Mary Johnson", customerPhone: "07700300002", customerEmail: "mj@example.com", type: "in_house", provider: null, coverageDetails: "Special goodwill cover — has open claim", startDate: daysAgo(20), endDate: inDays(70), costToDealership: 0, costToCustomer: 0, status: "claimed", certificateGenerated: true, createdAt: daysAgo(20) + "T09:00:00.000Z" },
+  { id: "warranty-5", companyId: "company-1", vehicleId: "vehicle-9", saleDealId: null, customerName: "Mary Johnson", customerPhone: "07700300002", customerEmail: "mj@example.com", type: "in_house", provider: null, coverageDetails: "Special goodwill cover — has open claim", startDate: daysAgo(20), endDate: inDays(70), costToDealership: 0, costToCustomer: 0, status: "active", certificateGenerated: true, createdAt: daysAgo(20) + "T09:00:00.000Z" },
 ];
 
 export const mockClaims: WarrantyClaim[] = [
@@ -435,16 +536,137 @@ export const mockClaims: WarrantyClaim[] = [
 // ============================================================
 
 export const mockInvoices: Invoice[] = [
-  // Purchase invoices (4 from BCA)
-  { id: "inv-1", companyId: "company-1", type: "purchase", vehicleId: "vehicle-1", partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk", invoiceNumber: "BCA-2025-12-001", invoiceDate: daysAgo(147), dueDate: daysAgo(140), lineItems: [{ id: "li-1", description: "AUDI A3 LX68 CZK", quantity: 1, unitPrice: 8500, vatRate: 0 }, { id: "li-2", description: "Buyer's fee", quantity: 1, unitPrice: 200, vatRate: 0.2 }], subtotal: 8700, vatAmount: 40, total: 8740, status: "paid", notes: null, attachmentUrl: null, createdAt: daysAgo(147) + "T09:00:00.000Z" },
-  { id: "inv-2", companyId: "company-1", type: "purchase", vehicleId: "vehicle-7", partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk", invoiceNumber: "BCA-2025-06-099", invoiceDate: daysAgo(314), dueDate: daysAgo(307), lineItems: [{ id: "li-3", description: "BMW 2 SERIES LJ17 MKA", quantity: 1, unitPrice: 6200, vatRate: 0 }, { id: "li-4", description: "Buyer's fee", quantity: 1, unitPrice: 200, vatRate: 0.2 }], subtotal: 6400, vatAmount: 40, total: 6440, status: "paid", notes: null, attachmentUrl: null, createdAt: daysAgo(314) + "T09:00:00.000Z" },
-  { id: "inv-3", companyId: "company-1", type: "purchase", vehicleId: "vehicle-12", partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk", invoiceNumber: "BCA-2026-01-244", invoiceDate: daysAgo(95), dueDate: daysAgo(88), lineItems: [{ id: "li-5", description: "AUDI Q3 KR71 FRP", quantity: 1, unitPrice: 14200, vatRate: 0 }], subtotal: 14200, vatAmount: 0, total: 14200, status: "paid", notes: null, attachmentUrl: null, createdAt: daysAgo(95) + "T09:00:00.000Z" },
-  { id: "inv-4", companyId: "company-1", type: "purchase", vehicleId: "vehicle-15", partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk", invoiceNumber: "BCA-2026-04-077", invoiceDate: daysAgo(1), dueDate: inDays(7), lineItems: [{ id: "li-6", description: "RANGE ROVER EVOQUE DE71 FRG", quantity: 1, unitPrice: 15850, vatRate: 0 }], subtotal: 15850, vatAmount: 0, total: 15850, status: "sent", notes: null, attachmentUrl: null, createdAt: daysAgo(1) + "T09:00:00.000Z" },
-  // Sale invoices (4)
-  { id: "inv-5", companyId: "company-1", type: "sale", vehicleId: "vehicle-9", partyName: "Mary Johnson", partyPhone: "07700300002", partyEmail: "mj@example.com", invoiceNumber: "INV-2026-0001", invoiceDate: daysAgo(5), dueDate: daysAgo(5), lineItems: [{ id: "li-7", description: "VAUXHALL ASTRA PK63 XAW", quantity: 1, unitPrice: 3300, vatRate: 0 }], subtotal: 3300, vatAmount: 0, total: 3300, status: "paid", notes: null, attachmentUrl: null, createdAt: daysAgo(5) + "T16:00:00.000Z" },
-  { id: "inv-6", companyId: "company-1", type: "sale", vehicleId: "vehicle-10", partyName: "Peter Hill", partyPhone: "07700300003", partyEmail: "ph@example.com", invoiceNumber: "INV-2026-0002", invoiceDate: daysAgo(5), dueDate: daysAgo(5), lineItems: [{ id: "li-8", description: "SMART FORTWO WF58 KXY", quantity: 1, unitPrice: 2175, vatRate: 0 }], subtotal: 2175, vatAmount: 0, total: 2175, status: "paid", notes: null, attachmentUrl: null, createdAt: daysAgo(5) + "T17:00:00.000Z" },
-  { id: "inv-7", companyId: "company-1", type: "sale", vehicleId: "vehicle-9", partyName: "Mary Johnson", partyPhone: "07700300002", partyEmail: "mj@example.com", invoiceNumber: "INV-2026-0003", invoiceDate: daysAgo(5), dueDate: inDays(3), lineItems: [{ id: "li-9", description: "AA Warranty 12-month", quantity: 1, unitPrice: 350, vatRate: 0.2 }], subtotal: 350, vatAmount: 70, total: 420, status: "sent", notes: null, attachmentUrl: null, createdAt: daysAgo(5) + "T16:30:00.000Z" },
-  { id: "inv-8", companyId: "company-1", type: "sale", vehicleId: null, partyName: "Walk-in Customer", partyPhone: null, partyEmail: null, invoiceNumber: "INV-2026-0004", invoiceDate: daysAgo(2), dueDate: daysAgo(2), lineItems: [{ id: "li-10", description: "Workshop service — full service", quantity: 1, unitPrice: 175, vatRate: 0.2 }], subtotal: 175, vatAmount: 35, total: 210, status: "paid", notes: null, attachmentUrl: null, createdAt: daysAgo(2) + "T13:00:00.000Z" },
+  // ----------------------------------------------------------------------
+  // PURCHASE INVOICES (4 from BCA — zero-rated, no buyer block)
+  // ----------------------------------------------------------------------
+  {
+    id: "inv-1", companyId: "company-1", type: "purchase", vehicleId: "vehicle-1",
+    partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk",
+    buyerName: null, buyerPhone: null, buyerEmail: null, buyerAddress: null,
+    invoiceNumber: "BCA-2025-12-001", invoiceDate: daysAgo(147), dueDate: daysAgo(140),
+    vatScheme: "zero_rated",
+    lineItems: [
+      { id: "li-1", lineType: "vehicle", addonType: null, description: "AUDI A3 LX68 CZK", quantity: 1, unitPrice: 8500, vatRate: 0, subtotal: 8500, vatAmount: 0 },
+      { id: "li-2", lineType: "fee", addonType: null, description: "Buyer's fee", quantity: 1, unitPrice: 200, vatRate: 0.2, subtotal: 200, vatAmount: 40 },
+    ],
+    subtotal: 8700, addonsTotal: 0, discountTotal: 0, vatAmount: 40, total: 8740,
+    payment: null, status: "paid", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(147) + "T09:00:00.000Z",
+  },
+  {
+    id: "inv-2", companyId: "company-1", type: "purchase", vehicleId: "vehicle-7",
+    partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk",
+    buyerName: null, buyerPhone: null, buyerEmail: null, buyerAddress: null,
+    invoiceNumber: "BCA-2025-06-099", invoiceDate: daysAgo(314), dueDate: daysAgo(307),
+    vatScheme: "zero_rated",
+    lineItems: [
+      { id: "li-3", lineType: "vehicle", addonType: null, description: "BMW 2 SERIES LJ17 MKA", quantity: 1, unitPrice: 6200, vatRate: 0, subtotal: 6200, vatAmount: 0 },
+      { id: "li-4", lineType: "fee", addonType: null, description: "Buyer's fee", quantity: 1, unitPrice: 200, vatRate: 0.2, subtotal: 200, vatAmount: 40 },
+    ],
+    subtotal: 6400, addonsTotal: 0, discountTotal: 0, vatAmount: 40, total: 6440,
+    payment: null, status: "paid", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(314) + "T09:00:00.000Z",
+  },
+  {
+    id: "inv-3", companyId: "company-1", type: "purchase", vehicleId: "vehicle-12",
+    partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk",
+    buyerName: null, buyerPhone: null, buyerEmail: null, buyerAddress: null,
+    invoiceNumber: "BCA-2026-01-244", invoiceDate: daysAgo(95), dueDate: daysAgo(88),
+    vatScheme: "zero_rated",
+    lineItems: [
+      { id: "li-5", lineType: "vehicle", addonType: null, description: "AUDI Q3 KR71 FRP", quantity: 1, unitPrice: 14200, vatRate: 0, subtotal: 14200, vatAmount: 0 },
+    ],
+    subtotal: 14200, addonsTotal: 0, discountTotal: 0, vatAmount: 0, total: 14200,
+    payment: null, status: "paid", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(95) + "T09:00:00.000Z",
+  },
+  {
+    id: "inv-4", companyId: "company-1", type: "purchase", vehicleId: "vehicle-15",
+    partyName: "BCA Auction", partyPhone: "01234567890", partyEmail: "accounts@bca.co.uk",
+    buyerName: null, buyerPhone: null, buyerEmail: null, buyerAddress: null,
+    invoiceNumber: "BCA-2026-04-077", invoiceDate: daysAgo(1), dueDate: inDays(7),
+    vatScheme: "zero_rated",
+    lineItems: [
+      { id: "li-6", lineType: "vehicle", addonType: null, description: "RANGE ROVER EVOQUE DE71 FRG", quantity: 1, unitPrice: 15850, vatRate: 0, subtotal: 15850, vatAmount: 0 },
+    ],
+    subtotal: 15850, addonsTotal: 0, discountTotal: 0, vatAmount: 0, total: 15850,
+    payment: null, status: "sent", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(1) + "T09:00:00.000Z",
+  },
+  // ----------------------------------------------------------------------
+  // SALE INVOICES (4)
+  // inv-5 carries a structured payment breakdown (deposit + balance due) so
+  // the v4.1 deposit-taken → invoice flow demos correctly in TC-E2E-001.
+  // ----------------------------------------------------------------------
+  {
+    id: "inv-5", companyId: "company-1", type: "sale", vehicleId: "vehicle-9",
+    partyName: "Mary Johnson", partyPhone: "07700300002", partyEmail: "mj@example.com",
+    buyerName: "Mary Johnson", buyerPhone: "07700300002", buyerEmail: "mj@example.com",
+    buyerAddress: "12 Maple Street, Slough, SL1 1AA",
+    invoiceNumber: "INV-2026-0001", invoiceDate: daysAgo(5), dueDate: daysAgo(5),
+    vatScheme: "margin",
+    lineItems: [
+      { id: "li-7", lineType: "vehicle", addonType: null, description: "VAUXHALL ASTRA PK63 XAW", quantity: 1, unitPrice: 3300, vatRate: 0, subtotal: 3300, vatAmount: 241.67 },
+    ],
+    subtotal: 3300, addonsTotal: 0, discountTotal: 0, vatAmount: 241.67, total: 3300,
+    payment: {
+      id: "pay-1", invoiceId: "inv-5",
+      depositAmount: 500, depositMethod: "card",
+      financeAmount: 0, financeProvider: null,
+      balanceDue: 2800, balanceDueBy: daysAgo(5),
+    },
+    status: "paid", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(5) + "T16:00:00.000Z",
+  },
+  {
+    id: "inv-6", companyId: "company-1", type: "sale", vehicleId: "vehicle-10",
+    partyName: "Peter Hill", partyPhone: "07700300003", partyEmail: "ph@example.com",
+    buyerName: "Peter Hill", buyerPhone: "07700300003", buyerEmail: "ph@example.com",
+    buyerAddress: "44 Beech Avenue, Hounslow, TW3 4QT",
+    invoiceNumber: "INV-2026-0002", invoiceDate: daysAgo(5), dueDate: daysAgo(5),
+    vatScheme: "margin",
+    lineItems: [
+      { id: "li-8", lineType: "vehicle", addonType: null, description: "SMART FORTWO WF58 KXY", quantity: 1, unitPrice: 2175, vatRate: 0, subtotal: 2175, vatAmount: 220.83 },
+    ],
+    subtotal: 2175, addonsTotal: 0, discountTotal: 0, vatAmount: 220.83, total: 2175,
+    payment: {
+      id: "pay-2", invoiceId: "inv-6",
+      depositAmount: 2175, depositMethod: "bank_transfer",
+      financeAmount: 0, financeProvider: null,
+      balanceDue: 0, balanceDueBy: null,
+    },
+    status: "paid", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(5) + "T17:00:00.000Z",
+  },
+  {
+    id: "inv-7", companyId: "company-1", type: "sale", vehicleId: "vehicle-9",
+    partyName: "Mary Johnson", partyPhone: "07700300002", partyEmail: "mj@example.com",
+    buyerName: "Mary Johnson", buyerPhone: "07700300002", buyerEmail: "mj@example.com",
+    buyerAddress: "12 Maple Street, Slough, SL1 1AA",
+    invoiceNumber: "INV-2026-0003", invoiceDate: daysAgo(5), dueDate: inDays(3),
+    vatScheme: "standard",
+    lineItems: [
+      { id: "li-9", lineType: "addon", addonType: "warranty", description: "AA Warranty 12-month", quantity: 1, unitPrice: 350, vatRate: 0.2, subtotal: 350, vatAmount: 70 },
+    ],
+    subtotal: 350, addonsTotal: 350, discountTotal: 0, vatAmount: 70, total: 420,
+    payment: null,
+    status: "sent", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(5) + "T16:30:00.000Z",
+  },
+  {
+    id: "inv-8", companyId: "company-1", type: "sale", vehicleId: null,
+    partyName: "Walk-in Customer", partyPhone: null, partyEmail: null,
+    buyerName: "Walk-in Customer", buyerPhone: null, buyerEmail: null, buyerAddress: null,
+    invoiceNumber: "INV-2026-0004", invoiceDate: daysAgo(2), dueDate: daysAgo(2),
+    vatScheme: "standard",
+    lineItems: [
+      { id: "li-10", lineType: "fee", addonType: null, description: "Workshop service — full service", quantity: 1, unitPrice: 175, vatRate: 0.2, subtotal: 175, vatAmount: 35 },
+    ],
+    subtotal: 175, addonsTotal: 0, discountTotal: 0, vatAmount: 35, total: 210,
+    payment: null,
+    status: "paid", notes: null, attachmentUrl: null,
+    createdAt: daysAgo(2) + "T13:00:00.000Z",
+  },
 ];
 
 // ============================================================
@@ -493,15 +715,15 @@ export const mockActivityLog: ActivityLogEntry[] = [
 ];
 
 // ============================================================
-// NOTIFICATIONS — 5 unread for user-1 (Bass Bhai)
+// NOTIFICATIONS — 5 unread for user-1 (Abbas Bhai)
 // ============================================================
 
 export const mockNotifications: Notification[] = [
   { id: "notif-1", companyId: "company-1", userId: "user-1", type: "warning", title: "Stuck stock alert", body: "BMW 2 SERIES (LJ17 MKA) has been in stock 314 days", link: "/vehicles/vehicle-7", read: false, createdAt: hoursAgo(1) },
   { id: "notif-2", companyId: "company-1", userId: "user-1", type: "urgent", title: "Open warranty claim", body: "Mary Johnson — gearbox slipping on PK63 XAW", link: "/warranties", read: false, createdAt: hoursAgo(36) },
   { id: "notif-3", companyId: "company-1", userId: "user-1", type: "info", title: "New stock arrived", body: "RANGE ROVER EVOQUE (DE71 FRG) received and pending inspection", link: "/vehicles/vehicle-15", read: false, createdAt: hoursAgo(2) },
-  { id: "notif-4", companyId: "company-1", userId: "user-1", type: "success", title: "Sale completed", body: "PK63 XAW sold to Mary Johnson — £3,300 (deposit £500)", link: "/sales", read: false, createdAt: daysAgo(5) + "T16:00:00.000Z" },
-  { id: "notif-5", companyId: "company-1", userId: "user-1", type: "info", title: "4 new leads in 24h", body: "James, Aisha, Robert, Michelle — all need follow-up", link: "/leads", read: false, createdAt: hoursAgo(4) },
+  { id: "notif-4", companyId: "company-1", userId: "user-1", type: "success", title: "Sale completed", body: "PK63 XAW sold to Mary Johnson — £3,300 (deposit £500)", link: "/sales/pipeline", read: false, createdAt: daysAgo(5) + "T16:00:00.000Z" },
+  { id: "notif-5", companyId: "company-1", userId: "user-1", type: "info", title: "4 new leads in 24h", body: "James, Aisha, Robert, Michelle — all need follow-up", link: "/sales/leads", read: false, createdAt: hoursAgo(4) },
 ];
 
 // ============================================================
@@ -517,4 +739,9 @@ export const DVLA_MOCK: Record<string, Partial<Vehicle>> = {
   "MV17 HFJ": { make: "AUDI", model: "Q2", year: 2017, colour: "Blue", fuelType: "petrol", engineSizeCC: 1395 },
   "HN20 BYE": { make: "TOYOTA", model: "YARIS", year: 2020, colour: "Silver", fuelType: "hybrid", engineSizeCC: 1490 },
   "KR71 FRP": { make: "AUDI", model: "Q3", year: 2021, colour: "White", fuelType: "petrol", engineSizeCC: 1498 },
+  // Fresh test presets (UAT round) — reg unused in seeded vehicles so TC-P1-001 etc. can run as-written.
+  "LR74 NJK": { make: "NISSAN", model: "JUKE", year: 2017, colour: "Silver", fuelType: "diesel", engineSizeCC: 1461 },
+  "MN18 ABC": { make: "TOYOTA", model: "YARIS", year: 2019, colour: "Silver", fuelType: "hybrid", engineSizeCC: 1490 },
+  "OP67 XYZ": { make: "FORD", model: "FOCUS", year: 2017, colour: "Black", fuelType: "petrol", engineSizeCC: 1499 },
+  "QR22 STU": { make: "BMW", model: "1 SERIES", year: 2022, colour: "White", fuelType: "petrol", engineSizeCC: 1998 },
 };

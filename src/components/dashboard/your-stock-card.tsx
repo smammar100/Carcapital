@@ -85,7 +85,7 @@ export function YourStockCard() {
         <KpiTile
           label="New Enquiries (7d)"
           value={kpis.newEnquiries}
-          href="/leads"
+          href="/sales/leads"
           icon={Inbox}
         />
         <KpiTile
@@ -104,7 +104,7 @@ export function YourStockCard() {
         <KpiTile
           label="Live Enquiries"
           value={kpis.liveEnquiries}
-          href="/leads"
+          href="/sales/leads"
           icon={MessageCircle}
         />
         <KpiTile
@@ -116,7 +116,7 @@ export function YourStockCard() {
         <KpiTile
           label="Live Orders"
           value={kpis.liveOrders}
-          href="/sales"
+          href="/sales/pipeline"
           icon={ShoppingCart}
         />
       </div>

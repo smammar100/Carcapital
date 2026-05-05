@@ -1,149 +1,148 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { DollarSign, Car, UserPlus, Receipt } from "lucide-react";
+import {
+  Car,
+  CheckCircle2,
+  Inbox,
+  ShieldAlert,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { salesService } from "@/lib/services/sales-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import { claimService } from "@/lib/services/claim-service";
 import { leadService } from "@/lib/services/lead-service";
-import { returnService } from "@/lib/services/return-service";
-import type { Lead, SalesDeal, VehicleReturn } from "@/lib/types";
-import { formatCurrency } from "@/lib/utils";
+import type { Lead, Vehicle, WarrantyClaim } from "@/lib/types";
+import { DAYS_IN_STOCK_THRESHOLDS } from "@/lib/constants";
 import { DashboardStatCard } from "./dashboard-stat-card";
 
-interface PeriodStats {
-  revenue: number;
-  carsSold: number;
-  newCustomers: number;
-  refundsValue: number;
-}
-
-function emptyStats(): PeriodStats {
-  return { revenue: 0, carsSold: 0, newCustomers: 0, refundsValue: 0 };
-}
-
-function inMonth(iso: string, year: number, month: number): boolean {
-  const d = new Date(iso);
-  return d.getFullYear() === year && d.getMonth() === month;
-}
-
-function aggregate(
-  year: number,
-  month: number,
-  deals: SalesDeal[],
-  leads: Lead[],
-  returns: VehicleReturn[],
-): PeriodStats {
-  const stats = emptyStats();
-  for (const d of deals) {
-    if (
-      d.stage === "completed_sale" &&
-      d.completionDate &&
-      inMonth(d.completionDate, year, month)
-    ) {
-      stats.revenue += d.agreedPrice ?? 0;
-      stats.carsSold += 1;
-    }
-  }
-  for (const l of leads) {
-    if (inMonth(l.createdAt, year, month)) stats.newCustomers += 1;
-  }
-  for (const r of returns) {
-    if (inMonth(r.returnDate, year, month)) {
-      stats.refundsValue += r.refundAmount ?? 0;
-    }
-  }
-  return stats;
-}
-
-function pct(curr: number, prev: number): number | null {
-  if (prev === 0) {
-    if (curr === 0) return null;
-    return 100;
-  }
-  return ((curr - prev) / prev) * 100;
-}
-
+/**
+ * v4.1 §11.2 Dashboard KPI row — six cards:
+ *  - Cars in Stock
+ *  - Cars in Readiness
+ *  - Vehicles Sold This Month
+ *  - Warranty Open Claims
+ *  - New Leads in 24 Hours
+ *  - Avg Days in Stock (colour-coded: green<30, amber<60, red>=60)
+ */
 export function DashboardKpiRow() {
   const { company } = useAuth();
   const [data, setData] = useState<{
-    deals: SalesDeal[];
+    vehicles: Vehicle[];
+    claims: WarrantyClaim[];
     leads: Lead[];
-    returns: VehicleReturn[];
   } | null>(null);
 
   useEffect(() => {
     if (!company) return;
     void Promise.all([
-      salesService.getAll(company.id),
+      vehicleService.getAll(company.id),
+      claimService.getAll(company.id),
       leadService.getAll(company.id),
-      returnService.getAll(company.id),
-    ]).then(([deals, leads, returns]) => {
-      setData({ deals, leads, returns });
+    ]).then(([vehicles, claims, leads]) => {
+      setData({ vehicles, claims, leads });
     });
   }, [company]);
 
-  const { current, previous } = useMemo(() => {
-    if (!data) return { current: null, previous: null };
-    const now = new Date();
-    const cm = { y: now.getFullYear(), m: now.getMonth() };
-    const prevDate = new Date(cm.y, cm.m - 1, 1);
-    const pm = { y: prevDate.getFullYear(), m: prevDate.getMonth() };
+  const stats = useMemo(() => {
+    if (!data) return null;
+    const now = Date.now();
+    const month = new Date(now).getMonth();
+    const year = new Date(now).getFullYear();
+    const activeVehicles = data.vehicles.filter(
+      (v) => v.status !== "sold" && v.removedFromWebsiteAt === null,
+    );
+    const carsInStock = activeVehicles.length;
+    const carsInReadiness = data.vehicles.filter(
+      (v) => v.status === "ready",
+    ).length;
+    const soldThisMonth = data.vehicles.filter((v) => {
+      if (!v.dateSold) return false;
+      const d = new Date(v.dateSold);
+      return d.getMonth() === month && d.getFullYear() === year;
+    }).length;
+    const openClaims = data.claims.filter(
+      (c) => c.status === "open" || c.status === "under_review",
+    ).length;
+    const cutoff = now - 24 * 60 * 60 * 1000;
+    const newLeads24h = data.leads.filter(
+      (l) => new Date(l.createdAt).getTime() >= cutoff,
+    ).length;
+    const avgDays =
+      activeVehicles.length === 0
+        ? 0
+        : Math.round(
+            activeVehicles.reduce((sum, v) => sum + v.daysInStock, 0) /
+              activeVehicles.length,
+          );
     return {
-      current: aggregate(cm.y, cm.m, data.deals, data.leads, data.returns),
-      previous: aggregate(pm.y, pm.m, data.deals, data.leads, data.returns),
+      carsInStock,
+      carsInReadiness,
+      soldThisMonth,
+      openClaims,
+      newLeads24h,
+      avgDays,
     };
   }, [data]);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       <DashboardStatCard
-        label="Monthly revenue"
-        icon={DollarSign}
-        href="/insights"
-        previous={`${
-          previous ? formatCurrency(previous.revenue) : "—"
-        } previous month`}
-        current={current ? formatCurrency(current.revenue) : null}
-        trendPct={
-          current && previous ? pct(current.revenue, previous.revenue) : null
-        }
-      />
-      <DashboardStatCard
-        label="Cars sold"
+        label="Cars in Stock"
         icon={Car}
-        href="/sales"
-        previous={`${previous?.carsSold ?? "—"} previous month`}
-        current={current ? String(current.carsSold) : null}
-        trendPct={
-          current && previous ? pct(current.carsSold, previous.carsSold) : null
-        }
+        href="/vehicles"
+        previous=""
+        current={stats ? String(stats.carsInStock) : null}
+        trendPct={null}
       />
       <DashboardStatCard
-        label="New customers"
-        icon={UserPlus}
-        href="/leads"
-        previous={`${previous?.newCustomers ?? "—"} previous month`}
-        current={current ? String(current.newCustomers) : null}
-        trendPct={
-          current && previous
-            ? pct(current.newCustomers, previous.newCustomers)
-            : null
-        }
+        label="Cars in Readiness"
+        icon={CheckCircle2}
+        href="/vehicles?status=ready"
+        previous=""
+        current={stats ? String(stats.carsInReadiness) : null}
+        trendPct={null}
       />
       <DashboardStatCard
-        label="Refunds issued"
-        icon={Receipt}
-        href="/admin/returns"
-        previous={`${
-          previous ? formatCurrency(previous.refundsValue) : "—"
-        } previous month`}
-        current={current ? formatCurrency(current.refundsValue) : null}
-        trendPct={
-          current && previous
-            ? pct(current.refundsValue, previous.refundsValue)
-            : null
+        label="Sold This Month"
+        icon={TrendingUp}
+        href="/sales/deals"
+        previous=""
+        current={stats ? String(stats.soldThisMonth) : null}
+        trendPct={null}
+      />
+      <DashboardStatCard
+        label="Warranty Open Claims"
+        icon={ShieldAlert}
+        href="/warranties/claims"
+        previous=""
+        current={stats ? String(stats.openClaims) : null}
+        trendPct={null}
+      />
+      <DashboardStatCard
+        label="New Leads (24h)"
+        icon={Inbox}
+        href="/sales/leads"
+        previous=""
+        current={stats ? String(stats.newLeads24h) : null}
+        trendPct={null}
+      />
+      <DashboardStatCard
+        label="Avg Days in Stock"
+        icon={Sparkles}
+        href="/admin/master-sheet"
+        previous={
+          stats
+            ? stats.avgDays < DAYS_IN_STOCK_THRESHOLDS.green
+              ? "healthy"
+              : stats.avgDays < DAYS_IN_STOCK_THRESHOLDS.amber
+                ? "warning — slowing"
+                : "high — review pricing"
+            : ""
         }
-        invertTrend
+        current={stats ? `${stats.avgDays}d` : null}
+        trendPct={null}
       />
     </div>
   );

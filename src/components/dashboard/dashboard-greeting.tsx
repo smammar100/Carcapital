@@ -61,7 +61,7 @@ export function DashboardGreeting() {
           </Link>
         </Button>
         <Button asChild size="sm">
-          <Link href="/vehicles/new">
+          <Link href="/inventory/add-vehicle">
             <Plus className="mr-1 h-3.5 w-3.5" />
             Add Vehicle
           </Link>

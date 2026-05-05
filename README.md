@@ -1,8 +1,8 @@
 # Car Capital UK
 
-Used-car dealership management platform for **Car Capital UK** and its sister company **Car Giant**. Replaces ~£500/month of disjointed third-party tools (Click Dealer, Spine, Visitor Chat) plus paper job cards and Excel sheets.
+Used-car dealership management platform for **Car Capital UK**. Replaces ~£500/month of disjointed third-party tools (Click Dealer, Spine, Visitor Chat) plus paper job cards and Excel sheets.
 
-This is **v1** — mock data, demo-style login, all 17 modules. The architecture is designed so Supabase can be plugged in later by swapping internals of `src/lib/services/*` — UI never changes.
+This is **v1** — single-tenant, mock data, demo-style login. The architecture is designed so Supabase can be plugged in later by swapping internals of `src/lib/services/*` — UI never changes.
 
 ## Run
 
@@ -17,48 +17,56 @@ pnpm lint     # eslint
 
 There is no password — `/login` is a user picker. Click any tile to sign in.
 
-| User | Company | Role |
-|---|---|---|
-| **Bass Bhai** | Car Capital UK | Owner (can switch companies) |
-| Amjad Bhai | Car Capital UK | Inventory Manager |
-| Raza | Car Capital UK | Driver |
-| Mohsin | Car Capital UK | Driver |
-| Kami | Car Capital UK | Inspector |
-| Sikander | Car Capital UK | Sales |
-| Shan Bhai | Car Capital UK | Prep Lead |
-| Tariq | Car Giant | Admin |
+| User | Role |
+|---|---|
+| **Abbas Bhai** | Owner (super-user) |
+| Amjad Bhai | Inventory Manager |
+| Raza | Driver |
+| Mohsin | Driver |
+| Kami | Inspector |
+| Sikander | Sales |
+| Shan Bhai | Prep Lead |
 
-The owner sees both companies and can switch via the header dropdown. Everyone else is scoped to their `companyId`.
+## Demo flow (v4.1)
 
-## Demo flow
+1. Sign in as **Abbas Bhai** → dashboard shows live KPIs.
+2. **Add Vehicle** (`/inventory/add-vehicle`) — type `YB19 XMD` then tab out → DVLA auto-populates Ford Fiesta data. Stock ID is the next sequential `CC-NNNN`.
+3. Open the new vehicle → click **Open Inspection** → side-panel slides in from the right. Fail 3 items (e.g. "Replace" / "Faulty" / "Active") → **Complete Inspection** → side-panel closes; failed items appear in **Things to Do**.
+4. Mark some todos complete → manually move vehicle to `ready`.
+5. Go to **Work List** (`/advert/work-list`) → **Create Listing** → publish to website.
+6. Create a **Lead** (`/sales/leads`), link it to a stock vehicle, then book an appointment from the lead drill modal.
+7. Open the **Sales Pipeline** (`/sales/pipeline`) → drag the deal to `deposit_taken` → click **Generate Invoice** → deep-links to `/sales/invoice-generation?vehicleId=…` with the vehicle, buyer, and £500 deposit pre-filled.
+8. Add a **Warranty** add-on (£350) and a **Polish** add-on (£40), choose **Margin Scheme**, enter finance details → **Generate PDF** → invoice PDF opens with grouped line items + structured payment block (deposit / finance / balance).
+9. **Email** + **Mark Paid** from `/admin/invoicing`.
+10. Create a **Warranty** for the sold vehicle → **Generate Certificate** PDF. Open a claim → it surfaces under `/warranties/claims`.
+11. **Process Return** (`/admin/vehicle-returns`) with `g_trader` resolution → vehicle status flips to `returned`.
+12. **Master Calendar** (`/admin/master-calendar`) shows appointments + workshop + maintenance in one view. **Activity Log** (`/admin/activity`) lists every step above.
 
-1. Sign in as **Bass Bhai** → dashboard shows live KPIs.
-2. **Add Vehicle** (`/vehicles/new`) — type `YB19 XMD` then tab out → DVLA auto-populates Ford Fiesta data.
-3. Open the new vehicle → **Inspection** tab → **Start Inspection** → fail 3 items (e.g. select "Replace" / "Faulty" / "Active" statuses).
-4. Complete inspection — failed items become **Things to Do**.
-5. Mark some todos complete → manually move vehicle to `ready`.
-6. Go to **Work List** → **Create Listing** → publish to website.
-7. Create a **Lead**, link it to a stock vehicle, then book an appointment from the lead drill modal.
-8. Open the **Sales Pipeline** → drag the deal to `deposit_taken` → **Generate Invoice** CTA appears.
-9. Open **Invoicing** → **Email** the invoice → **Print PDF**.
-10. Create a **Warranty** for the sold vehicle → **Generate Certificate** PDF.
-11. **Process Return** with `g_trader` resolution → vehicle status flips to `returned`.
-12. **Activity Log** shows every step.
+### Try the capability grid
+
+In `/admin/users-and-permissions`, switch the user picker to **Sikander**, untick `Send Invoice`, click **Save permissions**. Sign out, sign in as Sikander, navigate to `/admin/invoicing` — the **Email** button is disabled.
 
 ## Architecture
 
 - **Next.js 16** (App Router, Turbopack) + **TypeScript** strict + **Tailwind v4** + **shadcn/ui**.
 - **Service layer is the only data access point.** UI calls `src/lib/services/*-service.ts`; services read/write `src/lib/mock-data.ts`. Every service function has a `// TODO: Supabase` comment showing the future query.
-- **Multi-tenancy** via `companyId` on every entity. Owner role can override company scope.
+- **Single-tenant** in v1 (Car Capital UK only). Entities still carry a `companyId` for forward-compat with the Supabase migration.
 - **Forms** use `react-hook-form` + `zod` resolver everywhere.
 - **PDF generation** via `@react-pdf/renderer`, dynamically imported so the runtime never lands in the initial client bundle.
 - **Calendar views** use `react-big-calendar` with the `date-fns` localizer.
 - **Charts** use `recharts`.
 - **Activity log** is written by every mutating service so the audit trail is part of the feature, not an add-on.
 
-## Modules
+## Modules (v4.1)
 
-Inventory · Maintenance (pipeline + calendar + inspection queue) · Workshop · Advert (Work List + Photo Processing) · Leads · Appointments · Sales Pipeline · Master Calendar · Warranties · Invoicing · Vehicle Returns · Vendors · Users & Authority Matrix · Master Sheet · Settings · Activity Log · Insights (preview) · Messages (placeholder).
+Sidebar grouping per `CLAUDE_CODE_PROMPT_v4_1.md` §10:
+
+- **Admin** — Master Sheet, Master Calendar, Users & Permissions, Vehicle Returns, Invoicing, Vendors, Activity Log, Settings
+- **Inventory** — All Vehicles, Add Vehicle
+- **Maintenance** — Pipeline, Calendar, Inspection Queue, Workshop Jobs
+- **Advert** — Work List, Photo Processing, Listings, Performance
+- **Sales** — Leads, Appointments, Pipeline, Deals, Invoice Generation
+- **Warranties** — Active, Open Claims
 
 ## Out of scope (v2)
 

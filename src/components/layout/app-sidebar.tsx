@@ -1,40 +1,25 @@
 "use client";
 
-import Link from "next/link";
-import { usePathname } from "next/navigation";
 import * as React from "react";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  ChevronDown,
+  ChevronsLeft,
+  ChevronsRight,
+  Info,
+  LogOut,
+  Settings as SettingsIcon,
+} from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarRail,
-} from "@/components/ui/sidebar";
-import { ChevronRight, ChevronsUpDown, LogOut } from "lucide-react";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { useAuth } from "@/contexts/auth-context";
-import { getInitials } from "@/lib/utils";
-import { SIDEBAR_GROUPS } from "./sidebar-config";
-import { useRouter } from "next/navigation";
+import { useSidebarState } from "@/contexts/sidebar-state-context";
+import { SIDEBAR_GROUPS, type SidebarItem } from "./sidebar-config";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const COLLAPSED_KEY = "cc:sidebar:collapsed";
@@ -57,18 +42,21 @@ function saveCollapsed(s: Set<string>): void {
   window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...s]));
 }
 
-export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
+export function AppSidebar() {
   const pathname = usePathname();
-  const { user, company, signOut } = useAuth();
   const router = useRouter();
-  const [collapsed, setCollapsed] = React.useState<Set<string>>(() => new Set());
+  const { company, signOut } = useAuth();
+  const { collapsed: railCollapsed, toggle: toggleRail } = useSidebarState();
+  const [groupCollapsed, setGroupCollapsed] = React.useState<Set<string>>(
+    () => new Set(),
+  );
 
   React.useEffect(() => {
-    setCollapsed(loadCollapsed());
+    setGroupCollapsed(loadCollapsed());
   }, []);
 
   function toggleGroup(label: string) {
-    setCollapsed((prev) => {
+    setGroupCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
@@ -82,10 +70,6 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  function groupContainsActive(items: { href: string }[]): boolean {
-    return items.some((i) => isActive(i.href));
-  }
-
   function handleSignOut() {
     signOut();
     toast.success("Signed out");
@@ -93,145 +77,312 @@ export function AppSidebar(props: React.ComponentProps<typeof Sidebar>) {
   }
 
   return (
-    <Sidebar {...props}>
-      <SidebarHeader>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <SidebarMenuButton size="lg" asChild>
-              <Link href="/dashboard">
-                <div className="flex aspect-square size-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-xs font-semibold">
-                  CC
-                </div>
-                <div className="flex flex-col gap-0.5 leading-none">
-                  <span className="font-medium">Car Capital UK</span>
-                  <span className="text-xs text-muted-foreground">
-                    {company?.name ?? "—"}
-                  </span>
-                </div>
-              </Link>
-            </SidebarMenuButton>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarHeader>
-      <SidebarContent className="overflow-hidden">
-        <ScrollArea className="min-h-0 flex-1">
-          {SIDEBAR_GROUPS.map((group, gi) => {
-            const items = (
-              <SidebarMenu>
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const active = isActive(item.href);
-                  return (
-                    <SidebarMenuItem key={item.href}>
-                      <SidebarMenuButton
-                        asChild
-                        isActive={active}
-                        tooltip={item.label}
-                      >
-                        <Link href={item.href}>
-                          <Icon className="size-4" />
-                          <span>{item.label}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  );
-                })}
-              </SidebarMenu>
-            );
+    <div
+      data-collapsed={railCollapsed ? "true" : "false"}
+      className="group/sidebar flex h-full flex-col"
+      style={{
+        // Token-driven internal spacing so the layout follows the design rhythm.
+        paddingTop: "var(--space-6)",
+        paddingBottom: "var(--space-6)",
+      }}
+    >
+      {/* Brand row */}
+      <div
+        className="flex items-center"
+        style={{
+          paddingLeft: "var(--space-4)",
+          paddingRight: "var(--space-4)",
+          gap: "var(--space-3)",
+        }}
+      >
+        <Link
+          href="/dashboard"
+          className="flex items-center"
+          style={{ gap: "var(--space-3)" }}
+        >
+          <div
+            className="grid place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground"
+            style={{ height: 32, width: 32 }}
+          >
+            CC
+          </div>
+          {!railCollapsed && (
+            <div className="flex flex-col leading-tight">
+              <span className="text-sm font-medium">Car Capital UK</span>
+              <span className="text-[11px] text-muted-foreground">
+                {company?.name ?? "—"}
+              </span>
+            </div>
+          )}
+        </Link>
+      </div>
 
-            // Unlabeled groups (Dashboard / Warranties / etc.) render as-is —
-            // they're single-link shortcuts, no collapse needed.
-            if (!group.label) {
-              return (
-                <SidebarGroup key={gi}>
-                  <SidebarGroupContent>{items}</SidebarGroupContent>
-                </SidebarGroup>
-              );
-            }
+      {/* Brand → first nav-item gap */}
+      <div style={{ height: "var(--space-8)" }} />
 
-            // Labeled groups: clickable header with chevron + collapse. If the
-            // group contains the active route, force it open so the user can
-            // see where they are.
-            const hasActive = groupContainsActive(group.items);
-            const isCollapsed = collapsed.has(group.label) && !hasActive;
+      {/* Scrollable nav region */}
+      <nav
+        className="min-h-0 flex-1 overflow-y-auto"
+        style={{
+          paddingLeft: "var(--space-3)",
+          paddingRight: "var(--space-3)",
+        }}
+      >
+        {SIDEBAR_GROUPS.map((group, gi) => {
+          const items = group.items;
+
+          // Single-item groups (Dashboard) render as a flat row.
+          if (!group.label) {
             return (
-              <Collapsible
+              <div
                 key={gi}
-                open={!isCollapsed}
-                onOpenChange={() => {
-                  if (group.label) toggleGroup(group.label);
-                }}
-                asChild
+                style={{ marginBottom: "var(--space-4)" }}
+                className="flex flex-col"
               >
-                <SidebarGroup>
-                  <CollapsibleTrigger asChild>
-                    <button
-                      type="button"
-                      className="group/collapsible flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs font-medium text-sidebar-foreground/70 outline-none transition-colors hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring"
-                      aria-label={`Toggle ${group.label} group`}
-                    >
-                      <ChevronRight className="size-3 shrink-0 transition-transform duration-150 group-data-[state=open]/collapsible:rotate-90" />
-                      <span className="truncate">{group.label}</span>
-                    </button>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarGroupContent>{items}</SidebarGroupContent>
-                  </CollapsibleContent>
-                </SidebarGroup>
-              </Collapsible>
+                {items.map((item) => (
+                  <NavRow
+                    key={item.href}
+                    item={item}
+                    active={isActive(item.href)}
+                    collapsed={railCollapsed}
+                  />
+                ))}
+              </div>
             );
-          })}
-        </ScrollArea>
-      </SidebarContent>
-      <SidebarFooter>
-        <SidebarMenu>
-          <SidebarMenuItem>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <SidebarMenuButton
-                  size="lg"
-                  className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
-                >
-                  <Avatar className="size-8 rounded-md">
-                    <AvatarFallback className="rounded-md text-[11px]">
-                      {user ? getInitials(user.name) : "—"}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="grid flex-1 text-left text-sm leading-tight">
-                    <span className="truncate font-medium">
-                      {user?.name ?? ""}
-                    </span>
-                    <span className="truncate text-xs capitalize text-muted-foreground">
-                      {user?.role.replace("_", " ") ?? ""}
-                    </span>
-                  </div>
-                  <ChevronsUpDown className="ml-auto size-4" />
-                </SidebarMenuButton>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                className="w-(--radix-dropdown-menu-trigger-width) min-w-56 rounded-lg"
-                side="top"
-                align="end"
+          }
+
+          // Labeled groups: header + collapsible item list.
+          const hasActive = items.some((i) => isActive(i.href));
+          const isOpen = !groupCollapsed.has(group.label) || hasActive;
+
+          if (railCollapsed) {
+            // In rail mode each group becomes a hover-popover stack of icons.
+            return (
+              <div
+                key={gi}
+                style={{ marginBottom: "var(--space-4)" }}
+                className="flex flex-col"
               >
-                <DropdownMenuLabel>
-                  <div className="flex flex-col">
-                    <span className="text-sm">{user?.name}</span>
-                    <span className="text-xs font-normal text-muted-foreground">
-                      {user?.email}
-                    </span>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={handleSignOut}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  Sign out
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </SidebarMenuItem>
-        </SidebarMenu>
-      </SidebarFooter>
-      <SidebarRail />
-    </Sidebar>
+                {items.map((item) => (
+                  <NavRow
+                    key={item.href}
+                    item={item}
+                    active={isActive(item.href)}
+                    collapsed
+                  />
+                ))}
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={gi}
+              style={{ marginBottom: "var(--space-4)" }}
+              className="flex flex-col"
+            >
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label!)}
+                className="flex w-full items-center justify-between rounded-md text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+                style={{
+                  paddingLeft: "var(--space-3)",
+                  paddingRight: "var(--space-3)",
+                  paddingTop: "var(--space-2)",
+                  paddingBottom: "var(--space-2)",
+                }}
+                aria-label={`Toggle ${group.label} group`}
+                aria-expanded={isOpen}
+              >
+                <span>{group.label}</span>
+                <ChevronDown
+                  className={cn(
+                    "h-3 w-3 transition-transform",
+                    !isOpen && "-rotate-90",
+                  )}
+                />
+              </button>
+              {isOpen && (
+                <div
+                  className="flex flex-col"
+                  style={{ marginTop: "var(--space-1)" }}
+                >
+                  {items.map((item) => (
+                    <NavRow
+                      key={item.href}
+                      item={item}
+                      active={isActive(item.href)}
+                      collapsed={false}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Footer — Settings / Info / Sign out / Collapse */}
+      <div
+        className="flex flex-col"
+        style={{
+          paddingLeft: "var(--space-3)",
+          paddingRight: "var(--space-3)",
+          gap: "var(--space-1)",
+          marginTop: "var(--space-5)",
+        }}
+      >
+        <FooterRow
+          icon={SettingsIcon}
+          label="Settings"
+          href="/admin/settings"
+          collapsed={railCollapsed}
+          active={isActive("/admin/settings")}
+        />
+        <FooterRow
+          icon={Info}
+          label="Info"
+          collapsed={railCollapsed}
+          onClick={() =>
+            toast.info("Car Capital UK v4.1 — single-tenant demo build.")
+          }
+        />
+        <FooterRow
+          icon={LogOut}
+          label="Sign out"
+          collapsed={railCollapsed}
+          onClick={handleSignOut}
+        />
+        <button
+          type="button"
+          onClick={toggleRail}
+          className={cn(
+            "mt-1 flex items-center rounded-md text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground",
+            railCollapsed ? "justify-center" : "justify-start",
+          )}
+          style={{
+            paddingLeft: "var(--space-3)",
+            paddingRight: "var(--space-3)",
+            paddingTop: "var(--space-2)",
+            paddingBottom: "var(--space-2)",
+            gap: "var(--space-3)",
+          }}
+          aria-label={railCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {railCollapsed ? (
+            <ChevronsRight className="h-4 w-4" />
+          ) : (
+            <>
+              <ChevronsLeft className="h-4 w-4" />
+              <span>Collapse</span>
+            </>
+          )}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+interface NavRowProps {
+  item: SidebarItem;
+  active: boolean;
+  collapsed: boolean;
+}
+
+function NavRow({ item, active, collapsed }: NavRowProps) {
+  const Icon = item.icon;
+  const className = cn(
+    "group/row relative flex items-center rounded-md text-sm transition-colors",
+    active
+      ? "bg-accent font-medium text-foreground"
+      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+    collapsed ? "justify-center" : "",
+  );
+  const style: React.CSSProperties = {
+    paddingLeft: "var(--space-3)",
+    paddingRight: "var(--space-3)",
+    paddingTop: "var(--space-2)",
+    paddingBottom: "var(--space-2)",
+    gap: "var(--space-3)",
+  };
+
+  const inner = (
+    <Link href={item.href} className={className} style={style}>
+      {active && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r bg-primary"
+        />
+      )}
+      <Icon className="h-4 w-4 shrink-0" />
+      {!collapsed && <span className="truncate">{item.label}</span>}
+    </Link>
+  );
+
+  if (!collapsed) return inner;
+
+  // Rail mode — wrap in popover so hovering reveals the label.
+  return (
+    <Popover>
+      <PopoverTrigger asChild>{inner}</PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="center"
+        className="w-auto p-2 text-xs"
+      >
+        {item.label}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+interface FooterRowProps {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  href?: string;
+  collapsed: boolean;
+  active?: boolean;
+  onClick?: () => void;
+}
+
+function FooterRow({
+  icon: Icon,
+  label,
+  href,
+  collapsed,
+  active,
+  onClick,
+}: FooterRowProps) {
+  const className = cn(
+    "flex items-center rounded-md text-sm transition-colors",
+    active
+      ? "bg-accent font-medium text-foreground"
+      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+    collapsed ? "justify-center" : "",
+  );
+  const style: React.CSSProperties = {
+    paddingLeft: "var(--space-3)",
+    paddingRight: "var(--space-3)",
+    paddingTop: "var(--space-2)",
+    paddingBottom: "var(--space-2)",
+    gap: "var(--space-3)",
+  };
+  const content = (
+    <>
+      <Icon className="h-4 w-4 shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </>
+  );
+  if (href) {
+    return (
+      <Link href={href} className={className} style={style}>
+        {content}
+      </Link>
+    );
+  }
+  return (
+    <button type="button" onClick={onClick} className={className} style={style}>
+      {content}
+    </button>
   );
 }

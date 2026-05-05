@@ -475,7 +475,11 @@ export default function LeadsPage() {
                   onSubmit={appt.handleSubmit(onBookAppt)}
                   className="grid gap-3 border-t pt-3"
                 >
-                  <h4 className="text-sm font-semibold">Book Appointment</h4>
+                  <h4 className="text-sm font-semibold">Schedule Test Drive</h4>
+                  <p className="-mt-2 text-xs text-muted-foreground">
+                    Books a test-drive appointment + adds the event to the
+                    Master Calendar (v4.1 §11.13).
+                  </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
                       <Label>Date</Label>

@@ -4,6 +4,7 @@ import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
 import { todoService } from "./todo-service";
+import { maintenanceService } from "./maintenance-service";
 
 const inspections: InspectionCheck[] = [];
 
@@ -95,38 +96,66 @@ export const inspectionService = {
   },
 
   async complete(vehicleId: UUID, actorId: UUID): Promise<{ flagged: number }> {
-    // TODO: Supabase: bulk-create todos for failing items + update vehicle status
+    // v4.1 §11.5 / Gap 4 — auto-create todos + workshop jobs for failing items;
+    // status transitions per TC-P2-002 (all-pass → ready) / TC-P2-003 (any
+    // failure → being_prepared until jobs done).
+    // TODO: Supabase: bulk-create todos + workshop jobs + update vehicle status in tx
     await delay();
     const checks = inspections.filter((c) => c.vehicleId === vehicleId);
     const failing = checks.filter((c) =>
       NEGATIVE_INSPECTION_STATUSES.has(c.status),
     );
+    const v = await vehicleService.getById(vehicleId);
+    if (!v) throw new Error("Vehicle not found");
+
     for (const check of failing) {
+      const description = check.actionRequired
+        ? `${check.checkItem}: ${check.actionRequired}`
+        : `${check.checkItem} — needs attention (${check.status})`;
+      // Things to Do entry — visible on vehicle's Things to Do tab
       await todoService.add({
         vehicleId,
-        description: check.actionRequired
-          ? `${check.checkItem}: ${check.actionRequired}`
-          : `${check.checkItem} — needs attention (${check.status})`,
+        description,
         vendorId: null,
         cost: null,
         source: "inspection",
         createdBy: actorId,
       });
+      // Corresponding Workshop job — visible on /maintenance/workshop
+      await maintenanceService.create(
+        {
+          companyId: v.companyId,
+          vehicleId,
+          description,
+          assignedTo: null,
+          vendorId: null,
+          estimatedCost: null,
+          estimatedDurationHours: null,
+          startDate: null,
+          dueDate: null,
+          notes: `Auto-created from 20-point inspection (item #${check.checkNumber})`,
+        },
+        actorId,
+      );
     }
-    const v = await vehicleService.getById(vehicleId);
-    if (v && v.status !== "being_prepared") {
-      await vehicleService.changeStatus(vehicleId, "being_prepared", actorId);
+
+    // Status transition (TC-P2-002 / TC-P2-003)
+    const targetStatus = failing.length > 0 ? "being_prepared" : "ready";
+    if (v.status !== targetStatus) {
+      await vehicleService.changeStatus(vehicleId, targetStatus, actorId);
     }
-    if (v) {
-      await activityService.log({
-        companyId: v.companyId,
-        userId: actorId,
-        vehicleId,
-        actionType: "inspection_completed",
-        description: `Inspection completed for ${v.registration} — ${failing.length} items need attention`,
-        metadata: { flagged: failing.length },
-      });
-    }
+
+    await activityService.log({
+      companyId: v.companyId,
+      userId: actorId,
+      vehicleId,
+      actionType: "inspection_completed",
+      description:
+        failing.length > 0
+          ? `Inspection completed for ${v.registration} — ${failing.length} items need attention`
+          : `Inspection completed for ${v.registration} — all clear`,
+      metadata: { flagged: failing.length },
+    });
     return { flagged: failing.length };
   },
 };

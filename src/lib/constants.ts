@@ -16,6 +16,8 @@ export const VEHICLE_STATUSES: {
   { value: "received", label: "Received", color: "blue" },
   { value: "inspection_pending", label: "Inspection Pending", color: "yellow" },
   { value: "being_prepared", label: "Being Prepared", color: "orange" },
+  { value: "photos_pending", label: "Photos Pending", color: "yellow" },
+  { value: "photos_ready", label: "Photos Ready", color: "green" },
   { value: "ready", label: "Ready", color: "green" },
   { value: "listed", label: "Listed", color: "purple" },
   { value: "reserved", label: "Reserved", color: "pink" },
@@ -277,5 +279,4 @@ export const AUTHORITY_MATRIX: {
     roles: { owner: true, admin: true, inventory_manager: true },
   },
   { action: "Manage Users", roles: { owner: true, admin: true } },
-  { action: "Switch Companies", roles: { owner: true } },
 ];

@@ -331,6 +331,24 @@
   --sidebar-accent-foreground: #171717;
   --sidebar-border: rgba(11, 11, 11, 0.10);
   --sidebar-ring: rgba(11, 11, 11, 0.20);
+
+  /* Layout spacing scale — matches the reference design annotations
+     (4 / 8 / 12 / 16 / 20 / 24 / 32) and Tailwind's default spacing
+     scale (1 = 4px, 2 = 8px, 3 = 12px, 4 = 16px, 5 = 20px, 6 = 24px,
+     8 = 32px). Use these for layout chrome only — page-level utilities
+     can keep using plain Tailwind. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Dashboard shell dimensions (Phase 2 — 2x2 grid). */
+  --shell-sidebar-w: 260px;
+  --shell-sidebar-collapsed-w: 64px;
+  --shell-header-h: 56px;
 }
 
 .dark {

@@ -1,4 +1,4 @@
-import { mockMaintenanceJobs, mockVehicles } from "@/lib/mock-data";
+import { mockCompanies, mockMaintenanceJobs, mockVehicles } from "@/lib/mock-data";
 import type { UUID, Vehicle, VehicleStatus } from "@/lib/types";
 import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
@@ -167,6 +167,29 @@ export const vehicleService = {
     return mockVehicles[idx];
   },
 
+  /**
+   * v4.1 Gap 1 — sold vehicles stay on Work List until explicitly removed.
+   */
+  async removeFromWebsite(id: UUID, actorId: UUID): Promise<Vehicle> {
+    await delay();
+    const idx = mockVehicles.findIndex((v) => v.id === id);
+    if (idx === -1) throw new Error("Vehicle not found");
+    mockVehicles[idx] = {
+      ...mockVehicles[idx],
+      removedFromWebsiteAt: nowIso(),
+      updatedAt: nowIso(),
+    };
+    await activityService.log({
+      companyId: mockVehicles[idx].companyId,
+      userId: actorId,
+      vehicleId: id,
+      actionType: "vehicle_status_changed",
+      description: `${mockVehicles[idx].registration} removed from website (still on Master Sheet)`,
+      metadata: { event: "removed_from_website" },
+    });
+    return mockVehicles[idx];
+  },
+
   async setHeroImageUrl(id: UUID, url: string): Promise<void> {
     // TODO: Supabase: update vehicles set hero_image_url = $1 where id = $2
     const idx = mockVehicles.findIndex((v) => v.id === id);
@@ -175,9 +198,22 @@ export const vehicleService = {
   },
 };
 
+/**
+ * Stock-ID format: `{prefix}-{NNNN}` (e.g. `CC-0016`).
+ * Simple monotonic counter on the Company record (Bass Bhai feedback v4.1 —
+ * no source tags, no import differentiation).
+ *
+ * TODO (Supabase): replace with an atomic RPC like
+ *   `select next_stock_seq($1)` returning the next sequence value, so
+ *   concurrent inserts cannot collide.
+ */
 function generateStockId(companyId: UUID): string {
-  const prefix = companyId === "company-1" ? "CC" : "CG";
-  const count =
-    mockVehicles.filter((v) => v.companyId === companyId).length + 1;
-  return `${prefix}-${String(count).padStart(4, "0")}`;
+  const idx = mockCompanies.findIndex((c) => c.id === companyId);
+  if (idx === -1) throw new Error(`Company ${companyId} not found`);
+  const company = mockCompanies[idx];
+  const seq = company.nextStockSeq;
+  const stockId = `${company.stockIdPrefix}-${String(seq).padStart(4, "0")}`;
+  // Mutate in-place — same pattern every other mock service uses.
+  mockCompanies[idx] = { ...company, nextStockSeq: seq + 1 };
+  return stockId;
 }

@@ -16,10 +16,12 @@ import {
   Store,
   Users,
   History,
-  MessageSquare,
   BarChart3,
   FileSpreadsheet,
   Undo2,
+  Briefcase,
+  Handshake,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 
@@ -34,6 +36,11 @@ export interface SidebarGroup {
   items: SidebarItem[];
 }
 
+/**
+ * v4.1 sidebar — single-tenant Car Capital UK.
+ * Order locked per CLAUDE_CODE_PROMPT_v4_1.md §10:
+ * Dashboard → ADMIN → INVENTORY → MAINTENANCE → ADVERT → SALES → WARRANTIES.
+ */
 export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     label: null,
@@ -43,9 +50,12 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     label: "Administrative",
     items: [
       { label: "Master Sheet", href: "/admin/master-sheet", icon: FileSpreadsheet },
-      { label: "Users & Access", href: "/admin/users", icon: Users },
-      { label: "Vehicle Returns", href: "/admin/returns", icon: Undo2 },
+      { label: "Master Calendar", href: "/admin/master-calendar", icon: CalendarIcon },
+      { label: "Users & Permissions", href: "/admin/users-and-permissions", icon: Users },
+      { label: "Vehicle Returns", href: "/admin/vehicle-returns", icon: Undo2 },
       { label: "Invoicing", href: "/admin/invoicing", icon: Receipt },
+      { label: "Vendors", href: "/admin/vendors", icon: Store },
+      { label: "Activity Log", href: "/admin/activity", icon: History },
       { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },
@@ -53,7 +63,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     label: "Inventory",
     items: [
       { label: "All Vehicles", href: "/vehicles", icon: Car },
-      { label: "Add Vehicle", href: "/vehicles/new", icon: Plus },
+      { label: "Add Vehicle", href: "/inventory/add-vehicle", icon: Plus },
     ],
   },
   {
@@ -61,31 +71,36 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     items: [
       { label: "Pipeline", href: "/maintenance", icon: Wrench },
       { label: "Calendar", href: "/maintenance/calendar", icon: CalendarIcon },
-      { label: "Inspection", href: "/maintenance/inspection", icon: ClipboardCheck },
+      { label: "Inspection Queue", href: "/maintenance/inspection", icon: ClipboardCheck },
+      { label: "Workshop Jobs", href: "/maintenance/workshop", icon: Briefcase },
     ],
   },
   {
     label: "Advert",
     items: [
-      { label: "Work List", href: "/listings", icon: Megaphone },
-      { label: "Photo Processing", href: "/listings/photos", icon: ImageIcon },
+      { label: "Work List", href: "/advert/work-list", icon: Megaphone },
+      { label: "Photo Processing", href: "/advert/photo-processing", icon: ImageIcon },
+      { label: "Listings", href: "/advert/listings", icon: Megaphone },
+      { label: "Performance", href: "/advert/performance", icon: BarChart3 },
     ],
   },
   {
     label: "Sales",
     items: [
-      { label: "Leads", href: "/leads", icon: UserPlus },
-      { label: "Appointments", href: "/appointments", icon: CalendarCheck },
-      { label: "Pipeline / Deals", href: "/sales", icon: TrendingUp },
-      { label: "Master Calendar", href: "/sales/master-calendar", icon: CalendarIcon },
+      { label: "Leads", href: "/sales/leads", icon: UserPlus },
+      { label: "Appointments", href: "/sales/appointments", icon: CalendarCheck },
+      { label: "Pipeline", href: "/sales/pipeline", icon: TrendingUp },
+      { label: "Deals", href: "/sales/deals", icon: Handshake },
+      { label: "Invoice Generation", href: "/sales/invoice-generation", icon: Receipt },
     ],
   },
-  { label: null, items: [{ label: "Warranties", href: "/warranties", icon: Shield }] },
-  { label: null, items: [{ label: "Workshop", href: "/workshop", icon: Wrench }] },
-  { label: null, items: [{ label: "Insights", href: "/insights", icon: BarChart3 }] },
-  { label: null, items: [{ label: "Activity Log", href: "/activity", icon: History }] },
-  { label: null, items: [{ label: "Vendors", href: "/vendors", icon: Store }] },
-  { label: null, items: [{ label: "Messages", href: "/messages", icon: MessageSquare }] },
+  {
+    label: "Warranties",
+    items: [
+      { label: "Active", href: "/warranties", icon: Shield },
+      { label: "Open Claims", href: "/warranties/claims", icon: ShieldAlert },
+    ],
+  },
 ];
 
 /** Used by AppHeader to derive the page title from the current pathname. */

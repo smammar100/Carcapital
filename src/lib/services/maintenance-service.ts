@@ -1,4 +1,4 @@
-import { mockMaintenanceJobs } from "@/lib/mock-data";
+import { mockMaintenanceJobNotes, mockMaintenanceJobs } from "@/lib/mock-data";
 import type { MaintenanceJob, MaintenanceStatus, UUID } from "@/lib/types";
 import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
@@ -84,8 +84,8 @@ export const maintenanceService = {
     await delay();
     const idx = mockMaintenanceJobs.findIndex((j) => j.id === id);
     if (idx === -1) throw new Error("Job not found");
-    const becameCompleted =
-      status === "completed" && mockMaintenanceJobs[idx].status !== "completed";
+    const previousStatus = mockMaintenanceJobs[idx].status;
+    const becameCompleted = status === "completed" && previousStatus !== "completed";
     mockMaintenanceJobs[idx] = {
       ...mockMaintenanceJobs[idx],
       status,
@@ -93,6 +93,17 @@ export const maintenanceService = {
         ? nowIso().slice(0, 10)
         : mockMaintenanceJobs[idx].completedDate,
     };
+    // v4.1 §11.7 Gap 5 — auto-create a status_update note on every status change.
+    if (previousStatus !== status) {
+      mockMaintenanceJobNotes.push({
+        id: newId("mnote"),
+        jobId: id,
+        userId: actorId,
+        noteType: "status_update",
+        content: `Status changed: ${previousStatus} → ${status}`,
+        createdAt: nowIso(),
+      });
+    }
     if (becameCompleted) {
       const v = await vehicleService.getById(
         mockMaintenanceJobs[idx].vehicleId,
@@ -106,6 +117,17 @@ export const maintenanceService = {
           description: `Maintenance completed for ${v.registration}`,
           metadata: { jobId: id },
         });
+        // v4.1 TC-P2-007: when the last open maintenance job for a vehicle
+        // completes, the vehicle auto-transitions to photos_pending so the
+        // photo-processing step can pick it up.
+        const open = mockMaintenanceJobs.filter(
+          (j) =>
+            j.vehicleId === v.id &&
+            (j.status === "pending" || j.status === "in_progress"),
+        );
+        if (open.length === 0 && v.status === "being_prepared") {
+          await vehicleService.changeStatus(v.id, "photos_pending", actorId);
+        }
       }
     }
     return mockMaintenanceJobs[idx];

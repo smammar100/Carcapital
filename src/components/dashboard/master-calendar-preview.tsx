@@ -108,7 +108,7 @@ export function MasterCalendarPreview() {
         kind: "appointment",
         title: `${a.customerName} re: ${vehicleLabel(a.vehicleId)}`,
         time: a.time,
-        href: `/appointments`,
+        href: `/sales/appointments`,
       }));
     const dayWs = workshop
       .filter((j) => j.scheduledDate === date)
@@ -144,7 +144,7 @@ export function MasterCalendarPreview() {
           <h2 className="text-sm font-semibold">Master Calendar</h2>
         </div>
         <Button asChild variant="ghost" size="sm" className="gap-1">
-          <Link href="/sales/master-calendar">
+          <Link href="/admin/master-calendar">
             Open Full Calendar <ArrowRight className="h-3 w-3" />
           </Link>
         </Button>
@@ -213,7 +213,7 @@ export function MasterCalendarPreview() {
             <div className="rounded-md border border-dashed p-3 text-xs text-muted-foreground">
               Nothing scheduled today.{" "}
               <Link
-                href="/sales/master-calendar"
+                href="/admin/master-calendar"
                 className="text-primary underline-offset-2 hover:underline"
               >
                 Open the full calendar

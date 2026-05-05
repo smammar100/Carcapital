@@ -73,7 +73,7 @@ export default function MasterCalendarPage() {
           end,
           resource: {
             kind: "appointment",
-            href: v ? `/vehicles/${v.id}` : "/appointments",
+            href: v ? `/vehicles/${v.id}` : "/sales/appointments",
             color: COLORS.appointment,
           },
         });

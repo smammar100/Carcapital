@@ -44,9 +44,11 @@ import { inspectionService } from "@/lib/services/inspection-service";
 
 interface Props {
   vehicle: Vehicle;
+  /** v4.1 §11.5 — opens the inspection side-panel from the parent page. */
+  onOpenInspection?: () => void;
 }
 
-export function VehicleDetailTabs({ vehicle }: Props) {
+export function VehicleDetailTabs({ vehicle, onOpenInspection }: Props) {
   return (
     <Tabs defaultValue="overview">
       <TabsList className="w-full overflow-x-auto justify-start">
@@ -72,7 +74,7 @@ export function VehicleDetailTabs({ vehicle }: Props) {
         </Card>
       </TabsContent>
       <TabsContent value="inspection" className="mt-4">
-        <InspectionTab vehicle={vehicle} />
+        <InspectionTab vehicle={vehicle} onOpenInspection={onOpenInspection} />
       </TabsContent>
       <TabsContent value="photos" className="mt-4">
         <PhotosTab vehicle={vehicle} />
@@ -212,7 +214,13 @@ function FinancialsTab({ vehicle }: { vehicle: Vehicle }) {
   );
 }
 
-function InspectionTab({ vehicle }: { vehicle: Vehicle }) {
+function InspectionTab({
+  vehicle,
+  onOpenInspection,
+}: {
+  vehicle: Vehicle;
+  onOpenInspection?: () => void;
+}) {
   const [checks, setChecks] = useState<InspectionCheck[] | null>(null);
   useEffect(() => {
     void inspectionService.getForVehicle(vehicle.id).then(setChecks);
@@ -232,11 +240,9 @@ function InspectionTab({ vehicle }: { vehicle: Vehicle }) {
         title="No inspection yet"
         description="Run a 20-point inspection to surface issues and auto-generate Things to Do."
         action={
-          <Button asChild>
-            <Link href={`/vehicles/${vehicle.id}/inspection`}>
-              Start Inspection
-            </Link>
-          </Button>
+          onOpenInspection ? (
+            <Button onClick={onOpenInspection}>Start Inspection</Button>
+          ) : null
         }
       />
     );
@@ -245,9 +251,11 @@ function InspectionTab({ vehicle }: { vehicle: Vehicle }) {
     <Card className="p-5">
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Latest inspection</h3>
-        <Button asChild size="sm" variant="outline">
-          <Link href={`/vehicles/${vehicle.id}/inspection`}>Continue</Link>
-        </Button>
+        {onOpenInspection && (
+          <Button size="sm" variant="outline" onClick={onOpenInspection}>
+            Continue
+          </Button>
+        )}
       </div>
       <div className="mt-4 divide-y rounded-md border">
         {checks.map((c) => (
@@ -358,7 +366,7 @@ function ListingTab({ vehicle }: { vehicle: Vehicle }) {
         action={
           vehicle.status === "ready" ? (
             <Button asChild size="sm">
-              <Link href="/listings">Go to Work List</Link>
+              <Link href="/advert/work-list">Go to Work List</Link>
             </Button>
           ) : null
         }

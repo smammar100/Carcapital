@@ -59,7 +59,6 @@ export const APPOINTMENT_OUTCOME_TONE: Record<AppointmentOutcome, string> = {
 export const WARRANTY_STATUS_TONE: Record<WarrantyStatus, string> = {
   active: "green",
   expired: "gray",
-  claimed: "orange",
   cancelled: "red",
 };
 

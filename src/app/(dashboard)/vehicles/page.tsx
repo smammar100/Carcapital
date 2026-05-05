@@ -277,7 +277,7 @@ export default function VehiclesPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Button asChild>
-            <Link href="/vehicles/new">
+            <Link href="/inventory/add-vehicle">
               <Plus className="mr-1.5 h-4 w-4" />
               Add Vehicle
             </Link>
@@ -396,7 +396,7 @@ export default function VehiclesPage() {
           description="Try clearing filters or add a new vehicle to your stock."
           action={
             <Button asChild size="sm">
-              <Link href="/vehicles/new">
+              <Link href="/inventory/add-vehicle">
                 <Plus className="mr-1.5 h-4 w-4" />
                 Add Vehicle
               </Link>
@@ -420,7 +420,7 @@ export default function VehiclesPage() {
               <DataGridFooterRow
                 label="New vehicle"
                 span={tableCols.length}
-                href="/vehicles/new"
+                href="/inventory/add-vehicle"
               />
             </tbody>
           </DataGridTable>

@@ -2,21 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import {
-  useForm,
-  Controller,
-  type Control,
-  type FieldValues,
-  type Path,
-} from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   AlertTriangle,
-  ArrowLeft,
-  Check,
   CheckCircle2,
   Loader2,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,262 +26,304 @@ import {
 } from "@/components/ui/select";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import { todoService } from "@/lib/services/todo-service";
 import { dvlaService } from "@/lib/services/dvla-service";
-import { FUEL_TYPES } from "@/lib/constants";
+import {
+  AUCTION_HOUSES,
+  BODY_TYPES,
+  FINANCE_PROVIDERS,
+  FUEL_TYPES,
+  VAT_RATE,
+} from "@/lib/constants";
 import { CostSummaryReceipt } from "./cost-summary-receipt";
 import { toast } from "sonner";
-import { cn, formatRegPlate } from "@/lib/utils";
+import { cn, formatCurrency, formatRegPlate } from "@/lib/utils";
 
-const schema = z.object({
-  // Step 1 — Vehicle
-  registration: z.string().min(2, "Registration required"),
-  make: z.string().min(1, "Make required"),
-  model: z.string().min(1, "Model required"),
-  variant: z.string().optional(),
-  mileage: z.coerce.number().int().min(0),
-  registrationDate: z.string().optional(),
-  costNew: z.coerce.number().min(0).optional(),
-  fuelType: z.enum(["petrol", "diesel", "hybrid", "electric"]),
-  gearbox: z.enum(["automatic", "manual"]),
-
-  // Step 2 — Source & supplier
-  saleOrReturn: z.boolean(),
-  vehicleSource: z.enum(["auction", "private", "trade", "dealer", "other"]),
-  supplier: z.string().min(1, "Supplier required"),
-  vatCalculation: z.enum(["margin", "qualifying", "non_vat"]),
-
-  // Step 3 — Purchase & listing
-  purchasedDate: z.string().min(1, "Purchased date required"),
-  purchasedPrice: z.coerce.number().min(0),
-  location: z.string().optional(),
-  saleType: z.enum(["retail_used", "retail_new", "trade", "auction"]),
-  websiteDisplay: z.boolean(),
-  keytagNumber: z.string().optional(),
-});
-
-type FormInput = z.input<typeof schema>;
-type FormOutput = z.output<typeof schema>;
-type FormField = keyof FormInput;
-
-interface StepDef {
-  id: number;
-  label: string;
-  description: string;
-  fields: FormField[];
-}
-
-const STEPS: StepDef[] = [
-  {
-    id: 1,
-    label: "Vehicle",
-    description: "Identity & specs",
-    fields: [
-      "registration",
-      "make",
-      "model",
-      "variant",
-      "mileage",
-      "registrationDate",
-      "costNew",
-      "fuelType",
-      "gearbox",
-    ],
-  },
-  {
-    id: 2,
-    label: "Source",
-    description: "Supplier & VAT",
-    fields: ["saleOrReturn", "vehicleSource", "supplier", "vatCalculation"],
-  },
-  {
-    id: 3,
-    label: "Purchase & Listing",
-    description: "Date, price, display",
-    fields: [
-      "purchasedDate",
-      "purchasedPrice",
-      "location",
-      "saleType",
-      "websiteDisplay",
-      "keytagNumber",
-    ],
-  },
-];
-
-const VAT_OPTIONS = [
-  { value: "margin", label: "Margin Based" },
-  { value: "qualifying", label: "Qualifying" },
-  { value: "non_vat", label: "Non-VAT" },
-];
+// v4.1 spec §11.3 — single scrollable Add Vehicle page with 7 sections
+// + sticky cost summary. NO wizard, NO "New Costs"/"Key Tag Number"/
+// "Switch Companies" fields (TC-P1-005).
 
 const SOURCE_OPTIONS = [
   { value: "auction", label: "Auction" },
-  { value: "private", label: "Private" },
-  { value: "trade", label: "Trade" },
+  { value: "private", label: "Private Seller" },
+  { value: "trade_in", label: "Trade-in" },
   { value: "dealer", label: "Dealer" },
   { value: "other", label: "Other" },
-];
+] as const;
 
-const SALE_TYPE_OPTIONS = [
-  { value: "retail_used", label: "Retail – Used Cars" },
-  { value: "retail_new", label: "Retail – New Cars" },
-  { value: "trade", label: "Trade" },
-  { value: "auction", label: "Auction" },
-];
+const SERVICE_HISTORY_OPTIONS = [
+  { value: "full", label: "Full" },
+  { value: "partial", label: "Partial" },
+  { value: "none", label: "None" },
+  { value: "unknown", label: "Unknown" },
+] as const;
+
+const VEHICLE_TYPE_OPTIONS = [
+  { value: "car", label: "Car" },
+  { value: "van", label: "Van" },
+] as const;
+
+const TRANSMISSION_OPTIONS = [
+  { value: "manual", label: "Manual" },
+  { value: "automatic", label: "Automatic" },
+] as const;
+
+const todoSchema = z.object({
+  description: z.string().min(1),
+  cost: z.coerce.number().min(0).optional(),
+});
+
+const schema = z.object({
+  // Section 1 — Vehicle Identity
+  registration: z.string().min(2, "Registration required"),
+  make: z.string().min(1, "Make required"),
+  model: z.string().min(1, "Model required"),
+  variantName: z.string().optional(),
+  variantCode: z.string().optional(),
+  year: z.coerce.number().int().min(1980).max(2030),
+  colour: z.string().optional(),
+  mileage: z.coerce.number().int().min(0),
+  vehicleType: z.enum(["car", "van"]),
+  bodyType: z.enum(["hatchback", "saloon", "suv", "mpv", "estate", "convertible", "coupe"]),
+  fuelType: z.enum(["petrol", "diesel", "hybrid", "electric"]),
+  transmission: z.enum(["manual", "automatic"]),
+  engineSizeCC: z.coerce.number().int().optional(),
+
+  // Section 2 — Source / Seller
+  sellerName: z.string().min(1, "Seller name required"),
+  sellerPhone: z.string().optional(),
+  sourceType: z.enum(["auction", "private", "trade_in", "dealer", "other"]),
+  localOrImport: z.enum(["local", "import"]),
+  auctionHouse: z.string().optional(),
+  ownedBy: z.string().optional(),
+  managedBy: z.string().optional(),
+  invoiceDate: z.string().optional(),
+
+  // Section 3 — Documentation
+  v5Received: z.boolean(),
+  serviceHistory: z.enum(["full", "partial", "none", "unknown"]),
+  numKeys: z.coerce.number().int().min(1).max(4),
+  lockNut: z.boolean(),
+  motExpiry: z.string().optional(),
+
+  // Section 4 — Purchase Cost Breakdown
+  buyingPrice: z.coerce.number().min(0),
+  buyersFee: z.coerce.number().min(0).optional(),
+  inspectionCharge: z.coerce.number().min(0).optional(),
+  collectionFee: z.coerce.number().min(0).optional(),
+  deliveryFee: z.coerce.number().min(0).optional(),
+  lateStorageFee: z.coerce.number().min(0).optional(),
+  otherCharges: z.coerce.number().min(0).optional(),
+
+  financeProvider: z.enum(["none", "next_gear", "close_brothers", "bca", "infinit"]),
+
+  // Section 5 — Receiving
+  receivedDate: z.string().min(1, "Received date required"),
+
+  // Section 7 — Pricing (optional)
+  warrantyCost: z.coerce.number().min(0).optional(),
+  minimumSalePrice: z.coerce.number().min(0).optional(),
+  listingPrice: z.coerce.number().min(0).optional(),
+});
+
+type FormInput = z.input<typeof schema>;
 
 export function ArrivalForm() {
   const { user, company } = useAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
-  const [step, setStep] = useState(1);
   const [dvlaState, setDvlaState] = useState<
     "idle" | "loading" | "found" | "not_found"
   >("idle");
+  const [todos, setTodos] = useState<{ description: string; cost: number }[]>([]);
+  const [newTodo, setNewTodo] = useState({ description: "", cost: 0 });
 
   const today = new Date().toISOString().slice(0, 10);
 
-  const form = useForm<FormInput, unknown, FormOutput>({
+  const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
       registration: "",
       make: "",
       model: "",
-      variant: "",
+      variantName: "",
+      variantCode: "",
+      year: new Date().getFullYear() - 3,
+      colour: "",
       mileage: 0,
-      registrationDate: "",
-      costNew: undefined,
+      vehicleType: "car",
+      bodyType: "hatchback",
       fuelType: "petrol",
-      gearbox: "manual",
-      saleOrReturn: false,
-      vehicleSource: "trade",
-      supplier: "",
-      vatCalculation: "margin",
-      purchasedDate: today,
-      purchasedPrice: 0,
-      location: "",
-      saleType: "retail_used",
-      websiteDisplay: true,
-      keytagNumber: "",
+      transmission: "manual",
+      engineSizeCC: undefined,
+      sellerName: "",
+      sellerPhone: "",
+      sourceType: "auction",
+      localOrImport: "local",
+      auctionHouse: "",
+      ownedBy: "",
+      managedBy: user?.id ?? "",
+      invoiceDate: today,
+      v5Received: false,
+      serviceHistory: "unknown",
+      numKeys: 2,
+      lockNut: false,
+      motExpiry: "",
+      buyingPrice: 0,
+      buyersFee: 0,
+      inspectionCharge: 0,
+      collectionFee: 0,
+      deliveryFee: 0,
+      lateStorageFee: 0,
+      otherCharges: 0,
+      financeProvider: "none",
+      receivedDate: today,
+      warrantyCost: 0,
+      minimumSalePrice: undefined,
+      listingPrice: undefined,
     },
     mode: "onTouched",
   });
 
   const watchAll = form.watch();
+  const errors = form.formState.errors;
 
   async function handleDvlaLookup() {
     const reg = form.getValues("registration");
-    if (!reg) {
-      toast.info("Enter a registration first");
-      return;
-    }
+    if (!reg) return;
     setDvlaState("loading");
     const data = await dvlaService.lookup(formatRegPlate(reg));
     if (data) {
       setDvlaState("found");
       if (data.make) form.setValue("make", data.make);
       if (data.model) form.setValue("model", data.model);
+      if (data.year) form.setValue("year", data.year);
+      if (data.colour) form.setValue("colour", data.colour);
       if (data.fuelType) form.setValue("fuelType", data.fuelType);
+      if (data.engineSizeCC) form.setValue("engineSizeCC", data.engineSizeCC);
     } else {
       setDvlaState("not_found");
     }
   }
 
-  async function handleContinue() {
-    const valid = await form.trigger(STEPS[step - 1].fields);
-    if (!valid) {
-      toast.error("Fix the errors before continuing");
-      return;
-    }
-    if (step < STEPS.length) {
-      setStep(step + 1);
-    } else {
-      void form.handleSubmit(onSubmit)();
-    }
+  function addTodo() {
+    if (!newTodo.description.trim()) return;
+    setTodos((t) => [...t, { ...newTodo }]);
+    setNewTodo({ description: "", cost: 0 });
   }
 
-  function handleStepClick(target: number) {
-    if (target <= step) setStep(target);
+  function removeTodo(idx: number) {
+    setTodos((t) => t.filter((_, i) => i !== idx));
   }
 
-  async function onSubmit(values: FormOutput) {
+  // Live cost rollups
+  const buyingPrice = Number(watchAll.buyingPrice) || 0;
+  const fees =
+    (Number(watchAll.buyersFee) || 0) +
+    (Number(watchAll.inspectionCharge) || 0) +
+    (Number(watchAll.collectionFee) || 0) +
+    (Number(watchAll.deliveryFee) || 0) +
+    (Number(watchAll.lateStorageFee) || 0) +
+    (Number(watchAll.otherCharges) || 0);
+  const totalBuyingPrice = buyingPrice + fees;
+  const warrantyCost = Number(watchAll.warrantyCost) || 0;
+  const prepCosts = todos.reduce((sum, t) => sum + (Number(t.cost) || 0), 0);
+  const baseCost = totalBuyingPrice + prepCosts + warrantyCost;
+
+  async function onSubmit(values: FormInput) {
     if (!user || !company) return;
     setSubmitting(true);
+    // (errors are rendered inline below each field via form.formState.errors)
+    // v4.1 TC-P6-004: warn when a registration is already in the master sheet
+    // (don't block — the user may want to bring back a returned/removed vehicle).
+    const reg = formatRegPlate(values.registration);
+    const existing = await vehicleService.getByRegistration(reg);
+    if (existing) {
+      const proceed = window.confirm(
+        `${reg} is already on the Master Sheet (${existing.stockId}, ${existing.make} ${existing.model}). Add anyway?`,
+      );
+      if (!proceed) {
+        setSubmitting(false);
+        return;
+      }
+    }
     try {
-      const reg = formatRegPlate(values.registration);
-      const purchasedPrice = values.purchasedPrice;
-      const year = values.registrationDate
-        ? Number(values.registrationDate.slice(0, 4))
-        : new Date().getFullYear() - 3;
-
       const v = await vehicleService.create(
         {
           companyId: company.id,
           registration: reg,
-          tagNumber: values.keytagNumber || null,
+          tagNumber: null,
           make: values.make.toUpperCase(),
           model: values.model.toUpperCase(),
-          variantName: values.variant?.split(" ")[0] ?? null,
-          variantCode: values.variant || null,
-          year,
-          colour: "",
-          mileage: values.mileage,
-          vehicleType: "car",
-          bodyType: "hatchback",
+          variantName: values.variantName || null,
+          variantCode: values.variantCode || null,
+          year: Number(values.year),
+          colour: values.colour ?? "",
+          mileage: Number(values.mileage),
+          vehicleType: values.vehicleType,
+          bodyType: values.bodyType,
           fuelType: values.fuelType,
-          transmission: values.gearbox,
-          engineSizeCC: null,
-          receivedDate: values.purchasedDate,
+          transmission: values.transmission,
+          engineSizeCC: values.engineSizeCC ? Number(values.engineSizeCC) : null,
+          receivedDate: values.receivedDate,
           receivedBy: user.id,
-          sellerName: values.supplier,
-          sellerPhone: "",
-          sourceType:
-            values.vehicleSource === "trade"
-              ? "dealer"
-              : values.vehicleSource === "other"
-                ? "other"
-                : values.vehicleSource,
+          sellerName: values.sellerName,
+          sellerPhone: values.sellerPhone ?? "",
+          sourceType: values.sourceType === "trade_in" ? "trade_in" : values.sourceType,
           purchaseChannel: "supplier",
-          localOrImport: "local",
-          auctionHouse: values.location || null,
-          ownedBy: company.name,
-          managedBy: user.id,
-          invoiceDate: values.purchasedDate,
-          v5Received: false,
-          serviceHistory: "unknown",
-          numKeys: 2,
-          lockNut: false,
-          motExpiry: null,
-          buyingPrice: purchasedPrice,
-          vatOnBuyingPrice: 0,
-          buyersFee: null,
-          inspectionCharge: null,
-          collectionFee: null,
-          deliveryFee: null,
-          lateStorageFee: null,
-          otherCharges: null,
-          totalBuyingPrice: purchasedPrice,
-          financeProvider: "none",
+          localOrImport: values.localOrImport,
+          auctionHouse: values.auctionHouse || null,
+          ownedBy: values.ownedBy || company.name,
+          managedBy: values.managedBy || user.id,
+          invoiceDate: values.invoiceDate || null,
+          v5Received: values.v5Received,
+          serviceHistory: values.serviceHistory,
+          numKeys: Number(values.numKeys),
+          lockNut: values.lockNut,
+          motExpiry: values.motExpiry || null,
+          buyingPrice: Number(values.buyingPrice),
+          vatOnBuyingPrice: Math.round(Number(values.buyingPrice) * VAT_RATE * 100) / 100,
+          buyersFee: values.buyersFee ? Number(values.buyersFee) : null,
+          inspectionCharge: values.inspectionCharge ? Number(values.inspectionCharge) : null,
+          collectionFee: values.collectionFee ? Number(values.collectionFee) : null,
+          deliveryFee: values.deliveryFee ? Number(values.deliveryFee) : null,
+          lateStorageFee: values.lateStorageFee ? Number(values.lateStorageFee) : null,
+          otherCharges: values.otherCharges ? Number(values.otherCharges) : null,
+          totalBuyingPrice,
+          financeProvider: values.financeProvider,
           loadingFee: 0,
           dailyChargeRate: 0,
           unloadingFee: 0,
           stockingCharges: 0,
-          valueAddition: 0,
-          warrantyCost: null,
-          landedCost: purchasedPrice,
-          baseCost: purchasedPrice,
-          minimumSalePrice: null,
-          listingPrice: null,
+          valueAddition: prepCosts,
+          warrantyCost: warrantyCost || null,
+          landedCost: totalBuyingPrice,
+          baseCost,
+          minimumSalePrice: values.minimumSalePrice ? Number(values.minimumSalePrice) : null,
+          listingPrice: values.listingPrice ? Number(values.listingPrice) : null,
           sellingPrice: null,
           dateSold: null,
           sellingAgent: null,
           grossEarning: null,
           status: "received",
+          removedFromWebsiteAt: null,
           daysInStock: 0,
           imagesCount: 0,
           heroImageUrl: null,
         },
         user.id,
       );
+      // Persist any "Things to Do" added at arrival
+      for (const t of todos) {
+        await todoService.add({
+          vehicleId: v.id,
+          description: t.description,
+          vendorId: null,
+          cost: t.cost || null,
+          source: "manual",
+          createdBy: user.id,
+        });
+      }
       toast.success(`Vehicle ${v.stockId} added`);
       router.push(`/vehicles/${v.id}`);
     } catch (err) {
@@ -297,462 +333,539 @@ export function ArrivalForm() {
     }
   }
 
-  const purchasedPrice = Number(watchAll.purchasedPrice) || 0;
+  const watchedSource = form.watch("sourceType");
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        void handleContinue();
-      }}
-      className="flex flex-col gap-4"
-    >
-      {/* Header — title on the left, DVLA lookup pinned to the page-right */}
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
+      <form
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="flex flex-col gap-4"
+      >
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Add Vehicle</h1>
           <p className="text-sm text-muted-foreground">
-            Capture arrival details. DVLA lookup pre-fills make / model / fuel
-            from the registration.
+            Single-page arrival form. DVLA lookup pre-fills make/model on
+            registration blur.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleDvlaLookup}
-          disabled={dvlaState === "loading"}
-        >
-          {dvlaState === "loading" ? (
-            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-          ) : null}
-          DVLA Lookup
-        </Button>
-      </div>
 
-      {/* Stepper — constrained to form column width */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <Stepper
-          steps={STEPS}
-          current={step}
-          onSelect={handleStepClick}
-          errors={form.formState.errors}
-        />
-        <div className="hidden lg:block" />
-      </div>
+        {Object.keys(errors).length > 0 && (
+          <div className="rounded border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+            <div className="font-semibold">Please fix these errors:</div>
+            <ul className="mt-1 list-disc pl-5 text-xs">
+              {Object.entries(errors).map(([field, err]) => (
+                <li key={field}>
+                  <span className="font-mono">{field}</span>:{" "}
+                  {(err as { message?: string })?.message ?? "invalid"}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
 
-      {/* Body — form + cost summary side by side */}
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="flex flex-col gap-4">
-          {step === 1 && (
-            <Card className="p-5">
-              <SectionHeader
-                title="Vehicle"
-                subtitle="Identification & specifications"
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Registration"
-                  required
-                  error={form.formState.errors.registration?.message}
-                  colspan={2}
+        {/* Section 1 — Vehicle Identity */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">1 · Vehicle Identity</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Registration *</Label>
+              <div className="flex gap-2">
+                <Input
+                  {...form.register("registration")}
+                  onBlur={() => void handleDvlaLookup()}
+                  placeholder="GK66 6NX"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => void handleDvlaLookup()}
+                  disabled={dvlaState === "loading"}
                 >
-                  <Input
-                    {...form.register("registration")}
-                    onBlur={() => {
-                      void handleDvlaLookup();
-                    }}
-                    placeholder="GK66 6NX"
-                    className="font-mono uppercase tracking-wider"
-                  />
-                  {dvlaState === "found" && (
-                    <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-600">
-                      <CheckCircle2 className="h-3 w-3" /> Auto-populated from
-                      DVLA
-                    </p>
+                  {dvlaState === "loading" && (
+                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                   )}
-                  {dvlaState === "not_found" && (
-                    <p className="mt-1.5 flex items-center gap-1 text-xs text-amber-600">
-                      <AlertTriangle className="h-3 w-3" /> DVLA lookup
-                      unavailable — fill manually
-                    </p>
-                  )}
-                </Field>
-                <Field
-                  label="Make"
-                  required
-                  error={form.formState.errors.make?.message}
-                >
-                  <Input {...form.register("make")} placeholder="AUDI" />
-                </Field>
-                <Field
-                  label="Model"
-                  required
-                  error={form.formState.errors.model?.message}
-                >
-                  <Input {...form.register("model")} placeholder="A3" />
-                </Field>
-                <Field label="Variant" colspan={2}>
-                  <Input
-                    {...form.register("variant")}
-                    placeholder="1.4 TFSI CoD SE Sportback 5dr"
-                  />
-                </Field>
-                <Field label="Mileage">
-                  <Input type="number" {...form.register("mileage")} />
-                </Field>
-                <Field label="Registration date">
-                  <Input type="date" {...form.register("registrationDate")} />
-                </Field>
-                <Field label="Cost new (£)">
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...form.register("costNew")}
-                  />
-                </Field>
-                <SelectField
-                  control={form.control}
-                  name="fuelType"
-                  label="Fuel type"
-                  options={FUEL_TYPES.map((f) => ({ value: f, label: f }))}
-                />
-                <SelectField
-                  control={form.control}
-                  name="gearbox"
-                  label="Gearbox"
-                  colspan={2}
-                  options={[
-                    { value: "automatic", label: "Automatic" },
-                    { value: "manual", label: "Manual" },
-                  ]}
-                />
+                  DVLA
+                </Button>
               </div>
-            </Card>
-          )}
-
-          {step === 2 && (
-            <Card className="p-5">
-              <SectionHeader
-                title="Source & Supplier"
-                subtitle="Where this car came from and how VAT is handled"
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field label="Sale or return" colspan={2}>
-                  <Controller
-                    control={form.control}
-                    name="saleOrReturn"
-                    render={({ field }) => (
-                      <div className="flex h-10 items-center gap-3">
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {field.value
-                            ? "Yes — held on consignment"
-                            : "No — owned outright"}
-                        </span>
-                      </div>
-                    )}
-                  />
-                </Field>
-                <SelectField
-                  control={form.control}
-                  name="vehicleSource"
-                  label="Vehicle source"
-                  options={SOURCE_OPTIONS}
-                />
-                <SelectField
-                  control={form.control}
-                  name="vatCalculation"
-                  label="VAT calculation"
-                  options={VAT_OPTIONS}
-                />
-                <Field
-                  label="Supplier"
-                  required
-                  colspan={2}
-                  error={form.formState.errors.supplier?.message}
-                >
-                  <Input
-                    {...form.register("supplier")}
-                    placeholder="Supplier name"
-                  />
-                </Field>
-              </div>
-            </Card>
-          )}
-
-          {step === 3 && (
-            <Card className="p-5">
-              <SectionHeader
-                title="Purchase & Listing"
-                subtitle="Cost, location, and how it shows on the website"
-              />
-              <div className="grid gap-4 sm:grid-cols-2">
-                <Field
-                  label="Purchased date"
-                  required
-                  error={form.formState.errors.purchasedDate?.message}
-                >
-                  <Input type="date" {...form.register("purchasedDate")} />
-                </Field>
-                <Field
-                  label="Purchased price (£)"
-                  required
-                  error={form.formState.errors.purchasedPrice?.message}
-                >
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...form.register("purchasedPrice")}
-                  />
-                </Field>
-                <Field label="Location" colspan={2}>
-                  <Input
-                    {...form.register("location")}
-                    placeholder="AA / Zuto, BCA Auction…"
-                  />
-                </Field>
-                <SelectField
-                  control={form.control}
-                  name="saleType"
-                  label="Sale type"
-                  options={SALE_TYPE_OPTIONS}
-                />
-                <Field label="Website display">
-                  <Controller
-                    control={form.control}
-                    name="websiteDisplay"
-                    render={({ field }) => (
-                      <div className="flex h-10 items-center gap-3">
-                        <Switch
-                          checked={field.value}
-                          onCheckedChange={field.onChange}
-                        />
-                        <span className="text-xs text-muted-foreground">
-                          {field.value ? "Visible" : "Hidden"}
-                        </span>
-                      </div>
-                    )}
-                  />
-                </Field>
-                <Field label="Keytag number" colspan={2}>
-                  <Input
-                    {...form.register("keytagNumber")}
-                    placeholder="e.g. K-2451"
-                  />
-                </Field>
-              </div>
-            </Card>
-          )}
-
-          {/* Action bar */}
-          <div className="sticky bottom-0 -mx-1 flex flex-wrap justify-between gap-2 border-t bg-background/80 px-1 py-3 backdrop-blur">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setStep((s) => Math.max(1, s - 1))}
-              disabled={step === 1}
-            >
-              <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Back
-            </Button>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" size="sm" disabled>
-                Save as Draft
-              </Button>
-              <Button type="submit" size="sm" disabled={submitting}>
-                {submitting && (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              {dvlaState === "loading" && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <Loader2 className="h-3 w-3 animate-spin" /> DVLA lookup…
+                </p>
+              )}
+              {dvlaState === "found" && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
+                  <CheckCircle2 className="h-3 w-3" /> DVLA preset found
+                </p>
+              )}
+              {dvlaState === "not_found" && (
+                <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
+                  <AlertTriangle className="h-3 w-3" /> Manual entry required —
+                  DVLA lookup unavailable
+                </p>
+              )}
+            </div>
+            <div>
+              <Label>Mileage *</Label>
+              <Input type="number" {...form.register("mileage")} />
+            </div>
+            <div>
+              <Label>Make *</Label>
+              <Input {...form.register("make")} />
+            </div>
+            <div>
+              <Label>Model *</Label>
+              <Input {...form.register("model")} />
+            </div>
+            <div>
+              <Label>Variant Name</Label>
+              <Input {...form.register("variantName")} />
+            </div>
+            <div>
+              <Label>Variant Code</Label>
+              <Input {...form.register("variantCode")} />
+            </div>
+            <div>
+              <Label>Year</Label>
+              <Input type="number" {...form.register("year")} />
+            </div>
+            <div>
+              <Label>Colour</Label>
+              <Input {...form.register("colour")} />
+            </div>
+            <div>
+              <Label>Vehicle Type</Label>
+              <Controller
+                control={form.control}
+                name="vehicleType"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {VEHICLE_TYPE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
-                {step < STEPS.length ? "Continue" : "Add Vehicle"}
-              </Button>
+              />
+            </div>
+            <div>
+              <Label>Body Type</Label>
+              <Controller
+                control={form.control}
+                name="bodyType"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {BODY_TYPES.map((b) => (
+                        <SelectItem key={b} value={b} className="capitalize">
+                          {b}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div>
+              <Label>Fuel Type</Label>
+              <Controller
+                control={form.control}
+                name="fuelType"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FUEL_TYPES.map((f) => (
+                        <SelectItem key={f} value={f} className="capitalize">
+                          {f}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div>
+              <Label>Transmission</Label>
+              <Controller
+                control={form.control}
+                name="transmission"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TRANSMISSION_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div>
+              <Label>Engine Size CC</Label>
+              <Input type="number" {...form.register("engineSizeCC")} />
             </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Cost summary — sticky receipt */}
+        {/* Section 2 — Source / Seller */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">2 · Source / Seller</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Seller Name *</Label>
+              <Input {...form.register("sellerName")} />
+            </div>
+            <div>
+              <Label>Seller Phone</Label>
+              <Input {...form.register("sellerPhone")} />
+            </div>
+            <div>
+              <Label>Source Type</Label>
+              <Controller
+                control={form.control}
+                name="sourceType"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SOURCE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div>
+              <Label>Local or Import</Label>
+              <Controller
+                control={form.control}
+                name="localOrImport"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="local">Local</SelectItem>
+                      <SelectItem value="import">Import</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            {watchedSource === "auction" && (
+              <div className="sm:col-span-2">
+                <Label>Auction House</Label>
+                <Controller
+                  control={form.control}
+                  name="auctionHouse"
+                  render={({ field }) => (
+                    <Select value={field.value} onValueChange={field.onChange}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Pick an auction house" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {AUCTION_HOUSES.map((h) => (
+                          <SelectItem key={h} value={h}>
+                            {h}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
+            )}
+            <div>
+              <Label>Owned By</Label>
+              <Input {...form.register("ownedBy")} />
+            </div>
+            <div>
+              <Label>Invoice Date</Label>
+              <Input type="date" {...form.register("invoiceDate")} />
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 3 — Documentation */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">3 · Documentation</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="flex items-center gap-3 rounded border p-3">
+              <Controller
+                control={form.control}
+                name="v5Received"
+                render={({ field }) => (
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                )}
+              />
+              <Label>V5 Received</Label>
+            </div>
+            <div>
+              <Label>Service History</Label>
+              <Controller
+                control={form.control}
+                name="serviceHistory"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SERVICE_HISTORY_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div>
+              <Label>Number of Keys</Label>
+              <Input
+                type="number"
+                min={1}
+                max={4}
+                {...form.register("numKeys")}
+              />
+            </div>
+            <div className="flex items-center gap-3 rounded border p-3">
+              <Controller
+                control={form.control}
+                name="lockNut"
+                render={({ field }) => (
+                  <Switch checked={field.value} onCheckedChange={field.onChange} />
+                )}
+              />
+              <Label>Lock Nut</Label>
+            </div>
+            <div>
+              <Label>MOT Expiry</Label>
+              <Input type="date" {...form.register("motExpiry")} />
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 4 — Purchase Cost Breakdown */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">4 · Purchase Cost Breakdown</h2>
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left text-xs text-muted-foreground">
+                <th className="py-1.5 pr-2 font-medium">Cost Item</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
+                <th className="py-1.5 pr-2 text-right font-medium">VAT 20%</th>
+              </tr>
+            </thead>
+            <tbody>
+              <CostRow label="Buying Price *" name="buyingPrice" form={form} showVat />
+              <CostRow label="Buyer's Fee" name="buyersFee" form={form} showVat />
+              <CostRow label="Inspection Charge" name="inspectionCharge" form={form} />
+              <CostRow label="Collection Fee" name="collectionFee" form={form} />
+              <CostRow label="Delivery / Transport" name="deliveryFee" form={form} showVat />
+              <CostRow label="Late Storage" name="lateStorageFee" form={form} />
+              <CostRow label="Other Charges" name="otherCharges" form={form} />
+              <tr className="border-t bg-muted/30">
+                <td className="py-2 pr-2 font-semibold">Total Buying Price</td>
+                <td className="py-2 pr-2 text-right font-semibold tabular-nums">
+                  {formatCurrency(totalBuyingPrice)}
+                </td>
+                <td />
+              </tr>
+            </tbody>
+          </table>
+          <div>
+            <Label>Finance Provider</Label>
+            <Controller
+              control={form.control}
+              name="financeProvider"
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {FINANCE_PROVIDERS.map((p) => (
+                      <SelectItem key={p.value} value={p.value}>
+                        {p.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+        </Card>
+
+        {/* Section 5 — Receiving */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">5 · Receiving</h2>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Received Date *</Label>
+              <Input type="date" {...form.register("receivedDate")} />
+            </div>
+            <div>
+              <Label>Received By</Label>
+              <Input value={user?.name ?? "—"} readOnly disabled />
+            </div>
+          </div>
+        </Card>
+
+        {/* Section 6 — Things to Do (optional) */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">6 · Things to Do (optional)</h2>
+          {todos.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {todos.map((t, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
+                >
+                  <span className="flex-1">{t.description}</span>
+                  <span className="tabular-nums">{formatCurrency(t.cost)}</span>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={() => removeTodo(i)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Label>Description</Label>
+              <Input
+                value={newTodo.description}
+                onChange={(e) => setNewTodo((p) => ({ ...p, description: e.target.value }))}
+              />
+            </div>
+            <div className="w-24">
+              <Label>Cost £</Label>
+              <Input
+                type="number"
+                step="0.01"
+                value={newTodo.cost}
+                onChange={(e) => setNewTodo((p) => ({ ...p, cost: Number(e.target.value) || 0 }))}
+              />
+            </div>
+            <Button type="button" size="sm" variant="outline" onClick={addTodo}>
+              <Plus className="mr-1 h-3 w-3" />
+              Add Item
+            </Button>
+          </div>
+        </Card>
+
+        {/* Section 7 — Pricing (optional) */}
+        <Card className="flex flex-col gap-3 p-5">
+          <h2 className="text-sm font-semibold">7 · Pricing (optional)</h2>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label>Warranty Cost £</Label>
+              <Input type="number" step="0.01" {...form.register("warrantyCost")} />
+            </div>
+            <div>
+              <Label>Minimum Sale Price £</Label>
+              <Input type="number" step="0.01" {...form.register("minimumSalePrice")} />
+            </div>
+            <div>
+              <Label>Listing Price £</Label>
+              <Input type="number" step="0.01" {...form.register("listingPrice")} />
+            </div>
+          </div>
+        </Card>
+
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" disabled={submitting}>
+            Save as Draft
+          </Button>
+          <Button type="submit" disabled={submitting}>
+            {submitting ? (
+              <>
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                Submitting…
+              </>
+            ) : (
+              "Submit Vehicle"
+            )}
+          </Button>
+        </div>
+      </form>
+
+      {/* Sticky Cost Summary Panel */}
+      <div className="lg:sticky lg:top-4 lg:self-start">
         <CostSummaryReceipt
-          buyingPrice={purchasedPrice}
-          feesAndCharges={0}
+          buyingPrice={buyingPrice}
+          feesAndCharges={fees}
           stockingCharges={0}
-          prepCosts={0}
-          warranty={0}
-          listingPrice={null}
-          subtitle={watchAll.purchasedDate || undefined}
-          className="sticky top-20 hidden h-fit lg:block"
+          prepCosts={prepCosts}
+          warranty={warrantyCost}
+          listingPrice={Number(watchAll.listingPrice) || null}
         />
       </div>
-    </form>
-  );
-}
-
-interface StepperProps {
-  steps: StepDef[];
-  current: number;
-  onSelect: (id: number) => void;
-  errors: Record<string, unknown>;
-}
-
-function Stepper({ steps, current, onSelect, errors }: StepperProps) {
-  return (
-    <ol className="flex w-full items-start gap-1 overflow-x-auto pb-2">
-      {steps.map((s, idx) => {
-        const isComplete = current > s.id;
-        const isCurrent = current === s.id;
-        const isPast = current >= s.id;
-        const stepHasError = s.fields.some((f) => f in errors);
-        const clickable = s.id <= current;
-        const isLast = idx === steps.length - 1;
-        return (
-          <li
-            key={s.id}
-            className={cn(
-              "flex min-w-0 items-center gap-2",
-              !isLast &&
-                "flex-1 after:mt-3.5 after:h-px after:flex-1 after:bg-border",
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => onSelect(s.id)}
-              disabled={!clickable}
-              className={cn(
-                "group flex min-w-0 items-center gap-2 rounded-md px-1.5 py-1 text-left transition-colors",
-                clickable && "hover:bg-muted",
-                !clickable && "cursor-default opacity-70",
-              )}
-            >
-              <span
-                className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
-                  isCurrent &&
-                    "bg-primary text-primary-foreground ring-2 ring-primary/20 ring-offset-2 ring-offset-background",
-                  isComplete &&
-                    !stepHasError &&
-                    "bg-primary text-primary-foreground",
-                  !isPast && "bg-muted text-muted-foreground",
-                  stepHasError &&
-                    "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-300",
-                )}
-              >
-                {isComplete && !stepHasError ? (
-                  <Check className="h-3.5 w-3.5" />
-                ) : (
-                  s.id
-                )}
-              </span>
-              <span className="hidden min-w-0 flex-col leading-tight sm:flex">
-                <span
-                  className={cn(
-                    "truncate text-xs font-medium",
-                    isPast ? "text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  {s.label}
-                </span>
-                <span className="truncate text-[10px] text-muted-foreground">
-                  {s.description}
-                </span>
-              </span>
-            </button>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function SectionHeader({
-  title,
-  subtitle,
-}: {
-  title: string;
-  subtitle?: string;
-}) {
-  return (
-    <div className="mb-4">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {subtitle ? (
-        <p className="text-xs text-muted-foreground">{subtitle}</p>
-      ) : null}
     </div>
   );
 }
 
-function Field({
+function CostRow({
   label,
-  children,
-  colspan,
-  muted,
-  error,
-  required,
-}: {
-  label: string;
-  children: React.ReactNode;
-  colspan?: 2;
-  muted?: boolean;
-  error?: string;
-  required?: boolean;
-}) {
-  return (
-    <div className={colspan === 2 ? "sm:col-span-2" : undefined}>
-      <Label className={muted ? "text-muted-foreground" : undefined}>
-        {label}
-        {required ? <span className="ml-0.5 text-rose-600">*</span> : null}
-      </Label>
-      <div className="mt-1">{children}</div>
-      {error ? <p className="mt-1 text-xs text-rose-600">{error}</p> : null}
-    </div>
-  );
-}
-
-interface SelectFieldProps<T extends FieldValues> {
-  control: Control<T>;
-  name: Path<T>;
-  label: string;
-  options: { value: string; label: string }[];
-  colspan?: 2;
-}
-
-function SelectField<T extends FieldValues>({
-  control,
   name,
-  label,
-  options,
-  colspan,
-}: SelectFieldProps<T>) {
+  form,
+  showVat,
+}: {
+  label: string;
+  name: keyof FormInput;
+  form: ReturnType<typeof useForm<FormInput>>;
+  showVat?: boolean;
+}) {
+  const value = Number(form.watch(name)) || 0;
+  const vat = showVat ? Math.round(value * VAT_RATE * 100) / 100 : null;
   return (
-    <div className={colspan === 2 ? "sm:col-span-2" : undefined}>
-      <Label>{label}</Label>
-      <Controller
-        control={control}
-        name={name}
-        render={({ field }) => (
-          <Select
-            value={String(field.value ?? "")}
-            onValueChange={field.onChange}
-          >
-            <SelectTrigger className="mt-1 w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {options.map((o) => (
-                <SelectItem
-                  key={o.value}
-                  value={o.value}
-                  className="capitalize"
-                >
-                  {o.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      />
-    </div>
+    <tr className="border-b last:border-b-0">
+      <td className="py-1.5 pr-2">
+        <Label className="text-xs font-normal">{label}</Label>
+      </td>
+      <td className="py-1.5 pr-2 text-right">
+        <Input
+          type="number"
+          step="0.01"
+          {...form.register(name)}
+          className="h-8 text-right tabular-nums"
+        />
+      </td>
+      <td className="py-1.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
+        {vat !== null ? formatCurrency(vat) : "—"}
+      </td>
+    </tr>
   );
 }

@@ -29,6 +29,21 @@ export function formatDate(iso: string | null | undefined): string {
   return DATE_FMT.format(new Date(iso));
 }
 
+const DATETIME_FMT = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+});
+
+/** Stripe-style "6 Dec 2024, 12:35". */
+export function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return DATETIME_FMT.format(new Date(iso));
+}
+
 const TIME_FMT = new Intl.DateTimeFormat("en-GB", {
   hour: "numeric",
   minute: "2-digit",

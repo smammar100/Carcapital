@@ -16,7 +16,6 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (userId: string) => Promise<void>;
   signOut: () => void;
-  switchCompany: (companyId: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -72,15 +71,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setCompany(null);
   }
 
-  async function switchCompany(companyId: string): Promise<void> {
-    if (user?.role !== "owner") throw new Error("Only owner can switch companies");
-    const c = await authService.getCompany(companyId);
-    setCompany(c);
-  }
-
   return (
     <AuthContext.Provider
-      value={{ user, company, loading, signIn, signOut, switchCompany }}
+      value={{ user, company, loading, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>

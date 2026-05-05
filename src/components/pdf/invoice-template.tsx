@@ -1,5 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
-import type { Invoice } from "@/lib/types";
+import type { Invoice, InvoiceLineItem, InvoiceLineType } from "@/lib/types";
+import { formatVatLabel } from "@/lib/vat";
 
 const s = StyleSheet.create({
   page: { padding: 36, fontSize: 10, fontFamily: "Helvetica" },
@@ -20,6 +21,14 @@ const s = StyleSheet.create({
     textTransform: "uppercase",
     marginBottom: 2,
   },
+  groupLabel: {
+    fontSize: 8,
+    color: "#666",
+    textTransform: "uppercase",
+    fontWeight: 700,
+    paddingTop: 8,
+    paddingBottom: 4,
+  },
   table: { borderTop: "1pt solid #ccc" },
   tr: { flexDirection: "row" },
   th: {
@@ -37,13 +46,34 @@ const s = StyleSheet.create({
   desc: { flex: 3 },
   qty: { width: 40, textAlign: "right" },
   unit: { width: 80, textAlign: "right" },
-  vat: { width: 50, textAlign: "right" },
+  vat: { width: 60, textAlign: "right" },
   line: { width: 80, textAlign: "right" },
   totals: { marginTop: 12, alignItems: "flex-end" },
   totalRow: { flexDirection: "row", marginBottom: 3, gap: 12 },
-  totalLabel: { width: 100, textAlign: "right", color: "#666" },
+  totalLabel: { width: 120, textAlign: "right", color: "#666" },
   totalValue: { width: 100, textAlign: "right" },
   big: { fontSize: 12, fontWeight: 700 },
+  paymentBox: {
+    marginTop: 16,
+    padding: 10,
+    border: "1pt solid #ccc",
+    backgroundColor: "#fafafa",
+  },
+  paymentTitle: { fontSize: 11, fontWeight: 700, marginBottom: 6 },
+  paymentRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 2,
+  },
+  paymentBalance: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: 4,
+    marginTop: 4,
+    borderTop: "1pt solid #ccc",
+    fontWeight: 700,
+  },
+  vatNote: { marginTop: 12, fontSize: 8, color: "#666", fontStyle: "italic" },
   footer: {
     position: "absolute",
     bottom: 24,
@@ -68,6 +98,14 @@ function fmtDate(d: string | null): string {
   });
 }
 
+const GROUP_ORDER: InvoiceLineType[] = ["vehicle", "addon", "fee", "discount"];
+const GROUP_LABEL: Record<InvoiceLineType, string> = {
+  vehicle: "Vehicle",
+  addon: "Add-ons",
+  fee: "Fees",
+  discount: "Discounts",
+};
+
 interface Props {
   invoice: Invoice;
   companyName: string;
@@ -81,6 +119,20 @@ export function InvoiceTemplate({
   companyAddress,
   vatNumber,
 }: Props) {
+  const linesByGroup = new Map<InvoiceLineType, InvoiceLineItem[]>();
+  for (const li of invoice.lineItems) {
+    const arr = linesByGroup.get(li.lineType) ?? [];
+    arr.push(li);
+    linesByGroup.set(li.lineType, arr);
+  }
+
+  const buyerName =
+    invoice.type === "sale" ? invoice.buyerName ?? invoice.partyName : invoice.partyName;
+  const buyerPhone =
+    invoice.type === "sale" ? invoice.buyerPhone ?? invoice.partyPhone : invoice.partyPhone;
+  const buyerEmail =
+    invoice.type === "sale" ? invoice.buyerEmail ?? invoice.partyEmail : invoice.partyEmail;
+
   return (
     <Document>
       <Page size="A4" style={s.page}>
@@ -107,13 +159,18 @@ export function InvoiceTemplate({
             <Text style={s.label}>
               {invoice.type === "purchase" ? "Seller / Supplier" : "Bill To"}
             </Text>
-            <Text style={{ fontWeight: 700 }}>{invoice.partyName}</Text>
-            {invoice.partyEmail && <Text>{invoice.partyEmail}</Text>}
-            {invoice.partyPhone && <Text>{invoice.partyPhone}</Text>}
+            <Text style={{ fontWeight: 700 }}>{buyerName}</Text>
+            {invoice.type === "sale" && invoice.buyerAddress && (
+              <Text>{invoice.buyerAddress}</Text>
+            )}
+            {buyerEmail && <Text>{buyerEmail}</Text>}
+            {buyerPhone && <Text>{buyerPhone}</Text>}
           </View>
           <View style={s.col}>
             <Text style={s.label}>Status</Text>
             <Text style={{ textTransform: "uppercase" }}>{invoice.status}</Text>
+            <Text style={[s.label, { marginTop: 6 }]}>VAT scheme</Text>
+            <Text>{formatVatLabel(invoice.vatScheme)}</Text>
           </View>
         </View>
 
@@ -125,16 +182,21 @@ export function InvoiceTemplate({
             <Text style={[s.th, s.vat]}>VAT</Text>
             <Text style={[s.th, s.line]}>Line total</Text>
           </View>
-          {invoice.lineItems.map((li) => {
-            const net = li.quantity * li.unitPrice;
-            const lineTotal = net * (1 + li.vatRate);
+          {GROUP_ORDER.map((group) => {
+            const lines = linesByGroup.get(group);
+            if (!lines || lines.length === 0) return null;
             return (
-              <View key={li.id} style={s.tr}>
-                <Text style={[s.td, s.desc]}>{li.description}</Text>
-                <Text style={[s.td, s.qty]}>{li.quantity}</Text>
-                <Text style={[s.td, s.unit]}>{fmt(li.unitPrice)}</Text>
-                <Text style={[s.td, s.vat]}>{(li.vatRate * 100).toFixed(0)}%</Text>
-                <Text style={[s.td, s.line]}>{fmt(lineTotal)}</Text>
+              <View key={group}>
+                <Text style={s.groupLabel}>{GROUP_LABEL[group]}</Text>
+                {lines.map((li) => (
+                  <View key={li.id} style={s.tr}>
+                    <Text style={[s.td, s.desc]}>{li.description}</Text>
+                    <Text style={[s.td, s.qty]}>{li.quantity}</Text>
+                    <Text style={[s.td, s.unit]}>{fmt(li.unitPrice)}</Text>
+                    <Text style={[s.td, s.vat]}>{fmt(li.vatAmount)}</Text>
+                    <Text style={[s.td, s.line]}>{fmt(li.subtotal + li.vatAmount)}</Text>
+                  </View>
+                ))}
               </View>
             );
           })}
@@ -145,15 +207,57 @@ export function InvoiceTemplate({
             <Text style={s.totalLabel}>Subtotal</Text>
             <Text style={s.totalValue}>{fmt(invoice.subtotal)}</Text>
           </View>
+          {invoice.addonsTotal > 0 && (
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>Add-ons</Text>
+              <Text style={s.totalValue}>{fmt(invoice.addonsTotal)}</Text>
+            </View>
+          )}
+          {invoice.discountTotal < 0 && (
+            <View style={s.totalRow}>
+              <Text style={s.totalLabel}>Discounts</Text>
+              <Text style={s.totalValue}>{fmt(invoice.discountTotal)}</Text>
+            </View>
+          )}
           <View style={s.totalRow}>
             <Text style={s.totalLabel}>VAT</Text>
             <Text style={s.totalValue}>{fmt(invoice.vatAmount)}</Text>
           </View>
           <View style={[s.totalRow, s.big]}>
-            <Text style={s.totalLabel}>Total</Text>
+            <Text style={s.totalLabel}>Grand Total</Text>
             <Text style={s.totalValue}>{fmt(invoice.total)}</Text>
           </View>
         </View>
+
+        {invoice.payment && (
+          <View style={s.paymentBox}>
+            <Text style={s.paymentTitle}>Payment breakdown</Text>
+            <View style={s.paymentRow}>
+              <Text>
+                Deposit{invoice.payment.depositMethod ? ` (${invoice.payment.depositMethod.replace("_", " ")})` : ""}
+              </Text>
+              <Text>{fmt(invoice.payment.depositAmount)}</Text>
+            </View>
+            <View style={s.paymentRow}>
+              <Text>
+                Finance{invoice.payment.financeProvider ? ` (${invoice.payment.financeProvider})` : ""}
+              </Text>
+              <Text>{fmt(invoice.payment.financeAmount)}</Text>
+            </View>
+            <View style={s.paymentBalance}>
+              <Text>
+                Balance Due{invoice.payment.balanceDueBy ? ` by ${fmtDate(invoice.payment.balanceDueBy)}` : ""}
+              </Text>
+              <Text>{fmt(invoice.payment.balanceDue)}</Text>
+            </View>
+          </View>
+        )}
+
+        {invoice.vatScheme === "margin" && (
+          <Text style={s.vatNote}>
+            Sold under the UK Used Car Margin Scheme — VAT not separately recoverable by purchaser.
+          </Text>
+        )}
 
         <Text style={s.footer}>{companyName} · Thank you for your business.</Text>
       </Page>

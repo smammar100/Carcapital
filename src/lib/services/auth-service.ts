@@ -15,6 +15,11 @@ export const authService = {
     return [...mockUsers];
   },
 
+  /**
+   * Single-tenant in v1: returns all users since they all belong to Car Capital UK.
+   * Kept for forward-compatibility — the Supabase migration will reintroduce
+   * companyId filtering here.
+   */
   async getUsersForCompany(companyId: UUID): Promise<User[]> {
     // TODO: Supabase: ... .eq('company_id', companyId)
     await delay();
@@ -27,9 +32,12 @@ export const authService = {
     return mockCompanies.find((c) => c.id === id) ?? null;
   },
 
-  async getAllCompanies(): Promise<Company[]> {
-    // TODO: Supabase: from('companies').select('*')
-    await delay();
-    return [...mockCompanies];
+  /** Single-tenant helper: returns the Car Capital UK company. */
+  async getCurrentCompany(): Promise<Company> {
+    // TODO: Supabase: from('companies').select('*').limit(1).single()
+    await delay(150);
+    const company = mockCompanies[0];
+    if (!company) throw new Error("Car Capital UK company not seeded");
+    return company;
   },
 };

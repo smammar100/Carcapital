@@ -32,7 +32,7 @@ const BACKGROUNDS = [
 ];
 
 export default function PhotoProcessingPage() {
-  const { company } = useAuth();
+  const { user, company } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [bgRemoved, setBgRemoved] = useState(false);
@@ -186,9 +186,43 @@ export default function PhotoProcessingPage() {
                       {vehicle.imagesCount} photos · {vehicle.stockId}
                     </p>
                   </div>
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/vehicles/${vehicle.id}`}>Open vehicle</Link>
-                  </Button>
+                  <div className="flex gap-2">
+                    {/* v4.1 TC-P2-008/009: Mark Photos Ready transitions
+                        photos_pending → photos_ready → ready */}
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!user) return;
+                        if (vehicle.status === "photos_pending") {
+                          await vehicleService.changeStatus(
+                            vehicle.id,
+                            "ready",
+                            user.id,
+                          );
+                          toast.success(`${vehicle.registration} marked Ready`);
+                          if (company)
+                            setVehicles(
+                              await vehicleService.getAll(company.id),
+                            );
+                        } else if (vehicle.status === "ready") {
+                          toast.info("Already Ready");
+                        } else {
+                          toast.info(
+                            `Vehicle is in ${vehicle.status} status — cannot mark ready yet`,
+                          );
+                        }
+                      }}
+                      disabled={
+                        vehicle.status !== "photos_pending" &&
+                        vehicle.status !== "photos_ready"
+                      }
+                    >
+                      Mark Photos Ready
+                    </Button>
+                    <Button asChild size="sm" variant="outline">
+                      <Link href={`/vehicles/${vehicle.id}`}>Open vehicle</Link>
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="mt-4 space-y-4">

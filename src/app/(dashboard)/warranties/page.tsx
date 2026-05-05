@@ -62,11 +62,11 @@ type WarrantyRow = Warranty & {
   period: { start: string; end: string };
 };
 
+// "Claimed" filter dropped per v4.1 — see /warranties/claims for live open claims.
 const STATUS_TABS: { value: WarrantyStatus | "all"; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "expired", label: "Expired" },
-  { value: "claimed", label: "Claimed" },
   { value: "cancelled", label: "Cancelled" },
 ];
 

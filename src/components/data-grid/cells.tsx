@@ -328,7 +328,6 @@ export function AppointmentOutcomeCell({
 const WARRANTY_STATUS_LABEL: Record<WarrantyStatus, string> = {
   active: "Active",
   expired: "Expired",
-  claimed: "Claimed",
   cancelled: "Cancelled",
 };
 

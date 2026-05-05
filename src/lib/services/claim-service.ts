@@ -47,14 +47,8 @@ export const claimService = {
       resolvedAt: null,
     };
     mockClaims.push(claim);
-    // Mark warranty as claimed
-    const widx = mockWarranties.findIndex((w) => w.id === input.warrantyId);
-    if (widx !== -1) {
-      mockWarranties[widx] = {
-        ...mockWarranties[widx],
-        status: "claimed",
-      };
-    }
+    // v4.1: warranty status stays "active" — "claimed" state is derived from
+    // any open/under_review claim, surfaced via /warranties/claims.
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,

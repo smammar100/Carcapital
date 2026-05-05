@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { ClipboardCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/table";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
+import { InspectionSidePanel } from "@/components/inspection/inspection-side-panel";
 import { formatDate } from "@/lib/utils";
 
 interface Row {
@@ -34,29 +34,33 @@ export default function MaintenanceInspectionListPage() {
   const { company } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [selected, setSelected] = useState<Vehicle | null>(null);
+
+  async function load() {
+    if (!company) return;
+    const [vs, u] = await Promise.all([
+      vehicleService.getAll(company.id),
+      authService.getUsersForCompany(company.id),
+    ]);
+    const candidates = vs.filter(
+      (v) =>
+        v.status === "received" ||
+        v.status === "inspection_pending" ||
+        v.status === "being_prepared",
+    );
+    const out: Row[] = [];
+    for (const v of candidates) {
+      const checks = await inspectionService.getForVehicle(v.id);
+      const progress = checks.filter((c) => c.status).length;
+      out.push({ vehicle: v, progress, total: 20 });
+    }
+    setRows(out);
+    setUsers(u);
+  }
 
   useEffect(() => {
-    if (!company) return;
-    void (async () => {
-      const [vs, u] = await Promise.all([
-        vehicleService.getAll(company.id),
-        authService.getUsersForCompany(company.id),
-      ]);
-      const candidates = vs.filter(
-        (v) =>
-          v.status === "received" ||
-          v.status === "inspection_pending" ||
-          v.status === "being_prepared",
-      );
-      const out: Row[] = [];
-      for (const v of candidates) {
-        const checks = await inspectionService.getForVehicle(v.id);
-        const progress = checks.filter((c) => c.status).length;
-        out.push({ vehicle: v, progress, total: 20 });
-      }
-      setRows(out);
-      setUsers(u);
-    })();
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company]);
 
   return (
@@ -64,7 +68,7 @@ export default function MaintenanceInspectionListPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight">Inspection Queue</h1>
         <p className="text-sm text-muted-foreground">
-          Vehicles in received / pending / being-prepared states.
+          Vehicles in received / pending / being-prepared states. Click a row to open the inspection side panel.
         </p>
       </div>
       {!rows ? (
@@ -118,10 +122,12 @@ export default function MaintenanceInspectionListPage() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button asChild size="sm" variant="outline">
-                        <Link href={`/vehicles/${vehicle.id}/inspection`}>
-                          {progress > 0 ? "Continue" : "Start"}
-                        </Link>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setSelected(vehicle)}
+                      >
+                        {progress > 0 ? "Continue" : "Start"}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -131,6 +137,15 @@ export default function MaintenanceInspectionListPage() {
           </Table>
         </Card>
       )}
+
+      <InspectionSidePanel
+        vehicle={selected}
+        open={selected !== null}
+        onOpenChange={(o) => {
+          if (!o) setSelected(null);
+        }}
+        onComplete={() => void load()}
+      />
     </div>
   );
 }

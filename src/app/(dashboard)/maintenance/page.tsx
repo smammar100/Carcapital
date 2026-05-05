@@ -133,7 +133,7 @@ export default function MaintenancePage() {
           description="Add a vehicle to auto-create a pending job."
           action={
             <Button asChild size="sm">
-              <Link href="/vehicles/new">Add a vehicle</Link>
+              <Link href="/inventory/add-vehicle">Add a vehicle</Link>
             </Button>
           }
         />
@@ -165,7 +165,7 @@ export default function MaintenancePage() {
                     variant="ghost"
                     className="h-6 w-6"
                   >
-                    <Link href="/vehicles/new" aria-label="Add new job">
+                    <Link href="/inventory/add-vehicle" aria-label="Add new job">
                       <Plus className="h-3.5 w-3.5" />
                     </Link>
                   </Button>
@@ -183,7 +183,7 @@ export default function MaintenancePage() {
                       variant="ghost"
                       className="h-auto justify-start gap-1 px-2 py-2 text-xs text-muted-foreground hover:text-foreground"
                     >
-                      <Link href="/vehicles/new">
+                      <Link href="/inventory/add-vehicle">
                         <Plus className="h-3 w-3" />
                         New
                       </Link>

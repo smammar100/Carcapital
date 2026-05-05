@@ -16,7 +16,8 @@ export interface Company {
   address: string;
   vatNumber: string | null;
   logoUrl: string | null;
-  stockIdPrefix: string; // "CC" or "CG"
+  stockIdPrefix: string; // "CC" — single-tenant in v1
+  nextStockSeq: number;  // monotonic counter for stock IDs (Phase 2)
 }
 
 export type UserRole =
@@ -33,10 +34,39 @@ export interface User {
   companyId: UUID;
   name: string;
   email: string;
+  /** Legacy display label only — authority is driven by `roles` + capabilities. */
   role: UserRole;
+  /** v4.1 Gap 3 — bypasses every capability check. */
+  isSuperUser: boolean;
+  /**
+   * Stripe-style team roles. Each role is a bundle of granular capabilities
+   * defined in `src/lib/roles.ts`. The effective permission set is the
+   * UNION across all assigned roles plus any explicit grants in
+   * `mockUserPermissions`.
+   */
+  roles: import("./roles").RoleValue[];
   avatarUrl: string | null;
   active: boolean;
+  /** Set when an invitation is sent. Null for users created directly (seeded). */
+  invitedAt: ISODateTime | null;
+  /** Set when the user accepts the invitation (or on first login for seeded users). */
+  acceptedAt: ISODateTime | null;
+  /** Most recent login. Null = never logged in. */
+  lastLoginAt: ISODateTime | null;
+  twoStepEnabled: boolean;
   createdAt: ISODateTime;
+}
+
+/**
+ * Per-user capability grant. v4.1 spec §11.18 + Gap 3 — replaces the legacy
+ * role-based authority matrix.
+ */
+export interface UserPermission {
+  id: UUID;
+  userId: UUID;
+  capability: string; // matches Capability from src/lib/capabilities.ts
+  grantedBy: UUID;
+  grantedAt: ISODateTime;
 }
 
 // ============================================================
@@ -47,6 +77,8 @@ export type VehicleStatus =
   | "received"
   | "inspection_pending"
   | "being_prepared"
+  | "photos_pending"
+  | "photos_ready"
   | "ready"
   | "listed"
   | "reserved"
@@ -154,6 +186,8 @@ export interface Vehicle {
 
   // Lifecycle
   status: VehicleStatus;
+  /** v4.1 Gap 1 — sold vehicles stay on Work List until this is set. */
+  removedFromWebsiteAt: ISODateTime | null;
   daysInStock: number;
   imagesCount: number;
 
@@ -212,6 +246,27 @@ export interface InspectionCheck {
   actionRequired: string | null;
   carriedOutBy: UUID;
   carriedOutDate: ISODate;
+  createdAt: ISODateTime;
+}
+
+/** Inspection notes — v4.1 §11.5 / Gap 4. Append-only sub-entity. */
+export interface InspectionNote {
+  id: UUID;
+  vehicleId: UUID;
+  userId: UUID;
+  content: string;
+  createdAt: ISODateTime;
+}
+
+/** Workshop / maintenance job note types — v4.1 §11.7 / Gap 5. */
+export type JobNoteType = "note" | "call_log" | "status_update" | "vendor_update";
+
+export interface MaintenanceJobNote {
+  id: UUID;
+  jobId: UUID;
+  userId: UUID;
+  noteType: JobNoteType;
+  content: string;
   createdAt: ISODateTime;
 }
 
@@ -413,7 +468,9 @@ export interface SalesDeal {
 // ============================================================
 
 export type WarrantyType = "in_house" | "third_party";
-export type WarrantyStatus = "active" | "expired" | "claimed" | "cancelled";
+// v4.1: "claimed" removed — derived from claims with status in (open, under_review).
+// See /warranties/claims for the live filter.
+export type WarrantyStatus = "active" | "expired" | "cancelled";
 
 export interface Warranty {
   id: UUID;
@@ -464,13 +521,58 @@ export interface WarrantyClaim {
 
 export type InvoiceType = "purchase" | "sale";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
+export type VatScheme = "margin" | "standard" | "zero_rated";
+export type InvoiceLineType = "vehicle" | "addon" | "discount" | "fee";
+
+/**
+ * Predefined add-on types for the line-item picker on the sales invoice form.
+ * Order matches the spec §11.15 dropdown. "custom" lets the user type a free
+ * description for one-off line items.
+ */
+export type AddonType =
+  | "warranty"
+  | "home_delivery"
+  | "wash"
+  | "polish"
+  | "fuel"
+  | "floor_mats"
+  | "service_pack"
+  | "paint_protection"
+  | "accessories"
+  | "custom";
+
+export type DepositMethod = "cash" | "card" | "bank_transfer";
 
 export interface InvoiceLineItem {
   id: UUID;
+  lineType: InvoiceLineType;
+  /** Populated when lineType === "addon"; null otherwise. */
+  addonType: AddonType | null;
   description: string;
   quantity: number;
   unitPrice: number;
   vatRate: number;
+  /** quantity × unitPrice (signed for discounts). */
+  subtotal: number;
+  /** VAT for this line, computed against the invoice's vatScheme. */
+  vatAmount: number;
+}
+
+/**
+ * Payment breakdown sub-record — Bass Bhai feedback v4.1.
+ * Captures how the customer is paying for a sales invoice: upfront deposit,
+ * finance amount via a provider, and the residual balance due by a date.
+ */
+export interface InvoicePayment {
+  id: UUID;
+  invoiceId: UUID;
+  depositAmount: number;
+  depositMethod: DepositMethod | null;
+  financeAmount: number;
+  financeProvider: string | null;
+  /** Auto-derived: grandTotal − depositAmount − financeAmount. */
+  balanceDue: number;
+  balanceDueBy: ISODate | null;
 }
 
 export interface Invoice {
@@ -478,16 +580,31 @@ export interface Invoice {
   companyId: UUID;
   type: InvoiceType;
   vehicleId: UUID | null;
+  /** Legacy name — kept for vendor invoices (purchases). For sales invoices, prefer the buyer* fields. */
   partyName: string;
   partyPhone: string | null;
   partyEmail: string | null;
+  /** Sales-invoice buyer fields. Required by the v4.1 PDF template for sales. */
+  buyerName: string | null;
+  buyerPhone: string | null;
+  buyerEmail: string | null;
+  buyerAddress: string | null;
   invoiceNumber: string;
   invoiceDate: ISODate;
   dueDate: ISODate | null;
+  vatScheme: VatScheme;
   lineItems: InvoiceLineItem[];
+  /** Sum of all line subtotals (excl. VAT), signed. */
   subtotal: number;
+  /** Sum of subtotals where lineType === "addon". */
+  addonsTotal: number;
+  /** Sum of subtotals where lineType === "discount" (negative). */
+  discountTotal: number;
+  /** Sum of all line vatAmounts. Aliases the legacy `vatAmount`. */
   vatAmount: number;
+  /** Subtotal + vatAmount. */
   total: number;
+  payment: InvoicePayment | null;
   status: InvoiceStatus;
   notes: string | null;
   attachmentUrl: string | null;

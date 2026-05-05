@@ -9,6 +9,7 @@ import {
   Calendar,
   Megaphone,
   Loader2,
+  EyeOff,
 } from "lucide-react";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
@@ -23,6 +24,7 @@ import { VehicleStatusBadge } from "@/components/shared/status-badge";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { VehicleDetailTabs } from "@/components/vehicles/vehicle-detail-tabs";
+import { InspectionSidePanel } from "@/components/inspection/inspection-side-panel";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,16 +44,33 @@ export default function VehicleDetailPage({
   const { user, company } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null | undefined>(undefined);
   const [exporting, setExporting] = useState(false);
+  const [inspectionOpen, setInspectionOpen] = useState(false);
 
   useEffect(() => {
     void vehicleService.getById(id).then(setVehicle);
   }, [id]);
+
+  async function refreshVehicle() {
+    const v = await vehicleService.getById(id);
+    setVehicle(v);
+  }
 
   async function handleStatusChange(s: VehicleStatus) {
     if (!user || !vehicle) return;
     const updated = await vehicleService.changeStatus(vehicle.id, s, user.id);
     setVehicle(updated);
     toast.success(`Status: ${s.replace("_", " ")}`);
+  }
+
+  async function handleRemoveFromWebsite() {
+    if (!user || !vehicle) return;
+    const ok = window.confirm(
+      `Remove ${vehicle.registration} from website?\n\nVehicle will disappear from Work List but stays on the Master Sheet for historical reference.`,
+    );
+    if (!ok) return;
+    const updated = await vehicleService.removeFromWebsite(vehicle.id, user.id);
+    setVehicle(updated);
+    toast.success(`${vehicle.registration} removed from website`);
   }
 
   async function handleExportPdf() {
@@ -149,24 +168,36 @@ export default function VehicleDetailPage({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/vehicles/${vehicle.id}/inspection`}>
-              <ClipboardCheck className="mr-1.5 h-4 w-4" />
-              Inspection
-            </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setInspectionOpen(true)}
+          >
+            <ClipboardCheck className="mr-1.5 h-4 w-4" />
+            Open Inspection
           </Button>
           <Button asChild size="sm" variant="outline">
-            <Link href={`/listings`}>
+            <Link href={`/advert/work-list`}>
               <Megaphone className="mr-1.5 h-4 w-4" />
               Listing
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline">
-            <Link href={`/appointments`}>
+            <Link href={`/sales/appointments`}>
               <Calendar className="mr-1.5 h-4 w-4" />
               Book Appt.
             </Link>
           </Button>
+          {vehicle.status === "sold" && vehicle.removedFromWebsiteAt === null && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void handleRemoveFromWebsite()}
+            >
+              <EyeOff className="mr-1.5 h-4 w-4" />
+              Remove from Website
+            </Button>
+          )}
           <Button
             size="sm"
             variant="default"
@@ -183,7 +214,17 @@ export default function VehicleDetailPage({
         </div>
       </div>
 
-      <VehicleDetailTabs vehicle={vehicle} />
+      <VehicleDetailTabs
+        vehicle={vehicle}
+        onOpenInspection={() => setInspectionOpen(true)}
+      />
+
+      <InspectionSidePanel
+        vehicle={vehicle}
+        open={inspectionOpen}
+        onOpenChange={setInspectionOpen}
+        onComplete={() => void refreshVehicle()}
+      />
     </div>
   );
 }
