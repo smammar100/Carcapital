@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Fragment } from "react";
 import { Pencil } from "lucide-react";
 import {
   Dialog,
@@ -22,11 +23,11 @@ interface EventPreviewDialogProps {
   onOpenChange: (open: boolean) => void;
   /** Title shown in the dialog header. */
   title: string;
-  /** Small uppercase pill rendered before the title (e.g., "Appointment"). */
+  /** Small uppercase pill rendered above the title (e.g., "Appointment"). */
   toneLabel?: string;
   /** Tailwind classes for the tone pill background + text. */
   toneClass?: string;
-  /** Rows of label/value to render in the body. */
+  /** Rows of label/value to render in the body as a definition list. */
   rows: EventPreviewRow[];
   /** Optional edit handler. When omitted, the Edit button is hidden. */
   onEdit?: () => void;
@@ -57,33 +58,34 @@ export function EventPreviewDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
-        <DialogHeader>
-          <div className="flex items-start gap-2 pr-10">
-            {toneLabel ? (
-              <span
-                className={cn(
-                  "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
-                  toneClass ?? "bg-muted text-muted-foreground",
-                )}
-              >
-                {toneLabel}
-              </span>
-            ) : null}
-            <DialogTitle className="flex-1 truncate text-base">
-              {title}
-            </DialogTitle>
-          </div>
+        <DialogHeader className="space-y-2 pr-8">
+          {toneLabel ? (
+            <span
+              className={cn(
+                "inline-flex w-fit items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                toneClass ?? "bg-muted text-muted-foreground",
+              )}
+            >
+              {toneLabel}
+            </span>
+          ) : null}
+          <DialogTitle className="text-lg font-semibold leading-snug">
+            {title}
+          </DialogTitle>
         </DialogHeader>
-        <div className="grid gap-2 text-sm">
+
+        <dl className="grid grid-cols-[88px_1fr] gap-x-3 gap-y-2 text-sm">
           {rows.map((r) => (
-            <div key={r.label}>
-              <span className="text-muted-foreground">{r.label}: </span>
-              {r.value}
-            </div>
+            <Fragment key={r.label}>
+              <dt className="text-muted-foreground">{r.label}</dt>
+              <dd className="min-w-0 break-words text-foreground">{r.value}</dd>
+            </Fragment>
           ))}
-        </div>
+        </dl>
+
         {bodySlot}
-        <DialogFooter className="gap-2 sm:gap-2">
+
+        <DialogFooter className="mt-2 flex-row justify-end gap-2 sm:justify-end">
           {onEdit ? (
             <Button
               type="button"
