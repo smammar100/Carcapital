@@ -30,6 +30,74 @@ export interface WeekCalendarEvent {
 
 const RICH_CARD_MIN_HEIGHT = 128;
 
+/**
+ * Assign each event in a day a `lane` (0-indexed) and `lanes` (total lanes
+ * within its overlap cluster), so overlapping events render side-by-side
+ * instead of stacking. Input must be sorted by start ascending.
+ */
+function computeLanesForDay(
+  sorted: WeekCalendarEvent[],
+): Array<{ event: WeekCalendarEvent; lane: number; lanes: number }> {
+  type Cluster = {
+    events: WeekCalendarEvent[];
+    /** Each lane is a list of events placed in it, in start order. */
+    lanes: WeekCalendarEvent[][];
+  };
+  const clusters: Cluster[] = [];
+  const laneByEvent = new Map<string, number>();
+
+  for (const e of sorted) {
+    // Find a cluster containing at least one event that overlaps this one.
+    let cluster = clusters.find((c) =>
+      c.events.some(
+        (ce) =>
+          ce.start.getTime() < e.end.getTime() &&
+          ce.end.getTime() > e.start.getTime(),
+      ),
+    );
+    if (!cluster) {
+      cluster = { events: [], lanes: [] };
+      clusters.push(cluster);
+    }
+    cluster.events.push(e);
+
+    // Place in the leftmost lane whose latest event ended at or before
+    // this event's start. If none, open a new lane.
+    let laneIdx = -1;
+    for (let i = 0; i < cluster.lanes.length; i++) {
+      const lane = cluster.lanes[i];
+      const last = lane[lane.length - 1];
+      if (last.end.getTime() <= e.start.getTime()) {
+        lane.push(e);
+        laneIdx = i;
+        break;
+      }
+    }
+    if (laneIdx === -1) {
+      cluster.lanes.push([e]);
+      laneIdx = cluster.lanes.length - 1;
+    }
+    laneByEvent.set(e.id, laneIdx);
+  }
+
+  const result: Array<{
+    event: WeekCalendarEvent;
+    lane: number;
+    lanes: number;
+  }> = [];
+  for (const cluster of clusters) {
+    const lanesCount = cluster.lanes.length;
+    for (const e of cluster.events) {
+      result.push({
+        event: e,
+        lane: laneByEvent.get(e.id) ?? 0,
+        lanes: lanesCount,
+      });
+    }
+  }
+  return result;
+}
+
 const WEEKDAYS_SHORT = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const WEEKDAYS_LONG = [
   "Sunday",
@@ -386,15 +454,21 @@ function TimeGrid({
   }, [startHour, endHour]);
 
   const eventsByDay = useMemo(() => {
-    const map = new Map<string, WeekCalendarEvent[]>();
+    const map = new Map<
+      string,
+      Array<{ event: WeekCalendarEvent; lane: number; lanes: number }>
+    >();
     for (const d of days) map.set(toKey(d), []);
+    const buckets = new Map<string, WeekCalendarEvent[]>();
+    for (const d of days) buckets.set(toKey(d), []);
     for (const e of events) {
       const k = toKey(e.start);
-      const arr = map.get(k);
+      const arr = buckets.get(k);
       if (arr) arr.push(e);
     }
-    for (const arr of map.values()) {
+    for (const [k, arr] of buckets) {
       arr.sort((a, b) => a.start.getTime() - b.start.getTime());
+      map.set(k, computeLanesForDay(arr));
     }
     return map;
   }, [events, days]);
@@ -487,13 +561,15 @@ function TimeGrid({
                   />
                 ),
               )}
-              {dayEvents.map((e) => (
+              {dayEvents.map(({ event, lane, lanes }) => (
                 <EventBlock
-                  key={e.id}
-                  event={e}
+                  key={event.id}
+                  event={event}
+                  lane={lane}
+                  lanes={lanes}
                   startHour={startHour}
                   endHour={endHour}
-                  onClick={() => onSelectEvent?.(e)}
+                  onClick={() => onSelectEvent?.(event)}
                 />
               ))}
             </div>
@@ -518,11 +594,15 @@ function TimeGrid({
 
 function EventBlock({
   event,
+  lane,
+  lanes,
   startHour,
   endHour,
   onClick,
 }: {
   event: WeekCalendarEvent;
+  lane: number;
+  lanes: number;
   startHour: number;
   endHour: number;
   onClick?: () => void;
@@ -543,6 +623,12 @@ function EventBlock({
     ((visibleEnd - visibleStart) / 60) * HOUR_HEIGHT,
   );
 
+  // Lane geometry: split column into N equal lanes. Each lane reserves 2px on
+  // each side so a single lane matches the original `inset-x-0.5`, and adjacent
+  // lanes show a 4px visual gap.
+  const widthPct = 100 / Math.max(1, lanes);
+  const leftPct = widthPct * lane;
+
   const t = TONE_STYLES[event.tone];
   const isRich =
     height >= RICH_CARD_MIN_HEIGHT &&
@@ -554,10 +640,15 @@ function EventBlock({
       type="button"
       onClick={onClick}
       className={cn(
-        "absolute inset-x-0.5 flex items-stretch overflow-hidden rounded-[4px] text-left transition-opacity hover:opacity-90",
+        "absolute flex items-stretch overflow-hidden rounded-[4px] text-left transition-opacity hover:opacity-90",
         t.bg,
       )}
-      style={{ top, height }}
+      style={{
+        top,
+        height,
+        left: `calc(${leftPct}% + 2px)`,
+        width: `calc(${widthPct}% - 4px)`,
+      }}
     >
       <div className={cn("w-[3px] shrink-0", t.bar)} />
       <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-1.5">
