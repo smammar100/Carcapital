@@ -555,15 +555,19 @@ function TimeGrid({
         }}
       >
         <div className="relative">
-          {hours.map((h, i) => (
-            <div
-              key={h}
-              className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
-              style={{ top: i * HOUR_HEIGHT }}
-            >
-              {formatHourLabel(h)}
-            </div>
-          ))}
+          {hours.map((h, i) =>
+            // Skip i=0: the first hour is implicit at the top of the grid;
+            // rendering it with -translate-y-1/2 pokes it into the header row.
+            i === 0 ? null : (
+              <div
+                key={h}
+                className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
+                style={{ top: i * HOUR_HEIGHT }}
+              >
+                {formatHourLabel(h)}
+              </div>
+            ),
+          )}
         </div>
 
         {days.map((d) => {
@@ -603,15 +607,17 @@ function TimeGrid({
         })}
 
         <div className="relative border-l">
-          {hours.map((h, i) => (
-            <div
-              key={h}
-              className="absolute left-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
-              style={{ top: i * HOUR_HEIGHT }}
-            >
-              {formatHourLabel(h)}
-            </div>
-          ))}
+          {hours.map((h, i) =>
+            i === 0 ? null : (
+              <div
+                key={h}
+                className="absolute left-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
+                style={{ top: i * HOUR_HEIGHT }}
+              >
+                {formatHourLabel(h)}
+              </div>
+            ),
+          )}
         </div>
       </div>
     </div>
@@ -670,7 +676,8 @@ function EventBlock({
       type="button"
       onClick={onClick}
       className={cn(
-        "absolute flex items-stretch overflow-hidden rounded-[4px] text-left transition-opacity hover:opacity-90",
+        "absolute flex items-stretch overflow-hidden text-left transition-opacity hover:opacity-90",
+        narrow ? "rounded-[2px]" : "rounded-[4px]",
         t.bg,
       )}
       style={{
@@ -680,16 +687,21 @@ function EventBlock({
         width: `calc(${widthPct}% - 4px)`,
       }}
     >
-      <div className={cn("w-[3px] shrink-0", t.bar)} />
+      <div
+        className={cn(narrow ? "w-[2px]" : "w-[3px]", "shrink-0", t.bar)}
+      />
       <div
         className={cn(
           "flex min-w-0 flex-1 flex-col gap-0.5",
-          narrow ? "p-1" : "p-1.5",
+          narrow ? "px-1 py-0.5" : "p-1.5",
         )}
       >
         <div
           className={cn(
-            "flex items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none tabular-nums",
+            "flex items-center gap-1 whitespace-nowrap leading-none tabular-nums",
+            narrow
+              ? "text-[10px] font-semibold"
+              : "text-[11px] font-medium",
             t.text,
           )}
         >
@@ -697,7 +709,8 @@ function EventBlock({
         </div>
         <div
           className={cn(
-            "truncate text-[12px] leading-[15px] font-medium",
+            "truncate font-medium",
+            narrow ? "text-[11px] leading-tight" : "text-[12px] leading-[15px]",
             t.text,
           )}
         >
