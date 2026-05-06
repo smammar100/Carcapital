@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, Plus, Search } from "lucide-react";
+import { CalendarCheck, Pencil, Plus, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -107,6 +107,7 @@ export default function AppointmentsPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [open, setOpen] = useState(false);
   const [drill, setDrill] = useState<Appointment | null>(null);
+  const [editing, setEditing] = useState(false);
   const [view, setView] = useState<CalendarViewMode>("weekly");
   const [statusFilters, setStatusFilters] = useState<Record<string, boolean>>({
     upcoming: true,
@@ -132,6 +133,33 @@ export default function AppointmentsPage() {
       specialRequirements: "",
     },
   });
+
+  const editForm = useForm<FormInput, unknown, FormOutput>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      vehicleId: "",
+      customerName: "",
+      customerPhone: "",
+      customerEmail: "",
+      date: "",
+      time: "",
+      specialRequirements: "",
+    },
+  });
+
+  useEffect(() => {
+    if (drill && editing) {
+      editForm.reset({
+        vehicleId: drill.vehicleId,
+        customerName: drill.customerName,
+        customerPhone: drill.customerPhone,
+        customerEmail: drill.customerEmail,
+        date: drill.date,
+        time: drill.time,
+        specialRequirements: drill.specialRequirements ?? "",
+      });
+    }
+  }, [drill, editing, editForm]);
 
   useEffect(() => {
     if (!company) return;
@@ -211,6 +239,8 @@ export default function AppointmentsPage() {
           tone: STATUS_TONE[a.status] ?? "slate",
           meta: v?.registration,
           icon: "📅",
+          vehicleId: v?.id,
+          vehicleRegistration: v?.registration,
         } satisfies WeekCalendarEvent;
       });
   }, [appts, vehicles, statusFilters]);
@@ -241,6 +271,27 @@ export default function AppointmentsPage() {
     setAppts(await appointmentService.getAll(company.id));
     setDrill(null);
     toast.success(`Outcome: ${outcome.replace("_", " ")}`);
+  }
+
+  async function handleEdit(values: FormOutput) {
+    if (!user || !company || !drill) return;
+    const updated = await appointmentService.update(
+      drill.id,
+      {
+        vehicleId: values.vehicleId,
+        customerName: values.customerName,
+        customerPhone: values.customerPhone,
+        customerEmail: values.customerEmail,
+        date: values.date,
+        time: values.time,
+        specialRequirements: values.specialRequirements || null,
+      },
+      user.id,
+    );
+    setAppts(await appointmentService.getAll(company.id));
+    setDrill(updated);
+    setEditing(false);
+    toast.success("Appointment updated");
   }
 
   return (
@@ -420,19 +471,41 @@ export default function AppointmentsPage() {
       <Dialog
         open={drill !== null}
         onOpenChange={(o) => {
-          if (!o) setDrill(null);
+          if (!o) {
+            setDrill(null);
+            setEditing(false);
+          }
         }}
       >
         <DialogContent className="max-w-md">
-          {drill && (
+          {drill && !editing && (
             <>
               <DialogHeader>
-                <DialogTitle>{drill.customerName}</DialogTitle>
+                <div className="flex items-start gap-3 pr-10">
+                  <DialogTitle className="flex-1 truncate">
+                    {drill.customerName}
+                  </DialogTitle>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-8 shrink-0 gap-1"
+                    onClick={() => setEditing(true)}
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                </div>
               </DialogHeader>
               <div className="grid gap-2 text-sm">
                 <div>
                   <span className="text-muted-foreground">When: </span>
                   {formatDate(drill.date)} · {formatTime12(drill.time)}
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Vehicle: </span>
+                  {vehicles.find((v) => v.id === drill.vehicleId)
+                    ?.registration ?? "—"}
                 </div>
                 <div>
                   <span className="text-muted-foreground">Phone: </span>
@@ -469,6 +542,77 @@ export default function AppointmentsPage() {
                   ))}
                 </div>
               </div>
+            </>
+          )}
+          {drill && editing && (
+            <>
+              <DialogHeader>
+                <DialogTitle>Edit Appointment</DialogTitle>
+              </DialogHeader>
+              <form
+                onSubmit={editForm.handleSubmit(handleEdit)}
+                className="grid gap-3"
+              >
+                <div>
+                  <Label>Vehicle</Label>
+                  <Select
+                    value={editForm.watch("vehicleId")}
+                    onValueChange={(v) => editForm.setValue("vehicleId", v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick a vehicle" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {vehicles.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          {v.registration} — {v.make} {v.model}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Customer name</Label>
+                    <Input {...editForm.register("customerName")} />
+                  </div>
+                  <div>
+                    <Label>Phone</Label>
+                    <Input {...editForm.register("customerPhone")} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    {...editForm.register("customerEmail")}
+                  />
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Date</Label>
+                    <Input type="date" {...editForm.register("date")} />
+                  </div>
+                  <div>
+                    <Label>Time</Label>
+                    <Input type="time" {...editForm.register("time")} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Special requirements</Label>
+                  <Input {...editForm.register("specialRequirements")} />
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setEditing(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button type="submit">Save</Button>
+                </DialogFooter>
+              </form>
             </>
           )}
         </DialogContent>

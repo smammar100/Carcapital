@@ -665,6 +665,7 @@ export type ActivityActionType =
   | "lead_created"
   | "lead_converted"
   | "appointment_booked"
+  | "appointment_updated"
   | "appointment_completed"
   | "sale_stage_changed"
   | "sale_completed"

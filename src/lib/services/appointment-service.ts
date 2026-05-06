@@ -86,6 +86,38 @@ export const appointmentService = {
     return appt;
   },
 
+  async update(
+    id: UUID,
+    patch: Partial<
+      Pick<
+        Appointment,
+        | "vehicleId"
+        | "customerName"
+        | "customerPhone"
+        | "customerEmail"
+        | "date"
+        | "time"
+        | "specialRequirements"
+      >
+    >,
+    actorId: UUID,
+  ): Promise<Appointment> {
+    // TODO: Supabase: update changed fields + log activity
+    await delay();
+    const idx = mockAppointments.findIndex((a) => a.id === id);
+    if (idx === -1) throw new Error("Appointment not found");
+    mockAppointments[idx] = { ...mockAppointments[idx], ...patch };
+    await activityService.log({
+      companyId: mockAppointments[idx].companyId,
+      userId: actorId,
+      vehicleId: mockAppointments[idx].vehicleId,
+      actionType: "appointment_updated",
+      description: `Appointment updated: ${mockAppointments[idx].customerName} on ${mockAppointments[idx].date} ${mockAppointments[idx].time}`,
+      metadata: { appointmentId: id, fields: Object.keys(patch) },
+    });
+    return mockAppointments[idx];
+  },
+
   async setOutcome(
     id: UUID,
     outcome: AppointmentOutcome,

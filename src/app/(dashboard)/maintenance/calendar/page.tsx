@@ -88,6 +88,8 @@ export default function MaintenanceCalendarPage() {
           meta: v?.registration,
           icon: "⚙️",
           href: v ? `/vehicles/${v.id}` : undefined,
+          vehicleId: v?.id,
+          vehicleRegistration: v?.registration,
         } satisfies WeekCalendarEvent;
       });
   }, [jobs, vehicles, filters]);

@@ -3,6 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { VehicleImage } from "./vehicle-image";
 
 export type CalendarTone =
   | "blue"
@@ -23,7 +24,11 @@ export interface WeekCalendarEvent {
   meta?: string;
   icon?: string;
   href?: string;
+  vehicleId?: string;
+  vehicleRegistration?: string;
 }
+
+const RICH_CARD_MIN_HEIGHT = 128;
 
 const WEEKDAYS_SHORT = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 const WEEKDAYS_LONG = [
@@ -539,6 +544,10 @@ function EventBlock({
   );
 
   const t = TONE_STYLES[event.tone];
+  const isRich =
+    height >= RICH_CARD_MIN_HEIGHT &&
+    !!event.vehicleId &&
+    !!event.vehicleRegistration;
 
   return (
     <button
@@ -577,6 +586,19 @@ function EventBlock({
             )}
           >
             {event.meta}
+          </div>
+        ) : null}
+        {isRich ? (
+          <div className="mt-1 flex-1 min-h-0 overflow-hidden rounded-sm">
+            <VehicleImage
+              vehicle={{
+                id: event.vehicleId!,
+                registration: event.vehicleRegistration!,
+                heroImageUrl: null,
+              }}
+              variant="card"
+              className="!aspect-auto !w-full h-full"
+            />
           </div>
         ) : null}
       </div>

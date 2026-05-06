@@ -83,6 +83,8 @@ export default function MasterCalendarPage() {
           meta: v?.registration,
           icon: "📅",
           href: v ? `/vehicles/${v.id}` : "/sales/appointments",
+          vehicleId: v?.id,
+          vehicleRegistration: v?.registration,
         });
       }
     }
@@ -119,6 +121,8 @@ export default function MasterCalendarPage() {
           meta: v?.registration,
           icon: "⚙️",
           href: v ? `/vehicles/${v.id}` : "/maintenance",
+          vehicleId: v?.id,
+          vehicleRegistration: v?.registration,
         });
       }
     }
