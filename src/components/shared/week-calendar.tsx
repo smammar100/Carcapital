@@ -457,7 +457,7 @@ function TimeGrid({
   events,
   currentDate,
   onSelectEvent,
-  startHour = 7,
+  startHour = 8,
   endHour = 18,
   timezoneLabel = "GMT",
   timezoneOffset = "GMT+0",
@@ -500,7 +500,7 @@ function TimeGrid({
   }, [events, days]);
 
   const totalGridHeight = hours.length * HOUR_HEIGHT;
-  const gridTemplateCols = `${TIME_COL_W}px repeat(${days.length}, minmax(0, 1fr)) ${TIME_COL_W}px`;
+  const gridTemplateCols = `${TIME_COL_W}px repeat(${days.length}, minmax(0, 1fr))`;
 
   return (
     <div className="flex flex-col">
@@ -509,14 +509,16 @@ function TimeGrid({
         className="grid"
         style={{ gridTemplateColumns: gridTemplateCols }}
       >
-        <div />
+        <div className="px-2 py-1 text-[9px] font-semibold uppercase tracking-[0.08em] text-muted-foreground text-right leading-tight self-center">
+          {timezoneOffset}
+        </div>
         {days.map((d) => {
           const isToday = isSameDay(d, today);
           return (
             <div
               key={toKey(d)}
               className={cn(
-                "border-l px-3 py-2.5",
+                "border-l px-3 py-1",
                 isToday && "bg-[#eff8fe]",
               )}
             >
@@ -539,11 +541,6 @@ function TimeGrid({
             </div>
           );
         })}
-        <div className="border-l px-2 py-2.5 text-[10px] leading-tight text-muted-foreground">
-          {timezoneLabel}
-          <br />
-          {timezoneOffset}
-        </div>
       </div>
 
       {/* Time grid */}
@@ -555,19 +552,15 @@ function TimeGrid({
         }}
       >
         <div className="relative">
-          {hours.map((h, i) =>
-            // Skip i=0: the first hour is implicit at the top of the grid;
-            // rendering it with -translate-y-1/2 pokes it into the header row.
-            i === 0 ? null : (
-              <div
-                key={h}
-                className="absolute right-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
-                style={{ top: i * HOUR_HEIGHT }}
-              >
-                {formatHourLabel(h)}
-              </div>
-            ),
-          )}
+          {hours.map((h, i) => (
+            <div
+              key={h}
+              className="absolute right-2 text-[10px] font-medium text-muted-foreground"
+              style={{ top: i * HOUR_HEIGHT + 4 }}
+            >
+              {formatHourLabel(h)}
+            </div>
+          ))}
         </div>
 
         {days.map((d) => {
@@ -605,20 +598,6 @@ function TimeGrid({
             </div>
           );
         })}
-
-        <div className="relative border-l">
-          {hours.map((h, i) =>
-            i === 0 ? null : (
-              <div
-                key={h}
-                className="absolute left-2 -translate-y-1/2 text-[10px] font-medium text-muted-foreground"
-                style={{ top: i * HOUR_HEIGHT }}
-              >
-                {formatHourLabel(h)}
-              </div>
-            ),
-          )}
-        </div>
       </div>
     </div>
   );
