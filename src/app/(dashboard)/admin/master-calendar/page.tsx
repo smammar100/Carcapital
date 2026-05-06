@@ -25,6 +25,11 @@ import {
   type WeekCalendarEvent,
 } from "@/components/shared/week-calendar";
 import { AddEventSheet } from "@/components/shared/add-event-sheet";
+import {
+  EventPreviewDialog,
+  type EventPreviewRow,
+} from "@/components/shared/event-preview-dialog";
+import { formatDate, formatTime12 } from "@/lib/utils";
 
 export default function MasterCalendarPage() {
   const { company } = useAuth();
@@ -44,6 +49,7 @@ export default function MasterCalendarPage() {
     return d;
   });
   const [addOpen, setAddOpen] = useState(false);
+  const [preview, setPreview] = useState<WeekCalendarEvent | null>(null);
 
   const reloadAll = async () => {
     if (!company) return;
@@ -130,8 +136,97 @@ export default function MasterCalendarPage() {
   }, [appts, shop, maint, vehicles, showAppt, showShop, showMaint]);
 
   const handleSelectEvent = (e: WeekCalendarEvent) => {
-    if (e.href) router.push(e.href);
+    setPreview(e);
   };
+
+  // Resolve a calendar event back to its underlying entity by id-prefix
+  // convention (appt-, ws-, maint-) so the preview can show real fields.
+  const previewMeta = useMemo(() => {
+    if (!preview) return null;
+    const id = preview.id;
+    if (id.startsWith("appt-")) {
+      const a = appts.find((x) => x.id === id.slice("appt-".length));
+      if (!a) return null;
+      const v = vehicles.find((x) => x.id === a.vehicleId);
+      const rows: EventPreviewRow[] = [
+        {
+          label: "When",
+          value: `${formatDate(a.date)} · ${formatTime12(a.time)}`,
+        },
+        {
+          label: "Vehicle",
+          value: v ? `${v.registration} — ${v.make} ${v.model}` : "—",
+        },
+        { label: "Phone", value: a.customerPhone },
+        { label: "Email", value: a.customerEmail },
+      ];
+      if (a.specialRequirements) {
+        rows.push({ label: "Notes", value: a.specialRequirements });
+      }
+      return {
+        toneLabel: "Appointment",
+        toneClass: "bg-[rgba(14,165,233,0.12)] text-[#0369a1]",
+        title: a.customerName,
+        rows,
+        editHref: "/sales/appointments",
+        ctaLabel: v ? "View Vehicle" : "View Appointments",
+        ctaHref: v ? `/vehicles/${v.id}` : "/sales/appointments",
+      };
+    }
+    if (id.startsWith("ws-")) {
+      const j = shop.find((x) => x.id === id.slice("ws-".length));
+      if (!j) return null;
+      const rows: EventPreviewRow[] = [
+        {
+          label: "When",
+          value: `${formatDate(j.scheduledDate)} · ${formatTime12(j.scheduledTime)}`,
+        },
+        { label: "Vehicle", value: `${j.vehicleReg} — ${j.vehicleDescription}` },
+        { label: "Phone", value: j.customerPhone },
+        { label: "Status", value: j.status.replace("_", " ") },
+      ];
+      if (j.notes) rows.push({ label: "Notes", value: j.notes });
+      return {
+        toneLabel: "Workshop",
+        toneClass: "bg-[rgba(245,158,11,0.15)] text-[#92400e]",
+        title: j.customerName,
+        rows,
+        editHref: "/maintenance/workshop",
+        ctaLabel: "Open Workshop",
+        ctaHref: "/maintenance/workshop",
+      };
+    }
+    if (id.startsWith("maint-")) {
+      const j = maint.find((x) => x.id === id.slice("maint-".length));
+      if (!j) return null;
+      const v = vehicles.find((x) => x.id === j.vehicleId);
+      const rows: EventPreviewRow[] = [
+        { label: "Due", value: j.dueDate ? formatDate(j.dueDate) : "—" },
+        {
+          label: "Vehicle",
+          value: v ? `${v.registration} — ${v.make} ${v.model}` : "—",
+        },
+        { label: "Status", value: j.status.replace("_", " ") },
+        {
+          label: "Estimated",
+          value: j.estimatedDurationHours
+            ? `${j.estimatedDurationHours} h`
+            : "—",
+        },
+      ];
+      if (j.notes) rows.push({ label: "Notes", value: j.notes });
+      return {
+        toneLabel: "Maintenance",
+        toneClass: "bg-[rgba(168,85,247,0.15)] text-[#6b21a8]",
+        title: j.description,
+        rows,
+        editHref: "/maintenance",
+        ctaLabel: v ? "View Vehicle" : "Open Pipeline",
+        ctaHref: v ? `/vehicles/${v.id}` : "/maintenance",
+      };
+    }
+    return null;
+  }, [preview, appts, shop, maint, vehicles]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -208,6 +303,28 @@ export default function MasterCalendarPage() {
         defaultDate={currentDate}
         onCreated={() => void reloadAll()}
       />
+
+      {previewMeta ? (
+        <EventPreviewDialog
+          open={preview !== null}
+          onOpenChange={(o) => !o && setPreview(null)}
+          title={previewMeta.title}
+          toneLabel={previewMeta.toneLabel}
+          toneClass={previewMeta.toneClass}
+          rows={previewMeta.rows}
+          onEdit={() => {
+            const href = previewMeta.editHref;
+            setPreview(null);
+            router.push(href);
+          }}
+          ctaLabel={previewMeta.ctaLabel}
+          onCta={() => {
+            const href = previewMeta.ctaHref;
+            setPreview(null);
+            router.push(href);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

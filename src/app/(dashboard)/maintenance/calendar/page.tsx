@@ -19,6 +19,11 @@ import {
   type CalendarViewMode,
   type WeekCalendarEvent,
 } from "@/components/shared/week-calendar";
+import {
+  EventPreviewDialog,
+  type EventPreviewRow,
+} from "@/components/shared/event-preview-dialog";
+import { cn, formatDate } from "@/lib/utils";
 
 const STATUS_TONE: Record<string, CalendarTone> = {
   pending: "amber",
@@ -94,9 +99,43 @@ export default function MaintenanceCalendarPage() {
       });
   }, [jobs, vehicles, filters]);
 
+  const [preview, setPreview] = useState<WeekCalendarEvent | null>(null);
+
   const handleSelectEvent = (e: WeekCalendarEvent) => {
-    if (e.href) router.push(e.href);
+    setPreview(e);
   };
+
+  const previewMeta = useMemo(() => {
+    if (!preview || !jobs) return null;
+    const job = jobs.find((j) => j.id === preview.id);
+    if (!job) return null;
+    const v = vehicles.find((x) => x.id === job.vehicleId);
+    const rows: EventPreviewRow[] = [
+      { label: "Due", value: job.dueDate ? formatDate(job.dueDate) : "—" },
+      {
+        label: "Vehicle",
+        value: v ? `${v.registration} — ${v.make} ${v.model}` : "—",
+      },
+      { label: "Status", value: job.status.replace("_", " ") },
+      {
+        label: "Estimated",
+        value: job.estimatedDurationHours
+          ? `${job.estimatedDurationHours} h`
+          : "—",
+      },
+    ];
+    if (job.notes) rows.push({ label: "Notes", value: job.notes });
+    return {
+      title: job.description,
+      toneLabel: STATUS_LABEL[job.status],
+      toneClass: cn(
+        "text-white",
+        STATUS_DOT[job.status],
+      ),
+      rows,
+      vehicleHref: v ? `/vehicles/${v.id}` : null,
+    };
+  }, [preview, jobs, vehicles]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -162,6 +201,27 @@ export default function MaintenanceCalendarPage() {
           />
         )}
       </Card>
+
+      {previewMeta ? (
+        <EventPreviewDialog
+          open={preview !== null}
+          onOpenChange={(o) => !o && setPreview(null)}
+          title={previewMeta.title}
+          toneLabel={previewMeta.toneLabel}
+          toneClass={previewMeta.toneClass}
+          rows={previewMeta.rows}
+          onEdit={() => {
+            setPreview(null);
+            router.push("/maintenance");
+          }}
+          ctaLabel={previewMeta.vehicleHref ? "View Vehicle" : "Open Pipeline"}
+          onCta={() => {
+            const href = previewMeta.vehicleHref ?? "/maintenance";
+            setPreview(null);
+            router.push(href);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

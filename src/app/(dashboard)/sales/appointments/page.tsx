@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CalendarCheck, Pencil, Plus, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -103,6 +104,7 @@ const OUTCOMES: AppointmentOutcome[] = [
 
 export default function AppointmentsPage() {
   const { user, company } = useAuth();
+  const router = useRouter();
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [open, setOpen] = useState(false);
@@ -542,6 +544,18 @@ export default function AppointmentsPage() {
                   ))}
                 </div>
               </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    const id = drill.vehicleId;
+                    setDrill(null);
+                    router.push(`/vehicles/${id}`);
+                  }}
+                >
+                  View Vehicle
+                </Button>
+              </DialogFooter>
             </>
           )}
           {drill && editing && (
