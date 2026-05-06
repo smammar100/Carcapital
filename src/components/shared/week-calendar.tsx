@@ -31,6 +31,14 @@ export interface WeekCalendarEvent {
 const RICH_CARD_MIN_HEIGHT = 128;
 
 /**
+ * Hard cap on side-by-side lanes per day. Beyond this, overflow events are
+ * placed back into the lane with the earliest-ending occupant (so they visually
+ * overlap an existing event but the other lanes stay readable). Real usage
+ * should rarely hit this; it's a safety net for dense seed data.
+ */
+const MAX_LANES = 3;
+
+/**
  * Assign each event in a day a `lane` (0-indexed) and `lanes` (total lanes
  * within its overlap cluster), so overlapping events render side-by-side
  * instead of stacking. Input must be sorted by start ascending.
@@ -62,7 +70,7 @@ function computeLanesForDay(
     cluster.events.push(e);
 
     // Place in the leftmost lane whose latest event ended at or before
-    // this event's start. If none, open a new lane.
+    // this event's start.
     let laneIdx = -1;
     for (let i = 0; i < cluster.lanes.length; i++) {
       const lane = cluster.lanes[i];
@@ -74,8 +82,26 @@ function computeLanesForDay(
       }
     }
     if (laneIdx === -1) {
-      cluster.lanes.push([e]);
-      laneIdx = cluster.lanes.length - 1;
+      if (cluster.lanes.length < MAX_LANES) {
+        // Room for another lane.
+        cluster.lanes.push([e]);
+        laneIdx = cluster.lanes.length - 1;
+      } else {
+        // Cap reached — stack into the lane whose last event ends earliest,
+        // so the visible overlap is smallest.
+        let bestIdx = 0;
+        let bestEnd = cluster.lanes[0][cluster.lanes[0].length - 1].end.getTime();
+        for (let i = 1; i < cluster.lanes.length; i++) {
+          const lastEnd =
+            cluster.lanes[i][cluster.lanes[i].length - 1].end.getTime();
+          if (lastEnd < bestEnd) {
+            bestEnd = lastEnd;
+            bestIdx = i;
+          }
+        }
+        cluster.lanes[bestIdx].push(e);
+        laneIdx = bestIdx;
+      }
     }
     laneByEvent.set(e.id, laneIdx);
   }
@@ -630,7 +656,11 @@ function EventBlock({
   const leftPct = widthPct * lane;
 
   const t = TONE_STYLES[event.tone];
+  // When the column is split into multiple lanes, each lane is too narrow to
+  // legibly render meta/icon/image. Drop everything except time + title.
+  const narrow = lanes > 1;
   const isRich =
+    !narrow &&
     height >= RICH_CARD_MIN_HEIGHT &&
     !!event.vehicleId &&
     !!event.vehicleRegistration;
@@ -651,10 +681,15 @@ function EventBlock({
       }}
     >
       <div className={cn("w-[3px] shrink-0", t.bar)} />
-      <div className="flex min-w-0 flex-1 flex-col gap-0.5 p-1.5">
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col gap-0.5",
+          narrow ? "p-1" : "p-1.5",
+        )}
+      >
         <div
           className={cn(
-            "flex items-center gap-1 text-[11px] font-medium leading-none tabular-nums",
+            "flex items-center gap-1 whitespace-nowrap text-[11px] font-medium leading-none tabular-nums",
             t.text,
           )}
         >
@@ -666,10 +701,12 @@ function EventBlock({
             t.text,
           )}
         >
-          {event.icon ? <span className="mr-1">{event.icon}</span> : null}
+          {!narrow && event.icon ? (
+            <span className="mr-1">{event.icon}</span>
+          ) : null}
           {event.title}
         </div>
-        {event.meta ? (
+        {!narrow && event.meta ? (
           <div
             className={cn(
               "truncate text-[11px] leading-tight opacity-80",
