@@ -87,6 +87,63 @@ The detail dialog (read-only view) is the canonical "view" surface. It can be op
 
 ---
 
+## Suite 6 — Click-to-preview dialog (all calendar pages)
+
+Clicking any event tile opens a preview dialog with a tone pill, key fields, an **Edit** button, and a primary CTA. Closing the dialog returns to the calendar with no state loss.
+
+| Test ID | Title | Preconditions | Steps | Expected Result | Notes |
+|---|---|---|---|---|---|
+| PREVIEW-01 | Appointment preview on Master Calendar | A future-dated appointment is visible. | 1. `/admin/master-calendar`. 2. Click the appointment tile. | Dialog opens with **Appointment** pill, customer name in the title, rows: When / Vehicle / Phone / Email (+ Notes if present). Footer shows Edit + View Vehicle. | |
+| PREVIEW-02 | Maintenance preview on Master Calendar | A maintenance tile is visible. | 1. Click the purple tile. | Dialog opens with **Maintenance** pill, description in the title, rows: Due / Vehicle / Status / Estimated (+ Notes). Footer shows Edit + View Vehicle. | |
+| PREVIEW-03 | Workshop preview on Master Calendar | A workshop walk-in tile is visible. | 1. Click the amber tile. | Dialog opens with **Workshop** pill, customer name in the title, rows: When / Vehicle / Phone / Status (+ Notes). Footer shows Edit + Open Workshop (no View Vehicle because workshop has no `vehicleId`). | |
+| PREVIEW-04 | Preview on Maintenance Calendar | At least one job visible. | 1. `/maintenance/calendar`. 2. Click any tile. | Dialog opens with status pill (Pending / In progress / Completed / Stalled), description in title, same row set as PREVIEW-02. Footer shows Edit + View Vehicle. | |
+| PREVIEW-05 | Preview on Sales Appointments | At least one appointment visible. | 1. `/sales/appointments` Calendar tab. 2. Click any tile. | Dialog opens with customer name in title and inline pencil **Edit** in the header, read-only When / Vehicle / Phone / Email / Notes / notification status, **Set outcome** chip row, and a **View Vehicle** CTA in the footer. | This dialog uses the original inline-edit pattern, not the shared component. |
+| PREVIEW-06 | Close paths return cleanly | Dialog open. | 1. Press **Escape**. 2. Re-open. 3. Click outside. 4. Re-open. 5. Click X. | Each path closes the dialog without changing scroll, calendar week, or filter state. | |
+
+---
+
+## Suite 7 — Editing on Master Calendar
+
+The Edit button in the preview now opens an inline `EventEditDialog` (no page navigation). Saving immediately refreshes the calendar so the change is visible without reload.
+
+| Test ID | Title | Preconditions | Steps | Expected Result | Notes |
+|---|---|---|---|---|---|
+| MEDIT-01 | Edit appointment from Master Calendar | An upcoming appointment exists. | 1. Click the appointment tile. 2. Click **Edit**. 3. Change customer name and time. 4. **Save**. | Toast: "Appointment updated". Edit dialog closes. The original tile on `/admin/master-calendar` updates in place — new time slot, new title — without reload. | |
+| MEDIT-02 | Edit workshop walk-in | A workshop event exists. | 1. Click the amber tile → **Edit**. 2. Change scheduled date and description. 3. **Save**. | Toast: "Workshop job updated". Tile moves to the new date on the calendar. | |
+| MEDIT-03 | Edit maintenance job | A maintenance event exists. | 1. Click the purple tile → **Edit**. 2. Change due date, estimated hours, notes. 3. **Save**. | Toast: "Maintenance job updated". Tile reflows to the new date and (if duration crosses 2 h) shows the rich vehicle image card. | |
+| MEDIT-04 | Cancel keeps original | Edit dialog open with changed values. | 1. Click **Cancel**. | Dialog closes. Tile and underlying entity are unchanged on reload. | |
+| MEDIT-05 | Vehicle change updates linked thumbnail | A 2 h+ maintenance event with rich card. | 1. **Edit** → change vehicle to one with a different reg. 2. **Save**. | Calendar tile updates registration plate AND swaps the vehicle hero image (or fallback) to the newly selected vehicle's. | |
+
+---
+
+## Suite 8 — Editing on Maintenance Calendar
+
+`/maintenance/calendar` Edit button on the preview opens the same `EventEditDialog` in maintenance mode.
+
+| Test ID | Title | Preconditions | Steps | Expected Result | Notes |
+|---|---|---|---|---|---|
+| MAINT-EDIT-01 | Open edit form pre-populated | Job visible on calendar. | 1. Click the tile. 2. Click **Edit**. | Dialog opens titled "Edit Maintenance Job" with Vehicle / Description / Due date / Estimated hours / Notes pre-filled from the job. | |
+| MAINT-EDIT-02 | Reschedule via due date | Job in upcoming week. | 1. **Edit** → change due date to a different day in the same week. 2. **Save**. | Tile disappears from the original day and reappears on the new day. | |
+| MAINT-EDIT-03 | Update notes | Any job. | 1. **Edit** → set Notes to a unique string. 2. **Save**. 3. Re-open the preview. | The new Notes string is visible in the preview row. | |
+| MAINT-EDIT-04 | Validation: missing description | Edit dialog open. | 1. Clear the Description field. 2. **Save**. | Form blocks submission with a Zod error on Description. | |
+| MAINT-EDIT-05 | Cross-page consistency | Edited a job in MAINT-EDIT-02 (date change). | 1. After save, navigate to `/admin/master-calendar`. | The same job appears on the new day there too — both pages share the same mock store. | |
+
+---
+
+## Suite 9 — Editing on Sales Appointments (existing inline dialog)
+
+The Sales Appointments dialog uses its own inline edit form (not the shared `EventEditDialog`). These cases re-verify it after the recent refactors.
+
+| Test ID | Title | Preconditions | Steps | Expected Result | Notes |
+|---|---|---|---|---|---|
+| AEDIT-01 | Pencil opens form | Appointment open in detail dialog. | 1. Click the **Edit** pencil button. | Read-only fields are replaced with form inputs prefilled with current values. | |
+| AEDIT-02 | Save → list + calendar refresh | Edit dialog open. | 1. Change customer name. 2. **Save**. | Toast: "Appointment updated". Dialog returns to read-only view with new name in the title; List tab row and Calendar tile both show the new name without page reload. | |
+| AEDIT-03 | Reschedule (date + time) | Edit dialog open. | 1. Change date to tomorrow and time to 16:00. 2. **Save**. | Tile moves to tomorrow 16:00 in the Calendar tab. | |
+| AEDIT-04 | Vehicle swap shows in tile meta | Edit dialog open. | 1. Pick a different vehicle. 2. **Save**. | Tile meta line shows the new registration. | |
+| AEDIT-05 | Cancel keeps original | Edit dialog open with unsaved changes. | 1. Click **Cancel**. | Dialog returns to read-only view; no changes saved. | |
+
+---
+
 ## Known gaps / non-goals
 
 - Status field (`upcoming` / `completed` / `cancelled` / `no_show`) is not directly editable from the dialog — `setOutcome` flips status to `completed` as a side-effect of choosing an outcome, and there is currently no separate status setter UI. Out of scope for this UAT.

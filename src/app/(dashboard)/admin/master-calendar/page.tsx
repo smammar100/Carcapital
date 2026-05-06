@@ -29,10 +29,16 @@ import {
   EventPreviewDialog,
   type EventPreviewRow,
 } from "@/components/shared/event-preview-dialog";
+import { EventEditDialog } from "@/components/shared/event-edit-dialog";
 import { formatDate, formatTime12 } from "@/lib/utils";
 
+type EditTarget =
+  | { kind: "appointment"; entity: Appointment }
+  | { kind: "workshop"; entity: WorkshopJob }
+  | { kind: "maintenance"; entity: MaintenanceJob };
+
 export default function MasterCalendarPage() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const router = useRouter();
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [shop, setShop] = useState<WorkshopJob[]>([]);
@@ -50,6 +56,7 @@ export default function MasterCalendarPage() {
   });
   const [addOpen, setAddOpen] = useState(false);
   const [preview, setPreview] = useState<WeekCalendarEvent | null>(null);
+  const [editing, setEditing] = useState<EditTarget | null>(null);
 
   const reloadAll = async () => {
     if (!company) return;
@@ -168,7 +175,7 @@ export default function MasterCalendarPage() {
         toneClass: "bg-[rgba(14,165,233,0.12)] text-[#0369a1]",
         title: a.customerName,
         rows,
-        editHref: "/sales/appointments",
+        editTarget: { kind: "appointment", entity: a } as EditTarget,
         ctaLabel: v ? "View Vehicle" : "View Appointments",
         ctaHref: v ? `/vehicles/${v.id}` : "/sales/appointments",
       };
@@ -191,7 +198,7 @@ export default function MasterCalendarPage() {
         toneClass: "bg-[rgba(245,158,11,0.15)] text-[#92400e]",
         title: j.customerName,
         rows,
-        editHref: "/maintenance/workshop",
+        editTarget: { kind: "workshop", entity: j } as EditTarget,
         ctaLabel: "Open Workshop",
         ctaHref: "/maintenance/workshop",
       };
@@ -220,7 +227,7 @@ export default function MasterCalendarPage() {
         toneClass: "bg-[rgba(168,85,247,0.15)] text-[#6b21a8]",
         title: j.description,
         rows,
-        editHref: "/maintenance",
+        editTarget: { kind: "maintenance", entity: j } as EditTarget,
         ctaLabel: v ? "View Vehicle" : "Open Pipeline",
         ctaHref: v ? `/vehicles/${v.id}` : "/maintenance",
       };
@@ -313,9 +320,9 @@ export default function MasterCalendarPage() {
           toneClass={previewMeta.toneClass}
           rows={previewMeta.rows}
           onEdit={() => {
-            const href = previewMeta.editHref;
+            const target = previewMeta.editTarget;
             setPreview(null);
-            router.push(href);
+            setEditing(target);
           }}
           ctaLabel={previewMeta.ctaLabel}
           onCta={() => {
@@ -323,6 +330,17 @@ export default function MasterCalendarPage() {
             setPreview(null);
             router.push(href);
           }}
+        />
+      ) : null}
+
+      {editing && user ? (
+        <EventEditDialog
+          {...editing}
+          open={editing !== null}
+          onOpenChange={(o) => !o && setEditing(null)}
+          vehicles={vehicles}
+          userId={user.id}
+          onSaved={() => void reloadAll()}
         />
       ) : null}
     </div>

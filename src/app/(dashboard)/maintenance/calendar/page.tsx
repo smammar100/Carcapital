@@ -23,6 +23,7 @@ import {
   EventPreviewDialog,
   type EventPreviewRow,
 } from "@/components/shared/event-preview-dialog";
+import { EventEditDialog } from "@/components/shared/event-edit-dialog";
 import { cn, formatDate } from "@/lib/utils";
 
 const STATUS_TONE: Record<string, CalendarTone> = {
@@ -47,10 +48,21 @@ const STATUS_LABEL: Record<string, string> = {
 };
 
 export default function MaintenanceCalendarPage() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const router = useRouter();
   const [jobs, setJobs] = useState<MaintenanceJob[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [editing, setEditing] = useState<MaintenanceJob | null>(null);
+
+  const reload = async () => {
+    if (!company) return;
+    const [j, v] = await Promise.all([
+      maintenanceService.getAll(company.id),
+      vehicleService.getAll(company.id),
+    ]);
+    setJobs(j);
+    setVehicles(v);
+  };
   const [view, setView] = useState<CalendarViewMode>("weekly");
   const [filters, setFilters] = useState<Record<string, boolean>>({
     pending: true,
@@ -66,13 +78,8 @@ export default function MaintenanceCalendarPage() {
 
   useEffect(() => {
     if (!company) return;
-    void Promise.all([
-      maintenanceService.getAll(company.id),
-      vehicleService.getAll(company.id),
-    ]).then(([j, v]) => {
-      setJobs(j);
-      setVehicles(v);
-    });
+    void reload();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company]);
 
   const events: WeekCalendarEvent[] = useMemo(() => {
@@ -211,8 +218,9 @@ export default function MaintenanceCalendarPage() {
           toneClass={previewMeta.toneClass}
           rows={previewMeta.rows}
           onEdit={() => {
+            const job = jobs?.find((j) => j.id === preview?.id) ?? null;
             setPreview(null);
-            router.push("/maintenance");
+            if (job) setEditing(job);
           }}
           ctaLabel={previewMeta.vehicleHref ? "View Vehicle" : "Open Pipeline"}
           onCta={() => {
@@ -220,6 +228,18 @@ export default function MaintenanceCalendarPage() {
             setPreview(null);
             router.push(href);
           }}
+        />
+      ) : null}
+
+      {editing && user ? (
+        <EventEditDialog
+          kind="maintenance"
+          entity={editing}
+          open={editing !== null}
+          onOpenChange={(o) => !o && setEditing(null)}
+          vehicles={vehicles}
+          userId={user.id}
+          onSaved={() => void reload()}
         />
       ) : null}
     </div>

@@ -71,6 +71,34 @@ export const workshopService = {
     return job;
   },
 
+  async update(
+    id: UUID,
+    patch: Partial<
+      Pick<
+        WorkshopJob,
+        | "customerName"
+        | "customerPhone"
+        | "vehicleReg"
+        | "vehicleDescription"
+        | "description"
+        | "estimatedCost"
+        | "scheduledDate"
+        | "scheduledTime"
+        | "notes"
+        | "assignedTo"
+      >
+    >,
+  ): Promise<WorkshopJob> {
+    // TODO: Supabase: update changed fields
+    await delay();
+    const idx = mockWorkshopJobs.findIndex((j) => j.id === id);
+    if (idx === -1) throw new Error("Job not found");
+    const next = { ...mockWorkshopJobs[idx], ...patch };
+    if (patch.vehicleReg) next.vehicleReg = patch.vehicleReg.toUpperCase();
+    mockWorkshopJobs[idx] = next;
+    return next;
+  },
+
   async updateStatus(
     id: UUID,
     status: MaintenanceStatus,

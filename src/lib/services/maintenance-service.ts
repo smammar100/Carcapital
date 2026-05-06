@@ -75,6 +75,40 @@ export const maintenanceService = {
     return job;
   },
 
+  async update(
+    id: UUID,
+    patch: Partial<
+      Pick<
+        MaintenanceJob,
+        | "vehicleId"
+        | "description"
+        | "estimatedDurationHours"
+        | "estimatedCost"
+        | "startDate"
+        | "dueDate"
+        | "notes"
+        | "assignedTo"
+        | "vendorId"
+      >
+    >,
+    actorId: UUID,
+  ): Promise<MaintenanceJob> {
+    // TODO: Supabase: update changed fields + log activity
+    await delay();
+    const idx = mockMaintenanceJobs.findIndex((j) => j.id === id);
+    if (idx === -1) throw new Error("Job not found");
+    mockMaintenanceJobs[idx] = { ...mockMaintenanceJobs[idx], ...patch };
+    mockMaintenanceJobNotes.push({
+      id: newId("mnote"),
+      jobId: id,
+      userId: actorId,
+      noteType: "note",
+      content: `Job updated (${Object.keys(patch).join(", ")})`,
+      createdAt: nowIso(),
+    });
+    return mockMaintenanceJobs[idx];
+  },
+
   async updateStatus(
     id: UUID,
     status: MaintenanceStatus,
