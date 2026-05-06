@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Plus, Search } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { workshopService } from "@/lib/services/workshop-service";
@@ -15,19 +16,15 @@ import type {
 } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import {
-  BigCalendar,
-  type CalendarEvent,
-} from "@/components/shared/big-calendar";
-import { cn } from "@/lib/utils";
-
-const COLORS = {
-  appointment: "#3b82f6",
-  workshop: "#f97316",
-  maintenance: "#a855f7",
-};
+  Calendar,
+  CalendarFilterChip,
+  CalendarToolbar,
+  type CalendarViewMode,
+  type WeekCalendarEvent,
+} from "@/components/shared/week-calendar";
+import { AddEventSheet } from "@/components/shared/add-event-sheet";
 
 export default function MasterCalendarPage() {
   const { company } = useAuth();
@@ -40,26 +37,37 @@ export default function MasterCalendarPage() {
   const [showAppt, setShowAppt] = useState(true);
   const [showShop, setShowShop] = useState(true);
   const [showMaint, setShowMaint] = useState(true);
+  const [view, setView] = useState<CalendarViewMode>("weekly");
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
+  const [addOpen, setAddOpen] = useState(false);
 
-  useEffect(() => {
+  const reloadAll = async () => {
     if (!company) return;
-    setLoading(true);
-    void Promise.all([
+    const [a, s, m, v] = await Promise.all([
       appointmentService.getAll(company.id),
       workshopService.getAll(company.id),
       maintenanceService.getAll(company.id),
       vehicleService.getAll(company.id),
-    ]).then(([a, s, m, v]) => {
-      setAppts(a);
-      setShop(s);
-      setMaint(m);
-      setVehicles(v);
-      setLoading(false);
-    });
+    ]);
+    setAppts(a);
+    setShop(s);
+    setMaint(m);
+    setVehicles(v);
+  };
+
+  useEffect(() => {
+    if (!company) return;
+    setLoading(true);
+    void reloadAll().finally(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company]);
 
-  const events: CalendarEvent[] = useMemo(() => {
-    const out: CalendarEvent[] = [];
+  const events: WeekCalendarEvent[] = useMemo(() => {
+    const out: WeekCalendarEvent[] = [];
     if (showAppt) {
       for (const a of appts) {
         const start = new Date(`${a.date}T${a.time}:00`);
@@ -68,14 +76,13 @@ export default function MasterCalendarPage() {
         const v = vehicles.find((x) => x.id === a.vehicleId);
         out.push({
           id: `appt-${a.id}`,
-          title: `📅 ${a.customerName} · ${v?.registration ?? "—"}`,
+          title: a.customerName,
           start,
           end,
-          resource: {
-            kind: "appointment",
-            href: v ? `/vehicles/${v.id}` : "/sales/appointments",
-            color: COLORS.appointment,
-          },
+          tone: "blue",
+          meta: v?.registration,
+          icon: "📅",
+          href: v ? `/vehicles/${v.id}` : "/sales/appointments",
         });
       }
     }
@@ -86,10 +93,13 @@ export default function MasterCalendarPage() {
         end.setHours(end.getHours() + 2);
         out.push({
           id: `ws-${j.id}`,
-          title: `🔧 ${j.customerName} · ${j.vehicleReg}`,
+          title: j.customerName,
           start,
           end,
-          resource: { kind: "workshop", href: "/workshop", color: COLORS.workshop },
+          tone: "amber",
+          meta: j.vehicleReg,
+          icon: "🔧",
+          href: "/maintenance/workshop",
         });
       }
     }
@@ -102,84 +112,98 @@ export default function MasterCalendarPage() {
         const v = vehicles.find((x) => x.id === j.vehicleId);
         out.push({
           id: `maint-${j.id}`,
-          title: `⚙️ ${v?.registration ?? "—"} · ${j.description}`,
+          title: j.description,
           start,
           end,
-          resource: {
-            kind: "maintenance",
-            href: v ? `/vehicles/${v.id}` : "/maintenance",
-            color: COLORS.maintenance,
-          },
+          tone: "purple",
+          meta: v?.registration,
+          icon: "⚙️",
+          href: v ? `/vehicles/${v.id}` : "/maintenance",
         });
       }
     }
     return out;
   }, [appts, shop, maint, vehicles, showAppt, showShop, showMaint]);
 
+  const handleSelectEvent = (e: WeekCalendarEvent) => {
+    if (e.href) router.push(e.href);
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Master Calendar</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-h2 font-semibold tracking-tight">
+          Master Calendar
+        </h1>
+        <p className="text-body-sm text-muted-foreground">
           Overlay of appointments, workshop walk-ins, and maintenance dues.
         </p>
       </div>
-      <div className="flex flex-wrap items-center gap-4 rounded-lg border bg-card p-3 text-sm shadow-sm">
-        <Toggle
-          checked={showAppt}
-          onChange={setShowAppt}
-          color={COLORS.appointment}
-          label="Appointments"
+
+      <Card className="overflow-hidden p-0" size="sm">
+        <CalendarToolbar
+          view={view}
+          onViewChange={setView}
+          currentDate={currentDate}
+          onCurrentDateChange={setCurrentDate}
+          rightSlot={
+            <>
+              <CalendarFilterChip
+                checked={showAppt}
+                onChange={setShowAppt}
+                label="Appointments"
+                dotClass="bg-[#0ea5e9]"
+              />
+              <CalendarFilterChip
+                checked={showShop}
+                onChange={setShowShop}
+                label="Workshop"
+                dotClass="bg-[#f59e0b]"
+              />
+              <CalendarFilterChip
+                checked={showMaint}
+                onChange={setShowMaint}
+                label="Maintenance"
+                dotClass="bg-[#a855f7]"
+              />
+              <button
+                type="button"
+                aria-label="Search events"
+                className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+              >
+                <Search className="size-4" />
+              </button>
+              <Button
+                size="sm"
+                className="gap-1"
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="size-4" />
+                Add Event
+              </Button>
+            </>
+          }
         />
-        <Toggle
-          checked={showShop}
-          onChange={setShowShop}
-          color={COLORS.workshop}
-          label="Workshop"
-        />
-        <Toggle
-          checked={showMaint}
-          onChange={setShowMaint}
-          color={COLORS.maintenance}
-          label="Maintenance"
-        />
-      </div>
-      <Card className="p-3">
+
         {loading ? (
-          <Skeleton className="h-[600px] w-full" />
+          <Skeleton className="m-4 h-[600px]" />
         ) : (
-          <BigCalendar
+          <Calendar
+            view={view}
             events={events}
-            onSelectEvent={(e) => {
-              const href = (e as CalendarEvent).resource?.href;
-              if (href) router.push(href);
-            }}
+            currentDate={currentDate}
+            onCurrentDateChange={setCurrentDate}
+            onSelectEvent={handleSelectEvent}
           />
         )}
       </Card>
-    </div>
-  );
-}
 
-function Toggle({
-  checked,
-  onChange,
-  label,
-  color,
-}: {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  label: string;
-  color: string;
-}) {
-  return (
-    <Label className={cn("flex items-center gap-2 text-xs")}>
-      <Switch checked={checked} onCheckedChange={onChange} />
-      <span
-        className="inline-block h-2 w-2 rounded-full"
-        style={{ backgroundColor: color }}
+      <AddEventSheet
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        defaultDate={currentDate}
+        onCreated={() => void reloadAll()}
       />
-      {label}
-    </Label>
+    </div>
   );
 }

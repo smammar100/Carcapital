@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { CalendarCheck, Plus } from "lucide-react";
+import { CalendarCheck, Plus, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -37,9 +37,13 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
-  BigCalendar,
-  type CalendarEvent,
-} from "@/components/shared/big-calendar";
+  Calendar,
+  CalendarFilterChip,
+  CalendarToolbar,
+  type CalendarTone,
+  type CalendarViewMode,
+  type WeekCalendarEvent,
+} from "@/components/shared/week-calendar";
 import {
   type ColumnDef,
   DataGridHeaderRow,
@@ -55,11 +59,25 @@ interface ApptRow extends Appointment {
   vehicle: Vehicle | null;
 }
 
-const STATUS_COLOR: Record<string, string> = {
-  upcoming: "#3b82f6",
-  completed: "#10b981",
-  cancelled: "#94a3b8",
-  no_show: "#ef4444",
+const STATUS_TONE: Record<string, CalendarTone> = {
+  upcoming: "blue",
+  completed: "emerald",
+  cancelled: "slate",
+  no_show: "rose",
+};
+
+const STATUS_DOT: Record<string, string> = {
+  upcoming: "bg-[#0ea5e9]",
+  completed: "bg-[#10b981]",
+  cancelled: "bg-[#64748b]",
+  no_show: "bg-[#f43f5e]",
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  upcoming: "Upcoming",
+  completed: "Completed",
+  cancelled: "Cancelled",
+  no_show: "No-show",
 };
 
 const schema = z.object({
@@ -89,6 +107,18 @@ export default function AppointmentsPage() {
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [open, setOpen] = useState(false);
   const [drill, setDrill] = useState<Appointment | null>(null);
+  const [view, setView] = useState<CalendarViewMode>("weekly");
+  const [statusFilters, setStatusFilters] = useState<Record<string, boolean>>({
+    upcoming: true,
+    completed: true,
+    cancelled: true,
+    no_show: true,
+  });
+  const [currentDate, setCurrentDate] = useState(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  });
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -164,22 +194,26 @@ export default function AppointmentsPage() {
     [],
   );
 
-  const events: CalendarEvent[] = useMemo(() => {
+  const events: WeekCalendarEvent[] = useMemo(() => {
     if (!appts) return [];
-    return appts.map((a) => {
-      const start = new Date(`${a.date}T${a.time}:00`);
-      const end = new Date(start);
-      end.setMinutes(end.getMinutes() + 60);
-      const v = vehicles.find((x) => x.id === a.vehicleId);
-      return {
-        id: a.id,
-        title: `${a.customerName} · ${v?.registration ?? "—"}`,
-        start,
-        end,
-        resource: { kind: "appointment", color: STATUS_COLOR[a.status] },
-      };
-    });
-  }, [appts, vehicles]);
+    return appts
+      .filter((a) => statusFilters[a.status])
+      .map((a) => {
+        const start = new Date(`${a.date}T${a.time}:00`);
+        const end = new Date(start);
+        end.setMinutes(end.getMinutes() + 60);
+        const v = vehicles.find((x) => x.id === a.vehicleId);
+        return {
+          id: a.id,
+          title: a.customerName,
+          start,
+          end,
+          tone: STATUS_TONE[a.status] ?? "slate",
+          meta: v?.registration,
+          icon: "📅",
+        } satisfies WeekCalendarEvent;
+      });
+  }, [appts, vehicles, statusFilters]);
 
   async function onSubmit(values: FormOutput) {
     if (!user || !company) return;
@@ -319,12 +353,44 @@ export default function AppointmentsPage() {
             <TabsTrigger value="list">List</TabsTrigger>
           </TabsList>
           <TabsContent value="calendar" className="mt-3">
-            <Card className="p-3">
-              <BigCalendar
+            <Card className="overflow-hidden p-0" size="sm">
+              <CalendarToolbar
+                view={view}
+                onViewChange={setView}
+                currentDate={currentDate}
+                onCurrentDateChange={setCurrentDate}
+                rightSlot={
+                  <>
+                    {(
+                      Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>
+                    ).map((s) => (
+                      <CalendarFilterChip
+                        key={s}
+                        checked={!!statusFilters[s]}
+                        onChange={(c) =>
+                          setStatusFilters((f) => ({ ...f, [s]: c }))
+                        }
+                        label={STATUS_LABEL[s]}
+                        dotClass={STATUS_DOT[s]}
+                      />
+                    ))}
+                    <button
+                      type="button"
+                      aria-label="Search appointments"
+                      className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
+                    >
+                      <Search className="size-4" />
+                    </button>
+                  </>
+                }
+              />
+              <Calendar
+                view={view}
                 events={events}
+                currentDate={currentDate}
+                onCurrentDateChange={setCurrentDate}
                 onSelectEvent={(e) => {
-                  const id = (e as CalendarEvent).id;
-                  const a = appts.find((x) => x.id === id);
+                  const a = appts.find((x) => x.id === e.id);
                   if (a) setDrill(a);
                 }}
               />
@@ -410,3 +476,4 @@ export default function AppointmentsPage() {
     </div>
   );
 }
+
