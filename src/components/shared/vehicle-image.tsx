@@ -72,13 +72,19 @@ export function VehicleImage({
   forceRegenerate,
   onRegenerated,
 }: Props) {
+  // "No image" mode: vehicle has no pre-rendered hero image and we haven't been
+  // asked to regenerate. Render the placeholder directly without hitting the
+  // image-gen API — used by mock/demo vehicles imported from the CSV stock list.
+  const placeholderOnly =
+    !forceRegenerate && angle === "hero" && !vehicle.heroImageUrl;
+
   const initialUrl =
     !forceRegenerate && angle === "hero" && vehicle.heroImageUrl
       ? vehicle.heroImageUrl
       : urlFor(vehicle.id, angle);
   const [url, setUrl] = useState<string>(initialUrl);
   const [pending, setPending] = useState(false);
-  const [errored, setErrored] = useState(false);
+  const [errored, setErrored] = useState(placeholderOnly);
 
   // If the parent triggers a regenerate, kick off a fresh fetch.
   useEffect(() => {
@@ -111,11 +117,17 @@ export function VehicleImage({
   useEffect(() => {
     setUrl(initialUrl);
     setPending(false);
-    setErrored(false);
+    setErrored(placeholderOnly);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vehicle.id, angle]);
+  }, [vehicle.id, angle, placeholderOnly]);
 
   function handleImgError() {
+    // For placeholder-only vehicles (no heroImageUrl), don't burn API calls
+    // generating real images — just show the fallback.
+    if (placeholderOnly) {
+      setErrored(true);
+      return;
+    }
     // 404 on the static file → trigger generation (unless we've already failed)
     const key = `${vehicle.id}:${angle}`;
     if (failed.has(key)) {
@@ -138,21 +150,31 @@ export function VehicleImage({
   const sizeClass = VARIANT_CLASSES[variant];
 
   if (errored) {
+    // Stylized placeholder: diagonal-stripe background + larger car silhouette.
+    // Used for demo vehicles without a pre-rendered hero image, and for any
+    // image that genuinely 404'd from the generation service.
+    const iconSize =
+      variant === "thumb" ? "h-6 w-6" : variant === "card" ? "h-12 w-12" : "h-20 w-20";
     return (
       <div
         className={cn(
-          "relative flex items-center justify-center overflow-hidden bg-muted text-muted-foreground",
+          "relative flex items-center justify-center overflow-hidden",
+          "bg-gradient-to-br from-muted to-muted/60 text-muted-foreground",
+          // Subtle diagonal stripe pattern via CSS gradient
+          "[background-image:repeating-linear-gradient(45deg,transparent,transparent_8px,rgba(0,0,0,0.025)_8px,rgba(0,0,0,0.025)_16px)]",
           sizeClass,
           className,
         )}
-        title="Image unavailable"
+        title={placeholderOnly ? "No image" : "Image unavailable"}
       >
-        <Car className="h-1/3 w-1/3 opacity-30" />
-        <RegPlate
-          registration={vehicle.registration}
-          size={variant === "hero" ? "md" : "sm"}
-          className="absolute bottom-1 right-1"
-        />
+        <Car className={cn(iconSize, "opacity-50")} strokeWidth={1.4} />
+        {variant !== "thumb" && (
+          <RegPlate
+            registration={vehicle.registration}
+            size={variant === "hero" ? "md" : "sm"}
+            className="absolute bottom-1.5 right-1.5"
+          />
+        )}
       </div>
     );
   }

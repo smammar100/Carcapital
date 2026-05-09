@@ -122,48 +122,49 @@ export default function VehicleDetailPage({
         </Link>
       </Button>
 
-      <VehicleImage vehicle={vehicle} variant="hero" />
-
       <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border bg-card p-4">
-        <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-start gap-4">
+          <VehicleImage
+            vehicle={vehicle}
+            variant="card"
+            className="h-28 w-44 shrink-0 rounded-md"
+          />
+          <div className="flex flex-col items-start gap-0.5">
             <RegPlate registration={vehicle.registration} size="lg" />
-            <div>
-              <h1 className="text-xl font-semibold">
-                {vehicle.year} {vehicle.make} {vehicle.model}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {vehicle.variantCode ?? "—"} · {vehicle.stockId}
-              </p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button
-                  type="button"
-                  className="appearance-none rounded outline-none focus-visible:ring"
-                >
-                  <VehicleStatusBadge status={vehicle.status} />
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-52">
-                <DropdownMenuLabel>Change status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {VEHICLE_STATUSES.map((s) => (
-                  <DropdownMenuItem
-                    key={s.value}
-                    onSelect={() => void handleStatusChange(s.value)}
+            <h1 className="text-xl font-semibold leading-tight">
+              {vehicle.year} {vehicle.make} {vehicle.model}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {vehicle.variantCode ?? "—"} · {vehicle.stockId}
+            </p>
+            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    className="appearance-none rounded outline-none focus-visible:ring"
                   >
-                    {s.label}
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DaysInStockChip days={vehicle.daysInStock} />
-            <span className="text-muted-foreground">
-              Received {vehicle.receivedDate}
-            </span>
+                    <VehicleStatusBadge status={vehicle.status} />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-52">
+                  <DropdownMenuLabel>Change status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {VEHICLE_STATUSES.map((s) => (
+                    <DropdownMenuItem
+                      key={s.value}
+                      onSelect={() => void handleStatusChange(s.value)}
+                    >
+                      {s.label}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <DaysInStockChip days={vehicle.daysInStock} />
+              <span className="text-muted-foreground">
+                Received {vehicle.receivedDate}
+              </span>
+            </div>
           </div>
         </div>
 

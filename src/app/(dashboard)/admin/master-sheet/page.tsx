@@ -5,6 +5,8 @@ import {
   Calendar as CalendarIcon,
   Car,
   Check,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileSpreadsheet,
   Hash,
@@ -55,6 +57,16 @@ interface ColDef {
   width: number;
   format?: (v: Vehicle) => string;
   sticky?: boolean;
+}
+
+const PAGE_SIZE = 25;
+
+/** Unique React key per column. ColDef.key is keyed by data field, so two
+ *  columns can share the same data source (e.g. the stockId column shows the
+ *  raw value, and the "Vehicle" column also reads from stockId). The label is
+ *  always unique, so use it as the React identity. */
+function colKey(c: ColDef): string {
+  return `${String(c.key)}__${c.label}`;
 }
 
 // v4.1 spec §11.9: Master Sheet column order — row counter is column 1
@@ -278,10 +290,16 @@ export default function MasterSheetPage() {
   const { company } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [visible, setVisible] = useState<Set<string>>(
-    new Set(COLS.map((c) => String(c.key))),
+    new Set(COLS.map((c) => colKey(c))),
   );
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [page, setPage] = useState(1);
+
+  // Reset to page 1 whenever the search query changes
+  useEffect(() => {
+    setPage(1);
+  }, [query]);
 
   useEffect(() => {
     if (!company) return;
@@ -289,7 +307,7 @@ export default function MasterSheetPage() {
   }, [company]);
 
   const cols = useMemo(
-    () => COLS.filter((c) => visible.has(String(c.key))),
+    () => COLS.filter((c) => visible.has(colKey(c))),
     [visible],
   );
 
@@ -299,6 +317,16 @@ export default function MasterSheetPage() {
     if (!q) return vehicles;
     return vehicles.filter((v) => searchableText(v).includes(q));
   }, [vehicles, query]);
+
+  const totalPages = filtered
+    ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    : 1;
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = useMemo(() => {
+    if (!filtered) return null;
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, safePage]);
 
   function toggle(k: string) {
     setVisible((prev) => {
@@ -377,7 +405,7 @@ export default function MasterSheetPage() {
               <ScrollArea className="max-h-[60vh] p-3">
                 <div className="grid grid-cols-2 gap-2">
                   {COLS.map((c) => {
-                    const k = String(c.key);
+                    const k = colKey(c);
                     return (
                       <Label
                         key={k}
@@ -420,7 +448,7 @@ export default function MasterSheetPage() {
               <colgroup>
                 <col style={{ width: 40 }} />
                 {cols.map((c) => (
-                  <col key={String(c.key)} style={{ width: c.width }} />
+                  <col key={colKey(c)} style={{ width: c.width }} />
                 ))}
                 <col style={{ width: 40 }} />
               </colgroup>
@@ -442,7 +470,7 @@ export default function MasterSheetPage() {
                     const Icon = TYPE_ICON[c.type];
                     return (
                       <th
-                        key={String(c.key)}
+                        key={colKey(c)}
                         className={cn(
                           "border-b border-r px-2 text-left font-medium",
                           c.sticky && "sticky z-30 bg-muted/60 backdrop-blur",
@@ -468,8 +496,9 @@ export default function MasterSheetPage() {
                 </tr>
               </thead>
               <tbody className="bg-background">
-                {filtered.map((v, idx) => {
+                {(pagedRows ?? []).map((v, idxOnPage) => {
                   const isSelected = selected.has(v.id);
+                  const idx = (safePage - 1) * PAGE_SIZE + idxOnPage;
                   return (
                     <tr
                       key={v.id}
@@ -502,7 +531,7 @@ export default function MasterSheetPage() {
                       </td>
                       {cols.map((c) => (
                         <td
-                          key={String(c.key)}
+                          key={colKey(c)}
                           className={cn(
                             "border-b border-r px-2",
                             c.sticky &&
@@ -529,28 +558,55 @@ export default function MasterSheetPage() {
                     </tr>
                   );
                 })}
-                <tr>
-                  <td
-                    colSpan={cols.length + 2}
-                    className="border-b bg-muted/30 px-2"
-                  >
-                    <button
-                      type="button"
-                      className="flex h-11 w-full items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => {
-                        // Add-row UX is out of scope; route to vehicle creation.
-                        window.location.href = "/vehicles/new";
-                      }}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      New vehicle
-                    </button>
-                  </td>
-                </tr>
               </tbody>
             </table>
           </div>
         </Card>
+      )}
+
+      {filtered && filtered.length > PAGE_SIZE && (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow-sm">
+          <span className="text-muted-foreground tabular-nums">
+            Showing{" "}
+            <span className="font-medium text-foreground">
+              {((safePage - 1) * PAGE_SIZE + 1).toLocaleString()}
+            </span>
+            {"–"}
+            <span className="font-medium text-foreground">
+              {Math.min(safePage * PAGE_SIZE, filtered.length).toLocaleString()}
+            </span>
+            {" of "}
+            <span className="font-medium text-foreground">
+              {filtered.length.toLocaleString()}
+            </span>
+          </span>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(Math.max(1, safePage - 1))}
+              disabled={safePage <= 1}
+            >
+              <ChevronLeft className="mr-1 h-4 w-4" />
+              Prev
+            </Button>
+            <span className="px-3 tabular-nums text-muted-foreground">
+              Page{" "}
+              <span className="font-medium text-foreground">{safePage}</span>{" "}
+              of{" "}
+              <span className="font-medium text-foreground">{totalPages}</span>
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(Math.min(totalPages, safePage + 1))}
+              disabled={safePage >= totalPages}
+            >
+              Next
+              <ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       )}
     </div>
   );

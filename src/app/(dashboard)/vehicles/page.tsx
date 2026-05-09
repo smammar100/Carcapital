@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Car,
+  ChevronLeft,
+  ChevronRight,
   Download,
   LayoutGrid,
   List,
@@ -48,6 +50,8 @@ import {
 
 type SortKey = "daysInStock" | "make" | "year" | "listingPrice" | "status";
 type SortDir = "asc" | "desc";
+
+const PAGE_SIZE = 25;
 
 function csvEscape(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -120,6 +124,12 @@ export default function VehiclesPage() {
   const [sortKey, setSortKey] = useState<SortKey>("daysInStock");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  // Reset to first page whenever filters/search/sort change
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, bodyFilter, fuelFilter, sortKey, sortDir]);
 
   // Sync `?q=` from header search
   useEffect(() => {
@@ -180,6 +190,14 @@ export default function VehiclesPage() {
 
     return out;
   }, [vehicles, search, statusFilter, bodyFilter, fuelFilter, sortKey, sortDir]);
+
+  const totalPages = filtered ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)) : 1;
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = useMemo(() => {
+    if (!filtered) return null;
+    const start = (safePage - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, safePage]);
 
   const tableCols = useMemo<ColumnDef<Vehicle>[]>(
     () => [
@@ -408,7 +426,7 @@ export default function VehiclesPage() {
           <DataGridTable cols={tableCols}>
             <DataGridHeaderRow cols={tableCols} />
             <tbody>
-              {filtered.map((v, i) => (
+              {(pagedRows ?? []).map((v, i) => (
                 <DataGridRow
                   key={v.id}
                   row={v}
@@ -427,7 +445,7 @@ export default function VehiclesPage() {
         </DataGridShell>
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((v) => (
+          {(pagedRows ?? []).map((v) => (
             <Card
               key={v.id}
               className="cursor-pointer overflow-hidden p-0 transition-colors hover:bg-muted/40"
@@ -484,6 +502,69 @@ export default function VehiclesPage() {
           ))}
         </div>
       )}
+
+      {filtered && filtered.length > PAGE_SIZE && (
+        <PaginationBar
+          page={safePage}
+          totalPages={totalPages}
+          totalRows={filtered.length}
+          pageSize={PAGE_SIZE}
+          onChange={setPage}
+        />
+      )}
+    </div>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalPages,
+  totalRows,
+  pageSize,
+  onChange,
+}: {
+  page: number;
+  totalPages: number;
+  totalRows: number;
+  pageSize: number;
+  onChange: (n: number) => void;
+}) {
+  if (totalRows === 0) return null;
+  const firstRow = (page - 1) * pageSize + 1;
+  const lastRow = Math.min(page * pageSize, totalRows);
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow-sm">
+      <span className="text-muted-foreground tabular-nums">
+        Showing <span className="font-medium text-foreground">{firstRow.toLocaleString()}</span>
+        {"–"}
+        <span className="font-medium text-foreground">{lastRow.toLocaleString()}</span>
+        {" of "}
+        <span className="font-medium text-foreground">{totalRows.toLocaleString()}</span>
+      </span>
+      <div className="flex items-center gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange(Math.max(1, page - 1))}
+          disabled={page <= 1}
+        >
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          Prev
+        </Button>
+        <span className="px-3 tabular-nums text-muted-foreground">
+          Page <span className="font-medium text-foreground">{page}</span> of{" "}
+          <span className="font-medium text-foreground">{totalPages}</span>
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange(Math.min(totalPages, page + 1))}
+          disabled={page >= totalPages}
+        >
+          Next
+          <ChevronRight className="ml-1 h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
