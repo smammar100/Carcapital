@@ -507,28 +507,6 @@ export function DashboardCalendar() {
         ))}
       </div>
 
-      <div className="flex max-h-[180px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
-        {loading ? (
-          <>
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </>
-        ) : (
-          <>
-            <DaySection
-              date={selectedDate}
-              today={today}
-              events={selectedEvents}
-            />
-            <DaySection
-              date={dayAfter}
-              today={today}
-              events={dayAfterEvents}
-            />
-          </>
-        )}
-      </div>
     </Card>
   );
 }
