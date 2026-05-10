@@ -122,7 +122,7 @@ export function DashboardRecentDeals() {
           No deals match.
         </p>
       ) : (
-        <DataGridShell bare>
+        <DataGridShell bare className="min-h-0 flex-1">
           <DataGridTable cols={cols}>
             <DataGridHeaderRow cols={cols} />
             <tbody>
