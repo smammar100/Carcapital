@@ -89,7 +89,7 @@ export function DashboardRecentDeals() {
   );
 
   return (
-    <Card className="flex flex-col gap-4 py-5" size="sm">
+    <Card className="flex h-full min-h-0 flex-col gap-4 py-5" size="sm">
       <div className="flex flex-wrap items-center justify-between gap-2 px-5">
         <div className="flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-muted-foreground" />
@@ -122,7 +122,7 @@ export function DashboardRecentDeals() {
           No deals match.
         </p>
       ) : (
-        <DataGridShell bare>
+        <DataGridShell bare className="min-h-0 flex-1">
           <DataGridTable cols={cols}>
             <DataGridHeaderRow cols={cols} />
             <tbody>

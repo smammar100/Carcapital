@@ -507,7 +507,7 @@ export function DashboardCalendar() {
         ))}
       </div>
 
-      <div className="flex flex-col gap-3">
+      <div className="flex max-h-[180px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
         {loading ? (
           <>
             <Skeleton className="h-4 w-32" />
