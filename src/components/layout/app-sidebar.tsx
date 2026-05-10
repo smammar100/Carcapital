@@ -5,14 +5,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown, ChevronsLeft, ChevronsRight } from "lucide-react";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  ActionButton,
+  Avatar,
+  Disclosure,
+  DisclosureHeader,
+  DisclosurePanel,
+  DisclosureTitle,
+  Text,
+  Tooltip,
+  TooltipTrigger,
+} from "@react-spectrum/s2";
 import { useAuth } from "@/contexts/auth-context";
 import { useSidebarState } from "@/contexts/sidebar-state-context";
 import { SIDEBAR_GROUPS, type SidebarItem } from "./sidebar-config";
-import { cn } from "@/lib/utils";
 
 const COLLAPSED_KEY = "cc:sidebar:collapsed";
 
@@ -34,6 +39,15 @@ function saveCollapsed(s: Set<string>): void {
   window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...s]));
 }
 
+/**
+ * v4.5 Spectrum sidebar.
+ * - Brand row uses Spectrum Avatar for the company badge
+ * - Collapsible groups use Spectrum Disclosure
+ * - Rail-mode item tooltips use Spectrum TooltipTrigger
+ * - Sidebar collapse toggle uses Spectrum ActionButton
+ * - Lucide icons retained inside nav rows (Spectrum's icon set doesn't cover
+ *   every domain concept the sidebar needs; visual consistency is acceptable)
+ */
 export function AppSidebar() {
   const pathname = usePathname();
   const { company } = useAuth();
@@ -46,10 +60,10 @@ export function AppSidebar() {
     setGroupCollapsed(loadCollapsed());
   }, []);
 
-  function toggleGroup(label: string) {
+  function toggleGroup(label: string, isExpanded: boolean) {
     setGroupCollapsed((prev) => {
       const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
+      if (isExpanded) next.delete(label);
       else next.add(label);
       saveCollapsed(next);
       return next;
@@ -66,18 +80,17 @@ export function AppSidebar() {
       data-collapsed={railCollapsed ? "true" : "false"}
       className="group/sidebar flex h-full flex-col"
       style={{
-        // Token-driven internal spacing so the layout follows the design rhythm.
         paddingTop: "var(--space-6)",
         paddingBottom: "var(--space-6)",
       }}
     >
-      {/* Brand row — logo + name on the left; collapse toggle inline on the
-          right when expanded, on a separate row beneath when railed. */}
+      {/* Brand row — Spectrum Avatar + name + collapse toggle */}
       <div
-        className={cn(
-          "flex items-center",
-          railCollapsed ? "justify-center" : "justify-between",
-        )}
+        className={
+          railCollapsed
+            ? "flex items-center justify-center"
+            : "flex items-center justify-between"
+        }
         style={{
           paddingLeft: "var(--space-4)",
           paddingRight: "var(--space-4)",
@@ -87,50 +100,58 @@ export function AppSidebar() {
         <Link
           href="/dashboard"
           className="flex min-w-0 items-center"
-          style={{ gap: "var(--space-3)" }}
+          style={{ gap: "var(--space-3)", textDecoration: "none" }}
         >
-          <div
-            className="grid place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground"
-            style={{ height: 32, width: 32 }}
-          >
-            CC
-          </div>
+          <Avatar size={32}>CC</Avatar>
           {!railCollapsed && (
-            <div className="flex min-w-0 flex-col leading-tight">
-              <span className="truncate text-sm font-medium">Car Capital UK</span>
-              <span className="truncate text-[11px] text-muted-foreground">
+            <div
+              className="flex min-w-0 flex-col leading-tight"
+              style={{ gap: 2 }}
+            >
+              <Text
+                UNSAFE_style={{
+                  fontSize: 14,
+                  fontWeight: 500,
+                  color: "var(--foreground)",
+                }}
+              >
+                Car Capital UK
+              </Text>
+              <Text
+                UNSAFE_style={{
+                  fontSize: 11,
+                  color: "var(--muted-foreground)",
+                }}
+              >
                 {company?.name ?? "—"}
-              </span>
+              </Text>
             </div>
           )}
         </Link>
         {!railCollapsed && (
-          <button
-            type="button"
-            onClick={toggleRail}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          <ActionButton
+            isQuiet
             aria-label="Collapse sidebar"
+            onPress={toggleRail}
           >
-            <ChevronsLeft className="h-4 w-4" />
-          </button>
+            <ChevronsLeft size={16} />
+          </ActionButton>
         )}
       </div>
 
-      {/* Rail-mode expand button — placed directly beneath the logo so the
-          user always has a way back to the expanded state. */}
+      {/* Rail-mode expand button */}
       {railCollapsed && (
         <div
           className="flex justify-center"
           style={{ marginTop: "var(--space-3)" }}
         >
-          <button
-            type="button"
-            onClick={toggleRail}
-            className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          <ActionButton
+            isQuiet
             aria-label="Expand sidebar"
+            onPress={toggleRail}
           >
-            <ChevronsRight className="h-4 w-4" />
-          </button>
+            <ChevronsRight size={16} />
+          </ActionButton>
         </div>
       )}
 
@@ -148,7 +169,7 @@ export function AppSidebar() {
         {SIDEBAR_GROUPS.map((group, gi) => {
           const items = group.items;
 
-          // Single-item groups (Dashboard) render as a flat row.
+          // Single-item group (Dashboard) — flat row.
           if (!group.label) {
             return (
               <div
@@ -168,12 +189,8 @@ export function AppSidebar() {
             );
           }
 
-          // Labeled groups: header + collapsible item list.
-          const hasActive = items.some((i) => isActive(i.href));
-          const isOpen = !groupCollapsed.has(group.label) || hasActive;
-
+          // Rail mode — flat icon stack, no headers.
           if (railCollapsed) {
-            // In rail mode each group becomes a hover-popover stack of icons.
             return (
               <div
                 key={gi}
@@ -192,38 +209,40 @@ export function AppSidebar() {
             );
           }
 
+          // Expanded — Spectrum Disclosure with collapsible group.
+          const hasActive = items.some((i) => isActive(i.href));
+          const isOpen = !groupCollapsed.has(group.label) || hasActive;
+
           return (
-            <div
+            <Disclosure
               key={gi}
-              style={{ marginBottom: "var(--space-4)" }}
-              className="flex flex-col"
+              isExpanded={isOpen}
+              onExpandedChange={(expanded) =>
+                toggleGroup(group.label!, expanded)
+              }
+              UNSAFE_style={{
+                marginBottom: "var(--space-2)",
+                background: "transparent",
+                border: "none",
+              }}
             >
-              <button
-                type="button"
-                onClick={() => toggleGroup(group.label!)}
-                className="flex w-full items-center justify-between rounded-md text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
-                style={{
-                  paddingLeft: "var(--space-3)",
-                  paddingRight: "var(--space-3)",
-                  paddingTop: "var(--space-2)",
-                  paddingBottom: "var(--space-2)",
-                }}
-                aria-label={`Toggle ${group.label} group`}
-                aria-expanded={isOpen}
-              >
-                <span>{group.label}</span>
-                <ChevronDown
-                  className={cn(
-                    "h-3 w-3 transition-transform",
-                    !isOpen && "-rotate-90",
-                  )}
-                />
-              </button>
-              {isOpen && (
-                <div
-                  className="flex flex-col"
-                  style={{ marginTop: "var(--space-1)" }}
-                >
+              <DisclosureHeader>
+                <DisclosureTitle>
+                  <Text
+                    UNSAFE_style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "var(--muted-foreground)",
+                    }}
+                  >
+                    {group.label}
+                  </Text>
+                </DisclosureTitle>
+              </DisclosureHeader>
+              <DisclosurePanel>
+                <div className="flex flex-col">
                   {items.map((item) => (
                     <NavRow
                       key={item.href}
@@ -233,12 +252,11 @@ export function AppSidebar() {
                     />
                   ))}
                 </div>
-              )}
-            </div>
+              </DisclosurePanel>
+            </Disclosure>
           );
         })}
       </nav>
-
     </div>
   );
 }
@@ -251,48 +269,64 @@ interface NavRowProps {
 
 function NavRow({ item, active, collapsed }: NavRowProps) {
   const Icon = item.icon;
-  const className = cn(
-    "group/row relative flex items-center rounded-md text-sm transition-colors",
-    active
-      ? "bg-accent font-medium text-foreground"
-      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-    collapsed ? "justify-center" : "",
-  );
-  const style: React.CSSProperties = {
-    paddingLeft: "var(--space-3)",
-    paddingRight: "var(--space-3)",
-    paddingTop: "var(--space-2)",
-    paddingBottom: "var(--space-2)",
+
+  const linkStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "center",
     gap: "var(--space-3)",
+    padding: collapsed
+      ? "var(--space-2)"
+      : "var(--space-2) var(--space-3)",
+    borderRadius: 6,
+    fontSize: 14,
+    textDecoration: "none",
+    color: active ? "var(--foreground)" : "var(--muted-foreground)",
+    fontWeight: active ? 500 : 400,
+    background: active ? "var(--accent)" : "transparent",
+    transition: "background-color 120ms, color 120ms",
+    justifyContent: collapsed ? "center" : "flex-start",
+    position: "relative",
   };
 
   const inner = (
-    <Link href={item.href} className={className} style={style}>
+    <Link href={item.href} style={linkStyle}>
       {active && (
         <span
           aria-hidden
-          className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 rounded-r bg-primary"
+          style={{
+            position: "absolute",
+            left: 0,
+            top: "50%",
+            height: 20,
+            width: 2,
+            transform: "translateY(-50%)",
+            background: "var(--primary)",
+            borderRadius: "0 2px 2px 0",
+          }}
         />
       )}
-      <Icon className="h-4 w-4 shrink-0" />
-      {!collapsed && <span className="truncate">{item.label}</span>}
+      <Icon size={16} style={{ flexShrink: 0 }} />
+      {!collapsed && (
+        <span
+          style={{
+            overflow: "hidden",
+            textOverflow: "ellipsis",
+            whiteSpace: "nowrap",
+          }}
+        >
+          {item.label}
+        </span>
+      )}
     </Link>
   );
 
   if (!collapsed) return inner;
 
-  // Rail mode — wrap in popover so hovering reveals the label.
+  // Rail mode — Spectrum TooltipTrigger reveals the label on hover.
   return (
-    <Popover>
-      <PopoverTrigger asChild>{inner}</PopoverTrigger>
-      <PopoverContent
-        side="right"
-        align="center"
-        className="w-auto p-2 text-xs"
-      >
-        {item.label}
-      </PopoverContent>
-    </Popover>
+    <TooltipTrigger delay={300}>
+      {inner}
+      <Tooltip placement="end">{item.label}</Tooltip>
+    </TooltipTrigger>
   );
 }
-
