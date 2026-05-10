@@ -256,6 +256,23 @@ function DaySection({
   events: CalendarEvent[];
 }) {
   const isToday = toKey(date) === toKey(today);
+  // Reset carousel position when the events list changes (new day selected)
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    setIdx(0);
+  }, [events]);
+
+  const safeIdx = events.length === 0 ? 0 : idx % events.length;
+  const current = events[safeIdx];
+  const hasMany = events.length > 1;
+
+  function prev() {
+    setIdx((i) => (i - 1 + events.length) % events.length);
+  }
+  function next() {
+    setIdx((i) => (i + 1) % events.length);
+  }
+
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
@@ -272,19 +289,39 @@ function DaySection({
             {fmtDate(date)}
           </span>
         </div>
-        <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
-          {events.length === 0
-            ? "No events"
-            : `${events.length} event${events.length === 1 ? "" : "s"}`}
-        </span>
-      </div>
-      {events.length > 0 ? (
-        <div className="flex flex-col gap-1">
-          {events.map((e) => (
-            <EventRow key={e.id} event={e} />
-          ))}
+        <div className="flex items-center gap-2">
+          {hasMany ? (
+            <>
+              <button
+                type="button"
+                onClick={prev}
+                aria-label="Previous event"
+                className="flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ChevronLeft className="size-3" />
+              </button>
+              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+                {safeIdx + 1} / {events.length}
+              </span>
+              <button
+                type="button"
+                onClick={next}
+                aria-label="Next event"
+                className="flex size-5 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <ChevronRight className="size-3" />
+              </button>
+            </>
+          ) : (
+            <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+              {events.length === 0
+                ? "No events"
+                : `${events.length} event`}
+            </span>
+          )}
         </div>
-      ) : null}
+      </div>
+      {current ? <EventRow event={current} /> : null}
     </div>
   );
 }
@@ -507,7 +544,7 @@ export function DashboardCalendar() {
         ))}
       </div>
 
-      <div className="flex max-h-[180px] min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+      <div className="flex flex-col gap-3">
         {loading ? (
           <>
             <Skeleton className="h-4 w-32" />
