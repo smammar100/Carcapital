@@ -89,8 +89,8 @@ export function DashboardRecentDeals() {
   );
 
   return (
-    <Card className="flex flex-col gap-4 p-5" size="sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <Card className="flex flex-col gap-4 py-5" size="sm">
+      <div className="flex flex-wrap items-center justify-between gap-2 px-5">
         <div className="flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold">Recent Deals</h2>
@@ -116,7 +116,7 @@ export function DashboardRecentDeals() {
       </div>
 
       {rows === null ? (
-        <Skeleton className="h-72" />
+        <Skeleton className="mx-5 h-72" />
       ) : rows.length === 0 ? (
         <p className="py-6 text-center text-xs text-muted-foreground">
           No deals match.
