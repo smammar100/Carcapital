@@ -1,49 +1,80 @@
-import * as React from "react"
-import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
+"use client";
 
-import { cn } from "@/lib/utils"
+import * as React from "react";
+import { Badge as SpectrumBadge } from "@react-spectrum/s2";
 
-const badgeVariants = cva(
-  "group/badge inline-flex h-5 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-3xl border border-transparent px-2 py-0.5 text-xs font-medium whitespace-nowrap transition-all focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
-  {
-    variants: {
-      variant: {
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary/80",
-        secondary:
-          "bg-secondary text-secondary-foreground [a]:hover:bg-secondary/80",
-        destructive:
-          "bg-destructive/10 text-destructive focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:focus-visible:ring-destructive/40 [a]:hover:bg-destructive/20",
-        outline:
-          "border-border text-foreground [a]:hover:bg-muted [a]:hover:text-muted-foreground",
-        ghost:
-          "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
-        link: "text-primary underline-offset-4 hover:underline",
-      },
-    },
-    defaultVariants: {
-      variant: "default",
-    },
-  }
-)
+/**
+ * v4.5 — shadcn Badge → Spectrum Badge wrapper.
+ * Maps shadcn variants to Spectrum variants:
+ *   default → informative
+ *   secondary → neutral
+ *   destructive → negative
+ *   outline → neutral (Spectrum has no outline variant — uses neutral)
+ *   ghost → neutral
+ *   link → neutral
+ */
+type ShadcnBadgeVariant =
+  | "default"
+  | "secondary"
+  | "destructive"
+  | "outline"
+  | "ghost"
+  | "link";
 
-function Badge({
-  className,
-  variant = "default",
-  asChild = false,
-  ...props
-}: React.ComponentProps<"span"> &
-  VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : "span"
+type SpectrumVariant =
+  | "accent"
+  | "informative"
+  | "neutral"
+  | "positive"
+  | "notice"
+  | "negative"
+  | "gray"
+  | "red"
+  | "orange"
+  | "yellow"
+  | "charteuse"
+  | "celery"
+  | "green"
+  | "seafoam"
+  | "cyan"
+  | "blue"
+  | "indigo"
+  | "purple"
+  | "fuchsia"
+  | "magenta"
+  | "pink"
+  | "turquoise"
+  | "brown"
+  | "cinnamon"
+  | "silver";
 
-  return (
-    <Comp
-      data-slot="badge"
-      data-variant={variant}
-      className={cn(badgeVariants({ variant }), className)}
-      {...props}
-    />
-  )
+const VARIANT_MAP: Record<ShadcnBadgeVariant, SpectrumVariant> = {
+  default: "informative",
+  secondary: "neutral",
+  destructive: "negative",
+  outline: "neutral",
+  ghost: "neutral",
+  link: "neutral",
+};
+
+interface BadgeProps {
+  className?: string;
+  variant?: ShadcnBadgeVariant;
+  asChild?: boolean;
+  children?: React.ReactNode;
 }
 
-export { Badge, badgeVariants }
+function Badge({ variant = "default", children, className }: BadgeProps) {
+  const spectrumVariant = VARIANT_MAP[variant] ?? "informative";
+  return (
+    <SpectrumBadge variant={spectrumVariant} UNSAFE_className={className}>
+      {children}
+    </SpectrumBadge>
+  );
+}
+
+// Keep the old export for any consumer that imports `badgeVariants`.
+// During migration this is a no-op; later commits remove it entirely.
+const badgeVariants = () => "";
+
+export { Badge, badgeVariants };
