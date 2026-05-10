@@ -16,7 +16,7 @@ export default function DashboardPage() {
 
       <DashboardKpiRow />
 
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
+      <div className="grid items-start gap-3 lg:grid-cols-[2fr_1fr]">
         <DashboardRecentDeals />
         <DashboardCalendar />
       </div>
