@@ -549,21 +549,13 @@ export function DashboardCalendar() {
           <>
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
           </>
         ) : (
-          <>
-            <DaySection
-              date={selectedDate}
-              today={today}
-              events={selectedEvents}
-            />
-            <DaySection
-              date={dayAfter}
-              today={today}
-              events={dayAfterEvents}
-            />
-          </>
+          <DaySection
+            date={selectedDate}
+            today={today}
+            events={selectedEvents}
+          />
         )}
       </div>
     </Card>
