@@ -16,14 +16,14 @@ export default function DashboardPage() {
 
       <DashboardKpiRow />
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <DealsInProgress />
-        <OngoingRepairs />
-      </div>
-
       <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
         <DashboardRecentDeals />
         <DashboardCalendar />
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <DealsInProgress />
+        <OngoingRepairs />
       </div>
     </div>
   );
