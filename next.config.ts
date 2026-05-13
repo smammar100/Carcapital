@@ -1,7 +1,19 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    return [
+      // /warranties is a landing route only — the module is split into
+      // In-House / External / Claims tabs. Redirect at the Next.js routing
+      // layer (works regardless of whether middleware runs; Turbopack's dev
+      // server sometimes skips middleware/proxy until the .next cache warms).
+      {
+        source: "/warranties",
+        destination: "/warranties/in-house",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;

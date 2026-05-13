@@ -50,5 +50,15 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // The warranty module split into In-House / External / Claims tabs. The
+  // server-component `redirect()` in /warranties/page.tsx is silently swallowed
+  // by Next 16 when the parent layout is a client component, so we redirect
+  // here instead — middleware runs before the layout render boundary.
+  if (pathname === "/warranties") {
+    const url = request.nextUrl.clone();
+    url.pathname = "/warranties/in-house";
+    return NextResponse.redirect(url);
+  }
+
   return response;
 }
