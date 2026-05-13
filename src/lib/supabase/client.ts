@@ -4,6 +4,22 @@ import type { Database } from "./database.types";
 let cached: ReturnType<typeof createBrowserClient<Database>> | null = null;
 
 /**
+ * Resolve the public-side Supabase key.
+ *
+ * Supabase's current quickstart names the variable `*_PUBLISHABLE_KEY`
+ * (the new `sb_publishable_…` keys). The legacy `*_ANON_KEY` name is
+ * still in many deploy environments and is the historical convention for
+ * the JWT-based anon key. Accept either so a deployer who follows the
+ * latest quickstart (and a project still on the old name) both work.
+ */
+export function resolveSupabaseAnonKey(): string | undefined {
+  return (
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
+/**
  * Returns the singleton browser Supabase client. Throws a clear error if the
  * NEXT_PUBLIC_* env vars failed to bake in at build time — without this guard
  * a missing var becomes `createBrowserClient(undefined, undefined)` which
@@ -14,12 +30,14 @@ export function createClient() {
   if (cached) return cached;
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const anonKey = resolveSupabaseAnonKey();
 
   if (!url || !anonKey) {
     const missing = [
       !url ? "NEXT_PUBLIC_SUPABASE_URL" : null,
-      !anonKey ? "NEXT_PUBLIC_SUPABASE_ANON_KEY" : null,
+      !anonKey
+        ? "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (or NEXT_PUBLIC_SUPABASE_ANON_KEY)"
+        : null,
     ]
       .filter(Boolean)
       .join(", ");
