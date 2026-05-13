@@ -2,39 +2,25 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  ChevronLeft,
-  ClipboardCheck,
-  Download,
-  Calendar,
-  Megaphone,
-  Loader2,
-  EyeOff,
-} from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
 import { downloadBlob, pdfService } from "@/lib/services/pdf-service";
 import { useAuth } from "@/contexts/auth-context";
 import type { Vehicle, VehicleStatus } from "@/lib/types";
-import { VEHICLE_STATUSES } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RegPlate } from "@/components/shared/reg-plate";
-import { VehicleStatusBadge } from "@/components/shared/status-badge";
-import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
-import { VehicleImage } from "@/components/shared/vehicle-image";
-import { VehicleDetailTabs } from "@/components/vehicles/vehicle-detail-tabs";
+import { VehicleHeaderCard } from "@/components/vehicle-detail/vehicle-header-card";
+import { VehicleDetailShell } from "@/components/vehicle-detail/vehicle-detail-shell";
 import { InspectionSidePanel } from "@/components/inspection/inspection-side-panel";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 
+/**
+ * Vehicle detail — the v5 surface for a single piece of stock. The page
+ * owns auth/data hydration and the inspection side-panel; everything
+ * visual is handled by `VehicleHeaderCard` (the hero) and
+ * `VehicleDetailShell` (pill tabs + per-tab panels).
+ */
 export default function VehicleDetailPage({
   params,
 }: {
@@ -122,100 +108,16 @@ export default function VehicleDetailPage({
         </Link>
       </Button>
 
-      <div className="flex flex-wrap items-start justify-between gap-4 rounded-lg border bg-card p-4">
-        <div className="flex flex-wrap items-start gap-4">
-          <VehicleImage
-            vehicle={vehicle}
-            variant="card"
-            className="h-28 w-44 shrink-0 rounded-md"
-          />
-          <div className="flex flex-col items-start gap-0.5">
-            <RegPlate registration={vehicle.registration} size="lg" />
-            <h1 className="text-xl font-semibold leading-tight">
-              {vehicle.year} {vehicle.make} {vehicle.model}
-            </h1>
-            <p className="text-xs text-muted-foreground">
-              {vehicle.variantCode ?? "—"} · {vehicle.stockId}
-            </p>
-            <div className="mt-0.5 flex flex-wrap items-center gap-2 text-xs">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    className="appearance-none rounded outline-none focus-visible:ring"
-                  >
-                    <VehicleStatusBadge status={vehicle.status} />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-52">
-                  <DropdownMenuLabel>Change status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
-                  {VEHICLE_STATUSES.map((s) => (
-                    <DropdownMenuItem
-                      key={s.value}
-                      onSelect={() => void handleStatusChange(s.value)}
-                    >
-                      {s.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <DaysInStockChip days={vehicle.daysInStock} />
-              <span className="text-muted-foreground">
-                Received {vehicle.receivedDate}
-              </span>
-            </div>
-          </div>
-        </div>
+      <VehicleHeaderCard
+        vehicle={vehicle}
+        exporting={exporting}
+        onOpenInspection={() => setInspectionOpen(true)}
+        onStatusChange={(s) => void handleStatusChange(s)}
+        onRemoveFromWebsite={() => void handleRemoveFromWebsite()}
+        onExportPdf={() => void handleExportPdf()}
+      />
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setInspectionOpen(true)}
-          >
-            <ClipboardCheck className="mr-1.5 h-4 w-4" />
-            Open Inspection
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/advert/work-list`}>
-              <Megaphone className="mr-1.5 h-4 w-4" />
-              Listing
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/sales/appointments`}>
-              <Calendar className="mr-1.5 h-4 w-4" />
-              Book Appt.
-            </Link>
-          </Button>
-          {vehicle.status === "sold" && vehicle.removedFromWebsiteAt === null && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => void handleRemoveFromWebsite()}
-            >
-              <EyeOff className="mr-1.5 h-4 w-4" />
-              Remove from Website
-            </Button>
-          )}
-          <Button
-            size="sm"
-            variant="default"
-            disabled={exporting}
-            onClick={handleExportPdf}
-          >
-            {exporting ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 h-4 w-4" />
-            )}
-            Job Card PDF
-          </Button>
-        </div>
-      </div>
-
-      <VehicleDetailTabs
+      <VehicleDetailShell
         vehicle={vehicle}
         onOpenInspection={() => setInspectionOpen(true)}
       />

@@ -200,6 +200,196 @@ export type Database = {
         }
         Relationships: []
       }
+      customers: {
+        Row: {
+          address_lines: string[]
+          company_id: string
+          company_name: string | null
+          created_at: string
+          email: string | null
+          first_name: string
+          home_phone: string | null
+          id: string
+          last_name: string
+          marketing_consent: boolean
+          mobile_phone: string | null
+          notes: string | null
+          postcode: string | null
+          source_origin: string | null
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_lines?: string[]
+          company_id: string
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name: string
+          home_phone?: string | null
+          id?: string
+          last_name: string
+          marketing_consent?: boolean
+          mobile_phone?: string | null
+          notes?: string | null
+          postcode?: string | null
+          source_origin?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_lines?: string[]
+          company_id?: string
+          company_name?: string | null
+          created_at?: string
+          email?: string | null
+          first_name?: string
+          home_phone?: string | null
+          id?: string
+          last_name?: string
+          marketing_consent?: boolean
+          mobile_phone?: string | null
+          notes?: string | null
+          postcode?: string | null
+          source_origin?: string | null
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enquiries: {
+        Row: {
+          company_id: string
+          created_at: string
+          customer_id: string
+          finance_interest: boolean
+          id: string
+          lost_reason: string | null
+          next_action_due_at: string | null
+          notes: string | null
+          salesperson_id: string
+          source: string
+          status: string
+          type: string
+          updated_at: string
+          vehicle_id: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          customer_id: string
+          finance_interest?: boolean
+          id?: string
+          lost_reason?: string | null
+          next_action_due_at?: string | null
+          notes?: string | null
+          salesperson_id: string
+          source: string
+          status: string
+          type: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          customer_id?: string
+          finance_interest?: boolean
+          id?: string
+          lost_reason?: string | null
+          next_action_due_at?: string | null
+          notes?: string | null
+          salesperson_id?: string
+          source?: string
+          status?: string
+          type?: string
+          updated_at?: string
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enquiries_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enquiries_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enquiries_salesperson_id_fkey"
+            columns: ["salesperson_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enquiries_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      enquiry_history: {
+        Row: {
+          actor_id: string
+          created_at: string
+          enquiry_id: string
+          from_status: string | null
+          id: string
+          note: string | null
+          to_status: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          enquiry_id: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          to_status: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          enquiry_id?: string
+          from_status?: string | null
+          id?: string
+          note?: string | null
+          to_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "enquiry_history_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enquiry_history_enquiry_id_fkey"
+            columns: ["enquiry_id"]
+            isOneToOne: false
+            referencedRelation: "enquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_checks: {
         Row: {
           action_required: string | null
