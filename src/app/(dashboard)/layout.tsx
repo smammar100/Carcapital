@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
   SidebarStateProvider,
@@ -8,17 +10,55 @@ import {
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, error } = useAuth();
+  const router = useRouter();
+
+  // Hard failure path — auth context couldn't even initialise (typically
+  // missing NEXT_PUBLIC_SUPABASE_* env vars at build time). Show a visible
+  // error instead of leaving the user staring at an infinite skeleton.
+  if (error) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/20 px-4">
+        <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-sm">
+          <div className="mb-3 flex items-center gap-2 text-destructive">
+            <AlertCircle className="h-5 w-5" />
+            <h1 className="text-lg font-semibold">Can&apos;t connect</h1>
+          </div>
+          <p className="mb-4 text-sm text-muted-foreground">{error}</p>
+          <p className="mb-4 text-xs text-muted-foreground">
+            If you&apos;re a deployer: check that{" "}
+            <code className="rounded bg-muted px-1 py-0.5">
+              NEXT_PUBLIC_SUPABASE_URL
+            </code>{" "}
+            and{" "}
+            <code className="rounded bg-muted px-1 py-0.5">
+              NEXT_PUBLIC_SUPABASE_ANON_KEY
+            </code>{" "}
+            are set in the Netlify site environment, then redeploy.
+          </p>
+          <Button type="button" onClick={() => location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   // Middleware (middleware.ts) handles redirects for unauthenticated users.
-  // We still need a loading state while the auth-context hydrates from the
-  // session cookie on first paint.
+  // Belt-and-suspenders: once loading resolves with no user, send them to
+  // /login client-side too. This covers the case where middleware is bypassed
+  // (Turbopack dev quirks) so the user doesn't see a perpetual skeleton.
+  if (!loading && !user) {
+    router.replace("/login");
+  }
+
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">

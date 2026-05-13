@@ -10,12 +10,15 @@ import {
 } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateAll } from "@/lib/cache";
+import { warmDashboardCache } from "@/lib/cache-warmup";
 import type { Company, User } from "@/lib/types";
 
 interface AuthContextValue {
   user: User | null;
   company: Company | null;
   loading: boolean;
+  /** Non-null when the auth context failed to initialise (e.g. missing env vars). */
+  error: string | null;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -63,6 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   /**
    * Resolve the public.users + companies rows for an auth session.
@@ -97,33 +101,58 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
     setUser(userRow);
     setCompany(companyRow);
+    // Fire-and-forget cache warm-up so the dashboard renders against a warm
+    // cache. Every dashboard component will read from this within 30s.
+    void warmDashboardCache(companyRow.id, userRow.id);
   }, []);
 
   // Bootstrap from current session + subscribe to changes. The client is
   // instantiated inside the effect so SSR/prerender never reads env vars.
+  // Errors at any step are surfaced via `error` state instead of hanging the
+  // UI on a forever-loading skeleton.
   useEffect(() => {
     let mounted = true;
-    const supabase = createClient();
+    let subscription: { unsubscribe: () => void } | null = null;
 
     void (async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!mounted) return;
-      await hydrate(session?.user?.id ?? null);
-      if (mounted) setLoading(false);
-    })();
+      try {
+        const supabase = createClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!mounted) return;
+        await hydrate(session?.user?.id ?? null);
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!mounted) return;
-      await hydrate(session?.user?.id ?? null);
-    });
+        const sub = supabase.auth.onAuthStateChange(
+          async (_event, nextSession) => {
+            if (!mounted) return;
+            try {
+              await hydrate(nextSession?.user?.id ?? null);
+            } catch (e) {
+              // Don't kill the listener — log and keep going.
+              // eslint-disable-next-line no-console
+              console.error("[auth] hydrate failed during state change:", e);
+            }
+          },
+        );
+        subscription = sub.data.subscription;
+      } catch (e) {
+        if (!mounted) return;
+        const msg =
+          e instanceof Error ? e.message : "Failed to initialise auth";
+        // eslint-disable-next-line no-console
+        console.error("[auth] init failed:", e);
+        setError(msg);
+      } finally {
+        // Always resolve loading so the UI can render either content or an
+        // error state — never a perpetual skeleton.
+        if (mounted) setLoading(false);
+      }
+    })();
 
     return () => {
       mounted = false;
-      subscription.unsubscribe();
+      subscription?.unsubscribe();
     };
   }, [hydrate]);
 
@@ -148,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider
-      value={{ user, company, loading, signIn, signOut }}
+      value={{ user, company, loading, error, signIn, signOut }}
     >
       {children}
     </AuthContext.Provider>
