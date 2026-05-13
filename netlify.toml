@@ -8,6 +8,10 @@
   PNPM_VERSION = "10.33.2"
   # Next.js 16 + Turbopack telemetry off
   NEXT_TELEMETRY_DISABLED = "1"
+  # NEXT_PUBLIC_SUPABASE_ANON_KEY is the Supabase anonymous/publishable key — it is
+  # intentionally embedded in the client bundle. Omit it from secrets scanning so the
+  # build is not rejected for containing a value that is meant to be public.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_ANON_KEY"
 
 # Netlify auto-installs @netlify/plugin-nextjs when it detects Next.js, but
 # declaring it explicitly avoids the auto-detect failing on the worktree.
