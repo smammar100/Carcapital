@@ -31,6 +31,8 @@ import {
   mockReturns,
   mockActivityLog,
   mockNotifications,
+  mockCustomers,
+  mockEnquiries,
 } from "../src/lib/mock-data";
 
 const SHARED_PASSWORD = "CarCap!demo1";
@@ -69,6 +71,8 @@ const idMap = {
   activity: new Map<string, string>(),
   notification: new Map<string, string>(),
   permission: new Map<string, string>(),
+  customer: new Map<string, string>(),
+  enquiry: new Map<string, string>(),
 };
 
 const lookup = (map: Map<string, string>, id: string | null | undefined): string | null => {
@@ -244,9 +248,197 @@ async function seedWarrantyDelta(): Promise<void> {
   console.log(`\n✅ Delta complete: +${addedWarranties} warranties, +${addedClaims} claims.`);
 }
 
+/**
+ * Idempotent delta seed for customers + enquiries — runs when the main seed
+ * has already happened and we've added new mock rows since.
+ *
+ * Skip rules:
+ *   - Customer skipped if a row with the same (company_id, email) OR
+ *     (company_id, mobile_phone) already exists.
+ *   - Enquiry skipped if a row with the same customer_id + created_at +
+ *     source already exists (close-enough fingerprint for seed data).
+ */
+async function seedCustomerEnquiryDelta(): Promise<void> {
+  console.log("ℹ️  Running customer/enquiry delta pass…");
+
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id, name")
+    .limit(1)
+    .single();
+  if (!companies) {
+    console.error("No company found — run a fresh seed first.");
+    process.exit(1);
+  }
+  const companyId = (companies as { id: string }).id;
+
+  // Vehicle id resolution via registration (same trick as warranty delta).
+  const { data: vehicles } = await supabase
+    .from("vehicles")
+    .select("id, registration")
+    .eq("company_id", companyId);
+  const vehicleByReg = new Map<string, string>();
+  for (const v of (vehicles ?? []) as { id: string; registration: string }[]) {
+    vehicleByReg.set(v.registration, v.id);
+  }
+  function resolveVehicleId(mockId: string | null): string | null {
+    if (!mockId) return null;
+    const mv = mockVehicles.find((v) => v.id === mockId);
+    if (!mv) return null;
+    return vehicleByReg.get(mv.registration) ?? null;
+  }
+
+  // User id resolution via email.
+  const { data: dbUsers } = await supabase
+    .from("users")
+    .select("id, email")
+    .eq("company_id", companyId);
+  const userByEmail = new Map<string, string>();
+  for (const u of (dbUsers ?? []) as { id: string; email: string }[]) {
+    userByEmail.set(u.email, u.id);
+  }
+  function resolveUserId(mockId: string): string | null {
+    const mu = mockUsers.find((u) => u.id === mockId);
+    if (!mu) return null;
+    return userByEmail.get(mu.email) ?? null;
+  }
+
+  // Customers — idempotency via email + mobile_phone.
+  const { data: existingCustomers } = await supabase
+    .from("customers")
+    .select("id, email, mobile_phone")
+    .eq("company_id", companyId);
+  const existingEmails = new Set(
+    (existingCustomers ?? [])
+      .map((c: { email: string | null }) => c.email?.toLowerCase())
+      .filter(Boolean),
+  );
+  const existingMobiles = new Set(
+    (existingCustomers ?? [])
+      .map((c: { mobile_phone: string | null }) => c.mobile_phone)
+      .filter(Boolean),
+  );
+
+  // Local mock-id → DB-uuid map for the rows we insert during this run.
+  const customerIdByMockId = new Map<string, string>();
+
+  // Also resolve already-present customers so enquiries can reference them.
+  const { data: allCustomers } = await supabase
+    .from("customers")
+    .select("id, email, mobile_phone")
+    .eq("company_id", companyId);
+  function resolveCustomerId(mockCustomerId: string): string | null {
+    if (customerIdByMockId.has(mockCustomerId)) {
+      return customerIdByMockId.get(mockCustomerId)!;
+    }
+    const mc = mockCustomers.find((c) => c.id === mockCustomerId);
+    if (!mc) return null;
+    const hit = (allCustomers ?? []).find(
+      (row: { email: string | null; mobile_phone: string | null }) =>
+        (mc.email && row.email?.toLowerCase() === mc.email.toLowerCase()) ||
+        (mc.mobilePhone && row.mobile_phone === mc.mobilePhone),
+    );
+    return (hit as { id: string } | undefined)?.id ?? null;
+  }
+
+  let addedCustomers = 0;
+  for (const c of mockCustomers) {
+    const emailHit = c.email && existingEmails.has(c.email.toLowerCase());
+    const mobileHit = c.mobilePhone && existingMobiles.has(c.mobilePhone);
+    if (emailHit || mobileHit) continue;
+    const newId = randomUUID();
+    const { error } = await supabase.from("customers").insert({
+      id: newId,
+      company_id: companyId,
+      title: c.title,
+      first_name: c.firstName,
+      last_name: c.lastName,
+      company_name: c.companyName,
+      email: c.email?.toLowerCase() ?? null,
+      home_phone: c.homePhone,
+      mobile_phone: c.mobilePhone,
+      postcode: c.postcode,
+      address_lines: c.addressLines,
+      marketing_consent: c.marketingConsent,
+      notes: c.notes,
+      source_origin: c.sourceOrigin,
+      created_at: c.createdAt,
+      updated_at: c.updatedAt,
+    });
+    if (error) {
+      console.warn(`  ✗ Customer ${c.firstName} ${c.lastName}: ${error.message}`);
+      continue;
+    }
+    customerIdByMockId.set(c.id, newId);
+    if (c.email) existingEmails.add(c.email.toLowerCase());
+    if (c.mobilePhone) existingMobiles.add(c.mobilePhone);
+    addedCustomers += 1;
+    console.log(`  ✓ Customer: ${c.firstName} ${c.lastName}`);
+  }
+
+  // Enquiries — idempotency via (customer_id, source, type, notes). The
+  // (customer_id, created_at) pair would be cleaner but timezone-shifted
+  // timestamps round-trip with microsecond fuzz against the original ISO
+  // strings, so we use a content fingerprint instead.
+  const { data: existingEnquiries } = await supabase
+    .from("enquiries")
+    .select("customer_id, source, type, notes")
+    .eq("company_id", companyId);
+  const enquiryKey = new Set(
+    (existingEnquiries ?? []).map(
+      (e: { customer_id: string; source: string; type: string; notes: string | null }) =>
+        `${e.customer_id}|${e.source}|${e.type}|${e.notes ?? ""}`,
+    ),
+  );
+
+  let addedEnquiries = 0;
+  for (const e of mockEnquiries) {
+    const customerId = resolveCustomerId(e.customerId);
+    if (!customerId) {
+      console.warn(`  ⚠ Skipping enquiry — customer ${e.customerId} not in DB`);
+      continue;
+    }
+    const key = `${customerId}|${e.source}|${e.type}|${e.notes ?? ""}`;
+    if (enquiryKey.has(key)) continue;
+    const vehicleId = resolveVehicleId(e.vehicleId);
+    const salespersonId = resolveUserId(e.salespersonId);
+    if (!salespersonId) {
+      console.warn(`  ⚠ Skipping enquiry — salesperson ${e.salespersonId} not in DB`);
+      continue;
+    }
+    const { error } = await supabase.from("enquiries").insert({
+      id: randomUUID(),
+      company_id: companyId,
+      customer_id: customerId,
+      vehicle_id: vehicleId,
+      source: e.source,
+      type: e.type,
+      status: e.status,
+      lost_reason: e.lostReason,
+      salesperson_id: salespersonId,
+      finance_interest: e.financeInterest,
+      next_action_due_at: e.nextActionDueAt,
+      notes: e.notes,
+      created_at: e.createdAt,
+      updated_at: e.updatedAt,
+    });
+    if (error) {
+      console.warn(`  ✗ Enquiry ${e.id}: ${error.message}`);
+      continue;
+    }
+    addedEnquiries += 1;
+    console.log(`  ✓ Enquiry: ${e.source} / ${e.type} for customer ${e.customerId}`);
+  }
+
+  console.log(
+    `\n✅ Delta complete: +${addedCustomers} customers, +${addedEnquiries} enquiries.`,
+  );
+}
+
 async function main() {
   if (await alreadySeeded()) {
     await seedWarrantyDelta();
+    await seedCustomerEnquiryDelta();
     return;
   }
 
@@ -751,6 +943,54 @@ async function main() {
       link: n.link,
       read: n.read,
       created_at: n.createdAt,
+    });
+    if (error) throw error;
+  }
+
+  console.log("→ Seeding customers…");
+  for (const c of mockCustomers) {
+    const newId = randomUUID();
+    idMap.customer.set(c.id, newId);
+    const { error } = await supabase.from("customers").insert({
+      id: newId,
+      company_id: lookup(idMap.company, c.companyId)!,
+      title: c.title,
+      first_name: c.firstName,
+      last_name: c.lastName,
+      company_name: c.companyName,
+      email: c.email?.toLowerCase() ?? null,
+      home_phone: c.homePhone,
+      mobile_phone: c.mobilePhone,
+      postcode: c.postcode,
+      address_lines: c.addressLines,
+      marketing_consent: c.marketingConsent,
+      notes: c.notes,
+      source_origin: c.sourceOrigin,
+      created_at: c.createdAt,
+      updated_at: c.updatedAt,
+    });
+    if (error) throw error;
+  }
+
+  console.log("→ Seeding enquiries…");
+  for (const e of mockEnquiries) {
+    const newId = randomUUID();
+    idMap.enquiry.set(e.id, newId);
+    const { error } = await supabase.from("enquiries").insert({
+      id: newId,
+      company_id: lookup(idMap.company, e.companyId)!,
+      customer_id: lookup(idMap.customer, e.customerId)!,
+      vehicle_id: e.vehicleId ? lookup(idMap.vehicle, e.vehicleId) : null,
+      source: e.source,
+      type: e.type,
+      status: e.status,
+      lost_reason: e.lostReason,
+      salesperson_id: lookup(idMap.user, e.salespersonId)!,
+      finance_interest: e.financeInterest,
+      next_action_due_at: e.nextActionDueAt,
+      notes: e.notes,
+      created_at: e.createdAt,
+      updated_at: e.updatedAt,
     });
     if (error) throw error;
   }

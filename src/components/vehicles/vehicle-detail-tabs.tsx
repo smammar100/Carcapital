@@ -8,6 +8,7 @@ import {
   History,
   ClipboardCheck,
   Coins,
+  Plus,
   RefreshCw,
 } from "lucide-react";
 import {
@@ -41,6 +42,9 @@ import { listingService } from "@/lib/services/listing-service";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { activityService } from "@/lib/services/activity-service";
 import { inspectionService } from "@/lib/services/inspection-service";
+import { enquiryService } from "@/lib/services/enquiry-service";
+import { AddEnquiryDialog } from "@/components/enquiries/add-enquiry-dialog";
+import type { Enquiry } from "@/lib/types";
 
 interface Props {
   vehicle: Vehicle;
@@ -406,44 +410,112 @@ function ListingTab({ vehicle }: { vehicle: Vehicle }) {
 
 function AppointmentsTab({ vehicle }: { vehicle: Vehicle }) {
   const [appts, setAppts] = useState<Appointment[] | null>(null);
-  useEffect(() => {
+  const [enquiries, setEnquiries] = useState<Enquiry[] | null>(null);
+  const [enquiryDialogOpen, setEnquiryDialogOpen] = useState(false);
+
+  const refetch = () => {
     void appointmentService.getForVehicle(vehicle.id).then(setAppts);
+    void enquiryService.getForVehicle(vehicle.id).then(setEnquiries);
+  };
+
+  useEffect(() => {
+    refetch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vehicle.id]);
-  if (appts === null) {
-    return (
-      <Card className="p-5">
-        <Skeleton className="h-24 w-full" />
-      </Card>
-    );
-  }
-  if (appts.length === 0) {
-    return (
-      <EmptyState
-        icon={Calendar}
-        title="No appointments yet"
-        description="Book an appointment from the Appointments page or a lead detail."
-      />
-    );
-  }
+
+  const loading = appts === null || enquiries === null;
+  const isEmpty =
+    !loading && (appts?.length ?? 0) === 0 && (enquiries?.length ?? 0) === 0;
+
   return (
-    <Card className="p-5">
-      <h3 className="text-sm font-semibold">Appointments for this vehicle</h3>
-      <div className="mt-4 divide-y rounded-md border">
-        {appts.map((a) => (
-          <div key={a.id} className="flex items-center justify-between p-3 text-sm">
-            <div className="flex flex-col">
-              <span className="font-medium">{a.customerName}</span>
-              <span className="text-xs text-muted-foreground">
-                {formatDate(a.date)} · {a.time}
-              </span>
-            </div>
-            <Badge variant="outline" className="capitalize">
-              {a.status}
-            </Badge>
-          </div>
-        ))}
+    <>
+      <div className="mb-3 flex items-center justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setEnquiryDialogOpen(true)}
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          Add Enquiry
+        </Button>
       </div>
-    </Card>
+
+      {loading ? (
+        <Card className="p-5">
+          <Skeleton className="h-24 w-full" />
+        </Card>
+      ) : isEmpty ? (
+        <EmptyState
+          icon={Calendar}
+          title="No appointments or enquiries yet"
+          description="Capture a fresh enquiry with the button above, or book an appointment from the Appointments page."
+        />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {(enquiries?.length ?? 0) > 0 && (
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold">Recent enquiries</h3>
+              <div className="mt-4 divide-y rounded-md border">
+                {enquiries!.map((e) => (
+                  <div
+                    key={e.id}
+                    className="flex items-center justify-between p-3 text-sm"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium capitalize">
+                        {e.source.replace(/_/g, " ")} ·{" "}
+                        <span className="text-muted-foreground">
+                          {e.type.replace(/_/g, " ")}
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatRelativeTime(e.createdAt)}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {e.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+
+          {(appts?.length ?? 0) > 0 && (
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold">
+                Appointments for this vehicle
+              </h3>
+              <div className="mt-4 divide-y rounded-md border">
+                {appts!.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex items-center justify-between p-3 text-sm"
+                  >
+                    <div className="flex flex-col">
+                      <span className="font-medium">{a.customerName}</span>
+                      <span className="text-xs text-muted-foreground">
+                        {formatDate(a.date)} · {a.time}
+                      </span>
+                    </div>
+                    <Badge variant="outline" className="capitalize">
+                      {a.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      <AddEnquiryDialog
+        open={enquiryDialogOpen}
+        onOpenChange={setEnquiryDialogOpen}
+        vehicleId={vehicle.id}
+        onCreated={refetch}
+      />
+    </>
   );
 }
 
