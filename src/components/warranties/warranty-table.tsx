@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { MoreHorizontal } from "lucide-react";
 import {
   Table,
@@ -21,8 +20,8 @@ import { RegPlate } from "@/components/shared/reg-plate";
 import { StatusPill } from "./status-pill";
 import { ProviderBadge } from "./provider-badge";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { usePermissions } from "@/hooks/use-permissions";
 import type { Vehicle, Warranty, WarrantyClaim } from "@/lib/types";
-import { toast } from "sonner";
 
 export interface WarrantyRow extends Warranty {
   vehicle: Vehicle | null;
@@ -32,8 +31,9 @@ export interface WarrantyRow extends Warranty {
 interface WarrantyTableProps {
   rows: WarrantyRow[];
   variant: "in-house" | "external";
-  /** Optional consumer-supplied row click handler. Defaults to navigating to /warranties/[id]. */
-  onRowClick?: (warranty: WarrantyRow) => void;
+  onRowClick: (warranty: WarrantyRow) => void;
+  onFileClaim?: (warranty: WarrantyRow) => void;
+  onMarkPurchased?: (warranty: WarrantyRow) => void;
 }
 
 function daysRemaining(endDate: string): number {
@@ -51,16 +51,13 @@ function remainingLabel(endDate: string): string {
   return `${months}mo remaining`;
 }
 
-/**
- * Stub action handler — file claim / mark purchased / cancel will be wired in
- * the next pass when the dialogs land. For now we toast so the user can see
- * the click registers.
- */
-function stubAction(message: string) {
-  toast.info(message, { description: "Wired up in the next warranty pass." });
-}
-
-export function WarrantyTable({ rows, variant, onRowClick }: WarrantyTableProps) {
+export function WarrantyTable({
+  rows,
+  variant,
+  onRowClick,
+  onFileClaim,
+  onMarkPurchased,
+}: WarrantyTableProps) {
   return (
     <div className="overflow-hidden rounded-md border bg-card">
       <Table>
@@ -91,9 +88,8 @@ export function WarrantyTable({ rows, variant, onRowClick }: WarrantyTableProps)
             <TableRow
               key={row.id}
               onClick={(e) => {
-                // Don't fire row-click when clicking the action menu.
                 if ((e.target as HTMLElement).closest("[data-row-action]")) return;
-                onRowClick?.(row);
+                onRowClick(row);
               }}
               className="cursor-pointer"
             >
@@ -151,7 +147,13 @@ export function WarrantyTable({ rows, variant, onRowClick }: WarrantyTableProps)
                 <StatusPill status={row.status} />
               </TableCell>
               <TableCell data-row-action>
-                <RowActions row={row} variant={variant} />
+                <RowActions
+                  row={row}
+                  variant={variant}
+                  onOpen={() => onRowClick(row)}
+                  onFileClaim={onFileClaim}
+                  onMarkPurchased={onMarkPurchased}
+                />
               </TableCell>
             </TableRow>
           ))}
@@ -164,10 +166,18 @@ export function WarrantyTable({ rows, variant, onRowClick }: WarrantyTableProps)
 function RowActions({
   row,
   variant,
+  onOpen,
+  onFileClaim,
+  onMarkPurchased,
 }: {
   row: WarrantyRow;
   variant: "in-house" | "external";
+  onOpen: () => void;
+  onFileClaim?: (warranty: WarrantyRow) => void;
+  onMarkPurchased?: (warranty: WarrantyRow) => void;
 }) {
+  const { can } = usePermissions();
+  const canEdit = can("warranty:edit");
   const isPendingExternal =
     variant === "external" && row.purchaseStatus === "pending";
 
@@ -178,8 +188,10 @@ function RowActions({
         size="sm"
         onClick={(e) => {
           e.stopPropagation();
-          stubAction("Mark Purchased dialog");
+          onMarkPurchased?.(row);
         }}
+        disabled={!canEdit}
+        title={canEdit ? undefined : "Requires Warranty Edit capability"}
       >
         Mark purchased
       </Button>
@@ -201,25 +213,21 @@ function RowActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem asChild>
-          <Link href={`/warranties/${row.id}`}>View details</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => stubAction("File Claim dialog")}>
+        <DropdownMenuItem onSelect={onOpen}>View details</DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={() => onFileClaim?.(row)}
+          disabled={row.status !== "active"}
+        >
           File claim
         </DropdownMenuItem>
         {variant === "external" && row.purchaseStatus === "pending" && (
           <DropdownMenuItem
-            onSelect={() => stubAction("Mark Purchased dialog")}
+            onSelect={() => onMarkPurchased?.(row)}
+            disabled={!canEdit}
           >
             Mark purchased
           </DropdownMenuItem>
         )}
-        <DropdownMenuItem
-          onSelect={() => stubAction("Cancel Warranty confirmation")}
-          className="text-destructive"
-        >
-          Cancel warranty
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -230,7 +238,13 @@ interface ClaimsRow extends WarrantyClaim {
   warranty: Warranty | null;
 }
 
-export function ClaimsTable({ rows }: { rows: ClaimsRow[] }) {
+export function ClaimsTable({
+  rows,
+  onRowClick,
+}: {
+  rows: ClaimsRow[];
+  onRowClick?: (claim: ClaimsRow) => void;
+}) {
   return (
     <div className="overflow-hidden rounded-md border bg-card">
       <Table>
@@ -248,9 +262,10 @@ export function ClaimsTable({ rows }: { rows: ClaimsRow[] }) {
           {rows.map((row) => (
             <TableRow
               key={row.id}
+              onClick={() => onRowClick?.(row)}
               className={
                 row.isComplaint
-                  ? "bg-destructive/5 hover:bg-destructive/10"
+                  ? "cursor-pointer bg-destructive/5 hover:bg-destructive/10"
                   : "cursor-pointer"
               }
             >
@@ -277,20 +292,12 @@ export function ClaimsTable({ rows }: { rows: ClaimsRow[] }) {
               <TableCell className="max-w-[260px] truncate text-sm">
                 {row.issueDescription}
               </TableCell>
-              <TableCell>
-                {row.warranty ? (
-                  <Link
-                    href={`/warranties/${row.warranty.id}`}
-                    className="text-xs text-primary hover:underline"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    {row.warranty.type === "external"
-                      ? row.warranty.provider ?? "External"
-                      : "In-house"}
-                  </Link>
-                ) : (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
+              <TableCell className="text-xs text-muted-foreground">
+                {row.warranty
+                  ? row.warranty.type === "external"
+                    ? row.warranty.provider ?? "External"
+                    : "In-house"
+                  : "—"}
               </TableCell>
               <TableCell className="text-right text-sm tabular-nums">
                 {formatCurrency(row.actualCost ?? row.estimatedCost ?? 0)}

@@ -78,7 +78,7 @@ const lookup = (map: Map<string, string>, id: string | null | undefined): string
   return v;
 };
 
-async function bail() {
+async function alreadySeeded(): Promise<boolean> {
   const { count, error } = await supabase
     .from("companies")
     .select("*", { count: "exact", head: true });
@@ -86,15 +86,169 @@ async function bail() {
     console.error("Failed to query companies:", error);
     process.exit(1);
   }
-  if ((count ?? 0) > 0) {
-    console.log("ℹ️  companies table is not empty — seed already ran. Skipping.");
-    return true;
+  return (count ?? 0) > 0;
+}
+
+/**
+ * Idempotent delta seed for warranties + claims, used when the main seed has
+ * already run but new mock rows have been added since. Skips any row whose
+ * `customer_name + start_date` already exists in the DB.
+ */
+async function seedWarrantyDelta(): Promise<void> {
+  console.log("ℹ️  Main seed already ran. Running warranty/claim delta pass…");
+
+  // Need a company + vehicle id lookup table. We pivot via registration.
+  const { data: companies } = await supabase
+    .from("companies")
+    .select("id, name")
+    .limit(1)
+    .single();
+  if (!companies) {
+    console.error("No company found — run a fresh seed first.");
+    process.exit(1);
   }
-  return false;
+  const companyId = (companies as { id: string }).id;
+
+  const { data: vehicles } = await supabase
+    .from("vehicles")
+    .select("id, registration")
+    .eq("company_id", companyId);
+  const vehicleByReg = new Map<string, string>();
+  for (const v of (vehicles ?? []) as { id: string; registration: string }[]) {
+    vehicleByReg.set(v.registration, v.id);
+  }
+
+  // Map mock vehicleId → real DB UUID via mockVehicles.registration.
+  function resolveVehicleId(mockId: string): string | null {
+    const mv = mockVehicles.find((v) => v.id === mockId);
+    if (!mv) return null;
+    return vehicleByReg.get(mv.registration) ?? null;
+  }
+
+  // Existing warranties keyed by customer_name|start_date for idempotency.
+  const { data: existingWarranties } = await supabase
+    .from("warranties")
+    .select("id, customer_name, start_date")
+    .eq("company_id", companyId);
+  const existingWarrantyKey = new Set(
+    (existingWarranties ?? []).map(
+      (w: { customer_name: string; start_date: string }) =>
+        `${w.customer_name}|${w.start_date}`,
+    ),
+  );
+
+  let addedWarranties = 0;
+  const newWarrantyIdByMockId = new Map<string, string>();
+
+  for (const w of mockWarranties) {
+    const key = `${w.customerName}|${w.startDate}`;
+    if (existingWarrantyKey.has(key)) continue;
+    const vehicleId = resolveVehicleId(w.vehicleId);
+    if (!vehicleId) {
+      console.warn(`  ⚠ Skipping warranty for ${w.customerName} — vehicle ${w.vehicleId} not in DB`);
+      continue;
+    }
+    const newId = randomUUID();
+    const { error } = await supabase.from("warranties").insert({
+      id: newId,
+      company_id: companyId,
+      vehicle_id: vehicleId,
+      sale_deal_id: null,
+      customer_name: w.customerName,
+      customer_phone: w.customerPhone,
+      customer_email: w.customerEmail,
+      type: w.type,
+      provider: w.provider,
+      coverage_details: w.coverageDetails,
+      start_date: w.startDate,
+      end_date: w.endDate,
+      cost_to_dealership: w.costToDealership,
+      cost_to_customer: w.costToCustomer,
+      status: w.status,
+      purchase_status: w.purchaseStatus,
+      purchased_at: w.purchasedAt,
+      // purchased_by left null — purchased rows in seed reference mock user IDs
+      // that don't exist in this delta pass; UI will show "—" until backfilled.
+      purchased_by: null,
+      provider_reference: w.providerReference,
+      certificate_generated: w.certificateGenerated,
+      created_at: w.createdAt,
+    });
+    if (error) {
+      console.warn(`  ✗ ${w.customerName}: ${error.message}`);
+      continue;
+    }
+    newWarrantyIdByMockId.set(w.id, newId);
+    addedWarranties += 1;
+    console.log(`  ✓ Warranty: ${w.customerName} (${w.type}, ${w.startDate})`);
+  }
+
+  // Claims delta — match by issue_description prefix.
+  const { data: existingClaims } = await supabase
+    .from("warranty_claims")
+    .select("issue_description")
+    .eq("company_id", companyId);
+  const existingClaimSet = new Set(
+    (existingClaims ?? []).map(
+      (c: { issue_description: string }) => c.issue_description,
+    ),
+  );
+
+  let addedClaims = 0;
+  for (const c of mockClaims) {
+    if (existingClaimSet.has(c.issueDescription)) continue;
+    // The claim's parent warranty may be one we just inserted, or already in DB.
+    let warrantyId = newWarrantyIdByMockId.get(c.warrantyId);
+    if (!warrantyId) {
+      const mw = mockWarranties.find((x) => x.id === c.warrantyId);
+      if (mw) {
+        const { data: row } = await supabase
+          .from("warranties")
+          .select("id")
+          .eq("company_id", companyId)
+          .eq("customer_name", mw.customerName)
+          .eq("start_date", mw.startDate)
+          .maybeSingle();
+        warrantyId = (row as { id: string } | null)?.id;
+      }
+    }
+    if (!warrantyId) {
+      console.warn(`  ⚠ Skipping claim — parent warranty not found`);
+      continue;
+    }
+    const vehicleId = resolveVehicleId(c.vehicleId);
+    if (!vehicleId) continue;
+    const { error } = await supabase.from("warranty_claims").insert({
+      id: randomUUID(),
+      warranty_id: warrantyId,
+      vehicle_id: vehicleId,
+      company_id: companyId,
+      customer_name: c.customerName,
+      issue_description: c.issueDescription,
+      is_complaint: c.isComplaint,
+      estimated_cost: c.estimatedCost,
+      actual_cost: c.actualCost,
+      status: c.status,
+      resolution: c.resolution,
+      created_at: c.createdAt,
+      resolved_at: c.resolvedAt,
+    });
+    if (error) {
+      console.warn(`  ✗ Claim "${c.issueDescription.slice(0, 40)}…": ${error.message}`);
+      continue;
+    }
+    addedClaims += 1;
+    console.log(`  ✓ Claim: ${c.customerName} — ${c.issueDescription.slice(0, 40)}…`);
+  }
+
+  console.log(`\n✅ Delta complete: +${addedWarranties} warranties, +${addedClaims} claims.`);
 }
 
 async function main() {
-  if (await bail()) return;
+  if (await alreadySeeded()) {
+    await seedWarrantyDelta();
+    return;
+  }
 
   console.log("→ Seeding companies…");
   for (const c of mockCompanies) {
@@ -446,6 +600,10 @@ async function main() {
       cost_to_dealership: w.costToDealership,
       cost_to_customer: w.costToCustomer,
       status: w.status,
+      purchase_status: w.purchaseStatus,
+      purchased_at: w.purchasedAt,
+      purchased_by: w.purchasedBy ? lookup(idMap.user, w.purchasedBy) : null,
+      provider_reference: w.providerReference,
       certificate_generated: w.certificateGenerated,
       created_at: w.createdAt,
     });

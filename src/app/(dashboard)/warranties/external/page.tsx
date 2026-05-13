@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Plus, Search } from "lucide-react";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { warrantyService } from "@/lib/services/warranty-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -21,6 +20,10 @@ import {
   type WarrantyRow,
 } from "@/components/warranties/warranty-table";
 import { PendingPurchaseBanner } from "@/components/warranties/pending-purchase-banner";
+import { NewWarrantyDialog } from "@/components/warranties/new-warranty-dialog";
+import { NewClaimDialog } from "@/components/warranties/new-claim-dialog";
+import { MarkPurchasedDialog } from "@/components/warranties/mark-purchased-dialog";
+import { WarrantyDetailSheet } from "@/components/warranties/warranty-detail-sheet";
 
 type Filter = "all" | "pending" | "purchased" | "active" | "expired" | "cancelled";
 
@@ -45,6 +48,11 @@ export default function ExternalWarrantiesPage() {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState(initialQuery);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [newWarrantyOpen, setNewWarrantyOpen] = useState(false);
+  const [sheetWarranty, setSheetWarranty] = useState<Warranty | null>(null);
+  const [fileClaimFor, setFileClaimFor] = useState<Warranty | null>(null);
+  const [markPurchasedFor, setMarkPurchasedFor] = useState<Warranty | null>(null);
+  const refetch = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
     if (!company) return;
@@ -129,14 +137,7 @@ export default function ExternalWarrantiesPage() {
             purchasing from providers.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={() =>
-            toast.info("New Warranty dialog", {
-              description: "Wired up in the next warranty pass.",
-            })
-          }
-        >
+        <Button type="button" onClick={() => setNewWarrantyOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
           New warranty
         </Button>
@@ -182,8 +183,41 @@ export default function ExternalWarrantiesPage() {
           }
         />
       ) : (
-        <WarrantyTable rows={rows} variant="external" />
+        <WarrantyTable
+          rows={rows}
+          variant="external"
+          onRowClick={(w) => setSheetWarranty(w)}
+          onFileClaim={(w) => setFileClaimFor(w)}
+          onMarkPurchased={(w) => setMarkPurchasedFor(w)}
+        />
       )}
+
+      <NewWarrantyDialog
+        open={newWarrantyOpen}
+        onOpenChange={setNewWarrantyOpen}
+        initialType="external"
+        onCreated={refetch}
+      />
+
+      <WarrantyDetailSheet
+        warranty={sheetWarranty}
+        onOpenChange={(open) => !open && setSheetWarranty(null)}
+        onChanged={refetch}
+      />
+
+      <NewClaimDialog
+        open={fileClaimFor !== null}
+        onOpenChange={(open) => !open && setFileClaimFor(null)}
+        warrantyId={fileClaimFor?.id}
+        onCreated={refetch}
+      />
+
+      <MarkPurchasedDialog
+        open={markPurchasedFor !== null}
+        onOpenChange={(open) => !open && setMarkPurchasedFor(null)}
+        warranty={markPurchasedFor}
+        onMarked={refetch}
+      />
     </div>
   );
 }
