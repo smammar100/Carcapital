@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, ShieldCheck } from "lucide-react";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { warrantyService } from "@/lib/services/warranty-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -20,6 +19,9 @@ import {
   WarrantyTable,
   type WarrantyRow,
 } from "@/components/warranties/warranty-table";
+import { NewWarrantyDialog } from "@/components/warranties/new-warranty-dialog";
+import { NewClaimDialog } from "@/components/warranties/new-claim-dialog";
+import { WarrantyDetailSheet } from "@/components/warranties/warranty-detail-sheet";
 
 type Filter = "all" | WarrantyStatus;
 
@@ -43,6 +45,10 @@ export default function InHouseWarrantiesPage() {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState(initialQuery);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [newWarrantyOpen, setNewWarrantyOpen] = useState(false);
+  const [sheetWarranty, setSheetWarranty] = useState<Warranty | null>(null);
+  const [fileClaimFor, setFileClaimFor] = useState<Warranty | null>(null);
+  const refetch = () => setRefreshKey((k) => k + 1);
 
   // Initial + on-refresh data load.
   useEffect(() => {
@@ -123,14 +129,7 @@ export default function InHouseWarrantiesPage() {
             coverage, expirations, and claims.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={() =>
-            toast.info("New Warranty dialog", {
-              description: "Wired up in the next warranty pass.",
-            })
-          }
-        >
+        <Button type="button" onClick={() => setNewWarrantyOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
           New warranty
         </Button>
@@ -168,8 +167,33 @@ export default function InHouseWarrantiesPage() {
           }
         />
       ) : (
-        <WarrantyTable rows={rows} variant="in-house" />
+        <WarrantyTable
+          rows={rows}
+          variant="in-house"
+          onRowClick={(w) => setSheetWarranty(w)}
+          onFileClaim={(w) => setFileClaimFor(w)}
+        />
       )}
+
+      <NewWarrantyDialog
+        open={newWarrantyOpen}
+        onOpenChange={setNewWarrantyOpen}
+        initialType="in_house"
+        onCreated={refetch}
+      />
+
+      <WarrantyDetailSheet
+        warranty={sheetWarranty}
+        onOpenChange={(open) => !open && setSheetWarranty(null)}
+        onChanged={refetch}
+      />
+
+      <NewClaimDialog
+        open={fileClaimFor !== null}
+        onOpenChange={(open) => !open && setFileClaimFor(null)}
+        warrantyId={fileClaimFor?.id}
+        onCreated={refetch}
+      />
     </div>
   );
 }

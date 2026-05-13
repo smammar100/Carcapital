@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, ShieldAlert } from "lucide-react";
-import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { claimService } from "@/lib/services/claim-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -17,6 +16,8 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { KpiStrip } from "@/components/warranties/kpi-strip";
 import { FilterChips, type FilterOption } from "@/components/warranties/filter-chips";
 import { ClaimsTable } from "@/components/warranties/warranty-table";
+import { NewClaimDialog } from "@/components/warranties/new-claim-dialog";
+import { WarrantyDetailSheet } from "@/components/warranties/warranty-detail-sheet";
 
 type Filter =
   | "open"
@@ -50,6 +51,9 @@ export default function ClaimsPage() {
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState(initialQuery);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [newClaimOpen, setNewClaimOpen] = useState(false);
+  const [sheetWarranty, setSheetWarranty] = useState<Warranty | null>(null);
+  const refetch = () => setRefreshKey((k) => k + 1);
 
   useEffect(() => {
     if (!company) return;
@@ -137,14 +141,7 @@ export default function ClaimsPage() {
             resolution.
           </p>
         </div>
-        <Button
-          type="button"
-          onClick={() =>
-            toast.info("File Claim dialog", {
-              description: "Wired up in the next warranty pass.",
-            })
-          }
-        >
+        <Button type="button" onClick={() => setNewClaimOpen(true)}>
           <Plus className="mr-1.5 h-4 w-4" />
           File claim
         </Button>
@@ -182,8 +179,26 @@ export default function ClaimsPage() {
           }
         />
       ) : (
-        <ClaimsTable rows={rows} />
+        <ClaimsTable
+          rows={rows}
+          onRowClick={(c) => {
+            const w = warranties.find((x) => x.id === c.warrantyId);
+            if (w) setSheetWarranty(w);
+          }}
+        />
       )}
+
+      <NewClaimDialog
+        open={newClaimOpen}
+        onOpenChange={setNewClaimOpen}
+        onCreated={refetch}
+      />
+
+      <WarrantyDetailSheet
+        warranty={sheetWarranty}
+        onOpenChange={(open) => !open && setSheetWarranty(null)}
+        onChanged={refetch}
+      />
     </div>
   );
 }
