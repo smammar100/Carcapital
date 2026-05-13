@@ -1,8 +1,15 @@
 import { createClient } from "@/lib/supabase/client";
-import { createAdminClient } from "@/lib/supabase/admin";
 import type { User, UUID } from "@/lib/types";
 import type { RoleValue } from "@/lib/roles";
 import { activityService } from "./activity-service";
+
+/**
+ * Note on Auth user lifecycle: invite / revoke / remove operations currently
+ * only touch `public.users`. Creating or deleting the matching `auth.users`
+ * row requires the service-role key and must run server-side — that lives
+ * behind `/api/team/*` route handlers (TODO). Until those exist, use the
+ * Supabase dashboard to issue/revoke logins.
+ */
 
 const SELECT = `
   id,
@@ -56,10 +63,10 @@ export const teamService = {
   },
 
   /**
-   * Invite via Supabase Auth: creates an unconfirmed auth user and a matching
-   * public.users row in the invited state. Must run server-side (uses the
-   * service-role key). For now we treat this as a server action equivalent —
-   * adjust to a route handler when wired up to the team UI.
+   * Create a public.users row in the "invited" state. Does NOT create the
+   * matching auth.users record — see the file-level note on the Auth user
+   * lifecycle TODO. The seeded users already have auth accounts; net-new
+   * invitees won't be able to log in until that path lands.
    */
   async invite(input: {
     companyId: UUID;
@@ -80,7 +87,6 @@ export const teamService = {
       throw new InviteValidationError(`Invalid email address: ${invalid}`);
     }
 
-    const admin = createAdminClient();
     const supabase = createClient();
     const isSuperUser = input.roles.includes("owner");
     const created: User[] = [];
@@ -97,17 +103,13 @@ export const teamService = {
         .maybeSingle();
       if (existing) continue;
 
-      const { data: authData, error: authErr } = await admin.auth.admin.inviteUserByEmail(email, {
-        data: { full_name: nameFromEmail(email) },
-      });
-      if (authErr || !authData.user) {
-        throw authErr ?? new Error(`Failed to invite ${email}`);
-      }
-
       const { data, error } = await supabase
         .from("users")
         .insert({
-          id: authData.user.id,
+          // No auth.users row yet — generate a placeholder UUID. The FK to
+          // auth.users will fail until the server-side invite route is wired.
+          // For now, this row exists as a pending invite the dashboard surfaces.
+          id: crypto.randomUUID(),
           company_id: input.companyId,
           name: nameFromEmail(email),
           email,
@@ -139,13 +141,11 @@ export const teamService = {
 
   async resendInvitation(userId: UUID, actorId: UUID): Promise<User> {
     const supabase = createClient();
-    const admin = createAdminClient();
     const u = await teamService.getById(userId);
     if (!u) throw new Error("User not found");
     if (u.acceptedAt !== null) {
       throw new Error("User has already accepted their invitation");
     }
-    await admin.auth.admin.inviteUserByEmail(u.email);
     const { data, error } = await supabase
       .from("users")
       .update({ invited_at: new Date().toISOString() })
@@ -167,13 +167,11 @@ export const teamService = {
 
   async revokeInvitation(userId: UUID, actorId: UUID): Promise<void> {
     const supabase = createClient();
-    const admin = createAdminClient();
     const target = await teamService.getById(userId);
     if (!target) throw new Error("User not found");
     if (target.acceptedAt !== null) {
       throw new Error("Cannot revoke — user has already accepted");
     }
-    await admin.auth.admin.deleteUser(userId);
     const { error } = await supabase.from("users").delete().eq("id", userId);
     if (error) throw error;
     await activityService.log({
@@ -232,7 +230,6 @@ export const teamService = {
     if (userId === actorId) {
       throw new Error("You cannot remove yourself from the team.");
     }
-    const admin = createAdminClient();
     const supabase = createClient();
     const target = await teamService.getById(userId);
     if (!target) throw new Error("User not found");
@@ -249,7 +246,8 @@ export const teamService = {
         );
       }
     }
-    await admin.auth.admin.deleteUser(userId);
+    // Removes the public.users row. The matching auth.users row stays until
+    // the server-side delete route lands (see file-level note).
     const { error } = await supabase.from("users").delete().eq("id", userId);
     if (error) throw error;
     await activityService.log({

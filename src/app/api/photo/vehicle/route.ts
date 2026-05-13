@@ -36,7 +36,6 @@ function rateLimitOk(): boolean {
 }
 
 async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
-  // Returns base64 PNG.
   const res = await fetch("https://api.openai.com/v1/images/generations", {
     method: "POST",
     headers: {
@@ -61,6 +60,7 @@ async function callOpenAI(prompt: string, apiKey: string): Promise<string> {
 }
 
 async function generateAndPersist(
+  companyId: string,
   vehicleId: string,
   angle: CarAngle,
   prompt: string,
@@ -70,12 +70,12 @@ async function generateAndPersist(
   const b64 = await callOpenAI(prompt, apiKey);
   const buf = Buffer.from(b64, "base64");
   const base = fileBase(angle, backdropKey);
-  const url = await writeCarImage(vehicleId, base, buf);
+  const url = await writeCarImage(companyId, vehicleId, base, buf);
   if (angle === "hero") {
     await vehicleService.setHeroImageUrl(vehicleId, url);
   }
   // eslint-disable-next-line no-console
-  console.log(`[photo] generated ${vehicleId}/${base} → ${url}`);
+  console.log(`[photo] generated ${companyId}/${vehicleId}/${base} → ${url}`);
   return url;
 }
 
@@ -107,8 +107,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  // Defensive: prevent path traversal
-  if (vehicleId.includes("/") || vehicleId.includes("\\") || vehicleId.includes("..")) {
+  if (
+    vehicleId.includes("/") ||
+    vehicleId.includes("\\") ||
+    vehicleId.includes("..")
+  ) {
     return NextResponse.json(
       { error: "Invalid vehicleId." },
       { status: 400 },
@@ -126,7 +129,10 @@ export async function POST(request: Request) {
   let backdropKey: string | undefined;
   let backdropHint: string | undefined;
   if (angle === "composed") {
-    if (typeof body.backdropKey !== "string" || !SAFE_KEY.test(body.backdropKey)) {
+    if (
+      typeof body.backdropKey !== "string" ||
+      !SAFE_KEY.test(body.backdropKey)
+    ) {
       return NextResponse.json(
         { error: "`backdropKey` is required for composed (a-z, 0-9, -, _; max 32)." },
         { status: 400 },
@@ -139,10 +145,20 @@ export async function POST(request: Request) {
         : undefined;
   }
 
+  // Look up vehicle (we need company_id for the storage path).
+  const vehicle = await vehicleService.getById(vehicleId);
+  if (!vehicle) {
+    return NextResponse.json(
+      { error: `Vehicle ${vehicleId} not found.` },
+      { status: 404 },
+    );
+  }
+  const companyId = vehicle.companyId;
+
   const base = fileBase(angle, backdropKey);
 
   // 1. Already in storage? Return immediately.
-  const existingUrl = await readCarImageUrl(vehicleId, base);
+  const existingUrl = await readCarImageUrl(companyId, vehicleId, base);
   if (existingUrl) {
     if (angle === "hero") {
       await vehicleService.setHeroImageUrl(vehicleId, existingUrl);
@@ -178,14 +194,6 @@ export async function POST(request: Request) {
     );
   }
 
-  // 4. Resolve vehicle and build prompt.
-  const vehicle = await vehicleService.getById(vehicleId);
-  if (!vehicle) {
-    return NextResponse.json(
-      { error: `Vehicle ${vehicleId} not found.` },
-      { status: 404 },
-    );
-  }
   const prompt = carPhotoPrompt({
     year: vehicle.year,
     make: vehicle.make,
@@ -196,8 +204,9 @@ export async function POST(request: Request) {
     backdrop: angle === "composed" ? backdropHint : undefined,
   });
 
-  // 5. Kick off generation, register the in-flight promise.
+  // 4. Kick off generation, register the in-flight promise.
   const promise = generateAndPersist(
+    companyId,
     vehicleId,
     angle,
     prompt,
