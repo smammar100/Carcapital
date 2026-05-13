@@ -8,6 +8,11 @@
   PNPM_VERSION = "10.33.2"
   # Next.js 16 + Turbopack telemetry off
   NEXT_TELEMETRY_DISABLED = "1"
+  # Netlify's secret scanner flags any NEXT_PUBLIC_* var whose value lands in
+  # the build output. That's the whole point of `NEXT_PUBLIC_*` — the values
+  # are inlined into the browser bundle on purpose. Tell the scanner these
+  # specific keys are intentionally public so deploys don't fail.
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY"
 
 # Netlify auto-installs @netlify/plugin-nextjs when it detects Next.js, but
 # declaring it explicitly avoids the auto-detect failing on the worktree.
