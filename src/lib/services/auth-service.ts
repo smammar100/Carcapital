@@ -1,43 +1,85 @@
-import { mockCompanies, mockUsers } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 import type { Company, User, UUID } from "@/lib/types";
-import { delay } from "./_base";
+
+const USER_SELECT = `
+  id,
+  companyId:company_id,
+  name,
+  email,
+  role,
+  isSuperUser:is_super_user,
+  roles,
+  avatarUrl:avatar_url,
+  active,
+  invitedAt:invited_at,
+  acceptedAt:accepted_at,
+  lastLoginAt:last_login_at,
+  twoStepEnabled:two_step_enabled,
+  createdAt:created_at
+`;
+
+const COMPANY_SELECT = `
+  id,
+  name,
+  address,
+  vatNumber:vat_number,
+  logoUrl:logo_url,
+  stockIdPrefix:stock_id_prefix,
+  nextStockSeq:next_stock_seq
+`;
 
 export const authService = {
   async getUser(id: UUID): Promise<User | null> {
-    // TODO: Supabase: from('users').select('*').eq('id', id).single()
-    await delay(150);
-    return mockUsers.find((u) => u.id === id) ?? null;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select(USER_SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as User | null;
   },
 
   async getAllUsers(): Promise<User[]> {
-    // TODO: Supabase: from('users').select('*')
-    await delay();
-    return [...mockUsers];
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select(USER_SELECT)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as User[];
   },
 
-  /**
-   * Single-tenant in v1: returns all users since they all belong to Car Capital UK.
-   * Kept for forward-compatibility — the Supabase migration will reintroduce
-   * companyId filtering here.
-   */
   async getUsersForCompany(companyId: UUID): Promise<User[]> {
-    // TODO: Supabase: ... .eq('company_id', companyId)
-    await delay();
-    return mockUsers.filter((u) => u.companyId === companyId);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select(USER_SELECT)
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as User[];
   },
 
   async getCompany(id: UUID): Promise<Company | null> {
-    // TODO: Supabase: from('companies').select('*').eq('id', id).single()
-    await delay(150);
-    return mockCompanies.find((c) => c.id === id) ?? null;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("companies")
+      .select(COMPANY_SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as Company | null;
   },
 
-  /** Single-tenant helper: returns the Car Capital UK company. */
   async getCurrentCompany(): Promise<Company> {
-    // TODO: Supabase: from('companies').select('*').limit(1).single()
-    await delay(150);
-    const company = mockCompanies[0];
-    if (!company) throw new Error("Car Capital UK company not seeded");
-    return company;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("companies")
+      .select(COMPANY_SELECT)
+      .limit(1)
+      .single();
+    if (error) throw error;
+    return data as unknown as Company;
   },
 };

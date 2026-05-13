@@ -1,12 +1,28 @@
-import { mockReturns } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 import type {
   ReturnResolutionPath,
   UUID,
   VehicleReturn,
 } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  vehicleId:vehicle_id,
+  saleDealId:sale_deal_id,
+  customerName:customer_name,
+  customerPhone:customer_phone,
+  returnDate:return_date,
+  reason,
+  resolutionPath:resolution_path,
+  resolutionNotes:resolution_notes,
+  refundAmount:refund_amount,
+  status,
+  createdAt:created_at,
+  resolvedAt:resolved_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -23,30 +39,48 @@ interface CreateInput {
 
 export const returnService = {
   async getAll(companyId: UUID): Promise<VehicleReturn[]> {
-    // TODO: Supabase: from('vehicle_returns').select('*').eq('company_id', companyId)
-    await delay();
-    return mockReturns
-      .filter((r) => r.companyId === companyId)
-      .sort((a, b) => b.returnDate.localeCompare(a.returnDate));
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("vehicle_returns")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("return_date", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as VehicleReturn[];
   },
 
   async getById(id: UUID): Promise<VehicleReturn | null> {
-    // TODO: Supabase: ... .eq('id', id).single()
-    await delay(150);
-    return mockReturns.find((r) => r.id === id) ?? null;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("vehicle_returns")
+      .select(SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as VehicleReturn | null;
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<VehicleReturn> {
-    // TODO: Supabase: insert + log + flip vehicle status
-    await delay();
-    const ret: VehicleReturn = {
-      id: newId("return"),
-      ...input,
-      status: "pending",
-      createdAt: nowIso(),
-      resolvedAt: null,
-    };
-    mockReturns.push(ret);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("vehicle_returns")
+      .insert({
+        company_id: input.companyId,
+        vehicle_id: input.vehicleId,
+        sale_deal_id: input.saleDealId,
+        customer_name: input.customerName,
+        customer_phone: input.customerPhone,
+        return_date: input.returnDate,
+        reason: input.reason,
+        resolution_path: input.resolutionPath,
+        resolution_notes: input.resolutionNotes,
+        refund_amount: input.refundAmount,
+        status: "pending",
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const ret = data as unknown as VehicleReturn;
     await vehicleService.changeStatus(input.vehicleId, "returned", actorId);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {

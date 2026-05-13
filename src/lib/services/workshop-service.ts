@@ -1,7 +1,25 @@
-import { mockWorkshopJobs } from "@/lib/mock-data";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import type { MaintenanceStatus, UUID, WorkshopJob } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  customerName:customer_name,
+  customerPhone:customer_phone,
+  vehicleReg:vehicle_reg,
+  vehicleDescription:vehicle_description,
+  description,
+  assignedTo:assigned_to,
+  estimatedCost:estimated_cost,
+  actualCost:actual_cost,
+  scheduledDate:scheduled_date,
+  scheduledTime:scheduled_time,
+  completedDate:completed_date,
+  status,
+  notes,
+  createdAt:created_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -19,47 +37,50 @@ interface CreateInput {
 
 export const workshopService = {
   async getAll(companyId: UUID): Promise<WorkshopJob[]> {
-    // TODO: Supabase: from('workshop_jobs').select('*').eq('company_id', companyId)
-    await delay();
-    return mockWorkshopJobs
-      .filter((j) => j.companyId === companyId)
-      .sort((a, b) =>
-        a.scheduledDate === b.scheduledDate
-          ? a.scheduledTime.localeCompare(b.scheduledTime)
-          : a.scheduledDate.localeCompare(b.scheduledDate),
-      );
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("workshop_jobs")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("scheduled_date", { ascending: true })
+      .order("scheduled_time", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as WorkshopJob[];
   },
 
   async getForDate(companyId: UUID, date: string): Promise<WorkshopJob[]> {
-    // TODO: Supabase: ... .eq('scheduled_date', date)
-    await delay(150);
-    return mockWorkshopJobs.filter(
-      (j) => j.companyId === companyId && j.scheduledDate === date,
-    );
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("workshop_jobs")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .eq("scheduled_date", date);
+    if (error) throw error;
+    return (data ?? []) as unknown as WorkshopJob[];
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<WorkshopJob> {
-    // TODO: Supabase: insert + log
-    await delay();
-    const job: WorkshopJob = {
-      id: newId("ws"),
-      companyId: input.companyId,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      vehicleReg: input.vehicleReg.toUpperCase(),
-      vehicleDescription: input.vehicleDescription,
-      description: input.description,
-      assignedTo: input.assignedTo,
-      estimatedCost: input.estimatedCost,
-      actualCost: null,
-      scheduledDate: input.scheduledDate,
-      scheduledTime: input.scheduledTime,
-      completedDate: null,
-      status: "pending",
-      notes: input.notes,
-      createdAt: nowIso(),
-    };
-    mockWorkshopJobs.push(job);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("workshop_jobs")
+      .insert({
+        company_id: input.companyId,
+        customer_name: input.customerName,
+        customer_phone: input.customerPhone,
+        vehicle_reg: input.vehicleReg.toUpperCase(),
+        vehicle_description: input.vehicleDescription,
+        description: input.description,
+        assigned_to: input.assignedTo,
+        estimated_cost: input.estimatedCost,
+        scheduled_date: input.scheduledDate,
+        scheduled_time: input.scheduledTime,
+        status: "pending",
+        notes: input.notes,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const job = data as unknown as WorkshopJob;
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,
@@ -89,32 +110,47 @@ export const workshopService = {
       >
     >,
   ): Promise<WorkshopJob> {
-    // TODO: Supabase: update changed fields
-    await delay();
-    const idx = mockWorkshopJobs.findIndex((j) => j.id === id);
-    if (idx === -1) throw new Error("Job not found");
-    const next = { ...mockWorkshopJobs[idx], ...patch };
-    if (patch.vehicleReg) next.vehicleReg = patch.vehicleReg.toUpperCase();
-    mockWorkshopJobs[idx] = next;
-    return next;
+    const supabase = createClient();
+    const updates: TableUpdate<"workshop_jobs"> = {};
+    if (patch.customerName !== undefined) updates.customer_name = patch.customerName;
+    if (patch.customerPhone !== undefined) updates.customer_phone = patch.customerPhone;
+    if (patch.vehicleReg !== undefined)
+      updates.vehicle_reg = patch.vehicleReg.toUpperCase();
+    if (patch.vehicleDescription !== undefined)
+      updates.vehicle_description = patch.vehicleDescription;
+    if (patch.description !== undefined) updates.description = patch.description;
+    if (patch.estimatedCost !== undefined) updates.estimated_cost = patch.estimatedCost;
+    if (patch.scheduledDate !== undefined) updates.scheduled_date = patch.scheduledDate;
+    if (patch.scheduledTime !== undefined) updates.scheduled_time = patch.scheduledTime;
+    if (patch.notes !== undefined) updates.notes = patch.notes;
+    if (patch.assignedTo !== undefined) updates.assigned_to = patch.assignedTo;
+
+    const { data, error } = await supabase
+      .from("workshop_jobs")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    return data as unknown as WorkshopJob;
   },
 
   async updateStatus(
     id: UUID,
     status: MaintenanceStatus,
   ): Promise<WorkshopJob> {
-    // TODO: Supabase: update
-    await delay();
-    const idx = mockWorkshopJobs.findIndex((j) => j.id === id);
-    if (idx === -1) throw new Error("Job not found");
-    mockWorkshopJobs[idx] = {
-      ...mockWorkshopJobs[idx],
-      status,
-      completedDate:
-        status === "completed"
-          ? nowIso().slice(0, 10)
-          : mockWorkshopJobs[idx].completedDate,
-    };
-    return mockWorkshopJobs[idx];
+    const supabase = createClient();
+    const updates: TableUpdate<"workshop_jobs"> = { status };
+    if (status === "completed") {
+      updates.completed_date = new Date().toISOString().slice(0, 10);
+    }
+    const { data, error } = await supabase
+      .from("workshop_jobs")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    return data as unknown as WorkshopJob;
   },
 };

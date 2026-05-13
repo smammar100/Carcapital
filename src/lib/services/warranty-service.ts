@@ -1,8 +1,27 @@
-import { mockWarranties } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 import type { UUID, Warranty, WarrantyStatus, WarrantyType } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  vehicleId:vehicle_id,
+  saleDealId:sale_deal_id,
+  customerName:customer_name,
+  customerPhone:customer_phone,
+  customerEmail:customer_email,
+  type,
+  provider,
+  coverageDetails:coverage_details,
+  startDate:start_date,
+  endDate:end_date,
+  costToDealership:cost_to_dealership,
+  costToCustomer:cost_to_customer,
+  status,
+  certificateGenerated:certificate_generated,
+  createdAt:created_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -22,41 +41,66 @@ interface CreateInput {
 
 export const warrantyService = {
   async getAll(companyId: UUID): Promise<Warranty[]> {
-    // TODO: Supabase: from('warranties').select('*').eq('company_id', companyId)
-    await delay();
-    return mockWarranties
-      .filter((w) => w.companyId === companyId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("warranties")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as Warranty[];
   },
 
   async getById(id: UUID): Promise<Warranty | null> {
-    // TODO: Supabase: ... .eq('id', id).single()
-    await delay(150);
-    return mockWarranties.find((w) => w.id === id) ?? null;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("warranties")
+      .select(SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as Warranty | null;
   },
 
   async getByStatus(
     companyId: UUID,
     statuses: WarrantyStatus[],
   ): Promise<Warranty[]> {
-    // TODO: Supabase: ... .in('status', statuses)
-    await delay();
-    return mockWarranties.filter(
-      (w) => w.companyId === companyId && statuses.includes(w.status),
-    );
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("warranties")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .in("status", statuses);
+    if (error) throw error;
+    return (data ?? []) as unknown as Warranty[];
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Warranty> {
-    // TODO: Supabase: insert + log
-    await delay();
-    const w: Warranty = {
-      id: newId("warranty"),
-      ...input,
-      status: "active",
-      certificateGenerated: false,
-      createdAt: nowIso(),
-    };
-    mockWarranties.push(w);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("warranties")
+      .insert({
+        company_id: input.companyId,
+        vehicle_id: input.vehicleId,
+        sale_deal_id: input.saleDealId,
+        customer_name: input.customerName,
+        customer_phone: input.customerPhone,
+        customer_email: input.customerEmail,
+        type: input.type,
+        provider: input.provider,
+        coverage_details: input.coverageDetails,
+        start_date: input.startDate,
+        end_date: input.endDate,
+        cost_to_dealership: input.costToDealership,
+        cost_to_customer: input.costToCustomer,
+        status: "active",
+        certificate_generated: false,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const w = data as unknown as Warranty;
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -72,11 +116,14 @@ export const warrantyService = {
   },
 
   async markCertificateGenerated(id: UUID): Promise<Warranty> {
-    // TODO: Supabase: update
-    await delay(100);
-    const idx = mockWarranties.findIndex((w) => w.id === id);
-    if (idx === -1) throw new Error("Warranty not found");
-    mockWarranties[idx] = { ...mockWarranties[idx], certificateGenerated: true };
-    return mockWarranties[idx];
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("warranties")
+      .update({ certificate_generated: true })
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    return data as unknown as Warranty;
   },
 };

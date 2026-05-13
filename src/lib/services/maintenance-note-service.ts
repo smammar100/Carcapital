@@ -1,25 +1,27 @@
-import { mockMaintenanceJobNotes, mockMaintenanceJobs } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 import type { JobNoteType, MaintenanceJobNote, UUID } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
 
-/**
- * Maintenance / workshop job notes — v4.1 §11.7 / Gap 5.
- *
- * Append-only timeline per job. Note types:
- *  - note            free-form
- *  - call_log        call to vendor / customer
- *  - status_update   auto-created on status change
- *  - vendor_update   update from a vendor
- */
+const SELECT = `
+  id,
+  jobId:job_id,
+  userId:user_id,
+  noteType:note_type,
+  content,
+  createdAt:created_at
+`;
+
 export const maintenanceNoteService = {
   async getForJob(jobId: UUID): Promise<MaintenanceJobNote[]> {
-    // TODO: Supabase: from('maintenance_job_notes').select('*').eq('job_id', jobId).order('created_at')
-    await delay(100);
-    return mockMaintenanceJobNotes
-      .filter((n) => n.jobId === jobId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("maintenance_job_notes")
+      .select(SELECT)
+      .eq("job_id", jobId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as MaintenanceJobNote[];
   },
 
   async add(input: {
@@ -28,20 +30,28 @@ export const maintenanceNoteService = {
     noteType: JobNoteType;
     content: string;
   }): Promise<MaintenanceJobNote> {
-    // TODO: Supabase: insert + log
-    await delay();
-    const note: MaintenanceJobNote = {
-      id: newId("mnote"),
-      jobId: input.jobId,
-      userId: input.userId,
-      noteType: input.noteType,
-      content: input.content,
-      createdAt: nowIso(),
-    };
-    mockMaintenanceJobNotes.push(note);
-    const job = mockMaintenanceJobs.find((j) => j.id === input.jobId);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("maintenance_job_notes")
+      .insert({
+        job_id: input.jobId,
+        user_id: input.userId,
+        note_type: input.noteType,
+        content: input.content,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const note = data as unknown as MaintenanceJobNote;
+    // Fetch the parent job to find the vehicle, then log activity.
+    const { data: job } = await supabase
+      .from("maintenance_jobs")
+      .select("vehicle_id, company_id")
+      .eq("id", input.jobId)
+      .maybeSingle();
     if (job) {
-      const v = await vehicleService.getById(job.vehicleId);
+      const j = job as { vehicle_id: string; company_id: string };
+      const v = await vehicleService.getById(j.vehicle_id);
       if (v) {
         await activityService.log({
           companyId: v.companyId,
@@ -49,7 +59,7 @@ export const maintenanceNoteService = {
           vehicleId: v.id,
           actionType: "maintenance_job_created",
           description: `Job note (${input.noteType}) added: ${input.content.slice(0, 60)}`,
-          metadata: { noteId: note.id, jobId: job.id },
+          metadata: { noteId: note.id, jobId: input.jobId },
         });
       }
     }

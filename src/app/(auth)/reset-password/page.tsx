@@ -1,13 +1,11 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useAuth } from "@/contexts/auth-context";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,40 +18,40 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 
-const schema = z.object({
-  email: z.string().email("Enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
+const schema = z
+  .object({
+    password: z
+      .string()
+      .min(8, "Password must be at least 8 characters")
+      .max(72, "Password must be 72 characters or fewer"),
+    confirm: z.string(),
+  })
+  .refine((v) => v.password === v.confirm, {
+    message: "Passwords do not match",
+    path: ["confirm"],
+  });
 
 type FormValues = z.infer<typeof schema>;
 
-export default function LoginPage() {
+export default function ResetPasswordPage() {
   const router = useRouter();
-  const search = useSearchParams();
-  const { user, loading, signIn } = useAuth();
-  const next = search.get("next") ?? "/dashboard";
+  const supabase = createClient();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { password: "", confirm: "" },
   });
 
-  // Already signed in → straight to next.
-  useEffect(() => {
-    if (!loading && user) router.replace(next);
-  }, [loading, user, next, router]);
-
   async function onSubmit(values: FormValues) {
-    try {
-      await signIn(values.email, values.password);
-      toast.success("Signed in");
-      router.push(next);
-    } catch (err) {
-      const msg =
-        err instanceof Error ? err.message : "Could not sign in";
-      toast.error(msg);
-      form.setError("password", { message: " " });
+    const { error } = await supabase.auth.updateUser({
+      password: values.password,
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    toast.success("Password updated — you are signed in");
+    router.replace("/dashboard");
   }
 
   return (
@@ -64,10 +62,10 @@ export default function LoginPage() {
             CC
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Car Capital UK
+            Set a new password
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Sign in to continue
+            Choose a password you haven&apos;t used before.
           </p>
         </div>
 
@@ -79,15 +77,14 @@ export default function LoginPage() {
             >
               <FormField
                 control={form.control}
-                name="email"
+                name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>New password</FormLabel>
                     <FormControl>
                       <Input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="you@carcapital.uk"
+                        type="password"
+                        autoComplete="new-password"
                         autoFocus
                         {...field}
                       />
@@ -96,25 +93,16 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-
               <FormField
                 control={form.control}
-                name="password"
+                name="confirm"
                 render={({ field }) => (
                   <FormItem>
-                    <div className="flex items-baseline justify-between">
-                      <FormLabel>Password</FormLabel>
-                      <Link
-                        href="/forgot-password"
-                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
+                    <FormLabel>Confirm password</FormLabel>
                     <FormControl>
                       <Input
                         type="password"
-                        autoComplete="current-password"
+                        autoComplete="new-password"
                         {...field}
                       />
                     </FormControl>
@@ -122,25 +110,18 @@ export default function LoginPage() {
                   </FormItem>
                 )}
               />
-
               <Button
                 type="submit"
                 className="mt-2"
                 disabled={form.formState.isSubmitting}
               >
-                {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
+                {form.formState.isSubmitting
+                  ? "Updating…"
+                  : "Update password"}
               </Button>
             </form>
           </Form>
         </Card>
-
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          Dev seed users: shared password{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-            CarCap!demo1
-          </code>
-          .
-        </p>
       </div>
     </div>
   );

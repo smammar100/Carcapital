@@ -1,6 +1,14 @@
-import { mockVendors } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
 import type { UUID, Vendor, VendorSpeciality } from "@/lib/types";
-import { delay, newId } from "./_base";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  name,
+  phone,
+  speciality,
+  active
+`;
 
 interface UpsertInput {
   id?: UUID;
@@ -13,43 +21,56 @@ interface UpsertInput {
 
 export const vendorService = {
   async getAll(companyId: UUID): Promise<Vendor[]> {
-    // TODO: Supabase: from('vendors').select('*').eq('company_id', companyId)
-    await delay();
-    return mockVendors
-      .filter((v) => v.companyId === companyId)
-      .sort((a, b) => a.name.localeCompare(b.name));
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("vendors")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("name", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as Vendor[];
   },
 
   async getById(id: UUID): Promise<Vendor | null> {
-    // TODO: Supabase: ... .eq('id', id).single()
-    await delay(150);
-    return mockVendors.find((v) => v.id === id) ?? null;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("vendors")
+      .select(SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as Vendor | null;
   },
 
   async upsert(input: UpsertInput): Promise<Vendor> {
-    // TODO: Supabase: upsert
-    await delay();
+    const supabase = createClient();
     if (input.id) {
-      const idx = mockVendors.findIndex((v) => v.id === input.id);
-      if (idx === -1) throw new Error("Vendor not found");
-      mockVendors[idx] = {
-        ...mockVendors[idx],
+      const { data, error } = await supabase
+        .from("vendors")
+        .update({
+          name: input.name,
+          phone: input.phone,
+          speciality: input.speciality,
+          active: input.active,
+        })
+        .eq("id", input.id)
+        .select(SELECT)
+        .single();
+      if (error) throw error;
+      return data as unknown as Vendor;
+    }
+    const { data, error } = await supabase
+      .from("vendors")
+      .insert({
+        company_id: input.companyId,
         name: input.name,
         phone: input.phone,
         speciality: input.speciality,
         active: input.active,
-      };
-      return mockVendors[idx];
-    }
-    const v: Vendor = {
-      id: newId("vendor"),
-      companyId: input.companyId,
-      name: input.name,
-      phone: input.phone,
-      speciality: input.speciality,
-      active: input.active,
-    };
-    mockVendors.push(v);
-    return v;
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    return data as unknown as Vendor;
   },
 };

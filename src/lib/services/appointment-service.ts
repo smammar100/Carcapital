@@ -1,13 +1,30 @@
-import { mockAppointments } from "@/lib/mock-data";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import type {
   Appointment,
   AppointmentOutcome,
   AppointmentStatus,
   UUID,
 } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { leadService } from "./lead-service";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  vehicleId:vehicle_id,
+  leadId:lead_id,
+  customerName:customer_name,
+  customerPhone:customer_phone,
+  customerEmail:customer_email,
+  date,
+  time,
+  specialRequirements:special_requirements,
+  status,
+  outcome,
+  notificationsSent:notifications_sent,
+  createdBy:created_by,
+  createdAt:created_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -24,51 +41,61 @@ interface CreateInput {
 
 export const appointmentService = {
   async getAll(companyId: UUID): Promise<Appointment[]> {
-    // TODO: Supabase: from('appointments').select('*').eq('company_id', companyId)
-    await delay();
-    return mockAppointments
-      .filter((a) => a.companyId === companyId)
-      .sort((a, b) =>
-        a.date === b.date ? a.time.localeCompare(b.time) : a.date.localeCompare(b.date),
-      );
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("date", { ascending: true })
+      .order("time", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as Appointment[];
   },
 
   async getForDate(companyId: UUID, date: string): Promise<Appointment[]> {
-    // TODO: Supabase: ... .eq('date', date)
-    await delay(150);
-    return mockAppointments.filter(
-      (a) => a.companyId === companyId && a.date === date,
-    );
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .eq("date", date);
+    if (error) throw error;
+    return (data ?? []) as unknown as Appointment[];
   },
 
   async getForVehicle(vehicleId: UUID): Promise<Appointment[]> {
-    // TODO: Supabase: ... .eq('vehicle_id', vehicleId)
-    await delay();
-    return mockAppointments.filter((a) => a.vehicleId === vehicleId);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("appointments")
+      .select(SELECT)
+      .eq("vehicle_id", vehicleId);
+    if (error) throw error;
+    return (data ?? []) as unknown as Appointment[];
   },
 
   async create(input: CreateInput): Promise<Appointment> {
-    // TODO: Supabase: insert + log + (real) WhatsApp/email
-    await delay();
-    const appt: Appointment = {
-      id: newId("appt"),
-      companyId: input.companyId,
-      vehicleId: input.vehicleId,
-      leadId: input.leadId,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      customerEmail: input.customerEmail,
-      date: input.date,
-      time: input.time,
-      specialRequirements: input.specialRequirements,
-      status: "upcoming",
-      outcome: "pending",
-      // mock: pretend WhatsApp + email both fire successfully
-      notificationsSent: { whatsapp: true, email: true },
-      createdBy: input.createdBy,
-      createdAt: nowIso(),
-    };
-    mockAppointments.push(appt);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("appointments")
+      .insert({
+        company_id: input.companyId,
+        vehicle_id: input.vehicleId,
+        lead_id: input.leadId,
+        customer_name: input.customerName,
+        customer_phone: input.customerPhone,
+        customer_email: input.customerEmail,
+        date: input.date,
+        time: input.time,
+        special_requirements: input.specialRequirements,
+        status: "upcoming",
+        outcome: "pending",
+        notifications_sent: { whatsapp: true, email: true },
+        created_by: input.createdBy,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const appt = data as unknown as Appointment;
     if (input.leadId) {
       await leadService.update(input.leadId, {
         status: "appointment_booked",
@@ -102,20 +129,33 @@ export const appointmentService = {
     >,
     actorId: UUID,
   ): Promise<Appointment> {
-    // TODO: Supabase: update changed fields + log activity
-    await delay();
-    const idx = mockAppointments.findIndex((a) => a.id === id);
-    if (idx === -1) throw new Error("Appointment not found");
-    mockAppointments[idx] = { ...mockAppointments[idx], ...patch };
+    const supabase = createClient();
+    const updates: TableUpdate<"appointments"> = {};
+    if (patch.vehicleId !== undefined) updates.vehicle_id = patch.vehicleId;
+    if (patch.customerName !== undefined) updates.customer_name = patch.customerName;
+    if (patch.customerPhone !== undefined) updates.customer_phone = patch.customerPhone;
+    if (patch.customerEmail !== undefined) updates.customer_email = patch.customerEmail;
+    if (patch.date !== undefined) updates.date = patch.date;
+    if (patch.time !== undefined) updates.time = patch.time;
+    if (patch.specialRequirements !== undefined)
+      updates.special_requirements = patch.specialRequirements;
+    const { data, error } = await supabase
+      .from("appointments")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const appt = data as unknown as Appointment;
     await activityService.log({
-      companyId: mockAppointments[idx].companyId,
+      companyId: appt.companyId,
       userId: actorId,
-      vehicleId: mockAppointments[idx].vehicleId,
+      vehicleId: appt.vehicleId,
       actionType: "appointment_updated",
-      description: `Appointment updated: ${mockAppointments[idx].customerName} on ${mockAppointments[idx].date} ${mockAppointments[idx].time}`,
+      description: `Appointment updated: ${appt.customerName} on ${appt.date} ${appt.time}`,
       metadata: { appointmentId: id, fields: Object.keys(patch) },
     });
-    return mockAppointments[idx];
+    return appt;
   },
 
   async setOutcome(
@@ -123,32 +163,35 @@ export const appointmentService = {
     outcome: AppointmentOutcome,
     actorId: UUID,
   ): Promise<Appointment> {
-    // TODO: Supabase: update outcome + status='completed'
-    await delay();
-    const idx = mockAppointments.findIndex((a) => a.id === id);
-    if (idx === -1) throw new Error("Appointment not found");
-    mockAppointments[idx] = {
-      ...mockAppointments[idx],
-      outcome,
-      status: "completed",
-    };
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("appointments")
+      .update({ outcome, status: "completed" })
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const appt = data as unknown as Appointment;
     await activityService.log({
-      companyId: mockAppointments[idx].companyId,
+      companyId: appt.companyId,
       userId: actorId,
-      vehicleId: mockAppointments[idx].vehicleId,
+      vehicleId: appt.vehicleId,
       actionType: "appointment_completed",
-      description: `${mockAppointments[idx].customerName} — outcome: ${outcome.replace("_", " ")}`,
+      description: `${appt.customerName} — outcome: ${outcome.replace("_", " ")}`,
       metadata: { appointmentId: id, outcome },
     });
-    return mockAppointments[idx];
+    return appt;
   },
 
   async setStatus(id: UUID, status: AppointmentStatus): Promise<Appointment> {
-    // TODO: Supabase: update
-    await delay();
-    const idx = mockAppointments.findIndex((a) => a.id === id);
-    if (idx === -1) throw new Error("Appointment not found");
-    mockAppointments[idx] = { ...mockAppointments[idx], status };
-    return mockAppointments[idx];
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("appointments")
+      .update({ status })
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    return data as unknown as Appointment;
   },
 };

@@ -1,8 +1,25 @@
-import { mockMaintenanceJobNotes, mockMaintenanceJobs } from "@/lib/mock-data";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import type { MaintenanceJob, MaintenanceStatus, UUID } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  vehicleId:vehicle_id,
+  description,
+  assignedTo:assigned_to,
+  vendorId:vendor_id,
+  estimatedCost:estimated_cost,
+  actualCost:actual_cost,
+  estimatedDurationHours:estimated_duration_hours,
+  startDate:start_date,
+  dueDate:due_date,
+  completedDate:completed_date,
+  status,
+  notes,
+  createdAt:created_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -19,48 +36,58 @@ interface CreateInput {
 
 export const maintenanceService = {
   async getAll(companyId: UUID): Promise<MaintenanceJob[]> {
-    // TODO: Supabase: from('maintenance_jobs').select('*').eq('company_id', companyId)
-    await delay();
-    return mockMaintenanceJobs
-      .filter((j) => j.companyId === companyId)
-      .sort((a, b) => (a.dueDate ?? "").localeCompare(b.dueDate ?? ""));
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("maintenance_jobs")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("due_date", { ascending: true, nullsFirst: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as MaintenanceJob[];
   },
 
   async getForDate(companyId: UUID, date: string): Promise<MaintenanceJob[]> {
-    // TODO: Supabase: ... .eq('due_date', date)
-    await delay(150);
-    return mockMaintenanceJobs.filter(
-      (j) => j.companyId === companyId && j.dueDate === date,
-    );
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("maintenance_jobs")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .eq("due_date", date);
+    if (error) throw error;
+    return (data ?? []) as unknown as MaintenanceJob[];
   },
 
   async getForVehicle(vehicleId: UUID): Promise<MaintenanceJob[]> {
-    // TODO: Supabase: ... .eq('vehicle_id', vehicleId)
-    await delay();
-    return mockMaintenanceJobs.filter((j) => j.vehicleId === vehicleId);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("maintenance_jobs")
+      .select(SELECT)
+      .eq("vehicle_id", vehicleId);
+    if (error) throw error;
+    return (data ?? []) as unknown as MaintenanceJob[];
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<MaintenanceJob> {
-    // TODO: Supabase: insert + log activity
-    await delay();
-    const job: MaintenanceJob = {
-      id: newId("maint"),
-      companyId: input.companyId,
-      vehicleId: input.vehicleId,
-      description: input.description,
-      assignedTo: input.assignedTo,
-      vendorId: input.vendorId,
-      estimatedCost: input.estimatedCost,
-      actualCost: null,
-      estimatedDurationHours: input.estimatedDurationHours,
-      startDate: input.startDate,
-      dueDate: input.dueDate,
-      completedDate: null,
-      status: "pending",
-      notes: input.notes,
-      createdAt: nowIso(),
-    };
-    mockMaintenanceJobs.push(job);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("maintenance_jobs")
+      .insert({
+        company_id: input.companyId,
+        vehicle_id: input.vehicleId,
+        description: input.description,
+        assigned_to: input.assignedTo,
+        vendor_id: input.vendorId,
+        estimated_cost: input.estimatedCost,
+        estimated_duration_hours: input.estimatedDurationHours,
+        start_date: input.startDate,
+        due_date: input.dueDate,
+        status: "pending",
+        notes: input.notes,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const job = data as unknown as MaintenanceJob;
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -93,20 +120,34 @@ export const maintenanceService = {
     >,
     actorId: UUID,
   ): Promise<MaintenanceJob> {
-    // TODO: Supabase: update changed fields + log activity
-    await delay();
-    const idx = mockMaintenanceJobs.findIndex((j) => j.id === id);
-    if (idx === -1) throw new Error("Job not found");
-    mockMaintenanceJobs[idx] = { ...mockMaintenanceJobs[idx], ...patch };
-    mockMaintenanceJobNotes.push({
-      id: newId("mnote"),
-      jobId: id,
-      userId: actorId,
-      noteType: "note",
+    const supabase = createClient();
+    const updates: TableUpdate<"maintenance_jobs"> = {};
+    if (patch.vehicleId !== undefined) updates.vehicle_id = patch.vehicleId;
+    if (patch.description !== undefined) updates.description = patch.description;
+    if (patch.estimatedDurationHours !== undefined)
+      updates.estimated_duration_hours = patch.estimatedDurationHours;
+    if (patch.estimatedCost !== undefined)
+      updates.estimated_cost = patch.estimatedCost;
+    if (patch.startDate !== undefined) updates.start_date = patch.startDate;
+    if (patch.dueDate !== undefined) updates.due_date = patch.dueDate;
+    if (patch.notes !== undefined) updates.notes = patch.notes;
+    if (patch.assignedTo !== undefined) updates.assigned_to = patch.assignedTo;
+    if (patch.vendorId !== undefined) updates.vendor_id = patch.vendorId;
+
+    const { data, error } = await supabase
+      .from("maintenance_jobs")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    await supabase.from("maintenance_job_notes").insert({
+      job_id: id,
+      user_id: actorId,
+      note_type: "note",
       content: `Job updated (${Object.keys(patch).join(", ")})`,
-      createdAt: nowIso(),
     });
-    return mockMaintenanceJobs[idx];
+    return data as unknown as MaintenanceJob;
   },
 
   async updateStatus(
@@ -114,34 +155,43 @@ export const maintenanceService = {
     status: MaintenanceStatus,
     actorId: UUID,
   ): Promise<MaintenanceJob> {
-    // TODO: Supabase: update + log activity
-    await delay();
-    const idx = mockMaintenanceJobs.findIndex((j) => j.id === id);
-    if (idx === -1) throw new Error("Job not found");
-    const previousStatus = mockMaintenanceJobs[idx].status;
-    const becameCompleted = status === "completed" && previousStatus !== "completed";
-    mockMaintenanceJobs[idx] = {
-      ...mockMaintenanceJobs[idx],
-      status,
-      completedDate: becameCompleted
-        ? nowIso().slice(0, 10)
-        : mockMaintenanceJobs[idx].completedDate,
-    };
-    // v4.1 §11.7 Gap 5 — auto-create a status_update note on every status change.
+    const supabase = createClient();
+    const { data: prev } = await supabase
+      .from("maintenance_jobs")
+      .select(SELECT)
+      .eq("id", id)
+      .single();
+    if (!prev) throw new Error("Job not found");
+    const previousJob = prev as unknown as MaintenanceJob;
+    const previousStatus = previousJob.status;
+    const becameCompleted =
+      status === "completed" && previousStatus !== "completed";
+
+    const updates: TableUpdate<"maintenance_jobs"> = { status };
+    if (becameCompleted) {
+      updates.completed_date = new Date().toISOString().slice(0, 10);
+    }
+
+    const { data, error } = await supabase
+      .from("maintenance_jobs")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const job = data as unknown as MaintenanceJob;
+
     if (previousStatus !== status) {
-      mockMaintenanceJobNotes.push({
-        id: newId("mnote"),
-        jobId: id,
-        userId: actorId,
-        noteType: "status_update",
+      await supabase.from("maintenance_job_notes").insert({
+        job_id: id,
+        user_id: actorId,
+        note_type: "status_update",
         content: `Status changed: ${previousStatus} → ${status}`,
-        createdAt: nowIso(),
       });
     }
+
     if (becameCompleted) {
-      const v = await vehicleService.getById(
-        mockMaintenanceJobs[idx].vehicleId,
-      );
+      const v = await vehicleService.getById(job.vehicleId);
       if (v) {
         await activityService.log({
           companyId: v.companyId,
@@ -151,19 +201,18 @@ export const maintenanceService = {
           description: `Maintenance completed for ${v.registration}`,
           metadata: { jobId: id },
         });
-        // v4.1 TC-P2-007: when the last open maintenance job for a vehicle
-        // completes, the vehicle auto-transitions to photos_pending so the
-        // photo-processing step can pick it up.
-        const open = mockMaintenanceJobs.filter(
-          (j) =>
-            j.vehicleId === v.id &&
-            (j.status === "pending" || j.status === "in_progress"),
-        );
-        if (open.length === 0 && v.status === "being_prepared") {
+        // When the last open job for a vehicle completes and vehicle is in
+        // being_prepared, advance to photos_pending (v4.1 TC-P2-007).
+        const { count } = await supabase
+          .from("maintenance_jobs")
+          .select("id", { count: "exact", head: true })
+          .eq("vehicle_id", v.id)
+          .in("status", ["pending", "in_progress"]);
+        if ((count ?? 0) === 0 && v.status === "being_prepared") {
           await vehicleService.changeStatus(v.id, "photos_pending", actorId);
         }
       }
     }
-    return mockMaintenanceJobs[idx];
+    return job;
   },
 };

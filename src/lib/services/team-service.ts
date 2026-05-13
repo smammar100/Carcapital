@@ -1,18 +1,25 @@
-import { mockUsers } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { User, UUID } from "@/lib/types";
 import type { RoleValue } from "@/lib/roles";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 
-/**
- * Team management — Stripe-style invite / pending / accept lifecycle.
- *
- * A user is in one of three states:
- *  - **invited**: `invitedAt` set, `acceptedAt` null. Shows "Invitation sent"
- *    in the team table. No login allowed yet.
- *  - **active**: `acceptedAt` set. Has logged in at least once.
- *  - **deactivated**: `active` flag flipped off. Kept for audit; cannot log in.
- */
+const SELECT = `
+  id,
+  companyId:company_id,
+  name,
+  email,
+  role,
+  isSuperUser:is_super_user,
+  roles,
+  avatarUrl:avatar_url,
+  active,
+  invitedAt:invited_at,
+  acceptedAt:accepted_at,
+  lastLoginAt:last_login_at,
+  twoStepEnabled:two_step_enabled,
+  createdAt:created_at
+`;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,23 +34,32 @@ function nameFromEmail(email: string): string {
 
 export const teamService = {
   async getAll(companyId: UUID): Promise<User[]> {
-    // TODO: Supabase: from('users').select('*').eq('company_id', companyId)
-    await delay();
-    return mockUsers
-      .filter((u) => u.companyId === companyId)
-      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select(SELECT)
+      .eq("company_id", companyId)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as unknown as User[];
   },
 
   async getById(userId: UUID): Promise<User | null> {
-    await delay(100);
-    return mockUsers.find((u) => u.id === userId) ?? null;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select(SELECT)
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) throw error;
+    return data as unknown as User | null;
   },
 
   /**
-   * Invite one or more team members. Each becomes a pending user with
-   * `invitedAt` set and `acceptedAt: null`.
-   *
-   * Throws `InviteValidationError` on invalid email or empty role list.
+   * Invite via Supabase Auth: creates an unconfirmed auth user and a matching
+   * public.users row in the invited state. Must run server-side (uses the
+   * service-role key). For now we treat this as a server action equivalent —
+   * adjust to a route handler when wired up to the team UI.
    */
   async invite(input: {
     companyId: UUID;
@@ -51,9 +67,10 @@ export const teamService = {
     roles: RoleValue[];
     actorId: UUID;
   }): Promise<User[]> {
-    // TODO: Supabase: insert pending user + send magic-link email via Resend / SendGrid
     if (input.emails.length === 0) {
-      throw new InviteValidationError("At least one email address is required.");
+      throw new InviteValidationError(
+        "At least one email address is required.",
+      );
     }
     if (input.roles.length === 0) {
       throw new InviteValidationError("Select at least one role.");
@@ -63,36 +80,50 @@ export const teamService = {
       throw new InviteValidationError(`Invalid email address: ${invalid}`);
     }
 
-    await delay();
-    const created: User[] = [];
-    const now = nowIso();
+    const admin = createAdminClient();
+    const supabase = createClient();
     const isSuperUser = input.roles.includes("owner");
+    const created: User[] = [];
+    const now = new Date().toISOString();
 
     for (const rawEmail of input.emails) {
       const email = rawEmail.trim().toLowerCase();
-      // Idempotent: skip if a user with that email already exists.
-      const existing = mockUsers.find(
-        (u) => u.email.toLowerCase() === email && u.companyId === input.companyId,
-      );
+      // Skip if a user with this email already exists in the company.
+      const { data: existing } = await supabase
+        .from("users")
+        .select("id")
+        .eq("email", email)
+        .eq("company_id", input.companyId)
+        .maybeSingle();
       if (existing) continue;
-      const user: User = {
-        id: newId("user"),
-        companyId: input.companyId,
-        name: nameFromEmail(email),
-        email,
-        // Legacy display label; new flow drives off `roles[]` instead.
-        role: "sales",
-        isSuperUser,
-        roles: [...input.roles],
-        avatarUrl: null,
-        invitedAt: now,
-        acceptedAt: null,
-        lastLoginAt: null,
-        twoStepEnabled: false,
-        active: true,
-        createdAt: now,
-      };
-      mockUsers.push(user);
+
+      const { data: authData, error: authErr } = await admin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: nameFromEmail(email) },
+      });
+      if (authErr || !authData.user) {
+        throw authErr ?? new Error(`Failed to invite ${email}`);
+      }
+
+      const { data, error } = await supabase
+        .from("users")
+        .insert({
+          id: authData.user.id,
+          company_id: input.companyId,
+          name: nameFromEmail(email),
+          email,
+          role: "sales",
+          is_super_user: isSuperUser,
+          roles: input.roles,
+          active: true,
+          invited_at: now,
+          accepted_at: null,
+          last_login_at: null,
+          two_step_enabled: false,
+        })
+        .select(SELECT)
+        .single();
+      if (error) throw error;
+      const user = data as unknown as User;
       created.push(user);
       await activityService.log({
         companyId: input.companyId,
@@ -106,42 +137,45 @@ export const teamService = {
     return created;
   },
 
-  /**
-   * Re-send the invitation. Mocked — bumps `invitedAt` to "now" so the
-   * table sort reflects the action.
-   */
   async resendInvitation(userId: UUID, actorId: UUID): Promise<User> {
-    await delay();
-    const idx = mockUsers.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error("User not found");
-    if (mockUsers[idx].acceptedAt !== null) {
+    const supabase = createClient();
+    const admin = createAdminClient();
+    const u = await teamService.getById(userId);
+    if (!u) throw new Error("User not found");
+    if (u.acceptedAt !== null) {
       throw new Error("User has already accepted their invitation");
     }
-    mockUsers[idx] = { ...mockUsers[idx], invitedAt: nowIso() };
+    await admin.auth.admin.inviteUserByEmail(u.email);
+    const { data, error } = await supabase
+      .from("users")
+      .update({ invited_at: new Date().toISOString() })
+      .eq("id", userId)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const updated = data as unknown as User;
     await activityService.log({
-      companyId: mockUsers[idx].companyId,
+      companyId: updated.companyId,
       userId: actorId,
       vehicleId: null,
       actionType: "user_invited",
-      description: `Re-sent invitation to ${mockUsers[idx].email}`,
+      description: `Re-sent invitation to ${updated.email}`,
       metadata: { invitedUserId: userId },
     });
-    return mockUsers[idx];
+    return updated;
   },
 
-  /**
-   * Cancel a pending invitation — removes the user record entirely.
-   * Refuses to operate on accepted users (use deactivate instead).
-   */
   async revokeInvitation(userId: UUID, actorId: UUID): Promise<void> {
-    await delay();
-    const idx = mockUsers.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error("User not found");
-    const target = mockUsers[idx];
+    const supabase = createClient();
+    const admin = createAdminClient();
+    const target = await teamService.getById(userId);
+    if (!target) throw new Error("User not found");
     if (target.acceptedAt !== null) {
       throw new Error("Cannot revoke — user has already accepted");
     }
-    mockUsers.splice(idx, 1);
+    await admin.auth.admin.deleteUser(userId);
+    const { error } = await supabase.from("users").delete().eq("id", userId);
+    if (error) throw error;
     await activityService.log({
       companyId: target.companyId,
       userId: actorId,
@@ -152,74 +186,72 @@ export const teamService = {
     });
   },
 
-  /**
-   * Update an existing user's role list. No-op if user is super-user
-   * (their access is governed by the flag, not roles).
-   */
-  async setRoles(userId: UUID, roles: RoleValue[], actorId: UUID): Promise<User> {
-    await delay();
-    const idx = mockUsers.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error("User not found");
-    mockUsers[idx] = { ...mockUsers[idx], roles: [...roles] };
+  async setRoles(
+    userId: UUID,
+    roles: RoleValue[],
+    actorId: UUID,
+  ): Promise<User> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .update({ roles })
+      .eq("id", userId)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const user = data as unknown as User;
     await activityService.log({
-      companyId: mockUsers[idx].companyId,
+      companyId: user.companyId,
       userId: actorId,
       vehicleId: null,
       actionType: "user_invited",
-      description: `Updated roles for ${mockUsers[idx].email}: ${roles.join(", ")}`,
+      description: `Updated roles for ${user.email}: ${roles.join(", ")}`,
       metadata: { targetUserId: userId, roles },
     });
-    return mockUsers[idx];
+    return user;
   },
 
-  /**
-   * Mock accept-invitation. In production this would be triggered by the
-   * recipient clicking a magic link in the invitation email.
-   */
   async acceptInvitation(userId: UUID): Promise<User> {
-    await delay(150);
-    const idx = mockUsers.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error("User not found");
-    mockUsers[idx] = {
-      ...mockUsers[idx],
-      acceptedAt: nowIso(),
-      lastLoginAt: nowIso(),
-    };
-    return mockUsers[idx];
+    const supabase = createClient();
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from("users")
+      .update({ accepted_at: now, last_login_at: now })
+      .eq("id", userId)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    return data as unknown as User;
   },
 
   isPending(user: User): boolean {
     return user.invitedAt !== null && user.acceptedAt === null;
   },
 
-  /**
-   * Permanently remove a member from the team. Distinct from `revokeInvitation`
-   * (which is for pending users) — this is destructive removal of an active
-   * accepted user.
-   *
-   * Safety rules:
-   *  - Cannot remove yourself (use a different super-admin's session).
-   *  - Cannot remove the last super-admin (would lock the dealership out).
-   */
   async removeMember(userId: UUID, actorId: UUID): Promise<void> {
-    await delay();
-    const idx = mockUsers.findIndex((u) => u.id === userId);
-    if (idx === -1) throw new Error("User not found");
     if (userId === actorId) {
       throw new Error("You cannot remove yourself from the team.");
     }
-    const target = mockUsers[idx];
+    const admin = createAdminClient();
+    const supabase = createClient();
+    const target = await teamService.getById(userId);
+    if (!target) throw new Error("User not found");
     if (target.isSuperUser) {
-      const otherSupers = mockUsers.filter(
-        (u) => u.isSuperUser && u.id !== userId,
-      );
-      if (otherSupers.length === 0) {
+      const { count } = await supabase
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", target.companyId)
+        .eq("is_super_user", true)
+        .neq("id", userId);
+      if ((count ?? 0) === 0) {
         throw new Error(
           "Cannot remove the last super-administrator — promote someone else first.",
         );
       }
     }
-    mockUsers.splice(idx, 1);
+    await admin.auth.admin.deleteUser(userId);
+    const { error } = await supabase.from("users").delete().eq("id", userId);
+    if (error) throw error;
     await activityService.log({
       companyId: target.companyId,
       userId: actorId,

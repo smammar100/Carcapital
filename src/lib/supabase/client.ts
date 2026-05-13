@@ -12,3 +12,11 @@ export function createClient() {
   }
   return cached;
 }
+
+/** Strongly-typed Update payload for a public-schema table. */
+export type TableUpdate<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Update"];
+
+/** Strongly-typed Insert payload for a public-schema table. */
+export type TableInsert<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Insert"];

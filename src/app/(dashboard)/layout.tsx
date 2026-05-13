@@ -1,7 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import {
   SidebarStateProvider,
@@ -16,15 +14,11 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const { user, loading } = useAuth();
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login");
-    }
-  }, [loading, user, router]);
-
+  // Middleware (middleware.ts) handles redirects for unauthenticated users.
+  // We still need a loading state while the auth-context hydrates from the
+  // session cookie on first paint.
   if (loading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
