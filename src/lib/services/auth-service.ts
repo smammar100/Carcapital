@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/client";
+import { withCache } from "@/lib/cache";
 import type { Company, User, UUID } from "@/lib/types";
+
+const NS = "auth:";
 
 const USER_SELECT = `
   id,
@@ -30,56 +33,66 @@ const COMPANY_SELECT = `
 
 export const authService = {
   async getUser(id: UUID): Promise<User | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as User | null;
+    return withCache(`${NS}user:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("users")
+        .select(USER_SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as User | null;
+    });
   },
 
   async getAllUsers(): Promise<User[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_SELECT)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as User[];
+    return withCache(`${NS}all-users`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("users")
+        .select(USER_SELECT)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as User[];
+    });
   },
 
   async getUsersForCompany(companyId: UUID): Promise<User[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("users")
-      .select(USER_SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as User[];
+    return withCache(`${NS}users:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("users")
+        .select(USER_SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as User[];
+    });
   },
 
   async getCompany(id: UUID): Promise<Company | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("companies")
-      .select(COMPANY_SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as Company | null;
+    return withCache(`${NS}company:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("companies")
+        .select(COMPANY_SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Company | null;
+    });
   },
 
   async getCurrentCompany(): Promise<Company> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("companies")
-      .select(COMPANY_SELECT)
-      .limit(1)
-      .single();
-    if (error) throw error;
-    return data as unknown as Company;
+    return withCache(`${NS}current-company`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("companies")
+        .select(COMPANY_SELECT)
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data as unknown as Company;
+    });
   },
 };

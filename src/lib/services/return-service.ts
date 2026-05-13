@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type {
   ReturnResolutionPath,
   UUID,
@@ -6,6 +7,8 @@ import type {
 } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "returns:";
 
 const SELECT = `
   id,
@@ -39,25 +42,29 @@ interface CreateInput {
 
 export const returnService = {
   async getAll(companyId: UUID): Promise<VehicleReturn[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("vehicle_returns")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("return_date", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as VehicleReturn[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vehicle_returns")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("return_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as VehicleReturn[];
+    });
   },
 
   async getById(id: UUID): Promise<VehicleReturn | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("vehicle_returns")
-      .select(SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as VehicleReturn | null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vehicle_returns")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as VehicleReturn | null;
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<VehicleReturn> {
@@ -81,6 +88,7 @@ export const returnService = {
       .single();
     if (error) throw error;
     const ret = data as unknown as VehicleReturn;
+    invalidate(NS);
     await vehicleService.changeStatus(input.vehicleId, "returned", actorId);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {

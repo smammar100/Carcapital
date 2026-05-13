@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { JobNoteType, MaintenanceJobNote, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "maint-notes:";
 
 const SELECT = `
   id,
@@ -14,14 +17,16 @@ const SELECT = `
 
 export const maintenanceNoteService = {
   async getForJob(jobId: UUID): Promise<MaintenanceJobNote[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("maintenance_job_notes")
-      .select(SELECT)
-      .eq("job_id", jobId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as MaintenanceJobNote[];
+    return withCache(`${NS}job:${jobId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("maintenance_job_notes")
+        .select(SELECT)
+        .eq("job_id", jobId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as MaintenanceJobNote[];
+    });
   },
 
   async add(input: {
@@ -43,6 +48,7 @@ export const maintenanceNoteService = {
       .single();
     if (error) throw error;
     const note = data as unknown as MaintenanceJobNote;
+    invalidate(NS);
     // Fetch the parent job to find the vehicle, then log activity.
     const { data: job } = await supabase
       .from("maintenance_jobs")

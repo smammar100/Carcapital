@@ -1,6 +1,9 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { ClaimStatus, UUID, WarrantyClaim } from "@/lib/types";
 import { activityService } from "./activity-service";
+
+const NS = "claims:";
 
 const SELECT = `
   id,
@@ -30,24 +33,28 @@ interface CreateInput {
 
 export const claimService = {
   async getAll(companyId: UUID): Promise<WarrantyClaim[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("warranty_claims")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as WarrantyClaim[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("warranty_claims")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as WarrantyClaim[];
+    });
   },
 
   async getForWarranty(warrantyId: UUID): Promise<WarrantyClaim[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("warranty_claims")
-      .select(SELECT)
-      .eq("warranty_id", warrantyId);
-    if (error) throw error;
-    return (data ?? []) as unknown as WarrantyClaim[];
+    return withCache(`${NS}warranty:${warrantyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("warranty_claims")
+        .select(SELECT)
+        .eq("warranty_id", warrantyId);
+      if (error) throw error;
+      return (data ?? []) as unknown as WarrantyClaim[];
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<WarrantyClaim> {
@@ -68,6 +75,7 @@ export const claimService = {
       .single();
     if (error) throw error;
     const claim = data as unknown as WarrantyClaim;
+    invalidate(NS);
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,
@@ -92,6 +100,7 @@ export const claimService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as WarrantyClaim;
   },
 };

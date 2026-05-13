@@ -1,4 +1,5 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type {
   Appointment,
   AppointmentOutcome,
@@ -7,6 +8,8 @@ import type {
 } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { leadService } from "./lead-service";
+
+const NS = "appointments:";
 
 const SELECT = `
   id,
@@ -41,36 +44,42 @@ interface CreateInput {
 
 export const appointmentService = {
   async getAll(companyId: UUID): Promise<Appointment[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("appointments")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("date", { ascending: true })
-      .order("time", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as Appointment[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("date", { ascending: true })
+        .order("time", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as Appointment[];
+    });
   },
 
   async getForDate(companyId: UUID, date: string): Promise<Appointment[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("appointments")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .eq("date", date);
-    if (error) throw error;
-    return (data ?? []) as unknown as Appointment[];
+    return withCache(`${NS}date:${companyId}:${date}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .eq("date", date);
+      if (error) throw error;
+      return (data ?? []) as unknown as Appointment[];
+    });
   },
 
   async getForVehicle(vehicleId: UUID): Promise<Appointment[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("appointments")
-      .select(SELECT)
-      .eq("vehicle_id", vehicleId);
-    if (error) throw error;
-    return (data ?? []) as unknown as Appointment[];
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("appointments")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId);
+      if (error) throw error;
+      return (data ?? []) as unknown as Appointment[];
+    });
   },
 
   async create(input: CreateInput): Promise<Appointment> {
@@ -96,6 +105,7 @@ export const appointmentService = {
       .single();
     if (error) throw error;
     const appt = data as unknown as Appointment;
+    invalidate(NS);
     if (input.leadId) {
       await leadService.update(input.leadId, {
         status: "appointment_booked",
@@ -147,6 +157,7 @@ export const appointmentService = {
       .single();
     if (error) throw error;
     const appt = data as unknown as Appointment;
+    invalidate(NS);
     await activityService.log({
       companyId: appt.companyId,
       userId: actorId,
@@ -172,6 +183,7 @@ export const appointmentService = {
       .single();
     if (error) throw error;
     const appt = data as unknown as Appointment;
+    invalidate(NS);
     await activityService.log({
       companyId: appt.companyId,
       userId: actorId,
@@ -192,6 +204,7 @@ export const appointmentService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as Appointment;
   },
 };

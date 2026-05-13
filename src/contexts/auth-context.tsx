@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { invalidateAll } from "@/lib/cache";
 import type { Company, User } from "@/lib/types";
 
 interface AuthContextValue {
@@ -139,6 +140,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut(): Promise<void> {
     const supabase = createClient();
     await supabase.auth.signOut();
+    // Clear the cache so the next user doesn't see the previous user's rows.
+    invalidateAll();
     setUser(null);
     setCompany(null);
   }

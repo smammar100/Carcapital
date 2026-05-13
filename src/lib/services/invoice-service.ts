@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type {
   Invoice,
   InvoiceLineItem,
@@ -11,6 +12,8 @@ import type {
 import { VAT_RATE } from "@/lib/constants";
 import { calculateVat } from "@/lib/vat";
 import { activityService } from "./activity-service";
+
+const NS = "invoices:";
 
 const INVOICE_SELECT = `
   id,
@@ -143,36 +146,42 @@ function computeTotals(
 
 export const invoiceService = {
   async getAll(companyId: UUID): Promise<Invoice[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("invoices")
-      .select(INVOICE_SELECT)
-      .eq("company_id", companyId)
-      .order("invoice_date", { ascending: false });
-    if (error) throw error;
-    return (data ?? []).map(normalizeInvoice);
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(INVOICE_SELECT)
+        .eq("company_id", companyId)
+        .order("invoice_date", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(normalizeInvoice);
+    });
   },
 
   async getByType(companyId: UUID, type: InvoiceType): Promise<Invoice[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("invoices")
-      .select(INVOICE_SELECT)
-      .eq("company_id", companyId)
-      .eq("type", type);
-    if (error) throw error;
-    return (data ?? []).map(normalizeInvoice);
+    return withCache(`${NS}type:${companyId}:${type}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(INVOICE_SELECT)
+        .eq("company_id", companyId)
+        .eq("type", type);
+      if (error) throw error;
+      return (data ?? []).map(normalizeInvoice);
+    });
   },
 
   async getById(id: UUID): Promise<Invoice | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("invoices")
-      .select(INVOICE_SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data ? normalizeInvoice(data) : null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("invoices")
+        .select(INVOICE_SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data ? normalizeInvoice(data) : null;
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Invoice> {
@@ -276,6 +285,9 @@ export const invoiceService = {
       if (error) throw error;
     }
 
+    // Invalidate before the read-back so the fresh row is fetched.
+    invalidate(NS);
+
     // Re-fetch the full record with children and log.
     const created = await invoiceService.getById(invoiceId);
     if (!created) throw new Error("Failed to read back created invoice");
@@ -305,6 +317,7 @@ export const invoiceService = {
       .single();
     if (error) throw error;
     const invoice = normalizeInvoice(data);
+    invalidate(NS);
     if (status === "sent") {
       await activityService.log({
         companyId: invoice.companyId,
@@ -332,29 +345,34 @@ export const invoiceService = {
     fromDate?: string,
     toDate?: string,
   ): Promise<{ inputVat: number; outputVat: number; net: number }> {
-    const supabase = createClient();
-    let query = supabase
-      .from("invoices")
-      .select("type, vat_amount, invoice_date")
-      .eq("company_id", companyId);
-    if (fromDate) query = query.gte("invoice_date", fromDate);
-    if (toDate) query = query.lte("invoice_date", toDate);
-    const { data, error } = await query;
-    if (error) throw error;
-    let inputVat = 0;
-    let outputVat = 0;
-    for (const row of (data ?? []) as Array<{
-      type: string;
-      vat_amount: number;
-    }>) {
-      if (row.type === "purchase") inputVat += row.vat_amount;
-      else outputVat += row.vat_amount;
-    }
-    return {
-      inputVat: Math.round(inputVat * 100) / 100,
-      outputVat: Math.round(outputVat * 100) / 100,
-      net: Math.round((outputVat - inputVat) * 100) / 100,
-    };
+    return withCache(
+      `${NS}vat-summary:${companyId}:${fromDate ?? ""}:${toDate ?? ""}`,
+      async () => {
+        const supabase = createClient();
+        let query = supabase
+          .from("invoices")
+          .select("type, vat_amount, invoice_date")
+          .eq("company_id", companyId);
+        if (fromDate) query = query.gte("invoice_date", fromDate);
+        if (toDate) query = query.lte("invoice_date", toDate);
+        const { data, error } = await query;
+        if (error) throw error;
+        let inputVat = 0;
+        let outputVat = 0;
+        for (const row of (data ?? []) as Array<{
+          type: string;
+          vat_amount: number;
+        }>) {
+          if (row.type === "purchase") inputVat += row.vat_amount;
+          else outputVat += row.vat_amount;
+        }
+        return {
+          inputVat: Math.round(inputVat * 100) / 100,
+          outputVat: Math.round(outputVat * 100) / 100,
+          net: Math.round((outputVat - inputVat) * 100) / 100,
+        };
+      },
+    );
   },
 };
 

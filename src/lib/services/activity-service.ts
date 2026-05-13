@@ -1,10 +1,13 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { Json } from "@/lib/supabase/database.types";
 import type {
   ActivityActionType,
   ActivityLogEntry,
   UUID,
 } from "@/lib/types";
+
+const NS = "activity:";
 
 const SELECT = `
   id,
@@ -28,25 +31,29 @@ interface LogInput {
 
 export const activityService = {
   async getAll(companyId: UUID): Promise<ActivityLogEntry[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("activity_log")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as ActivityLogEntry[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("activity_log")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as ActivityLogEntry[];
+    });
   },
 
   async getForVehicle(vehicleId: UUID): Promise<ActivityLogEntry[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("activity_log")
-      .select(SELECT)
-      .eq("vehicle_id", vehicleId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as ActivityLogEntry[];
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("activity_log")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as ActivityLogEntry[];
+    });
   },
 
   async log(input: LogInput): Promise<ActivityLogEntry> {
@@ -64,6 +71,7 @@ export const activityService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as ActivityLogEntry;
   },
 };

@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { UUID, Warranty, WarrantyStatus, WarrantyType } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "warranties:";
 
 const SELECT = `
   id,
@@ -41,39 +44,45 @@ interface CreateInput {
 
 export const warrantyService = {
   async getAll(companyId: UUID): Promise<Warranty[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("warranties")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as Warranty[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("warranties")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Warranty[];
+    });
   },
 
   async getById(id: UUID): Promise<Warranty | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("warranties")
-      .select(SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as Warranty | null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("warranties")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Warranty | null;
+    });
   },
 
   async getByStatus(
     companyId: UUID,
     statuses: WarrantyStatus[],
   ): Promise<Warranty[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("warranties")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .in("status", statuses);
-    if (error) throw error;
-    return (data ?? []) as unknown as Warranty[];
+    return withCache(`${NS}by-status:${companyId}:${statuses.join(",")}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("warranties")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .in("status", statuses);
+      if (error) throw error;
+      return (data ?? []) as unknown as Warranty[];
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Warranty> {
@@ -101,6 +110,7 @@ export const warrantyService = {
       .single();
     if (error) throw error;
     const w = data as unknown as Warranty;
+    invalidate(NS);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -124,6 +134,7 @@ export const warrantyService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as Warranty;
   },
 };

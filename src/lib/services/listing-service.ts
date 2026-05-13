@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type {
   Listing,
   ListingChannel,
@@ -7,6 +8,8 @@ import type {
 } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "listings:";
 
 const SELECT = `
   id,
@@ -37,25 +40,29 @@ interface CreateInput {
 
 export const listingService = {
   async getAll(companyId: UUID): Promise<Listing[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("listings")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as Listing[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("listings")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Listing[];
+    });
   },
 
   async getForVehicle(vehicleId: UUID): Promise<Listing | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("listings")
-      .select(SELECT)
-      .eq("vehicle_id", vehicleId)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as Listing | null;
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("listings")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Listing | null;
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Listing> {
@@ -78,6 +85,7 @@ export const listingService = {
       .single();
     if (error) throw error;
     const listing = data as unknown as Listing;
+    invalidate(NS);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -105,6 +113,7 @@ export const listingService = {
       .single();
     if (error) throw error;
     const listing = data as unknown as Listing;
+    invalidate(NS);
     const v = await vehicleService.getById(listing.vehicleId);
     if (v) {
       await activityService.log({
@@ -137,6 +146,7 @@ export const listingService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as Listing;
   },
 
@@ -149,6 +159,7 @@ export const listingService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as Listing;
   },
 };

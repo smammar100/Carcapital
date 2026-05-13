@@ -1,7 +1,10 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { TodoItem, TodoStatus, TodoSource, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "todos:";
 
 const SELECT = `
   id,
@@ -47,14 +50,16 @@ async function nextSerial(supabase: ReturnType<typeof createClient>, vehicleId: 
 
 export const todoService = {
   async getForVehicle(vehicleId: UUID): Promise<TodoItem[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("todo_items")
-      .select(SELECT)
-      .eq("vehicle_id", vehicleId)
-      .order("serial_number", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as TodoItem[];
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todo_items")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId)
+        .order("serial_number", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as TodoItem[];
+    });
   },
 
   async add(input: AddInput): Promise<TodoItem> {
@@ -76,6 +81,7 @@ export const todoService = {
       .single();
     if (error) throw error;
     const todo = data as unknown as TodoItem;
+    invalidate(NS);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -124,6 +130,7 @@ export const todoService = {
       .single();
     if (error) throw error;
     const todo = data as unknown as TodoItem;
+    invalidate(NS);
     if (becomesCompleted) {
       const v = await vehicleService.getById(todo.vehicleId);
       if (v) {
@@ -144,18 +151,21 @@ export const todoService = {
     const supabase = createClient();
     const { error } = await supabase.from("todo_items").delete().eq("id", id);
     if (error) throw error;
+    invalidate(NS);
   },
 
   async getGrandTotal(vehicleId: UUID): Promise<number> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("todo_items")
-      .select("cost")
-      .eq("vehicle_id", vehicleId);
-    if (error) throw error;
-    return ((data ?? []) as Array<{ cost: number | null }>).reduce(
-      (sum, t) => sum + (t.cost ?? 0),
-      0,
-    );
+    return withCache(`${NS}total:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("todo_items")
+        .select("cost")
+        .eq("vehicle_id", vehicleId);
+      if (error) throw error;
+      return ((data ?? []) as Array<{ cost: number | null }>).reduce(
+        (sum, t) => sum + (t.cost ?? 0),
+        0,
+      );
+    });
   },
 };

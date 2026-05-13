@@ -1,7 +1,10 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { MaintenanceJob, MaintenanceStatus, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "maintenance:";
 
 const SELECT = `
   id,
@@ -36,35 +39,41 @@ interface CreateInput {
 
 export const maintenanceService = {
   async getAll(companyId: UUID): Promise<MaintenanceJob[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("maintenance_jobs")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("due_date", { ascending: true, nullsFirst: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as MaintenanceJob[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("maintenance_jobs")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("due_date", { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as MaintenanceJob[];
+    });
   },
 
   async getForDate(companyId: UUID, date: string): Promise<MaintenanceJob[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("maintenance_jobs")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .eq("due_date", date);
-    if (error) throw error;
-    return (data ?? []) as unknown as MaintenanceJob[];
+    return withCache(`${NS}date:${companyId}:${date}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("maintenance_jobs")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .eq("due_date", date);
+      if (error) throw error;
+      return (data ?? []) as unknown as MaintenanceJob[];
+    });
   },
 
   async getForVehicle(vehicleId: UUID): Promise<MaintenanceJob[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("maintenance_jobs")
-      .select(SELECT)
-      .eq("vehicle_id", vehicleId);
-    if (error) throw error;
-    return (data ?? []) as unknown as MaintenanceJob[];
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("maintenance_jobs")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId);
+      if (error) throw error;
+      return (data ?? []) as unknown as MaintenanceJob[];
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<MaintenanceJob> {
@@ -88,6 +97,7 @@ export const maintenanceService = {
       .single();
     if (error) throw error;
     const job = data as unknown as MaintenanceJob;
+    invalidate(NS);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -141,6 +151,7 @@ export const maintenanceService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     await supabase.from("maintenance_job_notes").insert({
       job_id: id,
       user_id: actorId,
@@ -180,6 +191,7 @@ export const maintenanceService = {
       .single();
     if (error) throw error;
     const job = data as unknown as MaintenanceJob;
+    invalidate(NS);
 
     if (previousStatus !== status) {
       await supabase.from("maintenance_job_notes").insert({

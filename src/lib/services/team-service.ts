@@ -1,7 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { User, UUID } from "@/lib/types";
 import type { RoleValue } from "@/lib/roles";
 import { activityService } from "./activity-service";
+
+const NS = "team:";
+// Mutations also invalidate auth:* since both layers read public.users.
+const AUTH_NS = "auth:";
 
 /**
  * Note on Auth user lifecycle: invite / revoke / remove operations currently
@@ -39,27 +44,36 @@ function nameFromEmail(email: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function bustUserCaches() {
+  invalidate(NS);
+  invalidate(AUTH_NS);
+}
+
 export const teamService = {
   async getAll(companyId: UUID): Promise<User[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("users")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as User[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("users")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as User[];
+    });
   },
 
   async getById(userId: UUID): Promise<User | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("users")
-      .select(SELECT)
-      .eq("id", userId)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as User | null;
+    return withCache(`${NS}by-id:${userId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("users")
+        .select(SELECT)
+        .eq("id", userId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as User | null;
+    });
   },
 
   /**
@@ -126,6 +140,7 @@ export const teamService = {
         .single();
       if (error) throw error;
       const user = data as unknown as User;
+      bustUserCaches();
       created.push(user);
       await activityService.log({
         companyId: input.companyId,
@@ -154,6 +169,7 @@ export const teamService = {
       .single();
     if (error) throw error;
     const updated = data as unknown as User;
+    bustUserCaches();
     await activityService.log({
       companyId: updated.companyId,
       userId: actorId,
@@ -174,6 +190,7 @@ export const teamService = {
     }
     const { error } = await supabase.from("users").delete().eq("id", userId);
     if (error) throw error;
+    bustUserCaches();
     await activityService.log({
       companyId: target.companyId,
       userId: actorId,
@@ -198,6 +215,7 @@ export const teamService = {
       .single();
     if (error) throw error;
     const user = data as unknown as User;
+    bustUserCaches();
     await activityService.log({
       companyId: user.companyId,
       userId: actorId,
@@ -219,6 +237,7 @@ export const teamService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    bustUserCaches();
     return data as unknown as User;
   },
 
@@ -250,6 +269,7 @@ export const teamService = {
     // the server-side delete route lands (see file-level note).
     const { error } = await supabase.from("users").delete().eq("id", userId);
     if (error) throw error;
+    bustUserCaches();
     await activityService.log({
       companyId: target.companyId,
       userId: actorId,

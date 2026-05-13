@@ -1,6 +1,9 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { Lead, LeadSource, LeadStatus, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
+
+const NS = "leads:";
 
 const SELECT = `
   id,
@@ -33,51 +36,59 @@ interface CreateInput {
 
 export const leadService = {
   async getAll(companyId: UUID): Promise<Lead[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("leads")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as Lead[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Lead[];
+    });
   },
 
   async getById(id: UUID): Promise<Lead | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("leads")
-      .select(SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as Lead | null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Lead | null;
+    });
   },
 
   async getByStatus(
     companyId: UUID,
     statuses: LeadStatus[],
   ): Promise<Lead[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("leads")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .in("status", statuses);
-    if (error) throw error;
-    return (data ?? []) as unknown as Lead[];
+    return withCache(`${NS}by-status:${companyId}:${statuses.join(",")}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .in("status", statuses);
+      if (error) throw error;
+      return (data ?? []) as unknown as Lead[];
+    });
   },
 
   async getRecent(companyId: UUID, days: number): Promise<Lead[]> {
-    const supabase = createClient();
-    const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
-    const { data, error } = await supabase
-      .from("leads")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .gte("created_at", cutoff);
-    if (error) throw error;
-    return (data ?? []) as unknown as Lead[];
+    return withCache(`${NS}recent:${companyId}:${days}`, async () => {
+      const supabase = createClient();
+      const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .gte("created_at", cutoff);
+      if (error) throw error;
+      return (data ?? []) as unknown as Lead[];
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Lead> {
@@ -101,6 +112,7 @@ export const leadService = {
       .single();
     if (error) throw error;
     const lead = data as unknown as Lead;
+    invalidate(NS);
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,
@@ -130,6 +142,7 @@ export const leadService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as Lead;
   },
 };

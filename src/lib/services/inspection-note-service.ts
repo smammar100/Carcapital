@@ -1,7 +1,10 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { InspectionNote, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "inspection-notes:";
 
 const SELECT = `
   id,
@@ -13,14 +16,16 @@ const SELECT = `
 
 export const inspectionNoteService = {
   async getForVehicle(vehicleId: UUID): Promise<InspectionNote[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("inspection_notes")
-      .select(SELECT)
-      .eq("vehicle_id", vehicleId)
-      .order("created_at", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as InspectionNote[];
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("inspection_notes")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as InspectionNote[];
+    });
   },
 
   async add(input: {
@@ -40,6 +45,7 @@ export const inspectionNoteService = {
       .single();
     if (error) throw error;
     const note = data as unknown as InspectionNote;
+    invalidate(NS);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({

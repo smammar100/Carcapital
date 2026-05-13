@@ -1,6 +1,9 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { MaintenanceStatus, UUID, WorkshopJob } from "@/lib/types";
 import { activityService } from "./activity-service";
+
+const NS = "workshop:";
 
 const SELECT = `
   id,
@@ -37,26 +40,30 @@ interface CreateInput {
 
 export const workshopService = {
   async getAll(companyId: UUID): Promise<WorkshopJob[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("workshop_jobs")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("scheduled_date", { ascending: true })
-      .order("scheduled_time", { ascending: true });
-    if (error) throw error;
-    return (data ?? []) as unknown as WorkshopJob[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("workshop_jobs")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("scheduled_date", { ascending: true })
+        .order("scheduled_time", { ascending: true });
+      if (error) throw error;
+      return (data ?? []) as unknown as WorkshopJob[];
+    });
   },
 
   async getForDate(companyId: UUID, date: string): Promise<WorkshopJob[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("workshop_jobs")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .eq("scheduled_date", date);
-    if (error) throw error;
-    return (data ?? []) as unknown as WorkshopJob[];
+    return withCache(`${NS}date:${companyId}:${date}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("workshop_jobs")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .eq("scheduled_date", date);
+      if (error) throw error;
+      return (data ?? []) as unknown as WorkshopJob[];
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<WorkshopJob> {
@@ -81,6 +88,7 @@ export const workshopService = {
       .single();
     if (error) throw error;
     const job = data as unknown as WorkshopJob;
+    invalidate(NS);
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,
@@ -132,6 +140,7 @@ export const workshopService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as WorkshopJob;
   },
 
@@ -151,6 +160,7 @@ export const workshopService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as WorkshopJob;
   },
 };

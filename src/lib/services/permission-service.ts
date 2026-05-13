@@ -1,9 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { UserPermission, UUID } from "@/lib/types";
 import type { Capability } from "@/lib/capabilities";
 import { capabilitiesForRoles } from "@/lib/roles";
 import { authService } from "./auth-service";
 import { activityService } from "./activity-service";
+
+const NS = "perms:";
 
 const SELECT = `
   id,
@@ -15,13 +18,15 @@ const SELECT = `
 
 export const permissionService = {
   async getForUser(userId: UUID): Promise<UserPermission[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("user_permissions")
-      .select(SELECT)
-      .eq("user_id", userId);
-    if (error) throw error;
-    return (data ?? []) as unknown as UserPermission[];
+    return withCache(`${NS}user:${userId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("user_permissions")
+        .select(SELECT)
+        .eq("user_id", userId);
+      if (error) throw error;
+      return (data ?? []) as unknown as UserPermission[];
+    });
   },
 
   async effectiveCapabilities(userId: UUID): Promise<Set<Capability>> {
@@ -61,6 +66,7 @@ export const permissionService = {
       p_granted_by: actorId,
     });
     if (rpcErr) throw rpcErr;
+    invalidate(NS);
 
     const grants = await permissionService.getForUser(userId);
     const target = await authService.getUser(userId);
@@ -88,6 +94,8 @@ export const permissionService = {
       .update({ is_super_user: isSuperUser })
       .eq("id", userId);
     if (error) throw error;
+    invalidate("auth:");
+    invalidate("team:");
     const target = await authService.getUser(userId);
     if (target) {
       await activityService.log({

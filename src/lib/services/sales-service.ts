@@ -1,7 +1,10 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { SalesDeal, SalesStage, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "sales:";
 
 const SELECT = `
   id,
@@ -36,25 +39,29 @@ interface CreateInput {
 
 export const salesService = {
   async getAll(companyId: UUID): Promise<SalesDeal[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("sales_deals")
-      .select(SELECT)
-      .eq("company_id", companyId)
-      .order("updated_at", { ascending: false });
-    if (error) throw error;
-    return (data ?? []) as unknown as SalesDeal[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("sales_deals")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as SalesDeal[];
+    });
   },
 
   async getById(id: UUID): Promise<SalesDeal | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("sales_deals")
-      .select(SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as SalesDeal | null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("sales_deals")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as SalesDeal | null;
+    });
   },
 
   async create(input: CreateInput): Promise<SalesDeal> {
@@ -74,6 +81,7 @@ export const salesService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    invalidate(NS);
     return data as unknown as SalesDeal;
   },
 
@@ -95,6 +103,7 @@ export const salesService = {
       .single();
     if (error) throw error;
     const deal = data as unknown as SalesDeal;
+    invalidate(NS);
     const v = await vehicleService.getById(deal.vehicleId);
     if (v) {
       await activityService.log({

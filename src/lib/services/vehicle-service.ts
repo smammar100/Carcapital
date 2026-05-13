@@ -1,6 +1,9 @@
 import { createClient, type TableInsert, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { UUID, Vehicle, VehicleStatus } from "@/lib/types";
 import { activityService } from "./activity-service";
+
+const NS = "vehicles:";
 
 const SELECT = `
   id,
@@ -147,24 +150,28 @@ function vehicleToRow(
 
 export const vehicleService = {
   async getAll(companyId: UUID): Promise<Vehicle[]> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("vehicles")
-      .select(SELECT)
-      .eq("company_id", companyId);
-    if (error) throw error;
-    return (data ?? []) as unknown as Vehicle[];
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vehicles")
+        .select(SELECT)
+        .eq("company_id", companyId);
+      if (error) throw error;
+      return (data ?? []) as unknown as Vehicle[];
+    });
   },
 
   async getById(id: UUID): Promise<Vehicle | null> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("vehicles")
-      .select(SELECT)
-      .eq("id", id)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as Vehicle | null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("vehicles")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Vehicle | null;
+    });
   },
 
   async getByRegistration(reg: string): Promise<Vehicle | null> {
@@ -255,6 +262,7 @@ export const vehicleService = {
       .single();
     if (error) throw error;
     const vehicle = data as unknown as Vehicle;
+    invalidate(NS);
 
     // 3. Auto-create the new-stock maintenance job + activity entries.
     const dueDate = new Date();
@@ -309,6 +317,7 @@ export const vehicleService = {
       .single();
     if (error) throw error;
     const vehicle = data as unknown as Vehicle;
+    invalidate(NS);
     await activityService.log({
       companyId: vehicle.companyId,
       userId: actorId,
@@ -334,6 +343,7 @@ export const vehicleService = {
       .single();
     if (error) throw error;
     const vehicle = data as unknown as Vehicle;
+    invalidate(NS);
     await activityService.log({
       companyId: vehicle.companyId,
       userId: actorId,
@@ -355,6 +365,7 @@ export const vehicleService = {
       .single();
     if (error) throw error;
     const vehicle = data as unknown as Vehicle;
+    invalidate(NS);
     await activityService.log({
       companyId: vehicle.companyId,
       userId: actorId,
@@ -373,5 +384,6 @@ export const vehicleService = {
       .update({ hero_image_url: url })
       .eq("id", id);
     if (error) throw error;
+    invalidate(NS);
   },
 };
