@@ -6,10 +6,11 @@ import type { ActivityActionType, ActivityLogEntry, User } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { activityService } from "@/lib/services/activity-service";
 import { teamService } from "@/lib/services/team-service";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
-import { formatTimestamp } from "@/lib/formatters";
-import { PanelCard } from "./primitives";
+import { formatDateTime } from "@/lib/utils";
+import { Panel } from "./primitives";
 import { cn } from "@/lib/utils";
 
 interface ActivityTabProps {
@@ -50,11 +51,43 @@ const FILTER_MATCH: Record<FilterKey, (a: ActivityActionType) => boolean> = {
     a === "appointment_updated",
 };
 
+const MARKER_TONE: Record<ActivityActionType, string> = {
+  vehicle_arrived: "border-violet-500",
+  vehicle_status_changed: "border-amber-500",
+  vehicle_returned: "border-rose-500",
+  inspection_started: "border-emerald-500",
+  inspection_completed: "border-emerald-500",
+  todo_added: "border-amber-500",
+  todo_completed: "border-emerald-500",
+  maintenance_job_created: "border-amber-500",
+  maintenance_job_completed: "border-emerald-500",
+  workshop_job_created: "border-amber-500",
+  photo_uploaded: "border-emerald-500",
+  photo_processed: "border-emerald-500",
+  listing_created: "border-emerald-500",
+  listing_published: "border-emerald-500",
+  lead_created: "border-violet-500",
+  lead_converted: "border-emerald-500",
+  appointment_booked: "border-emerald-500",
+  appointment_updated: "border-amber-500",
+  appointment_completed: "border-emerald-500",
+  sale_stage_changed: "border-emerald-500",
+  sale_completed: "border-emerald-500",
+  warranty_created: "border-emerald-500",
+  warranty_claim_opened: "border-rose-500",
+  invoice_created: "border-emerald-500",
+  invoice_sent: "border-emerald-500",
+  invoice_paid: "border-emerald-500",
+  cost_updated: "border-amber-500",
+  user_invited: "border-emerald-500",
+  company_setting_changed: "border-muted-foreground",
+};
+
 /**
- * Activity tab — every action taken on this vehicle since arrival,
- * rendered as a vertical timeline with hollow markers. Filter chips at
- * the top scope to a single category (Status / Costs / Photos / etc.);
- * day separators group events for scanability.
+ * Activity tab — every action taken on this vehicle since arrival, as a
+ * vertical timeline with hollow tonal markers (colour-coded by action
+ * category). Filter chips scope to one category; day separators group
+ * events.
  */
 export function ActivityTab({ vehicleId }: ActivityTabProps) {
   const { company } = useAuth();
@@ -69,16 +102,13 @@ export function ActivityTab({ vehicleId }: ActivityTabProps) {
     }
   }, [vehicleId, company?.id]);
 
-  const userById = useMemo(
-    () => new Map(users.map((u) => [u.id, u])),
-    [users],
-  );
+  const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
   if (entries === null) {
     return (
-      <PanelCard noHead>
+      <Panel title="Activity" subtitle="Loading…">
         <Skeleton className="h-48 w-full" />
-      </PanelCard>
+      </Panel>
     );
   }
 
@@ -93,53 +123,44 @@ export function ActivityTab({ vehicleId }: ActivityTabProps) {
   }
 
   const filtered = entries.filter((e) => FILTER_MATCH[filter](e.actionType));
-
-  // Group by day for the date-separator labels.
   const grouped = groupByDay(filtered);
 
   return (
-    <PanelCard
+    <Panel
       title="Activity"
       subtitle={`Every action taken on this vehicle since arrival · ${entries.length} events`}
-      trailing={
+      action={
         <div className="flex flex-wrap gap-1.5">
           {(Object.keys(FILTER_LABELS) as FilterKey[]).map((k) => (
-            <button
+            <FilterChip
               key={k}
-              type="button"
+              active={filter === k}
               onClick={() => setFilter(k)}
-              className={cn(
-                "rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors",
-                filter === k
-                  ? "border-foreground bg-foreground text-background"
-                  : "border-border bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground",
-              )}
             >
               {FILTER_LABELS[k]}
-            </button>
+            </FilterChip>
           ))}
         </div>
       }
-      bodyClassName="p-0"
+      flush
     >
       {filtered.length === 0 ? (
-        <div className="px-5 py-10 text-center text-sm text-muted-foreground">
+        <div className="px-6 py-10 text-center text-sm text-muted-foreground">
           No events match this filter.
         </div>
       ) : (
-        <div className="relative px-7 py-5">
-          {/* The vertical dotted line — positioned to pass through the marker dots */}
+        <div className="relative px-6 py-5">
           <div
             aria-hidden
-            className="absolute bottom-7 left-[35px] top-7 border-l border-dotted border-border"
+            className="absolute bottom-7 left-[35px] top-7 border-l border-dashed border-border"
           />
           <div className="space-y-1">
             {grouped.map(([day, dayEntries]) => (
               <div key={day}>
-                <div className="relative z-10 mb-1.5 mt-3 pl-8 first:mt-0">
-                  <span className="inline-block rounded-full border bg-muted/30 px-2.5 py-0.5 font-mono text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                <div className="relative z-10 mb-1.5 mt-3 pl-9 first:mt-0">
+                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                     {day}
-                  </span>
+                  </Badge>
                 </div>
                 {dayEntries.map((e) => (
                   <TimelineEvent
@@ -153,41 +174,34 @@ export function ActivityTab({ vehicleId }: ActivityTabProps) {
           </div>
         </div>
       )}
-    </PanelCard>
+    </Panel>
   );
 }
 
-const MARKER_TONE: Record<ActivityActionType, string> = {
-  vehicle_arrived: "border-violet-500",
-  vehicle_status_changed: "border-orange-500",
-  vehicle_returned: "border-rose-500",
-  inspection_started: "border-emerald-600",
-  inspection_completed: "border-emerald-600",
-  todo_added: "border-orange-500",
-  todo_completed: "border-emerald-600",
-  maintenance_job_created: "border-orange-500",
-  maintenance_job_completed: "border-emerald-600",
-  workshop_job_created: "border-orange-500",
-  photo_uploaded: "border-emerald-600",
-  photo_processed: "border-emerald-600",
-  listing_created: "border-emerald-600",
-  listing_published: "border-emerald-600",
-  lead_created: "border-violet-500",
-  lead_converted: "border-emerald-600",
-  appointment_booked: "border-emerald-600",
-  appointment_updated: "border-orange-500",
-  appointment_completed: "border-emerald-600",
-  sale_stage_changed: "border-emerald-600",
-  sale_completed: "border-emerald-600",
-  warranty_created: "border-emerald-600",
-  warranty_claim_opened: "border-rose-500",
-  invoice_created: "border-emerald-600",
-  invoice_sent: "border-emerald-600",
-  invoice_paid: "border-emerald-600",
-  cost_updated: "border-orange-500",
-  user_invited: "border-emerald-600",
-  company_setting_changed: "border-muted-foreground",
-};
+function FilterChip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+        active
+          ? "border-foreground bg-foreground text-background"
+          : "border-border bg-card text-muted-foreground hover:bg-muted/40 hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 function TimelineEvent({
   entry,
@@ -198,19 +212,20 @@ function TimelineEvent({
 }) {
   const markerCls = MARKER_TONE[entry.actionType] ?? "border-muted-foreground";
   return (
-    <div className="relative z-10 py-2 pl-8">
+    <div className="relative z-10 py-2 pl-9">
       <span
         className={cn(
-          "absolute left-[3px] top-3 h-3 w-3 rounded-full border-2 bg-card shadow-[0_0_0_4px_var(--card)]",
+          "absolute left-[26px] top-3 h-3 w-3 rounded-full border-2 bg-background",
+          "ring-4 ring-card",
           markerCls,
         )}
       />
-      <div className="text-[13.5px] leading-relaxed">
-        <span className="text-foreground/80">{actorName}</span>{" "}
+      <div className="text-sm leading-relaxed">
+        <span className="text-muted-foreground">{actorName}</span>{" "}
         <span>{entry.description}</span>
       </div>
-      <div className="mt-0.5 flex items-center gap-3 text-[11.5px] text-muted-foreground">
-        <span className="font-mono">{formatTimestamp(entry.createdAt)}</span>
+      <div className="mt-0.5 text-xs text-muted-foreground">
+        {formatDateTime(entry.createdAt)}
       </div>
     </div>
   );
@@ -244,9 +259,11 @@ function groupByDay(entries: ActivityLogEntry[]): [string, ActivityLogEntry[]][]
 function formatDayLabel(iso: string): string {
   try {
     const d = new Date(`${iso}T12:00:00Z`);
-    return d
-      .toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })
-      .toUpperCase();
+    return d.toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
   } catch {
     return iso;
   }

@@ -6,8 +6,16 @@ import type { InspectionCheck, Vehicle } from "@/lib/types";
 import { inspectionService } from "@/lib/services/inspection-service";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { EmptyState } from "@/components/shared/empty-state";
-import { PanelCard, Pill } from "./primitives";
+import { Panel, Pill } from "./primitives";
 import { cn } from "@/lib/utils";
 
 interface InspectionTabProps {
@@ -28,9 +36,9 @@ const STATUS_TONE: Record<string, React.ComponentProps<typeof Pill>["tone"]> = {
 };
 
 /**
- * 20-point inspection report — table style. Each row carries a
- * pass/fail/warn pill plus any action-required note. Failed items will
- * have already been auto-added to Things to Do by the inspection flow.
+ * 20-point inspection report — shadcn Table with pass/fail/warn pills
+ * and any action-required notes. Failed items have already been auto-
+ * added to Things to Do by the inspection flow.
  */
 export function InspectionTab({ vehicle, onOpenInspection }: InspectionTabProps) {
   const [checks, setChecks] = useState<InspectionCheck[] | null>(null);
@@ -41,9 +49,9 @@ export function InspectionTab({ vehicle, onOpenInspection }: InspectionTabProps)
 
   if (checks === null) {
     return (
-      <PanelCard noHead>
+      <Panel title="Inspection" subtitle="Loading…">
         <Skeleton className="h-32 w-full" />
-      </PanelCard>
+      </Panel>
     );
   }
 
@@ -62,70 +70,53 @@ export function InspectionTab({ vehicle, onOpenInspection }: InspectionTabProps)
     );
   }
 
-  const passed = checks.filter((c) => c.status === "pass" || c.status === "good").length;
+  const passed = checks.filter(
+    (c) => c.status === "pass" || c.status === "good",
+  ).length;
 
   return (
-    <PanelCard
+    <Panel
       title="20-Point Post-Arrival Inspection"
       subtitle={`${passed} of ${checks.length} passed`}
-      trailing={
+      action={
         onOpenInspection ? (
           <Button variant="outline" size="sm" onClick={onOpenInspection}>
             Re-inspect
           </Button>
         ) : null
       }
-      bodyClassName="p-0"
+      flush
     >
-      <table className="w-full border-collapse text-[13px]">
-        <thead>
-          <tr className="border-b bg-muted/30 text-left">
-            <Th className="w-10">#</Th>
-            <Th>Check</Th>
-            <Th>Status</Th>
-            <Th>Action Required</Th>
-          </tr>
-        </thead>
-        <tbody>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-12">#</TableHead>
+            <TableHead>Check</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Action Required</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {checks.map((c) => {
             const norm = c.status?.toLowerCase().replace(/\s+/g, "_") ?? "";
             const tone = STATUS_TONE[norm] ?? "neutral";
             return (
-              <tr key={c.id} className="border-b last:border-b-0 hover:bg-muted/20">
-                <Td className="font-mono">{c.checkNumber}</Td>
-                <Td>{c.checkItem}</Td>
-                <Td>
-                  <Pill tone={tone}>
-                    <span className="capitalize">
-                      {(c.status ?? "—").replace(/_/g, " ")}
-                    </span>
-                  </Pill>
-                </Td>
-                <Td className={cn(!c.actionRequired && "text-muted-foreground")}>
+              <TableRow key={c.id}>
+                <TableCell className="tabular-nums text-muted-foreground">
+                  {c.checkNumber}
+                </TableCell>
+                <TableCell className="font-medium">{c.checkItem}</TableCell>
+                <TableCell>
+                  <Pill tone={tone}>{(c.status ?? "—").replace(/_/g, " ")}</Pill>
+                </TableCell>
+                <TableCell className={cn(!c.actionRequired && "text-muted-foreground")}>
                   {c.actionRequired ?? "—"}
-                </Td>
-              </tr>
+                </TableCell>
+              </TableRow>
             );
           })}
-        </tbody>
-      </table>
-    </PanelCard>
+        </TableBody>
+      </Table>
+    </Panel>
   );
-}
-
-function Th({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <th
-      className={cn(
-        "px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <td className={cn("px-4 py-3", className)}>{children}</td>;
 }

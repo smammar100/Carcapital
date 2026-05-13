@@ -1,16 +1,30 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Check, Pencil } from "lucide-react";
+import {
+  AlertCircle,
+  Calendar,
+  Check,
+  Clock,
+  Coins,
+  Globe,
+  Pencil,
+  PoundSterling,
+  TrendingUp,
+  X,
+} from "lucide-react";
 import type { Listing, Vehicle } from "@/lib/types";
 import { listingService } from "@/lib/services/listing-service";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Field,
   FieldGrid,
   KpiCard,
-  PanelCard,
+  Panel,
   Pill,
   SectionDivider,
 } from "./primitives";
@@ -24,9 +38,6 @@ interface OverviewTabProps {
  * Overview tab — the dealership's "at-a-glance everything I need" surface.
  * Four KPIs up top, advert completeness on the left, valuation + marketplace
  * on the right, then a full field grid of vehicle details underneath.
- *
- * Where listing data is available, we read live values (price, channels,
- * description); otherwise we render an empty-state hint inside the card.
  */
 export function OverviewTab({ vehicle }: OverviewTabProps) {
   const [listing, setListing] = useState<Listing | null | undefined>(undefined);
@@ -45,119 +56,135 @@ export function OverviewTab({ vehicle }: OverviewTabProps) {
   const marginVat = grossProfit > 0 ? grossProfit * (0.2 / 1.2) : 0;
   const netProfit = grossProfit - marginVat;
 
-  const daysTone =
+  const daysAccent =
     vehicle.daysInStock >= 90
-      ? "bad"
+      ? "destructive"
       : vehicle.daysInStock >= 60
-        ? "warn"
-        : "neutral";
+        ? "amber"
+        : undefined;
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
       {/* KPI strip */}
-      <div className="mb-3.5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
+          icon={PoundSterling}
           label="Web Price"
           value={webPrice ? formatCurrency(webPrice) : "—"}
-          meta={floor ? `Floor: ${formatCurrency(floor)}` : undefined}
+          hint={floor ? `Floor: ${formatCurrency(floor)}` : undefined}
         />
         <KpiCard
+          icon={Clock}
           label="Days in Stock"
           value={vehicle.daysInStock}
-          valueClassName={daysTone === "bad" ? "text-rose-600" : undefined}
-          meta={
+          hint={
             stockingBurn
               ? `Stocking burn: ${formatCurrency(stockingBurn)} / day`
               : undefined
           }
-          metaTone={daysTone === "neutral" ? "neutral" : "warn"}
+          accent={daysAccent}
         />
         <KpiCard
+          icon={TrendingUp}
           label="AT Retail Avg"
           value={webPrice ? formatCurrency(Math.round(webPrice * 0.99)) : "—"}
-          meta={webPrice ? "Within market range" : undefined}
+          hint={webPrice ? "Within market range" : undefined}
         />
         <KpiCard
+          icon={Coins}
           label="Net Profit (live)"
           value={netProfit > 0 ? formatCurrency(Math.round(netProfit)) : "—"}
-          meta="Margin VAT scheme"
-          featured
+          hint="Under HMRC margin scheme"
         />
       </div>
 
       {/* Two-col: Advert Completeness + Valuation/Marketplace stack */}
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[1.5fr_1fr]">
-        <AdvertCompletenessCard
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <AdvertCompletenessPanel
           vehicle={vehicle}
           listing={listing ?? null}
           photoCount={vehicle.imagesCount}
         />
-        <div className="flex flex-col gap-3.5">
-          <ValuationCard webPrice={webPrice} />
-          <MarketplaceCard listing={listing ?? null} />
+        <div className="flex flex-col gap-4">
+          <ValuationPanel webPrice={webPrice} />
+          <MarketplacePanel listing={listing ?? null} />
         </div>
       </div>
 
       {/* Vehicle details */}
-      <SectionDivider label="Vehicle Details" />
-      <PanelCard noHead bodyClassName="p-5">
-        <FieldGrid cols={2}>
-          <Field label="Make / Model">
-            {vehicle.make} {vehicle.model}
-          </Field>
-          <Field label="Variant">{vehicle.variantCode ?? "—"}</Field>
-          <Field label="Year" mono>
-            {vehicle.year}
-          </Field>
-          <Field label="Colour">{vehicle.colour}</Field>
-          <Field label="Mileage" mono>
-            {vehicle.mileage.toLocaleString()} mi
-          </Field>
-          <Field label="Engine" mono>
-            {vehicle.engineSizeCC ? `${vehicle.engineSizeCC.toLocaleString()} cc` : "—"}
-          </Field>
-          <Field label="Body / Fuel">
-            <span className="capitalize">
-              {vehicle.bodyType} · {vehicle.fuelType} · {vehicle.transmission}
-            </span>
-          </Field>
-          <Field label="Stock ID" mono>
-            {vehicle.stockId}
-          </Field>
-          <Field label="Received" mono>
-            {formatDate(vehicle.receivedDate)}
-          </Field>
-          <Field label="MOT Expiry" mono>
-            {vehicle.motExpiry ? formatDate(vehicle.motExpiry) : "—"}
-          </Field>
-          <Field label="Seller">
-            {vehicle.sellerName} · {vehicle.sellerPhone}
-          </Field>
-          <Field label="Source">
-            <span className="capitalize">{vehicle.sourceType.replace("_", " ")}</span>
-            {vehicle.auctionHouse ? ` (${vehicle.auctionHouse})` : ""}
-          </Field>
-          <Field label="V5 Received">{vehicle.v5Received ? "Yes" : "No"}</Field>
-          <Field label="Service History">
-            <span className="capitalize">{vehicle.serviceHistory}</span>
-          </Field>
-          <Field label="Keys" mono>
-            {vehicle.numKeys}
-          </Field>
-          <Field label="Lock Nut">
-            {vehicle.lockNut ? "Present" : "Missing"}
-          </Field>
-        </FieldGrid>
-      </PanelCard>
+      <div>
+        <SectionDivider label="Vehicle Details" />
+        <Card size="sm">
+          <CardContent>
+            <FieldGrid cols={2}>
+              <Field label="Make / Model">
+                {vehicle.make} {vehicle.model}
+              </Field>
+              <Field label="Variant">{vehicle.variantCode ?? "—"}</Field>
+              <Field label="Year" numeric>
+                {vehicle.year}
+              </Field>
+              <Field label="Colour">{vehicle.colour}</Field>
+              <Field label="Mileage" numeric>
+                {vehicle.mileage.toLocaleString()} mi
+              </Field>
+              <Field label="Engine" numeric>
+                {vehicle.engineSizeCC
+                  ? `${vehicle.engineSizeCC.toLocaleString()} cc`
+                  : "—"}
+              </Field>
+              <Field label="Body / Fuel">
+                <span className="capitalize">
+                  {vehicle.bodyType} · {vehicle.fuelType} · {vehicle.transmission}
+                </span>
+              </Field>
+              <Field label="Stock ID" numeric>
+                {vehicle.stockId}
+              </Field>
+              <Field label="Received" numeric>
+                {formatDate(vehicle.receivedDate)}
+              </Field>
+              <Field label="MOT Expiry" numeric>
+                {vehicle.motExpiry ? formatDate(vehicle.motExpiry) : "—"}
+              </Field>
+              <Field label="Seller">
+                {vehicle.sellerName} · {vehicle.sellerPhone}
+              </Field>
+              <Field label="Source">
+                <span className="capitalize">
+                  {vehicle.sourceType.replace("_", " ")}
+                </span>
+                {vehicle.auctionHouse ? ` (${vehicle.auctionHouse})` : ""}
+              </Field>
+              <Field label="V5 Received">{vehicle.v5Received ? "Yes" : "No"}</Field>
+              <Field label="Service History">
+                <span className="capitalize">{vehicle.serviceHistory}</span>
+              </Field>
+              <Field label="Keys" numeric>
+                {vehicle.numKeys}
+              </Field>
+              <Field label="Lock Nut">
+                {vehicle.lockNut ? "Present" : "Missing"}
+              </Field>
+            </FieldGrid>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
 
 // ============================================================
-// Advert Completeness — Notion-style checklist
+// Advert Completeness — checklist driven from Listing + Vehicle
 // ============================================================
 
-function AdvertCompletenessCard({
+interface AdvertCheck {
+  name: string;
+  meta: string;
+  state: "done" | "warn" | "miss";
+}
+
+function AdvertCompletenessPanel({
   vehicle,
   listing,
   photoCount,
@@ -171,31 +198,25 @@ function AdvertCompletenessCard({
       name: "Make / Model / Derivative",
       meta: `${vehicle.make} ${vehicle.model} · ${vehicle.variantCode ?? "no derivative"}`,
       state: vehicle.variantCode ? "done" : "warn",
-      action: "Edit",
     },
     {
       name: "Photos",
       meta:
         photoCount > 0
-          ? `${photoCount} image${photoCount === 1 ? "" : "s"} · backgrounds processed`
+          ? `${photoCount} image${photoCount === 1 ? "" : "s"}`
           : "No photos uploaded",
       state: photoCount >= 8 ? "done" : photoCount > 0 ? "warn" : "miss",
-      action: photoCount > 0 ? "Manage" : "Upload",
     },
     {
       name: "Vehicle Description",
       meta:
         listing?.description && listing.description.trim().length > 30
-          ? `${listing.description.length} chars`
+          ? `${listing.description.length.toLocaleString()} chars`
           : "Empty — generate with AI",
       state:
         listing?.description && listing.description.trim().length > 30
           ? "done"
           : "warn",
-      action:
-        listing?.description && listing.description.trim().length > 30
-          ? "Edit"
-          : "Generate",
     },
     {
       name: "Pricing & Floor",
@@ -206,7 +227,6 @@ function AdvertCompletenessCard({
             ? formatCurrency(listing.price)
             : "Price not set",
       state: listing?.price ? "done" : "miss",
-      action: listing?.price ? "Edit" : "Set price",
     },
     {
       name: "MOT Status",
@@ -214,13 +234,11 @@ function AdvertCompletenessCard({
         ? `Valid until ${formatDate(vehicle.motExpiry)}`
         : "No expiry on file",
       state: vehicle.motExpiry ? "done" : "warn",
-      action: "Edit",
     },
     {
       name: "Service History",
       meta: vehicle.serviceHistory.replace(/_/g, " "),
       state: vehicle.serviceHistory !== "none" ? "done" : "warn",
-      action: "Edit",
     },
     {
       name: "Channels",
@@ -235,43 +253,35 @@ function AdvertCompletenessCard({
           ? "done"
           : "warn"
         : "miss",
-      action: listing ? "Edit" : "Create listing",
     },
   ];
 
   const setCount = checks.filter((c) => c.state === "done").length;
 
   return (
-    <PanelCard
+    <Panel
       title="Advert Completeness"
       subtitle={`${setCount} of ${checks.length} fields set · ${checks.length - setCount} to address`}
-      trailing={
+      action={
         <Button asChild variant="outline" size="sm">
-          <a href="/advert/work-list">Open Advert →</a>
+          <Link href="/advert/work-list">Open Advert →</Link>
         </Button>
       }
-      bodyClassName="p-0"
+      flush
     >
-      <div>
+      <div className="divide-y">
         {checks.map((c, i) => (
-          <AdvertCheckRow key={i} check={c} last={i === checks.length - 1} />
+          <AdvertCheckRow key={i} check={c} />
         ))}
       </div>
-    </PanelCard>
+    </Panel>
   );
 }
 
-interface AdvertCheck {
-  name: string;
-  meta: string;
-  state: "done" | "warn" | "miss";
-  action: string;
-}
-
 const STATE_MARK_STYLES: Record<AdvertCheck["state"], string> = {
-  done: "bg-emerald-600 text-white",
-  warn: "bg-orange-500 text-white",
-  miss: "bg-muted-foreground/60 text-white",
+  done: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300",
+  warn: "bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300",
+  miss: "bg-muted text-muted-foreground",
 };
 
 const STATE_PILL_TONE: Record<AdvertCheck["state"], React.ComponentProps<typeof Pill>["tone"]> = {
@@ -286,101 +296,78 @@ const STATE_PILL_LABEL: Record<AdvertCheck["state"], string> = {
   miss: "Missing",
 };
 
-function AdvertCheckRow({ check, last }: { check: AdvertCheck; last: boolean }) {
+function AdvertCheckRow({ check }: { check: AdvertCheck }) {
   return (
-    <div
-      className={cn(
-        "grid grid-cols-[22px_1fr_auto_auto] items-center gap-3 px-5 py-3 transition-colors hover:bg-muted/30",
-        !last && "border-b",
-      )}
-    >
+    <div className="grid grid-cols-[24px_1fr_auto_auto] items-center gap-3 px-6 py-3">
       <span
         className={cn(
-          "flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-bold",
+          "flex h-5 w-5 items-center justify-center rounded-full",
           STATE_MARK_STYLES[check.state],
         )}
       >
         {check.state === "done" ? (
-          <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+          <Check className="h-3 w-3" strokeWidth={3} />
         ) : check.state === "warn" ? (
-          "!"
+          <AlertCircle className="h-3 w-3" />
         ) : (
-          "×"
+          <X className="h-3 w-3" strokeWidth={3} />
         )}
       </span>
       <div className="min-w-0">
-        <div className="text-[13.5px] font-medium leading-snug">{check.name}</div>
-        <div className="mt-0.5 truncate text-[12px] text-muted-foreground">
+        <div className="text-sm font-medium leading-snug">{check.name}</div>
+        <div className="mt-0.5 truncate text-xs text-muted-foreground">
           {check.meta}
         </div>
       </div>
       <Pill tone={STATE_PILL_TONE[check.state]}>
         {STATE_PILL_LABEL[check.state]}
       </Pill>
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 rounded px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-      >
-        <Pencil className="h-3 w-3" />
-        {check.action}
-      </button>
+      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
+        <Pencil className="mr-1 h-3 w-3" />
+        Edit
+      </Button>
     </div>
   );
 }
 
 // ============================================================
-// Valuation Card — three-cell AutoTrader values
+// Valuation panel
 // ============================================================
 
-function ValuationCard({ webPrice }: { webPrice: number }) {
-  // Synthesised demo values until AutoTrader API is wired up.
+function ValuationPanel({ webPrice }: { webPrice: number }) {
   const trade = webPrice ? Math.round(webPrice * 0.78) : 0;
   const partEx = webPrice ? Math.round(webPrice * 0.76) : 0;
   const retail = webPrice ? Math.round(webPrice * 0.99) : 0;
 
   return (
-    <PanelCard
-      title="AutoTrader Valuation"
-      subtitle="Updated just now · live feed"
-      bodyClassName="p-0"
-    >
-      <div className="grid grid-cols-3">
+    <Panel title="AutoTrader Valuation" subtitle="Updated just now · live feed" flush>
+      <div className="grid grid-cols-3 divide-x">
         <ValuationCell label="Trade" value={trade} />
         <ValuationCell label="Part Ex" value={partEx} />
-        <ValuationCell label="Retail" value={retail} featured />
+        <ValuationCell label="Retail" value={retail} highlight />
       </div>
-    </PanelCard>
+    </Panel>
   );
 }
 
 function ValuationCell({
   label,
   value,
-  featured,
+  highlight,
 }: {
   label: string;
   value: number;
-  featured?: boolean;
+  highlight?: boolean;
 }) {
   return (
-    <div
-      className={cn(
-        "border-r p-4 last:border-r-0",
-        featured && "bg-foreground text-background",
-      )}
-    >
-      <div
-        className={cn(
-          "text-[10.5px] font-medium tracking-wide",
-          featured ? "text-[#F5C518]/70" : "text-muted-foreground",
-        )}
-      >
+    <div className="px-5 py-3">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div
         className={cn(
-          "mt-1 font-mono text-[18px] font-semibold tracking-tight",
-          featured ? "text-[#F5C518]" : "text-foreground",
+          "mt-1 text-lg font-semibold tabular-nums",
+          highlight && "text-foreground",
         )}
       >
         {value ? formatCurrency(value) : "—"}
@@ -390,85 +377,90 @@ function ValuationCell({
 }
 
 // ============================================================
-// Marketplace — channels list
+// Marketplace panel
 // ============================================================
 
-function MarketplaceCard({ listing }: { listing: Listing | null }) {
+function MarketplacePanel({ listing }: { listing: Listing | null }) {
   type ChannelKey = "carcapital" | "autotrader" | "ebay" | "facebook";
   const rows: { key: ChannelKey; name: string; meta: string; iconBg: string; iconText: string }[] = [
     {
       key: "carcapital",
       name: "Car Capital UK",
       meta: "thecarcapital.co.uk",
-      iconBg: "bg-foreground",
+      iconBg: "bg-foreground text-background",
       iconText: "CC",
     },
     {
       key: "autotrader",
       name: "AutoTrader",
       meta: listing ? "Synced" : "Not configured",
-      iconBg: "bg-[#1E5BB8]",
+      iconBg: "bg-blue-700 text-white",
       iconText: "AT",
     },
     {
       key: "ebay",
       name: "eBay Motors",
       meta: "Not configured",
-      iconBg: "bg-[#E53238]",
+      iconBg: "bg-rose-600 text-white",
       iconText: "eB",
     },
     {
       key: "facebook",
       name: "Facebook",
       meta: "Not configured",
-      iconBg: "bg-[#1877F2]",
+      iconBg: "bg-blue-600 text-white",
       iconText: "fb",
     },
   ];
 
+  const isOn = (key: ChannelKey) => {
+    if (!listing) return false;
+    return key === "carcapital"
+      ? listing.channels.website
+      : key === "autotrader"
+        ? listing.channels.autotrader
+        : key === "ebay"
+          ? listing.channels.ebay
+          : listing.channels.facebook;
+  };
+
   return (
-    <PanelCard title="Marketplace" bodyClassName="p-0">
-      <div>
-        {rows.map((r, i) => {
-          const on =
-            r.key === "carcapital"
-              ? listing?.channels.website ?? false
-              : r.key === "autotrader"
-                ? listing?.channels.autotrader ?? false
-                : r.key === "ebay"
-                  ? listing?.channels.ebay ?? false
-                  : listing?.channels.facebook ?? false;
+    <Panel
+      title={
+        <span className="flex items-center gap-2">
+          <Globe className="h-4 w-4 text-muted-foreground" />
+          Marketplace
+        </span>
+      }
+      flush
+    >
+      <div className="divide-y">
+        {rows.map((r) => {
+          const on = isOn(r.key);
           return (
             <div
               key={r.key}
-              className={cn(
-                "grid grid-cols-[28px_1fr_auto] items-center gap-3 px-5 py-3",
-                i < rows.length - 1 && "border-b",
-              )}
+              className="grid grid-cols-[28px_1fr_auto] items-center gap-3 px-6 py-3"
             >
               <span
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded font-mono text-[10px] font-bold tracking-wider text-white",
+                  "flex h-7 w-7 items-center justify-center rounded font-mono text-[10px] font-bold tracking-wider",
                   r.iconBg,
                 )}
               >
                 {r.iconText}
               </span>
               <div className="min-w-0">
-                <div className="text-[13px] font-medium leading-snug">{r.name}</div>
-                <div className="mt-0.5 text-[11.5px] text-muted-foreground">
+                <div className="text-sm font-medium leading-snug">{r.name}</div>
+                <div className="mt-0.5 text-xs text-muted-foreground">
                   {r.meta}
                 </div>
               </div>
-              {on ? (
-                <Pill tone="good">Live</Pill>
-              ) : (
-                <Pill tone="neutral">Off</Pill>
-              )}
+              {on ? <Pill tone="good">Live</Pill> : <Pill tone="neutral">Off</Pill>}
             </div>
           );
         })}
       </div>
-    </PanelCard>
+    </Panel>
   );
 }

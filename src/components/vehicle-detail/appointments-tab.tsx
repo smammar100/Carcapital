@@ -3,18 +3,26 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Plus, Users, Zap } from "lucide-react";
-import type { Appointment, Enquiry, User, Vehicle } from "@/lib/types";
+import type { Appointment, Customer, Enquiry, User, Vehicle } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { enquiryService } from "@/lib/services/enquiry-service";
 import { customerService } from "@/lib/services/customer-service";
 import { teamService } from "@/lib/services/team-service";
-import type { Customer } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AddEnquiryDialog } from "@/components/enquiries/add-enquiry-dialog";
-import { formatDate, formatRelative } from "@/lib/formatters";
-import { InfoCard, PanelCard, Pill, SectionDivider } from "./primitives";
+import { formatDate, formatRelativeTime } from "@/lib/utils";
+import { InfoCard, Panel, Pill, SectionDivider } from "./primitives";
 import { cn } from "@/lib/utils";
 
 interface AppointmentsTabProps {
@@ -27,21 +35,10 @@ const STATUS_TONE: Record<Enquiry["status"], React.ComponentProps<typeof Pill>["
   lost: "bad",
 };
 
-const STATUS_LABEL: Record<Enquiry["status"], string> = {
-  open: "Open",
-  won: "Won",
-  lost: "Lost",
-};
-
 /**
  * Appointments tab — the customer-first sales surface for this vehicle.
- * Layout, top to bottom:
- *   1. "What this tracks" info card
- *   2. Five-step Enquiry → Sale workflow visual
- *   3. Active enquiries table (with empty-state + "Add Enquiry" CTA)
- *   4. Section divider — Performance Analysis
- *   5. Lost-Reason breakdown grid (synthesized; v4.2 report)
- *   6. Recommended actions card (data-driven next steps)
+ * Layout: info card → workflow visual → enquiries table → divider →
+ * lost-reason insight + breakdown grid → recommended actions.
  */
 export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
   const { company } = useAuth();
@@ -69,15 +66,12 @@ export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
     () => new Map(customers.map((c) => [c.id, c])),
     [customers],
   );
-  const userById = useMemo(
-    () => new Map(users.map((u) => [u.id, u])),
-    [users],
-  );
+  const userById = useMemo(() => new Map(users.map((u) => [u.id, u])), [users]);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
       <InfoCard
-        icon={<Users className="h-4.5 w-4.5" />}
+        icon={<Users className="h-4 w-4" />}
         title="What this tab tracks"
       >
         Every customer interaction tied to this vehicle — initial enquiry,
@@ -87,23 +81,23 @@ export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
         trade-in conversations stay connected across vehicles.
       </InfoCard>
 
-      <PanelCard
+      <Panel
         title="Enquiry → Sale Workflow"
         subtitle="Every enquiry follows this five-step path to either a Sale or a recorded Lost-reason"
       >
         <WorkflowVisual />
-      </PanelCard>
+      </Panel>
 
-      <PanelCard
+      <Panel
         title="Active Enquiries on this Vehicle"
         subtitle="Customer-search-first dedup means repeat buyers don't get re-created as new leads"
-        trailing={
+        action={
           <Button size="sm" onClick={() => setDialogOpen(true)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             Add Enquiry
           </Button>
         }
-        bodyClassName="p-0"
+        flush
       >
         <EnquiriesTable
           enquiries={enquiries}
@@ -112,12 +106,16 @@ export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
           userById={userById}
           onAddEnquiry={() => setDialogOpen(true)}
         />
-      </PanelCard>
+      </Panel>
 
-      <SectionDivider label="Performance Analysis · across all vehicles" />
-      <LostReasonInsight />
-      <LostReasonBreakdown />
-      <RecommendedActions />
+      <div>
+        <SectionDivider label="Performance Analysis · across all vehicles" />
+        <div className="flex flex-col gap-4">
+          <LostReasonInsight />
+          <LostReasonBreakdown />
+          <RecommendedActions />
+        </div>
+      </div>
 
       <AddEnquiryDialog
         open={dialogOpen}
@@ -130,60 +128,41 @@ export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
 }
 
 // ============================================================
-// Workflow visual — 5 steps + arrow
+// Workflow visual — 5 steps
 // ============================================================
 
 function WorkflowVisual() {
   const steps = [
-    {
-      num: "01 ENQUIRY",
-      label: "Capture",
-      meta: "Phone · Web · Walk-in · AutoTrader · Facebook",
-    },
-    {
-      num: "02 DEDUPE",
-      label: "Customer Match",
-      meta: "Search by name · postcode · email · phone",
-    },
-    {
-      num: "03 LINK",
-      label: "Vehicle Interest",
-      meta: "Attach to stock + assign salesperson",
-    },
-    {
-      num: "04 BOOK",
-      label: "Appointment",
-      meta: "Viewing · test drive · finance check",
-    },
+    { num: "01", title: "ENQUIRY", label: "Capture", meta: "Phone · Web · Walk-in" },
+    { num: "02", title: "DEDUPE", label: "Customer Match", meta: "Name · postcode · email" },
+    { num: "03", title: "LINK", label: "Vehicle Interest", meta: "Attach + assign salesperson" },
+    { num: "04", title: "BOOK", label: "Appointment", meta: "Viewing · test drive · finance" },
   ];
   return (
-    <div className="flex flex-wrap items-stretch gap-1 overflow-x-auto pb-1 sm:flex-nowrap">
+    <div className="flex flex-wrap items-stretch gap-2 overflow-x-auto pb-1 sm:flex-nowrap">
       {steps.map((s, i) => (
-        <div key={s.num} className="flex items-stretch gap-1">
-          <FlowStep
-            num={s.num}
-            label={s.label}
-            meta={s.meta}
-            variant="default"
-          />
+        <div key={s.num} className="flex items-stretch gap-2">
+          <FlowStep {...s} tone="default" />
           {i < steps.length - 1 && (
             <span className="flex items-center px-1 text-muted-foreground">→</span>
           )}
         </div>
       ))}
       <span className="flex items-center px-1 text-muted-foreground">→</span>
-      <div className="flex items-stretch gap-1">
+      <div className="flex items-stretch gap-2">
         <FlowStep
-          num="05a OUTCOME"
-          label="✓ Sale"
+          num="05a"
+          title="OUTCOME"
+          label="Sale"
           meta="Deposit → Invoice"
-          variant="ok"
+          tone="good"
         />
         <FlowStep
-          num="05b OUTCOME"
-          label="✗ Lost"
+          num="05b"
+          title="OUTCOME"
+          label="Lost"
           meta="9 reason categories"
-          variant="lost"
+          tone="bad"
         />
       </div>
     </div>
@@ -192,44 +171,48 @@ function WorkflowVisual() {
 
 function FlowStep({
   num,
+  title,
   label,
   meta,
-  variant,
+  tone,
 }: {
   num: string;
+  title: string;
   label: string;
   meta: string;
-  variant: "default" | "ok" | "lost";
+  tone: "default" | "good" | "bad";
 }) {
   return (
     <div
       className={cn(
-        "min-w-[130px] rounded-lg border p-3",
-        variant === "default" && "border-border bg-muted/30",
-        variant === "ok" && "border-emerald-200 bg-emerald-50",
-        variant === "lost" && "border-rose-200 bg-rose-50",
+        "min-w-[140px] rounded-md border p-3",
+        tone === "default" && "border-border bg-muted/30",
+        tone === "good" &&
+          "border-emerald-200 bg-emerald-50 dark:border-emerald-500/30 dark:bg-emerald-500/5",
+        tone === "bad" &&
+          "border-rose-200 bg-rose-50 dark:border-rose-500/30 dark:bg-rose-500/5",
       )}
     >
       <div
         className={cn(
-          "font-mono text-[10px] font-semibold tracking-wider",
-          variant === "default" && "text-muted-foreground",
-          variant === "ok" && "text-emerald-700",
-          variant === "lost" && "text-rose-700",
+          "text-[10px] font-semibold uppercase tracking-wider",
+          tone === "default" && "text-muted-foreground",
+          tone === "good" && "text-emerald-700 dark:text-emerald-300",
+          tone === "bad" && "text-rose-700 dark:text-rose-300",
         )}
       >
-        {num}
+        {num} {title}
       </div>
       <div
         className={cn(
-          "mt-0.5 text-[12.5px] font-semibold",
-          variant === "ok" && "text-emerald-700",
-          variant === "lost" && "text-rose-700",
+          "mt-1 text-sm font-semibold",
+          tone === "good" && "text-emerald-800 dark:text-emerald-200",
+          tone === "bad" && "text-rose-800 dark:text-rose-200",
         )}
       >
         {label}
       </div>
-      <div className="mt-0.5 text-[10.5px] leading-snug text-muted-foreground">
+      <div className="mt-0.5 text-xs leading-snug text-muted-foreground">
         {meta}
       </div>
     </div>
@@ -255,7 +238,7 @@ function EnquiriesTable({
 }) {
   if (enquiries === null || appts === null) {
     return (
-      <div className="px-5 py-5">
+      <div className="px-6 py-5">
         <Skeleton className="h-24 w-full" />
       </div>
     );
@@ -263,13 +246,13 @@ function EnquiriesTable({
 
   if (enquiries.length === 0 && appts.length === 0) {
     return (
-      <div className="px-5 py-10 text-center">
+      <div className="px-6 py-10 text-center">
         <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
         <div className="mt-3 text-base font-semibold">
           No enquiries on this vehicle yet
         </div>
-        <p className="mx-auto mt-1 max-w-[420px] text-[12.5px] leading-relaxed text-muted-foreground">
-          Click <strong className="text-violet-700">+ Add Enquiry</strong> —
+        <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
+          Click <strong className="text-foreground">+ Add Enquiry</strong> —
           we&apos;ll dedup against your existing customers first so repeat
           buyers stay attached to their record.
         </p>
@@ -282,91 +265,98 @@ function EnquiriesTable({
   }
 
   return (
-    <table className="w-full border-collapse text-[13px]">
-      <thead>
-        <tr className="border-b bg-muted/30 text-left">
-          <Th>Customer</Th>
-          <Th>Source</Th>
-          <Th>Type</Th>
-          <Th>Salesperson</Th>
-          <Th>Date</Th>
-          <Th>Status</Th>
-          <Th>Next Action</Th>
-        </tr>
-      </thead>
-      <tbody>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Customer</TableHead>
+          <TableHead>Source</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Salesperson</TableHead>
+          <TableHead>Date</TableHead>
+          <TableHead>Status</TableHead>
+          <TableHead>Next Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
         {enquiries.map((e) => {
           const cust = customerById.get(e.customerId);
           const sp = userById.get(e.salespersonId);
           return (
-            <tr key={e.id} className="border-b last:border-b-0 hover:bg-muted/20">
-              <Td className="font-medium">
+            <TableRow key={e.id}>
+              <TableCell className="font-medium">
                 {cust ? `${cust.firstName} ${cust.lastName}` : "—"}
                 {cust?.mobilePhone && (
-                  <span className="ml-2 text-[11.5px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {cust.mobilePhone}
-                  </span>
+                  </div>
                 )}
-              </Td>
-              <Td className="capitalize text-muted-foreground">
+              </TableCell>
+              <TableCell className="capitalize text-muted-foreground">
                 {e.source.replace(/_/g, " ")}
-              </Td>
-              <Td className="capitalize">{e.type.replace(/_/g, " ")}</Td>
-              <Td>{sp?.name ?? "—"}</Td>
-              <Td className="font-mono text-muted-foreground">
-                {formatRelative(e.createdAt)}
-              </Td>
-              <Td>
-                <Pill tone={STATUS_TONE[e.status]}>{STATUS_LABEL[e.status]}</Pill>
-              </Td>
-              <Td className="text-muted-foreground">
+              </TableCell>
+              <TableCell className="capitalize">
+                {e.type.replace(/_/g, " ")}
+              </TableCell>
+              <TableCell>{sp?.name ?? "—"}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {formatRelativeTime(e.createdAt)}
+              </TableCell>
+              <TableCell>
+                <Pill tone={STATUS_TONE[e.status]}>{e.status}</Pill>
+              </TableCell>
+              <TableCell className="text-muted-foreground">
                 {e.nextActionDueAt ? formatDate(e.nextActionDueAt) : "—"}
-              </Td>
-            </tr>
+              </TableCell>
+            </TableRow>
           );
         })}
         {appts.map((a) => (
-          <tr key={`appt-${a.id}`} className="border-b last:border-b-0 hover:bg-muted/20">
-            <Td className="font-medium">{a.customerName}</Td>
-            <Td className="text-muted-foreground">Appointment</Td>
-            <Td className="text-muted-foreground">Viewing</Td>
-            <Td className="text-muted-foreground">—</Td>
-            <Td className="font-mono text-muted-foreground">
+          <TableRow key={`appt-${a.id}`}>
+            <TableCell className="font-medium">{a.customerName}</TableCell>
+            <TableCell className="text-muted-foreground">Appointment</TableCell>
+            <TableCell>Viewing</TableCell>
+            <TableCell className="text-muted-foreground">—</TableCell>
+            <TableCell className="text-muted-foreground">
               {formatDate(a.date)} · {a.time}
-            </Td>
-            <Td>
+            </TableCell>
+            <TableCell>
               <Pill tone="info">{a.status}</Pill>
-            </Td>
-            <Td className="text-muted-foreground">—</Td>
-          </tr>
+            </TableCell>
+            <TableCell className="text-muted-foreground">—</TableCell>
+          </TableRow>
         ))}
-      </tbody>
-    </table>
+      </TableBody>
+    </Table>
   );
 }
 
 // ============================================================
-// Lost-reason insight callout (synthesised company-wide)
+// Lost-reason insight + breakdown + recommended actions
 // ============================================================
 
 function LostReasonInsight() {
   return (
-    <div className="mb-3.5 flex items-start gap-3.5 rounded-xl border border-violet-200 border-l-[3px] border-l-violet-500 bg-violet-50 px-5 py-4">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
-        <Zap className="h-3.5 w-3.5" />
-      </div>
-      <div>
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.1em] text-violet-700">
-          Top Finding This Period
+    <Card
+      size="sm"
+      className="gap-3 border-violet-200/70 bg-violet-50/70 ring-violet-300/20 dark:border-violet-500/20 dark:bg-violet-500/5"
+    >
+      <CardContent className="flex items-start gap-3">
+        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white">
+          <Zap className="h-4 w-4" />
         </div>
-        <div className="mt-1 text-[13px] leading-relaxed">
-          <strong>41% of lost enquiries</strong> (25 of 61) over the last 90
-          days were driven by <strong>Price</strong> or{" "}
-          <strong>Finance</strong> — both operational levers you control
-          directly.
+        <div>
+          <div className="text-xs font-semibold uppercase tracking-wide text-violet-700 dark:text-violet-300">
+            Top Finding This Period
+          </div>
+          <div className="mt-1 text-sm leading-relaxed">
+            <strong>41% of lost enquiries</strong> (25 of 61) over the last 90
+            days were driven by <strong>Price</strong> or{" "}
+            <strong>Finance</strong> — both operational levers you control
+            directly.
+          </div>
         </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -381,43 +371,43 @@ function LostReasonBreakdown() {
   ];
   const max = Math.max(...reasons.map((r) => r.pct));
   return (
-    <PanelCard
+    <Panel
       title="Lost-Reason Breakdown"
       subtitle="Across all vehicles · last 90 days · 61 lost enquiries total"
-      bodyClassName="p-0"
+      flush
     >
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 divide-y sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-3">
         {reasons.map((r, i) => (
           <div
             key={r.label}
             className={cn(
-              "border-b border-r p-5",
-              (i + 1) % 3 === 0 && "lg:border-r-0",
-              i >= reasons.length - 3 && "lg:border-b-0",
+              "p-5",
+              // restore vertical dividers between rows at md+
+              i >= 3 && "lg:border-t",
             )}
           >
-            <div className="text-[11px] font-medium tracking-wide text-muted-foreground">
+            <div className="text-xs font-medium text-muted-foreground">
               {r.label}
             </div>
-            <div className="mt-1 font-mono text-[22px] font-semibold tracking-tight">
+            <div className="mt-1 text-2xl font-semibold tabular-nums">
               {r.pct}%
             </div>
-            <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+            <div className="mt-0.5 text-xs tabular-nums text-muted-foreground">
               {r.count} of 61
             </div>
-            <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+            <p className="mt-2 text-xs leading-snug text-muted-foreground">
               {r.desc}
             </p>
             <div className="mt-3 h-1 overflow-hidden rounded-full bg-muted">
               <div
-                className="h-full rounded-full bg-violet-600"
+                className="h-full rounded-full bg-violet-500"
                 style={{ width: `${(r.pct / max) * 100}%` }}
               />
             </div>
           </div>
         ))}
       </div>
-    </PanelCard>
+    </Panel>
   );
 }
 
@@ -443,26 +433,23 @@ function RecommendedActions() {
     },
   ];
   return (
-    <PanelCard
+    <Panel
       title="Recommended Actions"
       subtitle="Data-driven next steps based on this period's losses"
-      bodyClassName="p-0"
+      flush
     >
-      <div>
+      <div className="divide-y">
         {actions.map((a, i) => (
           <div
             key={a.title}
-            className={cn(
-              "grid grid-cols-[30px_1fr_auto] items-start gap-3.5 px-5 py-4 transition-colors hover:bg-muted/20",
-              i < actions.length - 1 && "border-b",
-            )}
+            className="grid grid-cols-[28px_1fr_auto] items-start gap-3 px-6 py-4"
           >
-            <div className="flex h-6.5 w-6.5 items-center justify-center rounded-full bg-foreground font-mono text-[11px] font-semibold text-[#F5C518]">
-              {String(i + 1).padStart(2, "0")}
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background tabular-nums">
+              {i + 1}
             </div>
             <div>
-              <div className="text-[13px] font-semibold">{a.title}</div>
-              <p className="mt-0.5 text-[12px] leading-relaxed text-muted-foreground">
+              <div className="text-sm font-semibold">{a.title}</div>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
                 {a.text}
               </p>
             </div>
@@ -472,23 +459,6 @@ function RecommendedActions() {
           </div>
         ))}
       </div>
-    </PanelCard>
+    </Panel>
   );
-}
-
-function Th({ className, children }: { className?: string; children: React.ReactNode }) {
-  return (
-    <th
-      className={cn(
-        "px-4 py-2.5 text-[10.5px] font-semibold uppercase tracking-[0.1em] text-muted-foreground",
-        className,
-      )}
-    >
-      {children}
-    </th>
-  );
-}
-
-function Td({ className, children }: { className?: string; children: React.ReactNode }) {
-  return <td className={cn("px-4 py-3", className)}>{children}</td>;
 }

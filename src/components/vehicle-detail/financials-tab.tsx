@@ -3,12 +3,13 @@
 import { DollarSign } from "lucide-react";
 import type { Vehicle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { formatCurrency, formatDate } from "@/lib/formatters";
+import { Card, CardContent } from "@/components/ui/card";
+import { formatCurrency, formatDate } from "@/lib/utils";
 import {
   Field,
   FieldGrid,
   InfoCard,
-  PanelCard,
+  Panel,
   Pill,
   SectionDivider,
 } from "./primitives";
@@ -20,11 +21,11 @@ interface FinancialsTabProps {
 
 /**
  * Financials tab — the dealership's profit-and-loss surface for a single
- * vehicle. Lays out four sub-sections in the same order as the v5 demo:
+ * vehicle. Lays out four sub-sections:
  *   1. "Why this tab exists" info card
  *   2. Profit summary strip (purchase / retail / margin VAT / net)
  *   3. Purchase information card
- *   4. Dual ledger (expense vs additional revenue)
+ *   4. Dual ledger (expense vs additional revenue) — coloured headers, neutral bodies
  *   5. VAT margin scheme calculator
  */
 export function FinancialsTab({ vehicle }: FinancialsTabProps) {
@@ -34,9 +35,6 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
   const marginVat = gross * (0.2 / 1.2);
   const net = gross - marginVat;
 
-  // Build expense + revenue category rows from the vehicle's cost columns.
-  // Each entry is a real Vehicle field today; "additional profit" rows are
-  // placeholders until the v4.2 schema lands (markup, GAP, etc).
   const expenses: LedgerEntry[] = [
     { name: "Buying Price", amount: vehicle.buyingPrice },
     { name: "Buyer's Fee", amount: vehicle.buyersFee ?? 0 },
@@ -70,9 +68,9 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
   const revenueTotal = revenue.reduce((acc, r) => acc + r.amount, 0);
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-4">
       <InfoCard
-        icon={<DollarSign className="h-4.5 w-4.5" />}
+        icon={<DollarSign className="h-4 w-4" />}
         title="Every penny in, every penny out"
       >
         UK used-car dealers don&apos;t just earn the gap between buying and
@@ -86,39 +84,45 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
       </InfoCard>
 
       {/* Profit summary strip */}
-      <div className="mb-3.5 grid grid-cols-2 gap-x-6 gap-y-4 rounded-xl border bg-card p-5 shadow-sm sm:grid-cols-4 sm:divide-x">
-        <ProfitCell
-          label="Purchase Price"
-          value={purchase}
-          formula={vehicle.sellerName ? `From ${vehicle.sellerName}` : undefined}
-        />
-        <ProfitCell
-          label="Retail Price"
-          value={retail}
-          formula={retail ? "Web price" : "Not listed"}
-        />
-        <ProfitCell
-          label="Margin VAT"
-          value={marginVat}
-          formula="gross × 0.20 / 1.20"
-        />
-        <ProfitCell
-          label="Net Profit"
-          value={net}
-          formula="post-VAT"
-          profit
-        />
-      </div>
+      <Card size="sm">
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 sm:divide-x">
+            <ProfitCell
+              label="Purchase Price"
+              value={purchase}
+              hint={
+                vehicle.sellerName ? `From ${vehicle.sellerName}` : undefined
+              }
+            />
+            <ProfitCell
+              label="Retail Price"
+              value={retail}
+              hint={retail ? "Web price" : "Not listed"}
+            />
+            <ProfitCell
+              label="Margin VAT"
+              value={marginVat}
+              hint="gross × 0.20 / 1.20"
+            />
+            <ProfitCell
+              label="Net Profit"
+              value={net}
+              hint="post-VAT"
+              tone="good"
+            />
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Purchase information */}
-      <PanelCard
+      <Panel
         title="Purchase Information"
         subtitle={
           vehicle.invoiceDate
             ? `Invoice · ${formatDate(vehicle.invoiceDate)}`
             : "Invoice not recorded"
         }
-        trailing={
+        action={
           <Button variant="outline" size="sm">
             Print Invoice
           </Button>
@@ -132,10 +136,10 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
               {vehicle.sourceType.replace("_", " ")}
             </span>
           </Field>
-          <Field label="Buying Price" mono>
+          <Field label="Buying Price" numeric>
             {formatCurrency(vehicle.buyingPrice)}
           </Field>
-          <Field label="Total Buying" mono>
+          <Field label="Total Buying" numeric>
             {formatCurrency(vehicle.totalBuyingPrice)}
           </Field>
           <Field label="Stocking Provider">
@@ -144,34 +148,36 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
             </span>
           </Field>
         </FieldGrid>
-      </PanelCard>
+      </Panel>
 
-      {/* Profit & loss section */}
-      <SectionDivider label="Profit & Loss" />
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-2">
-        <LedgerCard
-          variant="expense"
-          title="Expenses"
-          subtitle="UK dealer cost taxonomy"
-          rows={expenses}
-          total={expenseTotal}
-        />
-        <LedgerCard
-          variant="revenue"
-          title="Additional Profit"
-          subtitle="Markups, commissions, fees"
-          rows={revenue}
-          total={revenueTotal}
-        />
+      {/* Profit & loss */}
+      <div>
+        <SectionDivider label="Profit & Loss" />
+        <div className="grid gap-4 lg:grid-cols-2">
+          <LedgerCard
+            variant="expense"
+            title="Expenses"
+            subtitle="UK dealer cost taxonomy"
+            rows={expenses}
+            total={expenseTotal}
+          />
+          <LedgerCard
+            variant="revenue"
+            title="Additional Profit"
+            subtitle="Markups, commissions, fees"
+            rows={revenue}
+            total={revenueTotal}
+          />
+        </div>
       </div>
 
       {/* VAT margin scheme */}
-      <PanelCard
+      <Panel
         title="VAT Margin Scheme"
         subtitle="Under HMRC margin scheme, VAT applies only to gross profit"
-        trailing={<Pill tone="info">Margin Scheme</Pill>}
+        action={<Pill tone="info">Margin Scheme</Pill>}
       >
-        <FieldGrid cols={4} className="gap-x-8 gap-y-3">
+        <FieldGrid cols={4}>
           <VatStat
             label="Gross Profit"
             value={gross}
@@ -196,7 +202,7 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
             tone="good"
           />
         </FieldGrid>
-      </PanelCard>
+      </Panel>
     </div>
   );
 }
@@ -206,46 +212,36 @@ interface LedgerEntry {
   amount: number;
 }
 
-// ============================================================
-// Profit summary cell
-// ============================================================
-
 function ProfitCell({
   label,
   value,
-  formula,
-  profit,
+  hint,
+  tone,
 }: {
   label: string;
   value: number;
-  formula?: string;
-  profit?: boolean;
+  hint?: string;
+  tone?: "good";
 }) {
   return (
-    <div className="px-2 sm:px-6 sm:first:pl-2 sm:last:pr-2">
-      <div className="text-[11px] font-medium tracking-wide text-muted-foreground">
+    <div className="px-2 sm:px-4 sm:first:pl-0 sm:last:pr-0">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div
         className={cn(
-          "mt-1 font-mono text-[24px] font-semibold leading-tight tracking-tight",
-          profit ? "text-emerald-600" : "text-foreground",
+          "mt-1 text-2xl font-semibold tabular-nums",
+          tone === "good" && "text-emerald-700 dark:text-emerald-400",
         )}
       >
         {value > 0 ? formatCurrency(Math.round(value)) : "—"}
       </div>
-      {formula && (
-        <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
-          {formula}
-        </div>
+      {hint && (
+        <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
       )}
     </div>
   );
 }
-
-// ============================================================
-// Ledger card
-// ============================================================
 
 function LedgerCard({
   variant,
@@ -262,88 +258,63 @@ function LedgerCard({
 }) {
   const visibleRows = rows.slice(0, 12);
   const overflow = rows.length - visibleRows.length;
+  const tone: React.ComponentProps<typeof Pill>["tone"] =
+    variant === "expense" ? "bad" : "good";
   return (
-    <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-      <div
-        className={cn(
-          "flex items-start justify-between gap-4 border-b px-5 py-4",
-          variant === "expense" && "border-rose-200 bg-rose-50/60",
-          variant === "revenue" && "border-emerald-200 bg-emerald-50/60",
-        )}
-      >
-        <div>
-          <div
-            className={cn(
-              "text-[14.5px] font-semibold tracking-tight",
-              variant === "expense" && "text-rose-700",
-              variant === "revenue" && "text-emerald-700",
-            )}
-          >
-            {title}
-          </div>
-          <div className="mt-0.5 text-[12px] text-muted-foreground">
-            {subtitle}
-          </div>
-        </div>
-        <Pill tone={variant === "expense" ? "bad" : "good"}>
-          {formatCurrency(total)}
-        </Pill>
-      </div>
-      <div>
-        {visibleRows.map((r, i) => (
-          <LedgerRow key={r.name} entry={r} last={i === visibleRows.length - 1 && overflow === 0} />
+    <Panel
+      title={title}
+      subtitle={subtitle}
+      action={<Pill tone={tone}>{formatCurrency(total)}</Pill>}
+      flush
+    >
+      <div className="divide-y">
+        {visibleRows.map((r) => (
+          <LedgerRow key={r.name} entry={r} />
         ))}
         {overflow > 0 && (
-          <div className="px-5 py-3 text-center text-[12px] italic text-muted-foreground">
+          <div className="px-6 py-3 text-center text-xs italic text-muted-foreground">
             + {overflow} more categories
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between bg-foreground px-5 py-3.5 text-background">
-        <span className="text-[11px] font-medium tracking-wider text-[#F5C518]/70">
-          {variant === "expense" ? "TOTAL EXPENSES" : "TOTAL ADDITIONAL"}
+      <div className="flex items-center justify-between border-t bg-muted/40 px-6 py-3">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {variant === "expense" ? "Total expenses" : "Total additional"}
         </span>
-        <span className="font-mono text-base font-semibold text-[#F5C518]">
+        <span className="text-base font-semibold tabular-nums">
           {formatCurrency(total)}
         </span>
       </div>
-    </div>
+    </Panel>
   );
 }
 
-function LedgerRow({ entry, last }: { entry: LedgerEntry; last: boolean }) {
+function LedgerRow({ entry }: { entry: LedgerEntry }) {
   const has = entry.amount > 0;
   return (
-    <div
-      className={cn(
-        "grid grid-cols-[8px_1fr_auto] items-center gap-3 px-5 py-2.5 text-[13px] transition-colors hover:bg-muted/30",
-        !last && "border-b",
-      )}
-    >
+    <div className="flex items-center justify-between gap-3 px-6 py-2.5 text-sm">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={cn(
+            "h-1.5 w-1.5 rounded-full",
+            has ? "bg-foreground" : "bg-muted-foreground/40",
+          )}
+        />
+        <span className={cn(has ? "font-medium" : "text-muted-foreground")}>
+          {entry.name}
+        </span>
+      </div>
       <span
         className={cn(
-          "ml-1.5 h-1.5 w-1.5 rounded-full",
-          has ? "bg-foreground" : "bg-border",
-        )}
-      />
-      <span className={cn(has ? "font-medium text-foreground" : "text-muted-foreground")}>
-        {entry.name}
-      </span>
-      <span
-        className={cn(
-          "font-mono font-medium",
-          has ? "text-foreground" : "text-muted-foreground",
+          "tabular-nums",
+          has ? "font-medium" : "text-muted-foreground",
         )}
       >
-        {formatCurrency(entry.amount, { showZero: true })}
+        {formatCurrency(entry.amount)}
       </span>
     </div>
   );
 }
-
-// ============================================================
-// VAT stat cell
-// ============================================================
 
 function VatStat({
   label,
@@ -358,21 +329,19 @@ function VatStat({
 }) {
   return (
     <div>
-      <div className="text-[10.5px] font-medium uppercase tracking-[0.1em] text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div
         className={cn(
-          "mt-1 font-mono text-[18px] font-bold",
-          tone === "good" ? "text-emerald-600" : "text-foreground",
+          "mt-1 text-lg font-semibold tabular-nums",
+          tone === "good" && "text-emerald-700 dark:text-emerald-400",
         )}
       >
         {value > 0 ? formatCurrency(value) : "—"}
       </div>
       {formula && (
-        <div className="mt-1 font-mono text-[10.5px] text-muted-foreground">
-          {formula}
-        </div>
+        <div className="mt-1 text-xs text-muted-foreground">{formula}</div>
       )}
     </div>
   );

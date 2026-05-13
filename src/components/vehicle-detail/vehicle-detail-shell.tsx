@@ -2,9 +2,14 @@
 
 import { useEffect, useState } from "react";
 import type { Vehicle } from "@/lib/types";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { todoService } from "@/lib/services/todo-service";
 import { enquiryService } from "@/lib/services/enquiry-service";
-import { PillTabs, type PillTab } from "./pill-tabs";
 import { OverviewTab } from "./overview-tab";
 import { FinancialsTab } from "./financials-tab";
 import { TodoTab } from "./todo-tab";
@@ -14,68 +19,90 @@ import { ListingTab } from "./listing-tab";
 import { AppointmentsTab } from "./appointments-tab";
 import { ActivityTab } from "./activity-tab";
 
-type TabValue =
-  | "overview"
-  | "financials"
-  | "todo"
-  | "inspection"
-  | "photos"
-  | "listing"
-  | "appointments"
-  | "activity";
-
 interface VehicleDetailShellProps {
   vehicle: Vehicle;
   onOpenInspection?: () => void;
 }
 
 /**
- * v5 vehicle-detail shell — pill tabs + per-tab panel, lazy-rendered.
- * Counts in the tab labels (Things to Do, Photos, Appointments) are
- * fetched once on mount so the user can see workload at a glance.
+ * v5 vehicle-detail shell — shadcn Tabs (pill style, identical to
+ * Admin Invoicing + Sales Appointments) with per-tab panel components.
+ * Counts on Things to Do / Photos / Appointments are fetched once on
+ * mount so the user sees workload at a glance.
  */
 export function VehicleDetailShell({
   vehicle,
   onOpenInspection,
 }: VehicleDetailShellProps) {
-  const [active, setActive] = useState<TabValue>("overview");
   const [todoCount, setTodoCount] = useState<number | null>(null);
   const [enquiryCount, setEnquiryCount] = useState<number | null>(null);
 
   useEffect(() => {
     void todoService
       .getForVehicle(vehicle.id)
-      .then((rows) => setTodoCount(rows.filter((r) => r.status !== "completed").length));
+      .then((rows) =>
+        setTodoCount(rows.filter((r) => r.status !== "completed").length),
+      );
     void enquiryService
       .getForVehicle(vehicle.id)
       .then((rows) => setEnquiryCount(rows.length));
   }, [vehicle.id]);
 
-  const tabs: PillTab<TabValue>[] = [
-    { value: "overview", label: "Overview" },
-    { value: "financials", label: "Financials" },
-    { value: "todo", label: "Things to Do", count: todoCount },
-    { value: "inspection", label: "Inspection" },
-    { value: "photos", label: "Photos", count: vehicle.imagesCount },
-    { value: "listing", label: "Listing" },
-    { value: "appointments", label: "Appointments", count: enquiryCount },
-    { value: "activity", label: "Activity" },
-  ];
-
   return (
-    <div>
-      <PillTabs tabs={tabs} active={active} onChange={setActive} />
+    <Tabs defaultValue="overview" className="gap-4">
+      <TabsList className="w-full max-w-full overflow-x-auto justify-start sm:w-fit">
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="financials">Financials</TabsTrigger>
+        <TabsTrigger value="todo">
+          Things to Do
+          <CountBadge value={todoCount} />
+        </TabsTrigger>
+        <TabsTrigger value="inspection">Inspection</TabsTrigger>
+        <TabsTrigger value="photos">
+          Photos
+          <CountBadge value={vehicle.imagesCount} />
+        </TabsTrigger>
+        <TabsTrigger value="listing">Listing</TabsTrigger>
+        <TabsTrigger value="appointments">
+          Appointments
+          <CountBadge value={enquiryCount} />
+        </TabsTrigger>
+        <TabsTrigger value="activity">Activity</TabsTrigger>
+      </TabsList>
 
-      {active === "overview" && <OverviewTab vehicle={vehicle} />}
-      {active === "financials" && <FinancialsTab vehicle={vehicle} />}
-      {active === "todo" && <TodoTab vehicleId={vehicle.id} />}
-      {active === "inspection" && (
+      <TabsContent value="overview">
+        <OverviewTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="financials">
+        <FinancialsTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="todo">
+        <TodoTab vehicleId={vehicle.id} />
+      </TabsContent>
+      <TabsContent value="inspection">
         <InspectionTab vehicle={vehicle} onOpenInspection={onOpenInspection} />
-      )}
-      {active === "photos" && <PhotosTab vehicle={vehicle} />}
-      {active === "listing" && <ListingTab vehicle={vehicle} />}
-      {active === "appointments" && <AppointmentsTab vehicle={vehicle} />}
-      {active === "activity" && <ActivityTab vehicleId={vehicle.id} />}
-    </div>
+      </TabsContent>
+      <TabsContent value="photos">
+        <PhotosTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="listing">
+        <ListingTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="appointments">
+        <AppointmentsTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="activity">
+        <ActivityTab vehicleId={vehicle.id} />
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+function CountBadge({ value }: { value: number | null }) {
+  if (value == null || value <= 0) return null;
+  return (
+    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10.5px] font-medium tabular-nums text-muted-foreground">
+      {value}
+    </span>
   );
 }
