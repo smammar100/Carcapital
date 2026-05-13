@@ -27,7 +27,6 @@ type FormValues = z.infer<typeof schema>;
 
 export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false);
-  const supabase = createClient();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -35,6 +34,7 @@ export default function ForgotPasswordPage() {
   });
 
   async function onSubmit(values: FormValues) {
+    const supabase = createClient();
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const { error } = await supabase.auth.resetPasswordForEmail(values.email, {
       redirectTo: `${origin}/reset-password`,

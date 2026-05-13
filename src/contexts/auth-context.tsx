@@ -62,46 +62,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabase = createClient();
 
   /**
    * Resolve the public.users + companies rows for an auth session.
    * Sets user + company state; null on failure.
+   * Note: callers re-create the client locally so we never touch
+   * `createClient()` during SSR/prerender.
    */
-  const hydrate = useCallback(
-    async (authUserId: string | null) => {
-      if (!authUserId) {
-        setUser(null);
-        setCompany(null);
-        return;
-      }
-      const { data, error } = await supabase
-        .from("users")
-        .select(USER_WITH_COMPANY_SELECT)
-        .eq("id", authUserId)
-        .single();
+  const hydrate = useCallback(async (authUserId: string | null) => {
+    if (!authUserId) {
+      setUser(null);
+      setCompany(null);
+      return;
+    }
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("users")
+      .select(USER_WITH_COMPANY_SELECT)
+      .eq("id", authUserId)
+      .single();
 
-      if (error || !data) {
-        // Auth session exists but no public.users row — shouldn't happen in a
-        // seeded database. Sign out to clear the orphan session.
-        await supabase.auth.signOut();
-        setUser(null);
-        setCompany(null);
-        return;
-      }
+    if (error || !data) {
+      // Auth session exists but no public.users row — shouldn't happen in a
+      // seeded database. Sign out to clear the orphan session.
+      await supabase.auth.signOut();
+      setUser(null);
+      setCompany(null);
+      return;
+    }
 
-      const { company: companyRow, ...userRow } = data as unknown as User & {
-        company: Company;
-      };
-      setUser(userRow);
-      setCompany(companyRow);
-    },
-    [supabase],
-  );
+    const { company: companyRow, ...userRow } = data as unknown as User & {
+      company: Company;
+    };
+    setUser(userRow);
+    setCompany(companyRow);
+  }, []);
 
-  // Bootstrap from current session + subscribe to changes.
+  // Bootstrap from current session + subscribe to changes. The client is
+  // instantiated inside the effect so SSR/prerender never reads env vars.
   useEffect(() => {
     let mounted = true;
+    const supabase = createClient();
 
     void (async () => {
       const {
@@ -123,9 +124,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrate, supabase]);
+  }, [hydrate]);
 
   async function signIn(email: string, password: string): Promise<void> {
+    const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
@@ -135,6 +137,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function signOut(): Promise<void> {
+    const supabase = createClient();
     await supabase.auth.signOut();
     setUser(null);
     setCompany(null);

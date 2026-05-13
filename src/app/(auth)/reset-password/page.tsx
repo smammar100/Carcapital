@@ -35,7 +35,6 @@ type FormValues = z.infer<typeof schema>;
 
 export default function ResetPasswordPage() {
   const router = useRouter();
-  const supabase = createClient();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -43,6 +42,7 @@ export default function ResetPasswordPage() {
   });
 
   async function onSubmit(values: FormValues) {
+    const supabase = createClient();
     const { error } = await supabase.auth.updateUser({
       password: values.password,
     });
