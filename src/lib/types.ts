@@ -467,10 +467,18 @@ export interface SalesDeal {
 // WARRANTIES & CLAIMS
 // ============================================================
 
-export type WarrantyType = "in_house" | "third_party";
+export type WarrantyType = "in_house" | "external";
 // v4.1: "claimed" removed — derived from claims with status in (open, under_review).
 // See /warranties/claims for the live filter.
 export type WarrantyStatus = "active" | "expired" | "cancelled";
+
+/**
+ * Gap 4 — external warranties have a purchase lifecycle independent of the
+ * warranty itself. In-house warranties (`type === 'in_house'`) always carry
+ * `n_a`; external warranties default to `pending` and flip to `purchased`
+ * once the dealership has bought the cover from the provider.
+ */
+export type WarrantyPurchaseStatus = "n_a" | "pending" | "purchased";
 
 export interface Warranty {
   id: UUID;
@@ -488,6 +496,13 @@ export interface Warranty {
   costToDealership: number;
   costToCustomer: number;
   status: WarrantyStatus;
+  /** Gap 4 — purchase tracker. `n_a` for in-house, `pending`/`purchased` for external. */
+  purchaseStatus: WarrantyPurchaseStatus;
+  /** Set when the dealership marks the external warranty as bought from the provider. */
+  purchasedAt: ISODateTime | null;
+  purchasedBy: UUID | null;
+  /** Provider's policy / reference number once the purchase is logged. */
+  providerReference: string | null;
   certificateGenerated: boolean;
   createdAt: ISODateTime;
 }

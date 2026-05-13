@@ -45,6 +45,11 @@ export const claimService = {
     });
   },
 
+  /** Alias to match the brief's naming. */
+  async getByWarrantyId(warrantyId: UUID): Promise<WarrantyClaim[]> {
+    return claimService.getForWarranty(warrantyId);
+  },
+
   async getForWarranty(warrantyId: UUID): Promise<WarrantyClaim[]> {
     return withCache(`${NS}warranty:${warrantyId}`, async () => {
       const supabase = createClient();
@@ -54,6 +59,35 @@ export const claimService = {
         .eq("warranty_id", warrantyId);
       if (error) throw error;
       return (data ?? []) as unknown as WarrantyClaim[];
+    });
+  },
+
+  /** Open claims (status in 'open' or 'under_review') for the Claims badge. */
+  async getOpenCount(companyId: UUID): Promise<number> {
+    return withCache(`${NS}open-count:${companyId}`, async () => {
+      const supabase = createClient();
+      const { count, error } = await supabase
+        .from("warranty_claims")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .in("status", ["open", "under_review"]);
+      if (error) throw error;
+      return count ?? 0;
+    });
+  },
+
+  /** Claims flagged as customer complaints, still open. */
+  async getComplaintCount(companyId: UUID): Promise<number> {
+    return withCache(`${NS}complaint-count:${companyId}`, async () => {
+      const supabase = createClient();
+      const { count, error } = await supabase
+        .from("warranty_claims")
+        .select("id", { count: "exact", head: true })
+        .eq("company_id", companyId)
+        .eq("is_complaint", true)
+        .in("status", ["open", "under_review"]);
+      if (error) throw error;
+      return count ?? 0;
     });
   },
 

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, ShieldAlert } from "lucide-react";
+import { ExternalLink, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
-import { claimService } from "@/lib/services/claim-service";
-import { vehicleService } from "@/lib/services/vehicle-service";
 import { warrantyService } from "@/lib/services/warranty-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import { claimService } from "@/lib/services/claim-service";
 import type { Vehicle, Warranty, WarrantyClaim } from "@/lib/types";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { Button } from "@/components/ui/button";
@@ -16,37 +16,32 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { KpiStrip } from "@/components/warranties/kpi-strip";
 import { FilterChips, type FilterOption } from "@/components/warranties/filter-chips";
-import { ClaimsTable } from "@/components/warranties/warranty-table";
+import {
+  WarrantyTable,
+  type WarrantyRow,
+} from "@/components/warranties/warranty-table";
+import { PendingPurchaseBanner } from "@/components/warranties/pending-purchase-banner";
 
-type Filter =
-  | "open"
-  | "complaints"
-  | "all"
-  | "under_review"
-  | "approved"
-  | "resolved"
-  | "rejected";
+type Filter = "all" | "pending" | "purchased" | "active" | "expired" | "cancelled";
 
 const FILTERS: { value: Filter; label: string }[] = [
-  { value: "open", label: "Open" },
-  { value: "complaints", label: "Complaints" },
-  { value: "under_review", label: "Under review" },
-  { value: "approved", label: "Approved" },
-  { value: "resolved", label: "Resolved" },
-  { value: "rejected", label: "Rejected" },
   { value: "all", label: "All" },
+  { value: "pending", label: "Pending purchase" },
+  { value: "purchased", label: "Purchased" },
+  { value: "active", label: "Active" },
+  { value: "expired", label: "Expired" },
 ];
 
-export default function ClaimsPage() {
+export default function ExternalWarrantiesPage() {
   const { company } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialFilter = (searchParams.get("filter") as Filter | null) ?? "open";
+  const initialFilter = (searchParams.get("filter") as Filter | null) ?? "all";
   const initialQuery = searchParams.get("q") ?? "";
 
-  const [claims, setClaims] = useState<WarrantyClaim[] | null>(null);
+  const [warranties, setWarranties] = useState<Warranty[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [warranties, setWarranties] = useState<Warranty[]>([]);
+  const [claims, setClaims] = useState<WarrantyClaim[]>([]);
   const [filter, setFilter] = useState<Filter>(initialFilter);
   const [query, setQuery] = useState(initialQuery);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -55,14 +50,14 @@ export default function ClaimsPage() {
     if (!company) return;
     let cancel = false;
     void Promise.all([
-      claimService.getAll(company.id),
+      warrantyService.getByType("external", company.id),
       vehicleService.getAll(company.id),
-      warrantyService.getAll(company.id),
-    ]).then(([c, v, w]) => {
+      claimService.getAll(company.id),
+    ]).then(([w, v, c]) => {
       if (cancel) return;
-      setClaims(c);
-      setVehicles(v);
       setWarranties(w);
+      setVehicles(v);
+      setClaims(c);
     });
     return () => {
       cancel = true;
@@ -70,15 +65,15 @@ export default function ClaimsPage() {
   }, [company, refreshKey]);
 
   useRealtimeTable({
-    table: "warranty_claims",
+    table: "warranties",
     companyId: company?.id,
-    invalidatePrefix: "claims:",
+    invalidatePrefix: "warranties:",
     onChange: () => setRefreshKey((k) => k + 1),
   });
 
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
-    if (filter === "open") next.delete("filter");
+    if (filter === "all") next.delete("filter");
     else next.set("filter", filter);
     if (!query) next.delete("q");
     else next.set("q", query);
@@ -87,70 +82,75 @@ export default function ClaimsPage() {
   }, [filter, query]);
 
   const filterOptions: FilterOption<Filter>[] = useMemo(() => {
-    if (!claims) return FILTERS;
+    if (!warranties) return FILTERS;
     return FILTERS.map((f) => ({
       ...f,
       count:
         f.value === "all"
-          ? claims.length
-          : f.value === "open"
-            ? claims.filter(
-                (c) => c.status === "open" || c.status === "under_review",
-              ).length
-            : f.value === "complaints"
-              ? claims.filter((c) => c.isComplaint).length
-              : claims.filter((c) => c.status === f.value).length,
+          ? warranties.length
+          : f.value === "pending" || f.value === "purchased"
+            ? warranties.filter((w) => w.purchaseStatus === f.value).length
+            : warranties.filter((w) => w.status === f.value).length,
     }));
-  }, [claims]);
+  }, [warranties]);
 
-  const rows = useMemo(() => {
-    if (!claims) return null;
+  const rows: WarrantyRow[] | null = useMemo(() => {
+    if (!warranties) return null;
     const q = query.trim().toLowerCase();
-    return claims
-      .filter((c) => {
+    return warranties
+      .filter((w) => {
         if (filter === "all") return true;
-        if (filter === "open")
-          return c.status === "open" || c.status === "under_review";
-        if (filter === "complaints") return c.isComplaint;
-        return c.status === filter;
+        if (filter === "pending" || filter === "purchased")
+          return w.purchaseStatus === filter;
+        return w.status === filter;
       })
-      .filter((c) => {
+      .filter((w) => {
         if (!q) return true;
-        const v = vehicles.find((x) => x.id === c.vehicleId);
-        const hay = `${c.customerName} ${v?.registration ?? ""} ${c.issueDescription} ${c.id}`.toLowerCase();
+        const v = vehicles.find((x) => x.id === w.vehicleId);
+        const hay = `${w.customerName} ${v?.registration ?? ""} ${w.provider ?? ""} ${w.providerReference ?? ""}`.toLowerCase();
         return hay.includes(q);
       })
-      .map((c) => ({
-        ...c,
-        vehicle: vehicles.find((x) => x.id === c.vehicleId) ?? null,
-        warranty: warranties.find((w) => w.id === c.warrantyId) ?? null,
+      .map((w) => ({
+        ...w,
+        vehicle: vehicles.find((x) => x.id === w.vehicleId) ?? null,
+        claimCount: claims.filter((c) => c.warrantyId === w.id).length,
       }));
-  }, [claims, vehicles, warranties, filter, query]);
+  }, [warranties, vehicles, claims, filter, query]);
 
   return (
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Claims</h1>
+          <h1 className="text-xl font-semibold tracking-tight">
+            External Warranties
+          </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Customer claims against active warranties. Track status and
-            resolution.
+            Third-party warranties sold with vehicles. Track which need
+            purchasing from providers.
           </p>
         </div>
         <Button
           type="button"
           onClick={() =>
-            toast.info("File Claim dialog", {
+            toast.info("New Warranty dialog", {
               description: "Wired up in the next warranty pass.",
             })
           }
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          File claim
+          New warranty
         </Button>
       </header>
 
       <KpiStrip refreshKey={refreshKey} />
+
+      {warranties && (
+        <PendingPurchaseBanner
+          warranties={warranties}
+          onViewPendingOnly={() => setFilter("pending")}
+          alreadyFiltered={filter === "pending"}
+        />
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <FilterChips
@@ -163,7 +163,7 @@ export default function ClaimsPage() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search customer, vehicle, issue…"
+            placeholder="Search customer, vehicle, provider…"
             className="h-9 w-72 pl-8"
           />
         </div>
@@ -173,16 +173,16 @@ export default function ClaimsPage() {
         <Skeleton className="h-72" />
       ) : rows.length === 0 ? (
         <EmptyState
-          icon={ShieldAlert}
-          title="No claims match"
+          icon={ExternalLink}
+          title="No external warranties"
           description={
             query
               ? "Try a different search term or clear the filter."
-              : "Customer claims will appear here when filed against a warranty."
+              : "Third-party warranties show up here once they're sold with a vehicle."
           }
         />
       ) : (
-        <ClaimsTable rows={rows} />
+        <WarrantyTable rows={rows} variant="external" />
       )}
     </div>
   );

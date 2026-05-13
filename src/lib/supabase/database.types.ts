@@ -496,6 +496,7 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id: string
+          lost_reason: string | null
           notes: string | null
           source: string
           status: string
@@ -512,6 +513,7 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id?: string
+          lost_reason?: string | null
           notes?: string | null
           source: string
           status: string
@@ -528,6 +530,7 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           id?: string
+          lost_reason?: string | null
           notes?: string | null
           source?: string
           status?: string
@@ -1483,6 +1486,10 @@ export type Database = {
           end_date: string
           id: string
           provider: string | null
+          provider_reference: string | null
+          purchase_status: string | null
+          purchased_at: string | null
+          purchased_by: string | null
           sale_deal_id: string | null
           start_date: string
           status: string
@@ -1503,6 +1510,10 @@ export type Database = {
           end_date: string
           id?: string
           provider?: string | null
+          provider_reference?: string | null
+          purchase_status?: string | null
+          purchased_at?: string | null
+          purchased_by?: string | null
           sale_deal_id?: string | null
           start_date: string
           status: string
@@ -1523,6 +1534,10 @@ export type Database = {
           end_date?: string
           id?: string
           provider?: string | null
+          provider_reference?: string | null
+          purchase_status?: string | null
+          purchased_at?: string | null
+          purchased_by?: string | null
           sale_deal_id?: string | null
           start_date?: string
           status?: string
@@ -1536,6 +1551,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranties_purchased_by_fkey"
+            columns: ["purchased_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
           {

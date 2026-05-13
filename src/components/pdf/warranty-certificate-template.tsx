@@ -81,7 +81,7 @@ export function WarrantyCertificateTemplate({
           <View style={s.rule} />
           <Text style={s.body}>
             This certificate confirms that the vehicle described below is covered by
-            the {warranty.type === "third_party" ? "third-party" : "in-house"}{" "}
+            the {warranty.type === "external" ? "third-party" : "in-house"}{" "}
             warranty issued by {companyName}.
           </Text>
           <View style={s.section}>
@@ -108,7 +108,7 @@ export function WarrantyCertificateTemplate({
             <View style={s.row}>
               <Text style={s.label}>Provider:</Text>
               <Text style={s.value}>
-                {warranty.type === "third_party"
+                {warranty.type === "external"
                   ? warranty.provider ?? "Third party"
                   : "In-house"}
               </Text>
