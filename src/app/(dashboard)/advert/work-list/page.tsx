@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Megaphone, Plus, Search as SearchIcon } from "lucide-react";
+import { Megaphone, Plus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -14,7 +14,6 @@ import type {
   ListingStatus,
   Vehicle,
 } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,7 +41,9 @@ import {
   ChannelsCell,
   DataGridHeaderRow,
   DataGridRow,
+  DataGridSearchBar,
   DataGridShell,
+  DataGridSkeletonRows,
   DataGridTable,
   VehicleCell,
 } from "@/components/data-grid";
@@ -405,15 +406,12 @@ export default function ListingsPage() {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-sm">
-        <div className="relative w-full max-w-xs">
-          <SearchIcon className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search title, reg, stock…"
-            className="pl-8"
-          />
-        </div>
+        <DataGridSearchBar
+          value={search}
+          onChange={setSearch}
+          placeholder="Search title, reg, stock…"
+          className="w-full max-w-xs"
+        />
         <Select
           value={statusFilter}
           onValueChange={(v) => setStatusFilter(v as ListingStatus | "all")}
@@ -449,7 +447,15 @@ export default function ListingsPage() {
       </div>
 
       {!filtered ? (
-        <Skeleton className="h-72" />
+        // Row-aware skeleton matching the table's column structure.
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              <DataGridSkeletonRows columns={cols} rows={6} />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Megaphone}

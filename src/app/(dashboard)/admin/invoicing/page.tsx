@@ -54,6 +54,7 @@ import {
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
+  DataGridSkeletonRows,
   DataGridTable,
 } from "@/components/data-grid";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -377,7 +378,16 @@ export default function InvoicingPage() {
       </Tabs>
 
       {!filtered ? (
-        <Skeleton className="h-72" />
+        // Row-aware skeleton — matches the table's column structure
+        // so the layout doesn't shift when invoices load in.
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              <DataGridSkeletonRows columns={cols} rows={6} />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Receipt}

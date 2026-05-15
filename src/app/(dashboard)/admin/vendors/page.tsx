@@ -12,7 +12,6 @@ import type {
   Vendor,
   VendorSpeciality,
 } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +39,7 @@ import {
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
+  DataGridSkeletonRows,
   DataGridTable,
 } from "@/components/data-grid";
 import { toast } from "sonner";
@@ -265,7 +265,15 @@ export default function VendorsPage() {
       </div>
 
       {!rows ? (
-        <Skeleton className="h-72" />
+        // Row-aware skeleton that matches the table's column structure.
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              <DataGridSkeletonRows columns={cols} rows={5} />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Store}

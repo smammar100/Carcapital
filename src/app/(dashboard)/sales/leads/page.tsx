@@ -17,7 +17,6 @@ import type {
   User,
   Vehicle,
 } from "@/lib/types";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -46,6 +45,7 @@ import {
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
+  DataGridSkeletonRows,
   DataGridTable,
   UserCell,
 } from "@/components/data-grid";
@@ -399,7 +399,15 @@ export default function LeadsPage() {
       </div>
 
       {!filtered ? (
-        <Skeleton className="h-72" />
+        // Row-aware skeleton matching the table's column structure.
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              <DataGridSkeletonRows columns={cols} rows={6} />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={UserPlus}

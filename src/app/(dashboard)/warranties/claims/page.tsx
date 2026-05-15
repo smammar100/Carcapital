@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Search, ShieldAlert } from "lucide-react";
+import { Plus, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { claimService } from "@/lib/services/claim-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -10,9 +10,9 @@ import { warrantyService } from "@/lib/services/warranty-service";
 import type { Vehicle, Warranty, WarrantyClaim } from "@/lib/types";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
+import { DataGridSearchBar } from "@/components/data-grid";
 import { KpiStrip } from "@/components/warranties/kpi-strip";
 import { FilterChips, type FilterOption } from "@/components/warranties/filter-chips";
 import { ClaimsTable } from "@/components/warranties/warranty-table";
@@ -155,15 +155,12 @@ export default function ClaimsPage() {
           activeValue={filter}
           onChange={setFilter}
         />
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search customer, vehicle, issue…"
-            className="h-9 w-72 pl-8"
-          />
-        </div>
+        <DataGridSearchBar
+          value={query}
+          onChange={setQuery}
+          placeholder="Search customer, vehicle, issue…"
+          className="w-72"
+        />
       </div>
 
       {!rows ? (

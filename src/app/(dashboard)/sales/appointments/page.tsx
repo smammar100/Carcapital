@@ -16,7 +16,6 @@ import type {
   Vehicle,
 } from "@/lib/types";
 import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,6 +49,7 @@ import {
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
+  DataGridSkeletonRows,
   DataGridTable,
   VehicleCell,
 } from "@/components/data-grid";
@@ -392,7 +392,15 @@ export default function AppointmentsPage() {
       </div>
 
       {!appts ? (
-        <Skeleton className="h-72" />
+        // Row-aware skeleton — same shape as the list tab's table.
+        <DataGridShell>
+          <DataGridTable cols={cols}>
+            <DataGridHeaderRow cols={cols} />
+            <tbody>
+              <DataGridSkeletonRows columns={cols} rows={6} />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : appts.length === 0 ? (
         <EmptyState
           icon={CalendarCheck}

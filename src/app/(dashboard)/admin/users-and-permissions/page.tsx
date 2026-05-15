@@ -24,6 +24,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { InviteTeamMembersDialog } from "@/components/admin/invite-team-members-dialog";
 import { EditRolesDialog } from "@/components/admin/edit-roles-dialog";
 import { RemoveMemberDialog } from "@/components/admin/remove-member-dialog";
+import { DataGridSearchBar } from "@/components/data-grid";
 import { cn, formatDateTime, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -99,16 +100,12 @@ export default function TeamAndSecurityPage() {
 
       {/* Toolbar */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="relative w-full max-w-xs">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                placeholder="Filter by name or email…"
-                className="pl-8"
-                data-testid="team-filter"
-              />
-            </div>
+            <DataGridSearchBar
+              value={filter}
+              onChange={setFilter}
+              placeholder="Filter by name or email…"
+              className="w-full max-w-xs"
+            />
             <div className="flex items-center gap-2">
               <Button
                 size="sm"
