@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -56,9 +57,14 @@ export default function DashboardLayout({
   // Belt-and-suspenders: once loading resolves with no user, send them to
   // /login client-side too. This covers the case where middleware is bypassed
   // (Turbopack dev quirks) so the user doesn't see a perpetual skeleton.
-  if (!loading && !user) {
-    router.replace("/login");
-  }
+  // The redirect goes in an effect — calling router.replace() during render
+  // triggers React's "Cannot update a component while rendering a different
+  // component" warning.
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, user, router]);
 
   if (loading || !user) {
     return (
