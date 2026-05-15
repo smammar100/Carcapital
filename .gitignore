@@ -37,6 +37,11 @@ yarn-error.log*
 # AI-generated car images — local cache, regenerated on demand
 /public/generated/
 
+# Tooling artefacts from csv-to-seeds.mjs / patch-mock-data.mjs — intermediate
+# output, the real seeds live in src/lib/mock-data.ts
+/scripts/seeds.generated.txt
+/scripts/seeds.stats.txt
+
 # vercel
 .vercel
 
