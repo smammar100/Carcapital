@@ -190,18 +190,35 @@ export function ArrivalForm() {
 
   async function handleDvlaLookup() {
     const reg = form.getValues("registration");
-    if (!reg) return;
+    // Skip lookups while the user is still typing — UK plates are 4-8 chars
+    // (with optional space). Anything shorter is mid-typing; anything longer
+    // is junk. The DVLA route will reject anything that doesn't match
+    // /^[A-Z0-9]{1,8}$/ after space-stripping, so guard here to avoid the
+    // 400 surfacing as a dev-overlay error on every blur.
+    const cleaned = (reg ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+    if (cleaned.length < 4 || cleaned.length > 8) {
+      setDvlaState("idle");
+      return;
+    }
     setDvlaState("loading");
-    const data = await dvlaService.lookup(formatRegPlate(reg));
-    if (data) {
-      setDvlaState("found");
-      if (data.make) form.setValue("make", data.make);
-      if (data.model) form.setValue("model", data.model);
-      if (data.year) form.setValue("year", data.year);
-      if (data.colour) form.setValue("colour", data.colour);
-      if (data.fuelType) form.setValue("fuelType", data.fuelType);
-      if (data.engineSizeCC) form.setValue("engineSizeCC", data.engineSizeCC);
-    } else {
+    try {
+      const data = await dvlaService.lookup(formatRegPlate(reg));
+      if (data) {
+        setDvlaState("found");
+        if (data.make) form.setValue("make", data.make);
+        if (data.model) form.setValue("model", data.model);
+        if (data.year) form.setValue("year", data.year);
+        if (data.colour) form.setValue("colour", data.colour);
+        if (data.fuelType) form.setValue("fuelType", data.fuelType);
+        if (data.engineSizeCC) form.setValue("engineSizeCC", data.engineSizeCC);
+      } else {
+        setDvlaState("not_found");
+      }
+    } catch (e) {
+      // 400 (invalid format), 429 (rate limit), 502 (upstream) etc. — keep
+      // the UI usable by falling back to manual entry. The detailed error
+      // already shows in console for debugging.
+      console.warn("[arrival-form] DVLA lookup failed", e);
       setDvlaState("not_found");
     }
   }
@@ -366,8 +383,8 @@ export function ArrivalForm() {
         {/* Section 1 — Vehicle Identity */}
         <Card className="flex flex-col gap-3 p-5">
           <h2 className="text-sm font-semibold">1 · Vehicle Identity</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
               <Label>Registration *</Label>
               <div className="flex gap-2">
                 <Input
@@ -406,42 +423,42 @@ export function ArrivalForm() {
                 </p>
               )}
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Mileage *</Label>
               <Input type="number" {...form.register("mileage")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Make *</Label>
               <Input {...form.register("make")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Model *</Label>
               <Input {...form.register("model")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Variant Name</Label>
               <Input {...form.register("variantName")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Variant Code</Label>
               <Input {...form.register("variantCode")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Year</Label>
               <Input type="number" {...form.register("year")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Colour</Label>
               <Input {...form.register("colour")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Vehicle Type</Label>
               <Controller
                 control={form.control}
                 name="vehicleType"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -455,14 +472,14 @@ export function ArrivalForm() {
                 )}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Body Type</Label>
               <Controller
                 control={form.control}
                 name="bodyType"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -476,14 +493,14 @@ export function ArrivalForm() {
                 )}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Fuel Type</Label>
               <Controller
                 control={form.control}
                 name="fuelType"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -497,14 +514,14 @@ export function ArrivalForm() {
                 )}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Transmission</Label>
               <Controller
                 control={form.control}
                 name="transmission"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -518,7 +535,7 @@ export function ArrivalForm() {
                 )}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Engine Size CC</Label>
               <Input type="number" {...form.register("engineSizeCC")} />
             </div>
@@ -528,23 +545,23 @@ export function ArrivalForm() {
         {/* Section 2 — Source / Seller */}
         <Card className="flex flex-col gap-3 p-5">
           <h2 className="text-sm font-semibold">2 · Source / Seller</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
               <Label>Seller Name *</Label>
               <Input {...form.register("sellerName")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Seller Phone</Label>
               <Input {...form.register("sellerPhone")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Source Type</Label>
               <Controller
                 control={form.control}
                 name="sourceType"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -558,14 +575,14 @@ export function ArrivalForm() {
                 )}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Local or Import</Label>
               <Controller
                 control={form.control}
                 name="localOrImport"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -577,14 +594,14 @@ export function ArrivalForm() {
               />
             </div>
             {watchedSource === "auction" && (
-              <div className="sm:col-span-2">
+              <div className="flex flex-col gap-2">
                 <Label>Auction House</Label>
                 <Controller
                   control={form.control}
                   name="auctionHouse"
                   render={({ field }) => (
                     <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger>
+                      <SelectTrigger className="w-full">
                         <SelectValue placeholder="Pick an auction house" />
                       </SelectTrigger>
                       <SelectContent>
@@ -599,11 +616,11 @@ export function ArrivalForm() {
                 />
               </div>
             )}
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Owned By</Label>
               <Input {...form.register("ownedBy")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Invoice Date</Label>
               <Input type="date" {...form.register("invoiceDate")} />
             </div>
@@ -613,25 +630,27 @@ export function ArrivalForm() {
         {/* Section 3 — Documentation */}
         <Card className="flex flex-col gap-3 p-5">
           <h2 className="text-sm font-semibold">3 · Documentation</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex items-center gap-3 rounded border p-3">
-              <Controller
-                control={form.control}
-                name="v5Received"
-                render={({ field }) => (
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                )}
-              />
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
               <Label>V5 Received</Label>
+              <div className="flex h-9 items-center rounded-md border bg-background px-3">
+                <Controller
+                  control={form.control}
+                  name="v5Received"
+                  render={({ field }) => (
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              </div>
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Service History</Label>
               <Controller
                 control={form.control}
                 name="serviceHistory"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger>
+                    <SelectTrigger className="w-full">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -645,7 +664,7 @@ export function ArrivalForm() {
                 )}
               />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Number of Keys</Label>
               <Input
                 type="number"
@@ -654,17 +673,19 @@ export function ArrivalForm() {
                 {...form.register("numKeys")}
               />
             </div>
-            <div className="flex items-center gap-3 rounded border p-3">
-              <Controller
-                control={form.control}
-                name="lockNut"
-                render={({ field }) => (
-                  <Switch checked={field.value} onCheckedChange={field.onChange} />
-                )}
-              />
+            <div className="flex flex-col gap-2">
               <Label>Lock Nut</Label>
+              <div className="flex h-9 items-center rounded-md border bg-background px-3">
+                <Controller
+                  control={form.control}
+                  name="lockNut"
+                  render={({ field }) => (
+                    <Switch checked={field.value} onCheckedChange={field.onChange} />
+                  )}
+                />
+              </div>
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>MOT Expiry</Label>
               <Input type="date" {...form.register("motExpiry")} />
             </div>
@@ -699,14 +720,14 @@ export function ArrivalForm() {
               </tr>
             </tbody>
           </table>
-          <div>
+          <div className="flex flex-col gap-2">
             <Label>Finance Provider</Label>
             <Controller
               control={form.control}
               name="financeProvider"
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger>
+                  <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -725,12 +746,12 @@ export function ArrivalForm() {
         {/* Section 5 — Receiving */}
         <Card className="flex flex-col gap-3 p-5">
           <h2 className="text-sm font-semibold">5 · Receiving</h2>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
               <Label>Received Date *</Label>
               <Input type="date" {...form.register("receivedDate")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Received By</Label>
               <Input value={user?.name ?? "—"} readOnly disabled />
             </div>
@@ -763,14 +784,14 @@ export function ArrivalForm() {
             </div>
           )}
           <div className="flex items-end gap-2">
-            <div className="flex-1">
+            <div className="flex flex-1 flex-col gap-2">
               <Label>Description</Label>
               <Input
                 value={newTodo.description}
                 onChange={(e) => setNewTodo((p) => ({ ...p, description: e.target.value }))}
               />
             </div>
-            <div className="w-24">
+            <div className="flex w-24 flex-col gap-2">
               <Label>Cost £</Label>
               <Input
                 type="number"
@@ -789,16 +810,16 @@ export function ArrivalForm() {
         {/* Section 7 — Pricing (optional) */}
         <Card className="flex flex-col gap-3 p-5">
           <h2 className="text-sm font-semibold">7 · Pricing (optional)</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            <div>
+          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-3">
+            <div className="flex flex-col gap-2">
               <Label>Warranty Cost £</Label>
               <Input type="number" step="0.01" {...form.register("warrantyCost")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Minimum Sale Price £</Label>
               <Input type="number" step="0.01" {...form.register("minimumSalePrice")} />
             </div>
-            <div>
+            <div className="flex flex-col gap-2">
               <Label>Listing Price £</Label>
               <Input type="number" step="0.01" {...form.register("listingPrice")} />
             </div>
