@@ -1,18 +1,25 @@
 import * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { Elevated } from "@/lib/elevated"
 
 function Card({
   className,
   size = "default",
   ...props
 }: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
+  // v4.5 — uses the fluidfunctionalism elevation system: <Elevated offset={1}>
+  // reads the parent substrate level and renders this card one step above.
+  // Nesting <Card> inside <Card> walks the surface ladder automatically
+  // (1 → 2 → 3 …). Replaces the hard-coded `bg-card` + `shadow-md ring-1`
+  // pair — Elevated supplies bg-surface-N + shadow-surface-N classes instead.
   return (
-    <div
+    <Elevated
+      offset={1}
       data-slot="card"
       data-size={size}
       className={cn(
-        "group/card flex flex-col gap-6 overflow-hidden rounded-4xl bg-card py-6 text-sm text-card-foreground shadow-md ring-1 ring-foreground/5 has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 dark:ring-foreground/10 *:[img:first-child]:rounded-t-4xl *:[img:last-child]:rounded-b-4xl",
+        "group/card flex flex-col gap-6 overflow-hidden rounded-4xl py-6 text-sm text-card-foreground has-[>img:first-child]:pt-0 data-[size=sm]:gap-4 data-[size=sm]:py-4 *:[img:first-child]:rounded-t-4xl *:[img:last-child]:rounded-b-4xl",
         className
       )}
       {...props}
