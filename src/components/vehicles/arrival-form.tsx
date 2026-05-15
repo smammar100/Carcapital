@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -8,6 +9,7 @@ import { z } from "zod";
 import {
   AlertTriangle,
   CheckCircle2,
+  Info,
   Loader2,
   Plus,
   Trash2,
@@ -132,9 +134,22 @@ export function ArrivalForm() {
   const { user, company } = useAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  // dvlaState drives the inline status shown under the registration field.
+  //  - idle         : nothing has been looked up yet
+  //  - loading      : lookup in flight
+  //  - found        : DVLA returned data and the form has been auto-filled
+  //  - not_found    : DVLA didn't recognise this reg, or the format was invalid
+  //  - duplicate    : we already have this reg in our stock book (we don't
+  //                   even call DVLA — we show the user where to find it)
   const [dvlaState, setDvlaState] = useState<
-    "idle" | "loading" | "found" | "not_found"
+    "idle" | "loading" | "found" | "not_found" | "duplicate"
   >("idle");
+  // Populated only when dvlaState === "duplicate"
+  const [duplicate, setDuplicate] = useState<{
+    id: string;
+    stockId: string;
+    label: string;
+  } | null>(null);
   const [todos, setTodos] = useState<{ description: string; cost: number }[]>([]);
   const [newTodo, setNewTodo] = useState({ description: "", cost: 0 });
 
@@ -192,35 +207,67 @@ export function ArrivalForm() {
     const reg = form.getValues("registration");
     // Skip lookups while the user is still typing — UK plates are 4-8 chars
     // (with optional space). Anything shorter is mid-typing; anything longer
-    // is junk. The DVLA route will reject anything that doesn't match
-    // /^[A-Z0-9]{1,8}$/ after space-stripping, so guard here to avoid the
-    // 400 surfacing as a dev-overlay error on every blur.
+    // is junk. The DVLA route rejects anything that doesn't match
+    // /^[A-Z0-9]{1,8}$/ after space-stripping; we mirror that guard here so
+    // the lookup never fires with obviously bad input.
     const cleaned = (reg ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "");
     if (cleaned.length < 4 || cleaned.length > 8) {
       setDvlaState("idle");
+      setDuplicate(null);
       return;
     }
+
     setDvlaState("loading");
+    setDuplicate(null);
+
+    const formatted = formatRegPlate(reg);
+
+    // Two checks in parallel:
+    //   1. Is this reg already in our stock book? — bail with duplicate state.
+    //   2. Does DVLA know about it? — auto-fill if yes.
+    // We run them in parallel so the user gets an answer fast either way.
+    let existing: Awaited<ReturnType<typeof vehicleService.getByRegistration>>;
+    let dvla: Awaited<ReturnType<typeof dvlaService.lookup>>;
     try {
-      const data = await dvlaService.lookup(formatRegPlate(reg));
-      if (data) {
-        setDvlaState("found");
-        if (data.make) form.setValue("make", data.make);
-        if (data.model) form.setValue("model", data.model);
-        if (data.year) form.setValue("year", data.year);
-        if (data.colour) form.setValue("colour", data.colour);
-        if (data.fuelType) form.setValue("fuelType", data.fuelType);
-        if (data.engineSizeCC) form.setValue("engineSizeCC", data.engineSizeCC);
-      } else {
-        setDvlaState("not_found");
-      }
+      [existing, dvla] = await Promise.all([
+        vehicleService.getByRegistration(formatted),
+        dvlaService.lookup(formatted),
+      ]);
     } catch (e) {
-      // 400 (invalid format), 429 (rate limit), 502 (upstream) etc. — keep
-      // the UI usable by falling back to manual entry. The detailed error
-      // already shows in console for debugging.
-      console.warn("[arrival-form] DVLA lookup failed", e);
+      console.warn("[arrival-form] Lookup failed", e);
       setDvlaState("not_found");
+      return;
     }
+
+    // Duplicate takes precedence — if the dealer already has this car, no
+    // point pre-filling fields they would have to throw away.
+    if (existing) {
+      setDuplicate({
+        id: existing.id,
+        stockId: existing.stockId,
+        label: `${existing.make} ${existing.model ?? ""}`.trim(),
+      });
+      setDvlaState("duplicate");
+      return;
+    }
+
+    if (!dvla) {
+      setDvlaState("not_found");
+      return;
+    }
+
+    // Auto-fill from DVLA. Use null/undefined-checks (not truthy checks) so
+    // legitimate zero values — e.g. engineSizeCC=0 for electric cars — still
+    // populate the field. DVLA's VES never returns `model`, so users always
+    // enter that manually.
+    setDvlaState("found");
+    if (dvla.make) form.setValue("make", dvla.make);
+    if (dvla.model) form.setValue("model", dvla.model);
+    if (dvla.year != null) form.setValue("year", dvla.year);
+    if (dvla.colour) form.setValue("colour", dvla.colour);
+    if (dvla.fuelType) form.setValue("fuelType", dvla.fuelType);
+    if (dvla.engineSizeCC != null) form.setValue("engineSizeCC", dvla.engineSizeCC);
+    if (dvla.motExpiry) form.setValue("motExpiry", dvla.motExpiry);
   }
 
   function addTodo() {
@@ -361,8 +408,8 @@ export function ArrivalForm() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Add Vehicle</h1>
           <p className="text-sm text-muted-foreground">
-            Single-page arrival form. DVLA lookup pre-fills make/model on
-            registration blur.
+            Single-page arrival form. Typing the registration auto-checks your
+            stock book and pre-fills make / year / colour / fuel from DVLA.
           </p>
         </div>
 
@@ -408,18 +455,36 @@ export function ArrivalForm() {
               </div>
               {dvlaState === "loading" && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> DVLA lookup…
+                  <Loader2 className="h-3 w-3 animate-spin" /> Checking DVLA
+                  and your stock book…
                 </p>
               )}
               {dvlaState === "found" && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" /> DVLA preset found
+                  <CheckCircle2 className="h-3 w-3" /> DVLA matched — fields
+                  auto-filled. Please add the model manually (DVLA doesn&apos;t
+                  return it).
                 </p>
               )}
               {dvlaState === "not_found" && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
-                  <AlertTriangle className="h-3 w-3" /> Manual entry required —
-                  DVLA lookup unavailable
+                  <AlertTriangle className="h-3 w-3" /> The number is incorrect
+                  — please try again, or fill the form in manually.
+                </p>
+              )}
+              {dvlaState === "duplicate" && duplicate && (
+                <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-sky-700 dark:text-sky-400">
+                  <Info className="h-3 w-3" />
+                  <span>
+                    This car is already in your stock book as{" "}
+                    <Link
+                      href={`/vehicles/${duplicate.id}`}
+                      className="font-semibold underline underline-offset-2"
+                    >
+                      {duplicate.stockId}
+                    </Link>
+                    {duplicate.label ? ` (${duplicate.label})` : ""}.
+                  </span>
                 </p>
               )}
             </div>

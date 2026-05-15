@@ -176,22 +176,25 @@ export const vehicleService = {
 
   async getByRegistration(reg: string): Promise<Vehicle | null> {
     const supabase = createClient();
+    // UK plates can sit in the column either with their canonical space
+    // ("LF62 LGX") or without ("LF62LGX") depending on how the row was
+    // inserted. PostgREST doesn't support SQL-expression filters like
+    // `upper(replace(registration, ' ', ''))`, so we try both shapes via
+    // an `or(ilike, ilike)` filter — case-insensitive, matches either form.
     const cleaned = reg.toUpperCase().replace(/\s+/g, "");
+    const candidates = new Set<string>([cleaned, reg.trim().toUpperCase()]);
+    if (cleaned.length === 7) {
+      candidates.add(`${cleaned.slice(0, 4)} ${cleaned.slice(4)}`);
+    }
+    const orFilter = Array.from(candidates)
+      .map((c) => `registration.ilike.${c}`)
+      .join(",");
     const { data, error } = await supabase
       .from("vehicles")
       .select(SELECT)
-      .filter("upper(replace(registration, ' ', ''))", "eq", cleaned)
+      .or(orFilter)
       .maybeSingle();
-    if (error) {
-      // Fallback: simple equality on the raw column if the filter syntax errors.
-      const r = await supabase
-        .from("vehicles")
-        .select(SELECT)
-        .ilike("registration", reg.trim())
-        .maybeSingle();
-      if (r.error) throw r.error;
-      return r.data as unknown as Vehicle | null;
-    }
+    if (error) throw error;
     return data as unknown as Vehicle | null;
   },
 
