@@ -133,6 +133,57 @@
   --space-10: 80px;
   --space-12: 96px;
 
+  /* LeafyGreen-style spacer block 22 = 88px — Tailwind doesn't have this
+     value by default. Exposed as the `gap-22` / `p-22` / `m-22` utility
+     so the curated 8/16/24/32/40/64/88 scale is reachable from classes. */
+  --spacing-22: 88px;
+
+  /* ========================================================================
+   * LeafyGreen-style grid system — content + page caps, columns, gutters,
+   * margins. Each token is the canonical value engineers use; the
+   * PageShell + PageGrid primitives consume these. See plan §G3.
+   * ======================================================================== */
+
+  /* Page-frame widths. PageShell renders content centred inside one of
+     these caps. The 1152 cap is the default; "wide" pages (master sheet
+     and other data-heavy spreadsheets) opt into the 1400 outer cap. */
+  --container-content: 1152px;
+  --container-page: 1400px;
+
+  /* Columns per breakpoint regime. Mobile-first; the PageGrid primitive
+     reads these implicitly via Tailwind's responsive prefixes. */
+  --grid-mobile-cols: 4;
+  --grid-tablet-cols: 8;
+  --grid-desktop-cols: 12;
+
+  /* Gutters (space between columns) per regime. */
+  --grid-mobile-gutter: 16px;
+  --grid-tablet-gutter: 16px;
+  --grid-desktop-gutter: 24px;
+
+  /* Outer margins (page edges) per regime. The PageShell padding tracks
+     these — keep them in sync if you change one. */
+  --grid-mobile-margin: 16px;
+  --grid-tablet-margin: 24px;
+  --grid-desktop-margin: 32px;
+}
+
+/* ============================================================================
+ * Wide-page opt-out for the default PageShell.
+ * The dashboard layout wraps every route's children in <PageShell> (default
+ * 1152). If a page renders its own <PageShell wide> inside (data-page-shell
+ * ="wide"), this rule neutralises the outer shell — drops its max-width,
+ * padding, and centring — so the inner wide shell becomes the effective
+ * wrapper. Without this rule the outer's 1152 cap would clip the inner's
+ * 1400 target, defeating the opt-out.
+ * ============================================================================ */
+[data-page-shell="default"]:has([data-page-shell="wide"]) {
+  max-width: none;
+  padding: 0;
+  margin: 0;
+}
+
+@theme inline {
   /* ========================================================================
    * Maybe design system — palette
    * ======================================================================== */

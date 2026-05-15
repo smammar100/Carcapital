@@ -1,13 +1,64 @@
 # Design system
 
 > **Audience:** developers + designers + AI agents
-> **Last verified against `main` HEAD:** `86f9d91`
+> **Last verified against `main` HEAD:** post-`7724189` (grid system upgrade)
 
 ## Stack
 
 - **Tailwind v4** — `@theme inline` block in `src/app/globals.css` defines tokens.
 - **shadcn/ui** primitives — Radix-based, lightly customised in `src/components/ui/`.
 - **fluidfunctionalism elevation system** — a React-context-driven surface ladder, adopted May 2026, sits on top of Tailwind.
+- **LeafyGreen-style grid** — 12-column responsive grid with 1152px content cap (1400px wide preset), 4px baseline, curated spacer scale.
+
+## Grid system
+
+The page-level grid is modelled on MongoDB's LeafyGreen design system, adapted for our existing 260/64 sidebar.
+
+### Page caps
+
+| Cap | Width | When to use | How to set |
+|---|---|---|---|
+| Default | 1152px | Forms, dashboards, anything with paragraphs or single-column reading | Wrapped automatically by the dashboard layout |
+| Wide | 1400px | Master Sheet, wide data tables, side-by-side comparisons | Page returns `<PageShell wide>{…}</PageShell>` |
+
+### Breakpoint regimes
+
+| Regime | Viewport | Columns | Gutter | Margin |
+|---|---|---|---|---|
+| Mobile | <768px | 4 | 16px | 16px |
+| Tablet | 768-1023px | 8 | 16px | 24px |
+| Desktop (sidebar expanded) | 1024-1439px | 12 | 24px | 32px |
+| Desktop Large | 1440+px | 12 | 24px | content centred in 1152 / 1400 cap |
+
+### Files
+
+| File | Role |
+|---|---|
+| `src/components/layout/page-shell.tsx` | `<PageShell>` (default + wide) wrapper, `<PageGrid>` 12-col primitive |
+| `src/components/layout/grid-overlay.tsx` | `<GridOverlay>` — dev-only column + 4px baseline overlay gated on `?grid=1` |
+| `src/app/globals.css` | Design tokens: `--container-content`, `--container-page`, `--grid-*-cols`, `--grid-*-gutter`, `--grid-*-margin`, `--spacing-22` (88px) |
+| `src/app/(dashboard)/layout.tsx` | Wraps every route's `{children}` in `<PageShell>` and renders the overlay |
+
+### Column-span patterns
+
+Six recommended patterns for `<PageGrid>` consumers (verbatim from the build plan §G4b):
+
+1. **Form with paired fields** — `col-span-4 sm:col-span-4 lg:col-span-6` per field
+2. **KPI tile row** — `col-span-4 sm:col-span-4 lg:col-span-2` per tile (6-up on desktop)
+3. **Content + side panel** — `col-span-4 sm:col-span-8 lg:col-span-8` + `col-span-4 sm:col-span-8 lg:col-span-4`
+4. **Two equal-weight cards** — `col-span-4 sm:col-span-8 lg:col-span-8` + `col-span-4 sm:col-span-8 lg:col-span-4`
+5. **Wide data table** — return `<PageShell wide>{table}</PageShell>` (no PageGrid)
+6. **Long-form reading column** — `col-span-4 sm:col-span-8 lg:col-span-8 lg:col-start-3` (centred 8 cols)
+
+When in doubt: reach for one of these before inventing a new `grid-cols-N`.
+
+### Spacer scale (LeafyGreen + Tailwind defaults)
+
+`8 / 16 / 24 / 32 / 40 / 64 / 88` — covered by `gap-2`, `gap-4`, `gap-6`, `gap-8`, `gap-10`, `gap-16`, and the new `gap-22` (from `--spacing-22`).
+
+### Dev grid overlay
+
+Append `?grid=1` to any URL → translucent 12-column tracks + 4px baseline rhythm overlay. `pointer-events: none` keeps the page interactive. Use it to verify column alignment matches the Figma source. Remove `?grid=1` (or navigate) to hide.
 
 ## Surfaces (the elevation system)
 

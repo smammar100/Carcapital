@@ -37,6 +37,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import { PageShell } from "@/components/layout/page-shell";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 type ColType =
@@ -374,7 +375,8 @@ export default function MasterSheetPage() {
   }
 
   return (
-    <div className="flex h-full flex-col gap-3">
+    <PageShell wide>
+      <div className="flex h-full flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Master Sheet</h1>
@@ -608,6 +610,7 @@ export default function MasterSheetPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </PageShell>
   );
 }

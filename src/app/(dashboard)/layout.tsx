@@ -10,6 +10,8 @@ import {
 } from "@/contexts/sidebar-state-context";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { GridOverlay } from "@/components/layout/grid-overlay";
+import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { SurfaceProvider } from "@/lib/surface-context";
@@ -21,6 +23,15 @@ export default function DashboardLayout({
 }) {
   const { user, loading, error } = useAuth();
   const router = useRouter();
+
+  // Belt-and-suspenders redirect once auth resolves. Sits at the top of
+  // the component so it runs in the same order on every render (rules
+  // of hooks — never call useEffect after a conditional `return`).
+  useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, user, router]);
 
   // Hard failure path — auth context couldn't even initialise (typically
   // missing NEXT_PUBLIC_SUPABASE_* env vars at build time). Show a visible
@@ -52,19 +63,6 @@ export default function DashboardLayout({
       </div>
     );
   }
-
-  // Middleware (middleware.ts) handles redirects for unauthenticated users.
-  // Belt-and-suspenders: once loading resolves with no user, send them to
-  // /login client-side too. This covers the case where middleware is bypassed
-  // (Turbopack dev quirks) so the user doesn't see a perpetual skeleton.
-  // The redirect goes in an effect — calling router.replace() during render
-  // triggers React's "Cannot update a component while rendering a different
-  // component" warning.
-  useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/login");
-    }
-  }, [loading, user, router]);
 
   if (loading || !user) {
     return (
@@ -130,11 +128,16 @@ function Shell({ children }: { children: React.ReactNode }) {
       </header>
       <main
         style={{ gridArea: "main" }}
-        className="overflow-y-auto bg-muted/20"
+        className="relative overflow-y-auto bg-muted/20"
       >
-        <div className="mx-auto w-full max-w-[1400px] px-4 py-6 md:px-6 md:py-8">
-          {children}
-        </div>
+        {/* LeafyGreen-style content cap (1152px default). Pages that need
+            the wider 1400px frame — Master Sheet et al. — render their
+            own <PageShell wide> inside this default one; the inner wrapper
+            wins because its max-w is higher. See plan §G4. */}
+        <PageShell>{children}</PageShell>
+        {/* Dev-only column + 4px baseline overlay; appears when the URL
+            contains `?grid=1`, otherwise renders nothing. */}
+        <GridOverlay />
       </main>
     </div>
   );
