@@ -4,22 +4,22 @@ import { cn } from "@/lib/utils";
 /**
  * Page-level content wrapper. Every dashboard route's main content sits
  * inside one of these — the dashboard layout wraps `{children}` in
- * `<PageShell>` by default, capping content at 1152px and adding the
- * per-breakpoint padding that matches the LeafyGreen grid spec (see
- * plan §G3 in `.claude/plans/`).
+ * `<PageShell>` by default. Content fills the full available width
+ * (minus the symmetric p-6 / md:p-8 padding) up to a 1400px outer cap.
  *
- * **Default cap = 1152px.** This is the LeafyGreen "content" width — a
- * comfortable line-length for paragraphs, forms, and most dashboards.
+ * **Default cap = 1400px.** Earlier iterations used a 1152 "content"
+ * cap inspired by LeafyGreen, but on the dealer's typical 1366px /
+ * 1920px monitors that left a visibly empty band on each side of the
+ * dashboard. Switching to 1400 makes content go effectively edge-to-
+ * edge on a 1366 viewport (1366 − 260 sidebar − 64 padding ≈ 1042px
+ * of content area, well below the cap) while still centring on
+ * extra-wide monitors so paragraph line-lengths don't get absurd.
  *
- * **Opt-in `wide` = 1400px.** Use for data-heavy pages — the Master
- * Sheet, wide tables, side-by-side comparison views. Render the page's
- * own `<PageShell wide>` *inside* the route's return; that inner shell
- * wins over the default one (an inner `max-w-[1400px]` placed on a
- * `mx-auto` container relaxes the parent's narrower cap because the
- * inner block is allowed to grow up to its own max).
- *
- * Padding tokens (`px-4 py-6` on mobile, `md:px-6 md:py-8` on tablet+)
- * mirror `--grid-*-margin` from globals.css.
+ * **Opt-in `wide` = 1400px (same as default for now).** The prop is
+ * kept so pages can declare intent ("this page needs the full width")
+ * even though the visual is identical today. If we later want a
+ * narrower default for forms, the wide variant stays as an escape
+ * hatch and existing consumers don't change.
  */
 export function PageShell({
   children,
@@ -27,7 +27,11 @@ export function PageShell({
   className,
 }: {
   children: React.ReactNode;
-  /** Opt into the 1400px outer cap for data-heavy pages. Default 1152px. */
+  /**
+   * Reserved opt-in for data-heavy pages. Currently visually identical
+   * to the default; declaring it documents intent and future-proofs
+   * the consumer against later width changes.
+   */
   wide?: boolean;
   className?: string;
 }) {
@@ -35,13 +39,13 @@ export function PageShell({
     <div
       data-page-shell={wide ? "wide" : "default"}
       className={cn(
-        // Padding is symmetric on all four sides: the visual space above
-        // the page title equals the space on the left and right. Each
-        // breakpoint uses a single token (p-6 = 24px on mobile, md:p-8 =
-        // 32px on tablet+) so designers can eyeball the layout without
-        // wondering why the top gap doesn't match the side gap.
+        // Symmetric padding on all four sides — the gap above the page
+        // title equals the gap on the left and right at every breakpoint.
         "mx-auto w-full p-6 md:p-8",
-        wide ? "max-w-[1400px]" : "max-w-[1152px]",
+        // Full-width fill up to the 1400px outer cap. Content never gets
+        // wider than 1400 on a 4K monitor; on a typical 1366 viewport the
+        // cap never binds and the page fills the available room.
+        "max-w-[1400px]",
         className,
       )}
     >
