@@ -27,6 +27,10 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
+  DataGridSkeletonRows,
+  DataGridPagination,
+} from "@/components/data-grid";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -400,13 +404,17 @@ export default function VehiclesPage() {
           }
         />
       ) : !filtered ? (
-        <Card className="p-3">
-          <div className="grid gap-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-10 w-full" />
-            ))}
-          </div>
-        </Card>
+        // Row-aware skeleton — matches the table's column structure so
+        // the layout doesn't shift when real data lands. See the data-
+        // table case study at /docs/case-studies/data-tables.md.
+        <DataGridShell>
+          <DataGridTable cols={tableCols}>
+            <DataGridHeaderRow cols={tableCols} />
+            <tbody>
+              <DataGridSkeletonRows columns={tableCols} rows={8} />
+            </tbody>
+          </DataGridTable>
+        </DataGridShell>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={Car}
@@ -504,67 +512,20 @@ export default function VehiclesPage() {
       )}
 
       {filtered && filtered.length > PAGE_SIZE && (
-        <PaginationBar
-          page={safePage}
-          totalPages={totalPages}
-          totalRows={filtered.length}
-          pageSize={PAGE_SIZE}
-          onChange={setPage}
-        />
+        // Shared pagination primitive — replaced the bespoke local
+        // PaginationBar with the one from `@/components/data-grid`.
+        // Same UI, same default page size, but the implementation is
+        // now reused by every list page.
+        <Card className="p-0">
+          <DataGridPagination
+            page={safePage}
+            pageSize={PAGE_SIZE}
+            totalPages={totalPages}
+            total={filtered.length}
+            onPageChange={setPage}
+          />
+        </Card>
       )}
-    </div>
-  );
-}
-
-function PaginationBar({
-  page,
-  totalPages,
-  totalRows,
-  pageSize,
-  onChange,
-}: {
-  page: number;
-  totalPages: number;
-  totalRows: number;
-  pageSize: number;
-  onChange: (n: number) => void;
-}) {
-  if (totalRows === 0) return null;
-  const firstRow = (page - 1) * pageSize + 1;
-  const lastRow = Math.min(page * pageSize, totalRows);
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow-sm">
-      <span className="text-muted-foreground tabular-nums">
-        Showing <span className="font-medium text-foreground">{firstRow.toLocaleString()}</span>
-        {"–"}
-        <span className="font-medium text-foreground">{lastRow.toLocaleString()}</span>
-        {" of "}
-        <span className="font-medium text-foreground">{totalRows.toLocaleString()}</span>
-      </span>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onChange(Math.max(1, page - 1))}
-          disabled={page <= 1}
-        >
-          <ChevronLeft className="mr-1 h-4 w-4" />
-          Prev
-        </Button>
-        <span className="px-3 tabular-nums text-muted-foreground">
-          Page <span className="font-medium text-foreground">{page}</span> of{" "}
-          <span className="font-medium text-foreground">{totalPages}</span>
-        </span>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => onChange(Math.min(totalPages, page + 1))}
-          disabled={page >= totalPages}
-        >
-          Next
-          <ChevronRight className="ml-1 h-4 w-4" />
-        </Button>
-      </div>
     </div>
   );
 }

@@ -8,7 +8,35 @@
 - **Tailwind v4** — `@theme inline` block in `src/app/globals.css` defines tokens.
 - **shadcn/ui** primitives — Radix-based, lightly customised in `src/components/ui/`.
 - **fluidfunctionalism elevation system** — a React-context-driven surface ladder, adopted May 2026, sits on top of Tailwind.
-- **LeafyGreen-style grid** — 12-column responsive grid with 1152px content cap (1400px wide preset), 4px baseline, curated spacer scale.
+- **LeafyGreen-style grid** — 12-column responsive grid with 1400px content cap, 4px baseline, curated spacer scale.
+- **Data grid primitives** — composable building blocks in `src/components/data-grid/` for every list page.
+
+## Data grid
+
+Composable primitives for list-page tables. Pages opt into features one primitive at a time. See [`/docs/case-studies/data-tables.md`](../case-studies/data-tables.md) for the why and the full proposal.
+
+| Primitive | Purpose |
+|---|---|
+| `DataGridShell` | Card wrapper for the table area |
+| `DataGridTable`, `DataGridHeaderRow`, `DataGridRow`, `DataGridCell` | Layout primitives |
+| `DataGridFooterRow` | "New X" link row at the bottom of the table |
+| **`DataGridSkeletonRows`** | Row-aware loading placeholder that matches column shape |
+| **`DataGridPagination` + `usePagination()`** | Shared pagination state + UI; default 25 / 50 / 100 rows per page |
+| **`DataGridSearchBar` + `useTableSearch()`** | Standard search input + filter hook with optional URL sync |
+| **`DataGridColumnsButton`** | Show/hide column popover (lifted from Master Sheet) |
+| **`DataGridBulkBar`** + `BulkAction` | Bottom-pinned bulk-action toolbar; appears when rows selected |
+| `exportCsv()`, `csvEscape()` | CSV export utility (existing; consumed by `DataGridExportButton` in a follow-up) |
+| 23 typed cell components | `VehicleCell`, `CurrencyCell`, `DateCell`, status cells, etc. |
+
+**Column convention** (`ColumnDef<T>`):
+- `key` — unique string
+- `label` — header text
+- `type` — drives default alignment + cell renderer
+- `align` — `"left"` (text default) / `"right"` (numbers default) / `"center"`
+- `width` — fixed px or CSS dimension
+- `sticky` — `true` to pin the column left
+- `render?(row)` — full custom JSX (escape hatch from typed cells)
+- `csv?(row)` — alternate value for export
 
 ## Grid system
 

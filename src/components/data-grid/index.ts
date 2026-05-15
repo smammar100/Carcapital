@@ -8,6 +8,12 @@ export {
   DataGridCell,
   DataGridFooterRow,
 } from "./data-grid";
+// New v2 primitives (May 2026) — see /docs/case-studies/data-tables.md
+export { DataGridSkeletonRows } from "./skeleton-rows";
+export { DataGridPagination, usePagination } from "./pagination";
+export { DataGridSearchBar, useTableSearch } from "./search-bar";
+export { DataGridColumnsButton } from "./columns-button";
+export { DataGridBulkBar, type BulkAction } from "./bulk-bar";
 export {
   AppointmentOutcomeCell,
   AppointmentStatusCell,
