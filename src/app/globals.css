@@ -372,10 +372,13 @@
   --shell-sidebar-collapsed-w: 64px;
   --shell-header-h: 56px;
 
-  /* fluidfunctionalism surfaces — light mode (two color steps, then flat
-     white differentiated only by shadow). */
-  --surface-1: #FAFAFA;
-  --surface-2: #FCFCFC;
+  /* fluidfunctionalism surfaces — light mode. Every level is pure white so
+     Cards on every page match the KPI tiles' `bg-card` fill. Depth is
+     conveyed purely via shadow ramps (--shadow-1..8 below); nested cards
+     are differentiated by their progressively heavier shadow stack, not
+     by any subtle off-white tint. */
+  --surface-1: #FFFFFF;
+  --surface-2: #FFFFFF;
   --surface-3: #FFFFFF;
   --surface-4: #FFFFFF;
   --surface-5: #FFFFFF;
