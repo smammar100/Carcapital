@@ -5,14 +5,11 @@ import {
   Calendar as CalendarIcon,
   Car,
   Check,
-  ChevronLeft,
-  ChevronRight,
   Download,
   FileSpreadsheet,
   Hash,
   Plus,
   PoundSterling,
-  Search,
   SlidersHorizontal,
   Tag,
   Type,
@@ -26,7 +23,6 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
 import {
   Popover,
   PopoverContent,
@@ -38,6 +34,10 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { PageShell } from "@/components/layout/page-shell";
+import {
+  DataGridPagination,
+  DataGridSearchBar,
+} from "@/components/data-grid";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 type ColType =
@@ -387,15 +387,15 @@ export default function MasterSheetPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search reg, stock ID, make…"
-              className="h-8 w-64 pl-8 text-xs"
-            />
-          </div>
+          <DataGridSearchBar
+            value={query}
+            onChange={setQuery}
+            placeholder="Search reg, stock ID, make…"
+            className="w-64"
+          />
+          {/* The page's existing column visibility popover stays — it uses
+              a 2-column grid layout that the generic DataGridColumnsButton
+              doesn't replicate. Migrate in a follow-up if we want parity. */}
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
@@ -454,9 +454,9 @@ export default function MasterSheetPage() {
                 ))}
                 <col style={{ width: 40 }} />
               </colgroup>
-              <thead className="sticky top-0 z-20 bg-muted/60 backdrop-blur">
+              <thead className="sticky top-0 z-20 bg-muted">
                 <tr>
-                  <th className="sticky left-0 z-30 border-b border-r bg-muted/60 backdrop-blur">
+                  <th className="sticky left-0 z-30 border-b border-r bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]">
                     <div className="flex h-8 items-center justify-center">
                       <Checkbox
                         checked={
@@ -475,7 +475,8 @@ export default function MasterSheetPage() {
                         key={colKey(c)}
                         className={cn(
                           "border-b border-r px-2 text-left font-medium",
-                          c.sticky && "sticky z-30 bg-muted/60 backdrop-blur",
+                          c.sticky &&
+                            "sticky z-30 bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]",
                         )}
                         style={c.sticky ? { left: 40 } : undefined}
                       >
@@ -511,9 +512,16 @@ export default function MasterSheetPage() {
                     >
                       <td
                         className={cn(
+                          // SOLID backgrounds on sticky cells — a
+                          // translucent sticky cell lets scrolled-out
+                          // content bleed through and corrupts cell
+                          // text (date columns sliding under stock IDs
+                          // produced "CC400072026"-style artifacts).
+                          // Drop shadow marks the sticky boundary.
                           "sticky left-0 z-10 border-b border-r bg-background text-center",
-                          isSelected && "bg-primary/5",
-                          "group-hover/row:bg-muted/40",
+                          "shadow-[2px_0_4px_-2px_var(--shadow-color)]",
+                          isSelected && "bg-muted",
+                          "group-hover/row:bg-muted",
                         )}
                       >
                         <div className="flex h-11 items-center justify-center">
@@ -536,9 +544,14 @@ export default function MasterSheetPage() {
                           key={colKey(c)}
                           className={cn(
                             "border-b border-r px-2",
+                            // Sticky data cells: SOLID bg + shadow.
+                            // Inner sticky cells' shadows are occluded
+                            // by the next sticky cell's solid bg via
+                            // paint order; only the rightmost shadow
+                            // is visually present.
                             c.sticky &&
-                              "sticky z-10 bg-background group-hover/row:bg-muted/40",
-                            isSelected && c.sticky && "bg-primary/5",
+                              "sticky z-10 bg-background shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-muted",
+                            isSelected && c.sticky && "bg-muted",
                             !c.sticky && "group-hover/row:bg-muted/40",
                           )}
                           style={c.sticky ? { left: 40 } : undefined}
@@ -567,48 +580,19 @@ export default function MasterSheetPage() {
       )}
 
       {filtered && filtered.length > PAGE_SIZE && (
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-card px-3 py-2 text-sm shadow-sm">
-          <span className="text-muted-foreground tabular-nums">
-            Showing{" "}
-            <span className="font-medium text-foreground">
-              {((safePage - 1) * PAGE_SIZE + 1).toLocaleString()}
-            </span>
-            {"–"}
-            <span className="font-medium text-foreground">
-              {Math.min(safePage * PAGE_SIZE, filtered.length).toLocaleString()}
-            </span>
-            {" of "}
-            <span className="font-medium text-foreground">
-              {filtered.length.toLocaleString()}
-            </span>
-          </span>
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(Math.max(1, safePage - 1))}
-              disabled={safePage <= 1}
-            >
-              <ChevronLeft className="mr-1 h-4 w-4" />
-              Prev
-            </Button>
-            <span className="px-3 tabular-nums text-muted-foreground">
-              Page{" "}
-              <span className="font-medium text-foreground">{safePage}</span>{" "}
-              of{" "}
-              <span className="font-medium text-foreground">{totalPages}</span>
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setPage(Math.min(totalPages, safePage + 1))}
-              disabled={safePage >= totalPages}
-            >
-              Next
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          </div>
-        </div>
+        // Phase B — Master Sheet adopts the shared DataGridPagination
+        // primitive. Replaces the inline pagination UI that duplicated
+        // the same logic across multiple pages. See the data-table case
+        // study at docs/case-studies/data-tables.md.
+        <Card className="p-0">
+          <DataGridPagination
+            page={safePage}
+            pageSize={PAGE_SIZE}
+            totalPages={totalPages}
+            total={filtered.length}
+            onPageChange={setPage}
+          />
+        </Card>
       )}
       </div>
     </PageShell>
