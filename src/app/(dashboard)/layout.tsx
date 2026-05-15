@@ -10,6 +10,7 @@ import {
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { SurfaceProvider } from "@/lib/surface-context";
 
 export default function DashboardLayout({
   children,
@@ -37,9 +38,11 @@ export default function DashboardLayout({
   }
 
   return (
-    <SidebarStateProvider>
-      <Shell>{children}</Shell>
-    </SidebarStateProvider>
+    <SurfaceProvider value={0}>
+      <SidebarStateProvider>
+        <Shell>{children}</Shell>
+      </SidebarStateProvider>
+    </SurfaceProvider>
   );
 }
 
