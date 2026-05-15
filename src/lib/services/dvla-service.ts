@@ -34,6 +34,12 @@ function mockFallback(reg: string): Partial<Vehicle> | null {
   return hit ? hit[1] : null;
 }
 
+// Hard timeout so the form never hangs on a stuck Netlify cold-start, a
+// missing DVLA_API_KEY env var, or any other production weirdness. 12s is
+// well above DVLA's cold p95 (~2s) and above the worst Netlify function
+// cold-boot (~6s) — anything past 12s is genuinely broken, not slow.
+const DVLA_TIMEOUT_MS = 12_000;
+
 export const dvlaService = {
   async lookup(reg: string): Promise<Partial<Vehicle> | null> {
     // This service is deliberately non-throwing. Every failure mode collapses
@@ -41,11 +47,14 @@ export const dvlaService = {
     // can show a "not found / manual entry" state without try/catch. Throwing
     // here used to surface as a "Invalid registration format" error in the
     // Next.js dev overlay every time someone tabbed out of a half-typed reg.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), DVLA_TIMEOUT_MS);
     try {
       const res = await fetch("/api/dvla/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ registrationNumber: reg }),
+        signal: controller.signal,
       });
 
       if (res.ok) {
@@ -72,18 +81,26 @@ export const dvlaService = {
       );
       return null;
     } catch (e) {
-      // Network failure (fetch threw, not a non-ok response) — try mock fallback
-      if (e instanceof TypeError) {
+      // AbortError fires when our 12s timeout trips. Network failures (fetch
+      // threw, not a non-ok response) come through as TypeError. In both
+      // cases, try mock data before giving up so demos keep working.
+      const aborted = e instanceof DOMException && e.name === "AbortError";
+      if (aborted) {
+        console.warn(`[dvla] lookup timed out after ${DVLA_TIMEOUT_MS}ms for ${reg}`);
+      }
+      if (aborted || e instanceof TypeError) {
         const fallback = mockFallback(reg);
         if (fallback) {
           console.warn(
-            `[dvla] network error; using mock fallback for ${reg}`,
+            `[dvla] ${aborted ? "timeout" : "network error"}; using mock fallback for ${reg}`,
           );
           return fallback;
         }
       }
       console.warn(`[dvla] lookup error for ${reg}:`, e);
       return null;
+    } finally {
+      clearTimeout(timeout);
     }
   },
 };
