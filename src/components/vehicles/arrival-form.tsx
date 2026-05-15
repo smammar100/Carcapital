@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -203,6 +203,11 @@ export function ArrivalForm() {
   const watchAll = form.watch();
   const errors = form.formState.errors;
 
+  // Tracks the most recent lookup so we can abandon results from an older
+  // request when the user retypes — prevents a slow DVLA response from a
+  // previous reg overwriting a faster response from the current one.
+  const lookupSeq = useRef(0);
+
   async function handleDvlaLookup() {
     const reg = form.getValues("registration");
     // Skip lookups while the user is still typing — UK plates are 4-8 chars
@@ -217,30 +222,30 @@ export function ArrivalForm() {
       return;
     }
 
+    const myTurn = ++lookupSeq.current;
     setDvlaState("loading");
     setDuplicate(null);
 
     const formatted = formatRegPlate(reg);
 
-    // Two checks in parallel:
-    //   1. Is this reg already in our stock book? — bail with duplicate state.
-    //   2. Does DVLA know about it? — auto-fill if yes.
-    // We run them in parallel so the user gets an answer fast either way.
-    let existing: Awaited<ReturnType<typeof vehicleService.getByRegistration>>;
-    let dvla: Awaited<ReturnType<typeof dvlaService.lookup>>;
-    try {
-      [existing, dvla] = await Promise.all([
-        vehicleService.getByRegistration(formatted),
-        dvlaService.lookup(formatted),
-      ]);
-    } catch (e) {
-      console.warn("[arrival-form] Lookup failed", e);
-      setDvlaState("not_found");
-      return;
-    }
+    // Fire both lookups in parallel and race them. The DB check (~100-300ms)
+    // usually beats DVLA (~1-2s on a cold call). If the DB returns a match,
+    // surface the duplicate banner immediately — don't make the user wait
+    // another second for DVLA data they won't use.
+    const dbPromise = vehicleService
+      .getByRegistration(formatted)
+      .catch((e) => {
+        console.warn("[arrival-form] getByRegistration failed", e);
+        return null;
+      });
+    const dvlaPromise = dvlaService.lookup(formatted).catch((e) => {
+      console.warn("[arrival-form] dvla lookup failed", e);
+      return null;
+    });
 
-    // Duplicate takes precedence — if the dealer already has this car, no
-    // point pre-filling fields they would have to throw away.
+    // 1. Settle the DB check first.
+    const existing = await dbPromise;
+    if (myTurn !== lookupSeq.current) return; // user retyped; abandon
     if (existing) {
       setDuplicate({
         id: existing.id,
@@ -248,9 +253,14 @@ export function ArrivalForm() {
         label: `${existing.make} ${existing.model ?? ""}`.trim(),
       });
       setDvlaState("duplicate");
+      // No point waiting for DVLA — but let it finish and warm the cache.
+      void dvlaPromise;
       return;
     }
 
+    // 2. No duplicate — wait for DVLA.
+    const dvla = await dvlaPromise;
+    if (myTurn !== lookupSeq.current) return; // user retyped; abandon
     if (!dvla) {
       setDvlaState("not_found");
       return;
