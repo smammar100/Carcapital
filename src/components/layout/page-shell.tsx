@@ -35,7 +35,12 @@ export function PageShell({
     <div
       data-page-shell={wide ? "wide" : "default"}
       className={cn(
-        "mx-auto w-full px-4 py-6 md:px-6 md:py-8",
+        // Padding is symmetric on all four sides: the visual space above
+        // the page title equals the space on the left and right. Each
+        // breakpoint uses a single token (p-6 = 24px on mobile, md:p-8 =
+        // 32px on tablet+) so designers can eyeball the layout without
+        // wondering why the top gap doesn't match the side gap.
+        "mx-auto w-full p-6 md:p-8",
         wide ? "max-w-[1400px]" : "max-w-[1152px]",
         className,
       )}
