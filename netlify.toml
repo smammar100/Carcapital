@@ -8,6 +8,14 @@
   PNPM_VERSION = "10.33.2"
   # Next.js 16 + Turbopack telemetry off
   NEXT_TELEMETRY_DISABLED = "1"
+  # NEXT_PUBLIC_* env vars are intentionally inlined into the browser bundle —
+  # that's the whole point of the prefix. The Supabase URL + publishable/anon
+  # key are designed to be public; omit them from Netlify's secret scanner.
+  # Both env var names work — code reads either `*_PUBLISHABLE_KEY` (current
+  # Supabase quickstart naming) or `*_ANON_KEY` (legacy). Set whichever the
+  # Netlify dashboard has; both are allowlisted here so deploys never fail
+  # with "Secrets scanning found secrets in build."
+  SECRETS_SCAN_OMIT_KEYS = "NEXT_PUBLIC_SUPABASE_URL,NEXT_PUBLIC_SUPABASE_ANON_KEY,NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
 
 # Netlify auto-installs @netlify/plugin-nextjs when it detects Next.js, but
 # declaring it explicitly avoids the auto-detect failing on the worktree.

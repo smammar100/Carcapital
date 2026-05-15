@@ -1,13 +1,31 @@
-import { mockListings } from "@/lib/mock-data";
+import { createClient } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type {
   Listing,
   ListingChannel,
   ListingStatus,
   UUID,
 } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "listings:";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  vehicleId:vehicle_id,
+  title,
+  description,
+  price,
+  specialFeatures:special_features,
+  channels,
+  atPriceIndicator:at_price_indicator,
+  status,
+  publishedAt:published_at,
+  enquiriesCount:enquiries_count,
+  createdAt:created_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -22,38 +40,52 @@ interface CreateInput {
 
 export const listingService = {
   async getAll(companyId: UUID): Promise<Listing[]> {
-    // TODO: Supabase: from('listings').select('*').eq('company_id', companyId)
-    await delay();
-    return mockListings
-      .filter((l) => l.companyId === companyId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("listings")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Listing[];
+    });
   },
 
   async getForVehicle(vehicleId: UUID): Promise<Listing | null> {
-    // TODO: Supabase: ... .eq('vehicle_id', vehicleId).maybeSingle()
-    await delay(150);
-    return mockListings.find((l) => l.vehicleId === vehicleId) ?? null;
+    return withCache(`${NS}vehicle:${vehicleId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("listings")
+        .select(SELECT)
+        .eq("vehicle_id", vehicleId)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Listing | null;
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Listing> {
-    // TODO: Supabase: insert + log
-    await delay();
-    const listing: Listing = {
-      id: newId("listing"),
-      companyId: input.companyId,
-      vehicleId: input.vehicleId,
-      title: input.title,
-      description: input.description,
-      price: input.price,
-      specialFeatures: input.specialFeatures,
-      channels: input.channels,
-      atPriceIndicator: input.atPriceIndicator,
-      status: "draft",
-      publishedAt: null,
-      enquiriesCount: 0,
-      createdAt: nowIso(),
-    };
-    mockListings.push(listing);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("listings")
+      .insert({
+        company_id: input.companyId,
+        vehicle_id: input.vehicleId,
+        title: input.title,
+        description: input.description,
+        price: input.price,
+        special_features: input.specialFeatures,
+        channels: input.channels,
+        at_price_indicator: input.atPriceIndicator,
+        status: "draft",
+        enquiries_count: 0,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const listing = data as unknown as Listing;
+    invalidate(NS);
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({
@@ -64,7 +96,6 @@ export const listingService = {
         description: `Listing created for ${v.registration}`,
         metadata: { listingId: listing.id },
       });
-      // Move vehicle to listed status if currently ready
       if (v.status === "ready") {
         await vehicleService.changeStatus(v.id, "listed", actorId);
       }
@@ -73,16 +104,17 @@ export const listingService = {
   },
 
   async publish(id: UUID, actorId: UUID): Promise<Listing> {
-    // TODO: Supabase: update status='live', publishedAt
-    await delay();
-    const idx = mockListings.findIndex((l) => l.id === id);
-    if (idx === -1) throw new Error("Listing not found");
-    mockListings[idx] = {
-      ...mockListings[idx],
-      status: "live",
-      publishedAt: nowIso(),
-    };
-    const v = await vehicleService.getById(mockListings[idx].vehicleId);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("listings")
+      .update({ status: "live", published_at: new Date().toISOString() })
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const listing = data as unknown as Listing;
+    invalidate(NS);
+    const v = await vehicleService.getById(listing.vehicleId);
     if (v) {
       await activityService.log({
         companyId: v.companyId,
@@ -93,33 +125,41 @@ export const listingService = {
         metadata: { listingId: id },
       });
     }
-    return mockListings[idx];
+    return listing;
   },
 
-  async toggleChannel(
-    id: UUID,
-    channel: ListingChannel,
-  ): Promise<Listing> {
-    // TODO: Supabase: update channels JSON column
-    await delay(150);
-    const idx = mockListings.findIndex((l) => l.id === id);
-    if (idx === -1) throw new Error("Listing not found");
-    mockListings[idx] = {
-      ...mockListings[idx],
-      channels: {
-        ...mockListings[idx].channels,
-        [channel]: !mockListings[idx].channels[channel],
-      },
-    };
-    return mockListings[idx];
+  async toggleChannel(id: UUID, channel: ListingChannel): Promise<Listing> {
+    const supabase = createClient();
+    const { data: row } = await supabase
+      .from("listings")
+      .select("channels")
+      .eq("id", id)
+      .single();
+    if (!row) throw new Error("Listing not found");
+    const channels = (row as { channels: Record<ListingChannel, boolean> })
+      .channels;
+    channels[channel] = !channels[channel];
+    const { data, error } = await supabase
+      .from("listings")
+      .update({ channels })
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    invalidate(NS);
+    return data as unknown as Listing;
   },
 
   async updateStatus(id: UUID, status: ListingStatus): Promise<Listing> {
-    // TODO: Supabase: update
-    await delay();
-    const idx = mockListings.findIndex((l) => l.id === id);
-    if (idx === -1) throw new Error("Listing not found");
-    mockListings[idx] = { ...mockListings[idx], status };
-    return mockListings[idx];
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("listings")
+      .update({ status })
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    invalidate(NS);
+    return data as unknown as Listing;
   },
 };

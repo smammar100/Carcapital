@@ -12,6 +12,7 @@ import {
   CalendarCheck,
   TrendingUp,
   Shield,
+  ExternalLink,
   Receipt,
   Store,
   Users,
@@ -97,8 +98,9 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     label: "Warranties",
     items: [
-      { label: "Active", href: "/warranties", icon: Shield },
-      { label: "Open Claims", href: "/warranties/claims", icon: ShieldAlert },
+      { label: "In-House", href: "/warranties/in-house", icon: Shield },
+      { label: "External", href: "/warranties/external", icon: ExternalLink },
+      { label: "Claims", href: "/warranties/claims", icon: ShieldAlert },
     ],
   },
 ];

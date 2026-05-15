@@ -12,6 +12,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { useSidebarState } from "@/contexts/sidebar-state-context";
 import { SIDEBAR_GROUPS, type SidebarItem } from "./sidebar-config";
+import { SIDEBAR_BADGES } from "./sidebar-badges";
 import { cn } from "@/lib/utils";
 
 const COLLAPSED_KEY = "cc:sidebar:collapsed";
@@ -266,6 +267,7 @@ function NavRow({ item, active, collapsed }: NavRowProps) {
     gap: "var(--space-3)",
   };
 
+  const BadgeComponent = SIDEBAR_BADGES[item.href];
   const inner = (
     <Link href={item.href} className={className} style={style}>
       {active && (
@@ -276,6 +278,7 @@ function NavRow({ item, active, collapsed }: NavRowProps) {
       )}
       <Icon className="h-4 w-4 shrink-0" />
       {!collapsed && <span className="truncate">{item.label}</span>}
+      {!collapsed && BadgeComponent && <BadgeComponent />}
     </Link>
   );
 

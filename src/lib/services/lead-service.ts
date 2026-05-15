@@ -1,7 +1,26 @@
-import { mockLeads } from "@/lib/mock-data";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { Lead, LeadSource, LeadStatus, UUID } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
+
+const NS = "leads:";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  customerName:customer_name,
+  customerPhone:customer_phone,
+  customerEmail:customer_email,
+  vehicleInterest:vehicle_interest,
+  vehicleId:vehicle_id,
+  source,
+  status,
+  assignedTo:assigned_to,
+  notes,
+  appointmentId:appointment_id,
+  createdAt:created_at,
+  updatedAt:updated_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -17,53 +36,83 @@ interface CreateInput {
 
 export const leadService = {
   async getAll(companyId: UUID): Promise<Lead[]> {
-    // TODO: Supabase: from('leads').select('*').eq('company_id', companyId)
-    await delay();
-    return mockLeads
-      .filter((l) => l.companyId === companyId)
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as Lead[];
+    });
   },
 
   async getById(id: UUID): Promise<Lead | null> {
-    // TODO: Supabase: from('leads').select('*').eq('id', id).single()
-    await delay(150);
-    return mockLeads.find((l) => l.id === id) ?? null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as Lead | null;
+    });
   },
 
   async getByStatus(
     companyId: UUID,
     statuses: LeadStatus[],
   ): Promise<Lead[]> {
-    // TODO: Supabase: ... .in('status', statuses)
-    await delay();
-    return mockLeads.filter(
-      (l) => l.companyId === companyId && statuses.includes(l.status),
-    );
+    return withCache(`${NS}by-status:${companyId}:${statuses.join(",")}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .in("status", statuses);
+      if (error) throw error;
+      return (data ?? []) as unknown as Lead[];
+    });
   },
 
   async getRecent(companyId: UUID, days: number): Promise<Lead[]> {
-    // TODO: Supabase: ... .gte('created_at', cutoff)
-    await delay();
-    const cutoff = Date.now() - days * 86400000;
-    return mockLeads.filter(
-      (l) =>
-        l.companyId === companyId &&
-        new Date(l.createdAt).getTime() >= cutoff,
-    );
+    return withCache(`${NS}recent:${companyId}:${days}`, async () => {
+      const supabase = createClient();
+      const cutoff = new Date(Date.now() - days * 86_400_000).toISOString();
+      const { data, error } = await supabase
+        .from("leads")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .gte("created_at", cutoff);
+      if (error) throw error;
+      return (data ?? []) as unknown as Lead[];
+    });
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<Lead> {
-    // TODO: Supabase: insert + log
-    await delay();
-    const lead: Lead = {
-      id: newId("lead"),
-      ...input,
-      status: "new",
-      appointmentId: null,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    mockLeads.push(lead);
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("leads")
+      .insert({
+        company_id: input.companyId,
+        customer_name: input.customerName,
+        customer_phone: input.customerPhone,
+        customer_email: input.customerEmail,
+        vehicle_interest: input.vehicleInterest,
+        vehicle_id: input.vehicleId,
+        source: input.source,
+        status: "new",
+        assigned_to: input.assignedTo,
+        notes: input.notes,
+        appointment_id: null,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const lead = data as unknown as Lead;
+    invalidate(NS);
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,
@@ -79,11 +128,21 @@ export const leadService = {
     id: UUID,
     patch: Partial<Pick<Lead, "status" | "notes" | "assignedTo" | "appointmentId">>,
   ): Promise<Lead> {
-    // TODO: Supabase: update + log
-    await delay();
-    const idx = mockLeads.findIndex((l) => l.id === id);
-    if (idx === -1) throw new Error("Lead not found");
-    mockLeads[idx] = { ...mockLeads[idx], ...patch, updatedAt: nowIso() };
-    return mockLeads[idx];
+    const supabase = createClient();
+    const updates: TableUpdate<"leads"> = {};
+    if (patch.status !== undefined) updates.status = patch.status;
+    if (patch.notes !== undefined) updates.notes = patch.notes;
+    if (patch.assignedTo !== undefined) updates.assigned_to = patch.assignedTo;
+    if (patch.appointmentId !== undefined)
+      updates.appointment_id = patch.appointmentId;
+    const { data, error } = await supabase
+      .from("leads")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    invalidate(NS);
+    return data as unknown as Lead;
   },
 };

@@ -467,10 +467,18 @@ export interface SalesDeal {
 // WARRANTIES & CLAIMS
 // ============================================================
 
-export type WarrantyType = "in_house" | "third_party";
+export type WarrantyType = "in_house" | "external";
 // v4.1: "claimed" removed — derived from claims with status in (open, under_review).
 // See /warranties/claims for the live filter.
 export type WarrantyStatus = "active" | "expired" | "cancelled";
+
+/**
+ * Gap 4 — external warranties have a purchase lifecycle independent of the
+ * warranty itself. In-house warranties (`type === 'in_house'`) always carry
+ * `n_a`; external warranties default to `pending` and flip to `purchased`
+ * once the dealership has bought the cover from the provider.
+ */
+export type WarrantyPurchaseStatus = "n_a" | "pending" | "purchased";
 
 export interface Warranty {
   id: UUID;
@@ -488,6 +496,13 @@ export interface Warranty {
   costToDealership: number;
   costToCustomer: number;
   status: WarrantyStatus;
+  /** Gap 4 — purchase tracker. `n_a` for in-house, `pending`/`purchased` for external. */
+  purchaseStatus: WarrantyPurchaseStatus;
+  /** Set when the dealership marks the external warranty as bought from the provider. */
+  purchasedAt: ISODateTime | null;
+  purchasedBy: UUID | null;
+  /** Provider's policy / reference number once the purchase is logged. */
+  providerReference: string | null;
   certificateGenerated: boolean;
   createdAt: ISODateTime;
 }
@@ -704,5 +719,96 @@ export interface Notification {
   body: string;
   link: string | null;
   read: boolean;
+  createdAt: ISODateTime;
+}
+
+// ============================================================
+// CUSTOMERS & ENQUIRIES (v4.2 customer-first lead capture)
+// ============================================================
+
+/**
+ * v4.2 — leads attach to a Customer record, deduped on phone / email /
+ * postcode so repeat buyers and trade-in customers stay connected across
+ * vehicles. See `src/lib/services/customer-service.ts` for the search +
+ * findOrCreate flow.
+ */
+export interface Customer {
+  id: UUID;
+  companyId: UUID;
+  title: string | null;          // "Mr", "Ms", etc. — optional
+  firstName: string;
+  lastName: string;
+  companyName: string | null;    // B2B / trade buyers only
+  email: string | null;          // stored lowercased
+  homePhone: string | null;
+  mobilePhone: string | null;
+  postcode: string | null;
+  addressLines: string[];        // up to 4 lines (number+street, area, town, county)
+  marketingConsent: boolean;
+  notes: string | null;
+  /** First-touch source — denormalised for fast Lost-Reason reporting later. */
+  sourceOrigin: string | null;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+/** EnquirySource — full curated list lives in `src/lib/enquiry-constants.ts`. */
+export type EnquirySource = string;
+
+/** Active enquiry-type values — see `ENQUIRY_TYPES_ACTIVE` for the labels. */
+export type EnquiryActiveType =
+  | "cash"
+  | "finance"
+  | "test_drive"
+  | "trade"
+  | "web_enquiry"
+  | "phone"
+  | "whatsapp"
+  | "walk_on"
+  | "workshop"
+  | "hot_lead";
+
+export type LostReason =
+  | "price"
+  | "vehicle_sold"
+  | "finance"
+  | "contact"
+  | "px"
+  | "product"
+  | "people"
+  | "purchased"
+  | "duplicate";
+
+/** Either an active type or `lost_<reason>`. */
+export type EnquiryType = EnquiryActiveType | `lost_${LostReason}`;
+
+export type EnquiryStatus = "open" | "won" | "lost";
+
+export interface Enquiry {
+  id: UUID;
+  companyId: UUID;
+  customerId: UUID;
+  /** Nullable — enquiries can exist before a vehicle of interest is picked. */
+  vehicleId: UUID | null;
+  source: EnquirySource;
+  type: EnquiryType;
+  status: EnquiryStatus;
+  /** Set when `type` is one of `lost_<reason>` — auto-derived on insert. */
+  lostReason: LostReason | null;
+  salespersonId: UUID;
+  financeInterest: boolean;
+  nextActionDueAt: ISODateTime | null;
+  notes: string | null;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+export interface EnquiryHistoryEntry {
+  id: UUID;
+  enquiryId: UUID;
+  actorId: UUID;
+  fromStatus: EnquiryStatus | null;
+  toStatus: EnquiryStatus;
+  note: string | null;
   createdAt: ISODateTime;
 }

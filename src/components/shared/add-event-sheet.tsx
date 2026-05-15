@@ -10,7 +10,7 @@ import {
   Video,
   X,
 } from "lucide-react";
-import { Sheet, SheetContent } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -209,7 +209,9 @@ export function AddEventSheet({
         className="sm:max-w-[400px] gap-0 p-0"
       >
         <div className="flex items-center justify-between border-b px-4 py-4">
-          <h2 className="text-h3 font-bold text-foreground">Add Event</h2>
+          <SheetTitle className="text-h3 font-bold text-foreground">
+            Add Event
+          </SheetTitle>
           <button
             type="button"
             aria-label="Close"

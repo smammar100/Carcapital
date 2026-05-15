@@ -1,8 +1,31 @@
-import { mockSalesDeals } from "@/lib/mock-data";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
+import { invalidate, withCache } from "@/lib/cache";
 import type { SalesDeal, SalesStage, UUID } from "@/lib/types";
-import { delay, newId, nowIso } from "./_base";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+
+const NS = "sales:";
+
+const SELECT = `
+  id,
+  companyId:company_id,
+  vehicleId:vehicle_id,
+  leadId:lead_id,
+  customerName:customer_name,
+  customerPhone:customer_phone,
+  customerEmail:customer_email,
+  stage,
+  offerPrice:offer_price,
+  agreedPrice:agreed_price,
+  depositAmount:deposit_amount,
+  depositDate:deposit_date,
+  collectionDate:collection_date,
+  completionDate:completion_date,
+  sellingAgent:selling_agent,
+  notes,
+  createdAt:created_at,
+  updatedAt:updated_at
+`;
 
 interface CreateInput {
   companyId: UUID;
@@ -16,44 +39,50 @@ interface CreateInput {
 
 export const salesService = {
   async getAll(companyId: UUID): Promise<SalesDeal[]> {
-    // TODO: Supabase: from('sales_deals').select('*').eq('company_id', companyId)
-    await delay();
-    return mockSalesDeals
-      .filter((d) => d.companyId === companyId)
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    return withCache(`${NS}all:${companyId}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("sales_deals")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as unknown as SalesDeal[];
+    });
   },
 
   async getById(id: UUID): Promise<SalesDeal | null> {
-    // TODO: Supabase: ... .eq('id', id).single()
-    await delay(150);
-    return mockSalesDeals.find((d) => d.id === id) ?? null;
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("sales_deals")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as SalesDeal | null;
+    });
   },
 
   async create(input: CreateInput): Promise<SalesDeal> {
-    // TODO: Supabase: insert + log
-    await delay();
-    const deal: SalesDeal = {
-      id: newId("deal"),
-      companyId: input.companyId,
-      vehicleId: input.vehicleId,
-      leadId: input.leadId,
-      customerName: input.customerName,
-      customerPhone: input.customerPhone,
-      customerEmail: input.customerEmail,
-      stage: "new_lead",
-      offerPrice: null,
-      agreedPrice: null,
-      depositAmount: null,
-      depositDate: null,
-      collectionDate: null,
-      completionDate: null,
-      sellingAgent: input.sellingAgent,
-      notes: null,
-      createdAt: nowIso(),
-      updatedAt: nowIso(),
-    };
-    mockSalesDeals.push(deal);
-    return deal;
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("sales_deals")
+      .insert({
+        company_id: input.companyId,
+        vehicle_id: input.vehicleId,
+        lead_id: input.leadId,
+        customer_name: input.customerName,
+        customer_phone: input.customerPhone,
+        customer_email: input.customerEmail,
+        stage: "new_lead",
+        selling_agent: input.sellingAgent,
+      })
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    invalidate(NS);
+    return data as unknown as SalesDeal;
   },
 
   async updateStage(
@@ -61,20 +90,21 @@ export const salesService = {
     stage: SalesStage,
     actorId: UUID,
   ): Promise<SalesDeal> {
-    // TODO: Supabase: update + log
-    await delay();
-    const idx = mockSalesDeals.findIndex((d) => d.id === id);
-    if (idx === -1) throw new Error("Deal not found");
-    mockSalesDeals[idx] = {
-      ...mockSalesDeals[idx],
-      stage,
-      updatedAt: nowIso(),
-      completionDate:
-        stage === "completed_sale"
-          ? nowIso().slice(0, 10)
-          : mockSalesDeals[idx].completionDate,
-    };
-    const v = await vehicleService.getById(mockSalesDeals[idx].vehicleId);
+    const supabase = createClient();
+    const updates: TableUpdate<"sales_deals"> = { stage };
+    if (stage === "completed_sale") {
+      updates.completion_date = new Date().toISOString().slice(0, 10);
+    }
+    const { data, error } = await supabase
+      .from("sales_deals")
+      .update(updates)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const deal = data as unknown as SalesDeal;
+    invalidate(NS);
+    const v = await vehicleService.getById(deal.vehicleId);
     if (v) {
       await activityService.log({
         companyId: v.companyId,
@@ -91,11 +121,11 @@ export const salesService = {
           userId: actorId,
           vehicleId: v.id,
           actionType: "sale_completed",
-          description: `${v.registration} sold to ${mockSalesDeals[idx].customerName}`,
+          description: `${v.registration} sold to ${deal.customerName}`,
           metadata: { dealId: id },
         });
       }
     }
-    return mockSalesDeals[idx];
+    return deal;
   },
 };
