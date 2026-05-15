@@ -178,24 +178,31 @@ export const vehicleService = {
     const supabase = createClient();
     // UK plates can sit in the column either with their canonical space
     // ("LF62 LGX") or without ("LF62LGX") depending on how the row was
-    // inserted. PostgREST doesn't support SQL-expression filters like
-    // `upper(replace(registration, ' ', ''))`, so we try both shapes via
-    // an `or(ilike, ilike)` filter — case-insensitive, matches either form.
+    // inserted. Match either form via a single `.eq()` against the most
+    // likely shape, then fall back to the other if no row comes back.
+    // We tried `.or(ilike, …)`, `.in([...])`, and `.maybeSingle()` —
+    // all of those silently HUNG in supabase-js's PostgREST builder for
+    // some query shapes (promise never settles, no error logged). The
+    // simplest plain `.eq().limit(1)` shape always resolves.
     const cleaned = reg.toUpperCase().replace(/\s+/g, "");
-    const candidates = new Set<string>([cleaned, reg.trim().toUpperCase()]);
+    const candidates: string[] = [cleaned];
     if (cleaned.length === 7) {
-      candidates.add(`${cleaned.slice(0, 4)} ${cleaned.slice(4)}`);
+      candidates.unshift(`${cleaned.slice(0, 4)} ${cleaned.slice(4)}`);
     }
-    const orFilter = Array.from(candidates)
-      .map((c) => `registration.ilike.${c}`)
-      .join(",");
-    const { data, error } = await supabase
-      .from("vehicles")
-      .select(SELECT)
-      .or(orFilter)
-      .maybeSingle();
-    if (error) throw error;
-    return data as unknown as Vehicle | null;
+    const trimmed = reg.trim().toUpperCase();
+    if (!candidates.includes(trimmed)) candidates.unshift(trimmed);
+
+    for (const candidate of candidates) {
+      const { data, error } = await supabase
+        .from("vehicles")
+        .select(SELECT)
+        .eq("registration", candidate)
+        .limit(1);
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : null;
+      if (row) return row as unknown as Vehicle;
+    }
+    return null;
   },
 
   async getByStatus(

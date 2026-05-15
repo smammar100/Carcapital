@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -203,10 +203,22 @@ export function ArrivalForm() {
   const watchAll = form.watch();
   const errors = form.formState.errors;
 
-  // Tracks the most recent lookup so we can abandon results from an older
-  // request when the user retypes — prevents a slow DVLA response from a
-  // previous reg overwriting a faster response from the current one.
-  const lookupSeq = useRef(0);
+  // Holds the AbortController for the in-flight lookup so a newer lookup can
+  // cancel an older one. Cancelled lookups exit without touching state.
+  const inflightLookupRef = useRef<AbortController | null>(null);
+  // The last cleaned reg we kicked off a lookup for. onBlur + onClick on the
+  // same reg are coalesced — we don't double-fire the same call.
+  const lastLookupRegRef = useRef<string>("");
+  // When the loading state started; lets us render "Checking… (Ns)" so the
+  // user can see the lookup is still progressing on a slow DVLA call.
+  const [loadingStartedAt, setLoadingStartedAt] = useState<number | null>(null);
+  // Tick the elapsed-time display once per 500ms while loading.
+  const [, setLoadingTick] = useState(0);
+  useEffect(() => {
+    if (loadingStartedAt === null) return;
+    const id = setInterval(() => setLoadingTick((t) => t + 1), 500);
+    return () => clearInterval(id);
+  }, [loadingStartedAt]);
 
   async function handleDvlaLookup() {
     const reg = form.getValues("registration");
@@ -219,65 +231,108 @@ export function ArrivalForm() {
     if (cleaned.length < 4 || cleaned.length > 8) {
       setDvlaState("idle");
       setDuplicate(null);
+      lastLookupRegRef.current = "";
       return;
     }
 
-    const myTurn = ++lookupSeq.current;
+    // Coalesce double-fire: clicking the DVLA button also blurs the Input,
+    // so onBlur AND onClick both call this for the same reg. Skip the
+    // second invocation if we just kicked off the same lookup.
+    if (lastLookupRegRef.current === cleaned) return;
+    lastLookupRegRef.current = cleaned;
+
+    // Abort any previous in-flight lookup so its fetches free up. We treat
+    // an aborted signal as "a newer lookup is in charge now" — its results
+    // are ignored on return.
+    inflightLookupRef.current?.abort();
+    const controller = new AbortController();
+    inflightLookupRef.current = controller;
+    const { signal } = controller;
+
     setDvlaState("loading");
     setDuplicate(null);
+    setLoadingStartedAt(Date.now());
+
+    // Hard ceiling on the WHOLE lookup. If we don't land on a terminal
+    // state in 15s the controller aborts itself. Defence-in-depth alongside
+    // dvla-service's own 12s AbortController + the 5s Supabase race below.
+    const ceiling = setTimeout(() => controller.abort(), 15_000);
 
     const formatted = formatRegPlate(reg);
+    let landedTerminal = false;
 
-    // Fire both lookups in parallel and race them. The DB check (~100-300ms)
-    // usually beats DVLA (~1-2s on a cold call). If the DB returns a match,
-    // surface the duplicate banner immediately — don't make the user wait
-    // another second for DVLA data they won't use.
-    const dbPromise = vehicleService
-      .getByRegistration(formatted)
-      .catch((e) => {
-        console.warn("[arrival-form] getByRegistration failed", e);
+    try {
+      // dbPromise races against a 5s deadline. If Supabase doesn't respond
+      // in 5s, treat as "no duplicate" and continue with the DVLA result.
+      // The user occasionally won't see a duplicate banner under pathological
+      // DB slowness, but the form stays usable. The existing submit-time
+      // duplicate check (onSubmit, below) is the safety net for that case.
+      const dbPromise = Promise.race([
+        vehicleService.getByRegistration(formatted).catch((e) => {
+          console.warn("[arrival-form] getByRegistration failed", e);
+          return null;
+        }),
+        new Promise<null>((r) => setTimeout(() => r(null), 5_000)),
+      ]);
+      const dvlaPromise = dvlaService.lookup(formatted).catch((e) => {
+        console.warn("[arrival-form] dvla lookup failed", e);
         return null;
       });
-    const dvlaPromise = dvlaService.lookup(formatted).catch((e) => {
-      console.warn("[arrival-form] dvla lookup failed", e);
-      return null;
-    });
 
-    // 1. Settle the DB check first.
-    const existing = await dbPromise;
-    if (myTurn !== lookupSeq.current) return; // user retyped; abandon
-    if (existing) {
-      setDuplicate({
-        id: existing.id,
-        stockId: existing.stockId,
-        label: `${existing.make} ${existing.model ?? ""}`.trim(),
-      });
-      setDvlaState("duplicate");
-      // No point waiting for DVLA — but let it finish and warm the cache.
-      void dvlaPromise;
-      return;
+      // 1. Settle the DB check first (or its 5s deadline).
+      const existing = await dbPromise;
+      if (signal.aborted) return;
+
+      if (existing) {
+        setDuplicate({
+          id: existing.id,
+          stockId: existing.stockId,
+          label: `${existing.make} ${existing.model ?? ""}`.trim(),
+        });
+        setDvlaState("duplicate");
+        landedTerminal = true;
+        // Let DVLA finish so the LRU cache warms up for the next user.
+        void dvlaPromise;
+        return;
+      }
+
+      // 2. No duplicate — wait for DVLA.
+      const dvla = await dvlaPromise;
+      if (signal.aborted) return;
+
+      if (!dvla) {
+        setDvlaState("not_found");
+        landedTerminal = true;
+        return;
+      }
+
+      // Auto-fill from DVLA. Null/undefined checks (not truthy) so legitimate
+      // zero values — e.g. engineSizeCC=0 for electric cars — still populate.
+      setDvlaState("found");
+      landedTerminal = true;
+      if (dvla.make) form.setValue("make", dvla.make);
+      if (dvla.model) form.setValue("model", dvla.model);
+      if (dvla.year != null) form.setValue("year", dvla.year);
+      if (dvla.colour) form.setValue("colour", dvla.colour);
+      if (dvla.fuelType) form.setValue("fuelType", dvla.fuelType);
+      if (dvla.engineSizeCC != null) form.setValue("engineSizeCC", dvla.engineSizeCC);
+      if (dvla.motExpiry) form.setValue("motExpiry", dvla.motExpiry);
+    } catch (e) {
+      console.warn("[arrival-form] handleDvlaLookup unexpected", e);
+      if (!signal.aborted) {
+        setDvlaState("not_found");
+        landedTerminal = true;
+      }
+    } finally {
+      clearTimeout(ceiling);
+      // Safety net: if we exited without setting a terminal state AND we
+      // weren't aborted by a newer lookup, force not_found so the loading
+      // spinner can never stick forever.
+      if (!landedTerminal && !signal.aborted) {
+        setDvlaState("not_found");
+      }
+      setLoadingStartedAt(null);
     }
-
-    // 2. No duplicate — wait for DVLA.
-    const dvla = await dvlaPromise;
-    if (myTurn !== lookupSeq.current) return; // user retyped; abandon
-    if (!dvla) {
-      setDvlaState("not_found");
-      return;
-    }
-
-    // Auto-fill from DVLA. Use null/undefined-checks (not truthy checks) so
-    // legitimate zero values — e.g. engineSizeCC=0 for electric cars — still
-    // populate the field. DVLA's VES never returns `model`, so users always
-    // enter that manually.
-    setDvlaState("found");
-    if (dvla.make) form.setValue("make", dvla.make);
-    if (dvla.model) form.setValue("model", dvla.model);
-    if (dvla.year != null) form.setValue("year", dvla.year);
-    if (dvla.colour) form.setValue("colour", dvla.colour);
-    if (dvla.fuelType) form.setValue("fuelType", dvla.fuelType);
-    if (dvla.engineSizeCC != null) form.setValue("engineSizeCC", dvla.engineSizeCC);
-    if (dvla.motExpiry) form.setValue("motExpiry", dvla.motExpiry);
   }
 
   function addTodo() {
@@ -465,8 +520,12 @@ export function ArrivalForm() {
               </div>
               {dvlaState === "loading" && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" /> Checking DVLA
-                  and your stock book…
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Checking DVLA and your stock book
+                  {loadingStartedAt !== null
+                    ? ` (${Math.max(0, Math.round((Date.now() - loadingStartedAt) / 1000))}s)`
+                    : ""}
+                  …
                 </p>
               )}
               {dvlaState === "found" && (
