@@ -50,18 +50,12 @@ export function VehicleDetailShell({
 
   return (
     <Tabs defaultValue="overview" className="gap-4">
-      {/* `line` variant = underline tabs on a transparent background.
-          `w-full` + `border-b` makes the divider rule span the entire
-          content width, so the area after "Activity" reads as an
-          intentional baseline instead of bare page beside a stranded
-          grey pill. `[&>button]:flex-none` stops shadcn's default
-          `flex-1` from stretching the 8 tabs edge-to-edge with big
-          gaps; `gap-4` spaces them like a normal tab bar.
+      {/* Original grey-pill (`default` variant) but full-width: the
+          shadcn TabsTrigger already has `flex-1`, so a `w-full` list
+          spreads all 8 tabs to equal widths across the whole content
+          area — no stranded pill, no bare gap after "Activity".
           overflow-x-auto keeps it scrollable on narrow viewports. */}
-      <TabsList
-        variant="line"
-        className="w-full justify-start gap-4 overflow-x-auto rounded-none border-b p-0 [&>button]:flex-none [&>button]:px-1"
-      >
+      <TabsList className="w-full overflow-x-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="todo">
