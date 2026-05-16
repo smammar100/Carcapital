@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { NotificationsProvider } from "@/contexts/notifications-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -48,6 +49,11 @@ export default function RootLayout({
           </NotificationsProvider>
         </AuthProvider>
         <Toaster richColors closeButton position="bottom-right" />
+        {/* Vercel Speed Insights — collects Core Web Vitals. NOTE: this
+            only reports when deployed on Vercel; the script is a no-op
+            on Netlify (our current host), so it's harmless but inert
+            until/unless the app is hosted on Vercel. */}
+        <SpeedInsights />
       </body>
     </html>
   );
