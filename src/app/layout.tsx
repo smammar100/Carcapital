@@ -6,6 +6,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { NotificationsProvider } from "@/contexts/notifications-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
 
@@ -48,6 +49,7 @@ export default function RootLayout({
           </NotificationsProvider>
         </AuthProvider>
         <Toaster richColors closeButton position="bottom-right" />
+        <Analytics />
       </body>
     </html>
   );
