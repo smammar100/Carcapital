@@ -11,6 +11,7 @@ import {
 import { todoService } from "@/lib/services/todo-service";
 import { enquiryService } from "@/lib/services/enquiry-service";
 import { OverviewTab } from "./overview-tab";
+import { DetailsTab } from "./details-tab";
 import { FinancialsTab } from "./financials-tab";
 import { TodoTab } from "./todo-tab";
 import { InspectionTab } from "./inspection-tab";
@@ -57,6 +58,7 @@ export function VehicleDetailShell({
           overflow-x-auto keeps it scrollable on narrow viewports. */}
       <TabsList className="w-full overflow-x-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="details">Details</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="todo">
           Things to Do
@@ -77,6 +79,9 @@ export function VehicleDetailShell({
 
       <TabsContent value="overview">
         <OverviewTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="details">
+        <DetailsTab vehicle={vehicle} />
       </TabsContent>
       <TabsContent value="financials">
         <FinancialsTab vehicle={vehicle} />
