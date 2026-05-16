@@ -31,7 +31,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatRelativeTime, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -164,7 +163,13 @@ function NotificationsDropdown({
             Mark all as read
           </button>
         </div>
-        <ScrollArea className="max-h-[320px]">
+        {/* Native overflow scroll — Radix ScrollArea's viewport uses
+            height:100% which resolves to indefinite when the root only
+            has max-height (no explicit height), so it grew to full
+            content height and the list spilled under the fixed footer.
+            A plain max-h + overflow-y-auto respects max-height correctly
+            and keeps the header/footer as proper bookends. */}
+        <div className="max-h-[320px] overflow-y-auto overscroll-contain">
           {notifications.length === 0 ? (
             <div
               className="text-center text-sm text-muted-foreground"
@@ -208,7 +213,7 @@ function NotificationsDropdown({
               ))}
             </div>
           )}
-        </ScrollArea>
+        </div>
         <div
           style={{
             padding: "var(--space-3)",
