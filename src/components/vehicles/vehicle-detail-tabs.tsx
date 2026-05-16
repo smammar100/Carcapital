@@ -55,7 +55,11 @@ interface Props {
 export function VehicleDetailTabs({ vehicle, onOpenInspection }: Props) {
   return (
     <Tabs defaultValue="overview">
-      <TabsList className="w-full overflow-x-auto justify-start">
+      {/* w-fit so the pill hugs the tabs instead of stretching full
+          width (which left a long empty bar after "Activity").
+          max-w-full + overflow-x-auto keeps it scrollable on narrow
+          viewports where the 8 tabs exceed the available width. */}
+      <TabsList className="w-fit max-w-full justify-start overflow-x-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="todos">Things to Do</TabsTrigger>
