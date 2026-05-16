@@ -6,6 +6,30 @@ import type {
   VehicleStatus,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+import { StatusRing, type StatusRingVariant } from "./status-ring";
+
+/**
+ * VehicleStatus is the app's one true lifecycle, so it gets the
+ * progress-ring icon (per the order-status reference). The 10 states
+ * map monotonically onto the ring: `received` hasn't started (dashed
+ * pending), the middle states fill the wedge progressively, `sold` is
+ * the full disc (done), and `returned` is the exclamation (issue).
+ */
+const VEHICLE_STATUS_RING: Record<
+  VehicleStatus,
+  { variant: StatusRingVariant; fill?: number }
+> = {
+  received: { variant: "pending" },
+  inspection_pending: { variant: "progress", fill: 0 },
+  being_prepared: { variant: "progress", fill: 0.3 },
+  photos_pending: { variant: "progress", fill: 0.45 },
+  photos_ready: { variant: "progress", fill: 0.6 },
+  ready: { variant: "progress", fill: 0.75 },
+  listed: { variant: "progress", fill: 0.85 },
+  reserved: { variant: "progress", fill: 0.95 },
+  sold: { variant: "progress", fill: 1 },
+  returned: { variant: "issue" },
+};
 
 const COLOR_CLASSES: Record<string, string> = {
   blue: "bg-sky-100 text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:text-sky-200 dark:border-sky-900",
@@ -30,8 +54,13 @@ interface VehicleStatusBadgeProps {
 export function VehicleStatusBadge({ status, className }: VehicleStatusBadgeProps) {
   const meta = VEHICLE_STATUSES.find((s) => s.value === status);
   if (!meta) return <Badge variant="outline">{status}</Badge>;
+  const ring = VEHICLE_STATUS_RING[status];
   return (
-    <Badge variant="outline" className={cn(COLOR_CLASSES[meta.color], className)}>
+    <Badge
+      variant="outline"
+      className={cn("gap-1.5", COLOR_CLASSES[meta.color], className)}
+    >
+      {ring && <StatusRing variant={ring.variant} fill={ring.fill} />}
       {meta.label}
     </Badge>
   );

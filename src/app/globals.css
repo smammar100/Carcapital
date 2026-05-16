@@ -534,6 +534,37 @@
   }
 
   /* ────────────────────────────────────────────────────────────────────────
+   * Scrollbars — thin + subtle, everywhere. Standard properties (Firefox,
+   * Chrome 121+, Safari 18.4+) plus a WebKit fallback for older Chromium /
+   * Safari. Uses the theme `--border` token (not a literal grey) so it
+   * adapts to light/dark mode; thumb darkens to `--muted-foreground` on
+   * hover so it's discoverable without being loud.
+   * ──────────────────────────────────────────────────────────────────────── */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--border);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--muted-foreground);
+  }
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ────────────────────────────────────────────────────────────────────────
    * Bare element defaults — apply the type scale to raw HTML so unstyled
    * markup looks intentional. Tailwind utility classes win specificity, so
    * existing `<h1 className="text-xl …">` etc. across the dashboard are
