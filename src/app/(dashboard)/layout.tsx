@@ -54,7 +54,7 @@ export default function DashboardLayout({
             <code className="rounded bg-muted px-1 py-0.5">
               NEXT_PUBLIC_SUPABASE_ANON_KEY
             </code>{" "}
-            are set in the Netlify site environment, then redeploy.
+            are set in the Vercel project environment, then redeploy.
           </p>
           <Button type="button" onClick={() => location.reload()}>
             Retry

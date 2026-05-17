@@ -21,7 +21,8 @@
 | Storage | Supabase Storage (vehicle photos) |
 | AI image gen | OpenAI Images API (proxied) |
 | Vehicle lookup | DVLA Vehicle Enquiry Service v1 (proxied) |
-| Hosting | Netlify |
+| Hosting | Vercel (Next.js zero-config; Fluid Compute) |
+| Analytics | Vercel Speed Insights + Analytics (`@vercel/*`, active on Vercel) |
 
 ## App layout
 
@@ -93,7 +94,7 @@ sequenceDiagram
 | `DVLA_API_KEY` | yes | server-only (`/api/dvla/lookup`) | DVLA Vehicle Enquiry Service v1 |
 | `OPENAI_API_KEY` | yes | server-only (`/api/photo/generate`) | Image generation for photo processing |
 
-Local: `.env.local` (gitignored via `.env*`). Production: Netlify environment.
+Local: `.env.local` (gitignored via `.env*`). Production: Vercel project Environment Variables (set all the above in Vercel → Project Settings → Environment Variables, or push them with `vercel env`).
 
 Auth context (`src/contexts/auth-context.tsx`) reads the URL + publishable key on init; if either is missing it short-circuits to a "Can't connect" screen rendered by `(dashboard)/layout.tsx`.
 

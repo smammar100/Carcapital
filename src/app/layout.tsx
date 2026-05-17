@@ -51,10 +51,8 @@ export default function RootLayout({
         </AuthProvider>
         <Toaster richColors closeButton position="bottom-right" />
         {/* Vercel Speed Insights + Analytics — Core Web Vitals and
-            page/audience analytics. NOTE: both only report when
-            deployed on Vercel; the scripts are no-ops on Netlify (our
-            current host), so they're harmless but inert until/unless
-            the app is hosted on Vercel. */}
+            page/audience analytics. Active on Vercel (our deployment
+            target); inert with zero overhead during local dev. */}
         <SpeedInsights />
         <Analytics />
       </body>

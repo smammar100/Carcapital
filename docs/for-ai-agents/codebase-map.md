@@ -345,7 +345,6 @@ Dynamic detail routes: `/vehicles/[id]/inspection/page.tsx`, `/warranties/[id]/p
 | `package.json` | Dependencies + scripts |
 | `.env.local` (gitignored) | Local secrets (DVLA, Supabase, OpenAI) |
 | `.env.local.example` | Documentation of expected env vars |
-| `netlify.toml` | Netlify build + secret-scanner config |
 | `.mcp.json` | MCP servers config (Supabase, Spectrum, Shadcn UI, Claude_Preview, etc.) |
 | `middleware.ts` | Root middleware |
 

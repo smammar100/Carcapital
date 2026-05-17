@@ -34,10 +34,12 @@ function mockFallback(reg: string): Partial<Vehicle> | null {
   return hit ? hit[1] : null;
 }
 
-// Hard timeout so the form never hangs on a stuck Netlify cold-start, a
-// missing DVLA_API_KEY env var, or any other production weirdness. 12s is
-// well above DVLA's cold p95 (~2s) and above the worst Netlify function
-// cold-boot (~6s) — anything past 12s is genuinely broken, not slow.
+// Hard timeout so the form never hangs on a stuck serverless cold-start,
+// a missing DVLA_API_KEY env var, or any other production weirdness. 12s
+// is well above DVLA's cold p95 (~2s) and above a worst-case function
+// cold-boot — anything past 12s is genuinely broken, not slow. (Vercel
+// Fluid Compute reuses instances so cold starts are rare, but the guard
+// stays as defence-in-depth.)
 const DVLA_TIMEOUT_MS = 12_000;
 
 export const dvlaService = {

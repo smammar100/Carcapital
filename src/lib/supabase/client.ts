@@ -43,7 +43,7 @@ export function createClient() {
       .join(", ");
     throw new Error(
       `Supabase client cannot start — ${missing} missing at build time. ` +
-        `Add it to your deploy environment (Netlify → Site settings → Environment variables) and redeploy.`,
+        `Add it to your deploy environment (Vercel → Project Settings → Environment Variables) and redeploy.`,
     );
   }
 
