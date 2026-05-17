@@ -166,6 +166,7 @@ export type Database = {
           logo_url: string | null
           name: string
           next_purchase_invoice_seq: number
+          next_refund_invoice_seq: number
           next_sale_invoice_seq: number
           next_stock_seq: number
           stock_id_prefix: string
@@ -179,6 +180,7 @@ export type Database = {
           logo_url?: string | null
           name: string
           next_purchase_invoice_seq?: number
+          next_refund_invoice_seq?: number
           next_sale_invoice_seq?: number
           next_stock_seq?: number
           stock_id_prefix: string
@@ -192,6 +194,7 @@ export type Database = {
           logo_url?: string | null
           name?: string
           next_purchase_invoice_seq?: number
+          next_refund_invoice_seq?: number
           next_sale_invoice_seq?: number
           next_stock_seq?: number
           stock_id_prefix?: string
@@ -258,6 +261,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "customers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dealer_partners: {
+        Row: {
+          active: boolean
+          company_id: string
+          company_name: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          company_id: string
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          company_id?: string
+          company_name?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dealer_partners_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
@@ -596,6 +640,8 @@ export type Database = {
           party_email: string | null
           party_name: string
           party_phone: string | null
+          related_invoice_id: string | null
+          related_return_id: string | null
           status: string
           subtotal: number
           total: number
@@ -623,6 +669,8 @@ export type Database = {
           party_email?: string | null
           party_name: string
           party_phone?: string | null
+          related_invoice_id?: string | null
+          related_return_id?: string | null
           status: string
           subtotal?: number
           total?: number
@@ -650,6 +698,8 @@ export type Database = {
           party_email?: string | null
           party_name?: string
           party_phone?: string | null
+          related_invoice_id?: string | null
+          related_return_id?: string | null
           status?: string
           subtotal?: number
           total?: number
@@ -665,6 +715,20 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_related_invoice_id_fkey"
+            columns: ["related_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_related_return_id_fkey"
+            columns: ["related_return_id"]
+            isOneToOne: false
+            referencedRelation: "vehicle_returns"
             referencedColumns: ["id"]
           },
           {
@@ -1332,8 +1396,13 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id: string
+          original_invoice_id: string | null
           reason: string
+          refund_account_number: string | null
           refund_amount: number | null
+          refund_bank_account_name: string | null
+          refund_bank_name: string | null
+          refund_sort_code: string | null
           resolution_notes: string | null
           resolution_path: string
           resolved_at: string | null
@@ -1348,8 +1417,13 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id?: string
+          original_invoice_id?: string | null
           reason: string
+          refund_account_number?: string | null
           refund_amount?: number | null
+          refund_bank_account_name?: string | null
+          refund_bank_name?: string | null
+          refund_sort_code?: string | null
           resolution_notes?: string | null
           resolution_path: string
           resolved_at?: string | null
@@ -1364,8 +1438,13 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           id?: string
+          original_invoice_id?: string | null
           reason?: string
+          refund_account_number?: string | null
           refund_amount?: number | null
+          refund_bank_account_name?: string | null
+          refund_bank_name?: string | null
+          refund_sort_code?: string | null
           resolution_notes?: string | null
           resolution_path?: string
           resolved_at?: string | null
@@ -1380,6 +1459,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicle_returns_original_invoice_id_fkey"
+            columns: ["original_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
@@ -1451,6 +1537,7 @@ export type Database = {
           status: string
           stock_id: string
           stocking_charges: number
+          supplier_id: string | null
           tag_number: string | null
           total_buying_price: number
           transmission: string
@@ -1517,6 +1604,7 @@ export type Database = {
           status: string
           stock_id: string
           stocking_charges?: number
+          supplier_id?: string | null
           tag_number?: string | null
           total_buying_price?: number
           transmission: string
@@ -1583,6 +1671,7 @@ export type Database = {
           status?: string
           stock_id?: string
           stocking_charges?: number
+          supplier_id?: string | null
           tag_number?: string | null
           total_buying_price?: number
           transmission?: string
@@ -1617,6 +1706,13 @@ export type Database = {
             columns: ["received_by"]
             isOneToOne: false
             referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "dealer_partners"
             referencedColumns: ["id"]
           },
         ]
