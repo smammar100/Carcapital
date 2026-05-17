@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,9 +31,11 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
 import { dvlaService } from "@/lib/services/dvla-service";
 import { customFieldService } from "@/lib/services/custom-field-service";
+import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
 import type {
   CustomFieldDefinition,
   CustomFieldValue,
+  DealerPartner,
 } from "@/lib/types";
 import {
   AUCTION_HOUSES,
@@ -162,6 +164,12 @@ export function ArrivalForm() {
   const [customValues, setCustomValues] = useState<
     Record<string, CustomFieldValue>
   >({});
+  // SPEC Points 6/7 — dealer partner picker (shown when source = Dealer).
+  const searchParams = useSearchParams();
+  const [partners, setPartners] = useState<DealerPartner[]>([]);
+  const [selectedPartnerId, setSelectedPartnerId] = useState<string>(
+    searchParams.get("dealerPartner") ?? "",
+  );
 
   useEffect(() => {
     if (!company) return;
@@ -170,6 +178,9 @@ export function ArrivalForm() {
       .then((defs) =>
         setCustomDefs(defs.filter((d) => d.showInArrivalForm)),
       );
+    void dealerPartnerService
+      .getAll(company.id)
+      .then((p) => setPartners(p.filter((x) => x.active)));
   }, [company]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -192,7 +203,7 @@ export function ArrivalForm() {
       engineSizeCC: undefined,
       sellerName: "",
       sellerPhone: "",
-      sourceType: "auction",
+      sourceType: searchParams.get("dealerPartner") ? "dealer" : "auction",
       localOrImport: "local",
       auctionHouse: "",
       ownedBy: "",
@@ -474,6 +485,11 @@ export function ArrivalForm() {
           createdBy: user.id,
         });
       }
+      // SPEC Point 7 — link the vehicle to its dealer partner (guarded;
+      // no-ops if supplier_id / dealer_partners aren't migrated).
+      if (values.sourceType === "dealer" && selectedPartnerId) {
+        await dealerPartnerService.assignSupplier(v.id, selectedPartnerId);
+      }
       toast.success(`Vehicle ${v.stockId} added`);
       router.push(`/vehicles/${v.id}`);
     } catch (err) {
@@ -730,6 +746,33 @@ export function ArrivalForm() {
                 )}
               />
             </div>
+            {watchedSource === "dealer" && (
+              <div className="flex flex-col gap-2">
+                <Label>Dealer Partner</Label>
+                <Select
+                  value={selectedPartnerId}
+                  onValueChange={setSelectedPartnerId}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select dealer partner…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {partners.length === 0 ? (
+                      <SelectItem value="__none" disabled>
+                        No dealer partners
+                      </SelectItem>
+                    ) : (
+                      partners.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {p.companyName ?? p.name}
+                          {p.companyName ? ` (${p.name})` : ""}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex flex-col gap-2">
               <Label>Local or Import</Label>
               <Controller

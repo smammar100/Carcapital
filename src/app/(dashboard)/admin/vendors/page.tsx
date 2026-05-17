@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Handshake, Plus, Store } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vendorService } from "@/lib/services/vendor-service";
@@ -9,7 +10,6 @@ import { maintenanceService } from "@/lib/services/maintenance-service";
 import type {
   DealerPartner,
   MaintenanceJob,
-  Vehicle,
   Vendor,
   VendorSpeciality,
 } from "@/lib/types";
@@ -48,11 +48,15 @@ import {
   DataGridShell,
   DataGridSkeletonRows,
   DataGridTable,
-  VehicleCell,
 } from "@/components/data-grid";
 import { toast } from "sonner";
 
 export default function VendorsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  // SPEC Point 6 (T6.5) — tab in the URL so it survives refresh.
+  const tab =
+    searchParams.get("tab") === "dealer-partners" ? "partners" : "garages";
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -62,7 +66,17 @@ export default function VendorsPage() {
           stock.
         </p>
       </div>
-      <Tabs defaultValue="garages">
+      <Tabs
+        value={tab}
+        onValueChange={(v) =>
+          router.replace(
+            v === "partners"
+              ? "/admin/vendors?tab=dealer-partners"
+              : "/admin/vendors",
+            { scroll: false },
+          )
+        }
+      >
         <TabsList>
           <TabsTrigger value="garages">Garages</TabsTrigger>
           <TabsTrigger value="partners">Dealer Partners</TabsTrigger>
@@ -328,6 +342,9 @@ interface DraftPartner {
   name: string;
   phone: string;
   companyName: string;
+  email: string;
+  companyAddress: string;
+  vatNumber: string;
   active: boolean;
 }
 
@@ -336,6 +353,9 @@ const EMPTY_PARTNER: DraftPartner = {
   name: "",
   phone: "",
   companyName: "",
+  email: "",
+  companyAddress: "",
+  vatNumber: "",
   active: true,
 };
 
@@ -345,11 +365,10 @@ interface PartnerRow extends DealerPartner {
 
 function DealerPartnersTab() {
   const { company } = useAuth();
+  const router = useRouter();
   const [partners, setPartners] = useState<DealerPartner[] | null>(null);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [draft, setDraft] = useState<DraftPartner | null>(null);
-  const [drill, setDrill] = useState<DealerPartner | null>(null);
-  const [drillStock, setDrillStock] = useState<Vehicle[] | null>(null);
 
   async function reload() {
     if (!company) return;
@@ -382,12 +401,18 @@ function DealerPartnersTab() {
 
   const cols = useMemo<ColumnDef<PartnerRow>[]>(
     () => [
-      { key: "name", label: "Name", type: "text", sticky: true, width: 220 },
-      { key: "phone", label: "Phone", type: "phone", width: 160 },
-      { key: "companyName", label: "Company", type: "text", width: 200 },
+      {
+        key: "name",
+        label: "Contact Name",
+        type: "text",
+        sticky: true,
+        width: 200,
+      },
+      { key: "phone", label: "Phone", type: "phone", width: 150 },
+      { key: "companyName", label: "Company Name", type: "text", width: 200 },
       {
         key: "activeStock",
-        label: "Active stock",
+        label: "Active Stock",
         type: "custom",
         width: 120,
         align: "right",
@@ -405,35 +430,10 @@ function DealerPartnersTab() {
     [],
   );
 
-  const stockCols = useMemo<ColumnDef<Vehicle>[]>(
-    () => [
-      {
-        key: "vehicle",
-        label: "Vehicle",
-        type: "vehicle",
-        sticky: true,
-        width: 220,
-        render: (v) => <VehicleCell vehicle={v} />,
-      },
-      { key: "registration", label: "Reg", type: "text", width: 110 },
-      { key: "stockId", label: "Stock ID", type: "text", width: 110 },
-      { key: "status", label: "Status", type: "vehicleStatus", width: 140 },
-      { key: "listingPrice", label: "Web price", type: "currency", width: 110 },
-    ],
-    [],
-  );
-
-  async function openDrill(p: DealerPartner) {
-    setDrill(p);
-    setDrillStock(null);
-    if (!company) return;
-    setDrillStock(await dealerPartnerService.activeStock(company.id, p.id));
-  }
-
   async function handleSave() {
     if (!company || !draft) return;
     if (!draft.name.trim()) {
-      toast.error("Name required");
+      toast.error("Contact name is required");
       return;
     }
     const result = await dealerPartnerService.upsert({
@@ -442,6 +442,10 @@ function DealerPartnersTab() {
       name: draft.name.trim(),
       phone: draft.phone.trim() || null,
       companyName: draft.companyName.trim() || null,
+      email: draft.email.trim() || null,
+      companyAddress: draft.companyAddress.trim() || null,
+      vatNumber: draft.vatNumber.trim() || null,
+      notes: null,
       active: draft.active,
     });
     if (!result) {
@@ -482,18 +486,33 @@ function DealerPartnersTab() {
             {draft && (
               <div className="grid gap-3">
                 <div>
-                  <Label>Name</Label>
+                  <Label>Contact name</Label>
                   <Input
                     value={draft.name}
-                    onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                    onChange={(e) =>
+                      setDraft({ ...draft, name: e.target.value })
+                    }
                   />
                 </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input
-                    value={draft.phone}
-                    onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
-                  />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div>
+                    <Label>Phone</Label>
+                    <Input
+                      value={draft.phone}
+                      onChange={(e) =>
+                        setDraft({ ...draft, phone: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div>
+                    <Label>Email</Label>
+                    <Input
+                      value={draft.email}
+                      onChange={(e) =>
+                        setDraft({ ...draft, email: e.target.value })
+                      }
+                    />
+                  </div>
                 </div>
                 <div>
                   <Label>Company name</Label>
@@ -501,6 +520,24 @@ function DealerPartnersTab() {
                     value={draft.companyName}
                     onChange={(e) =>
                       setDraft({ ...draft, companyName: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Company address</Label>
+                  <Input
+                    value={draft.companyAddress}
+                    onChange={(e) =>
+                      setDraft({ ...draft, companyAddress: e.target.value })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>VAT number</Label>
+                  <Input
+                    value={draft.vatNumber}
+                    onChange={(e) =>
+                      setDraft({ ...draft, vatNumber: e.target.value })
                     }
                   />
                 </div>
@@ -549,7 +586,11 @@ function DealerPartnersTab() {
                   row={row}
                   cols={cols}
                   index={i}
-                  onClick={() => void openDrill(row)}
+                  onClick={() =>
+                    router.push(
+                      `/admin/vendors/dealer-partners/${row.id}`,
+                    )
+                  }
                 />
               ))}
               <DataGridFooterRow
@@ -561,80 +602,6 @@ function DealerPartnersTab() {
           </DataGridTable>
         </DataGridShell>
       )}
-
-      {/* Partner drill-in — active stock */}
-      <Dialog
-        open={drill !== null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setDrill(null);
-            setDrillStock(null);
-          }
-        }}
-      >
-        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
-          {drill && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{drill.name} — active stock</DialogTitle>
-              </DialogHeader>
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {drill.companyName ?? "—"}
-                  {drill.phone ? ` · ${drill.phone}` : ""}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setDraft({
-                      id: drill.id,
-                      name: drill.name,
-                      phone: drill.phone ?? "",
-                      companyName: drill.companyName ?? "",
-                      active: drill.active,
-                    })
-                  }
-                >
-                  Edit partner
-                </Button>
-              </div>
-              {!drillStock ? (
-                <DataGridShell>
-                  <DataGridTable cols={stockCols}>
-                    <DataGridHeaderRow cols={stockCols} />
-                    <tbody>
-                      <DataGridSkeletonRows columns={stockCols} rows={4} />
-                    </tbody>
-                  </DataGridTable>
-                </DataGridShell>
-              ) : drillStock.length === 0 ? (
-                <EmptyState
-                  icon={Handshake}
-                  title="No active stock"
-                  description="This partner has no vehicles currently in stock (sold / returned excluded)."
-                />
-              ) : (
-                <DataGridShell>
-                  <DataGridTable cols={stockCols}>
-                    <DataGridHeaderRow cols={stockCols} />
-                    <tbody>
-                      {drillStock.map((v, i) => (
-                        <DataGridRow
-                          key={v.id}
-                          row={v}
-                          cols={stockCols}
-                          index={i}
-                        />
-                      ))}
-                    </tbody>
-                  </DataGridTable>
-                </DataGridShell>
-              )}
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

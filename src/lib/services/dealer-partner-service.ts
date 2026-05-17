@@ -12,6 +12,10 @@ const SELECT = `
   name,
   phone,
   companyName:company_name,
+  email,
+  companyAddress:company_address,
+  vatNumber:vat_number,
+  notes,
   active,
   createdAt:created_at,
   updatedAt:updated_at
@@ -66,6 +70,10 @@ interface UpsertInput {
   name: string;
   phone: string | null;
   companyName: string | null;
+  email: string | null;
+  companyAddress: string | null;
+  vatNumber: string | null;
+  notes: string | null;
   active: boolean;
 }
 
@@ -156,6 +164,10 @@ export const dealerPartnerService = {
           name: input.name,
           phone: input.phone,
           company_name: input.companyName,
+          email: input.email,
+          company_address: input.companyAddress,
+          vat_number: input.vatNumber,
+          notes: input.notes,
           active: input.active,
           updated_at: now,
         })
@@ -176,6 +188,10 @@ export const dealerPartnerService = {
         name: input.name,
         phone: input.phone,
         company_name: input.companyName,
+        email: input.email,
+        company_address: input.companyAddress,
+        vat_number: input.vatNumber,
+        notes: input.notes,
         active: input.active,
       })
       .select(SELECT)
@@ -207,5 +223,50 @@ export const dealerPartnerService = {
     }
     invalidate("vehicles:");
     return true;
+  },
+
+  /** One partner by id. Null if not found / migration 0002 absent. */
+  async getById(id: UUID): Promise<DealerPartner | null> {
+    const sb = looseClient();
+    const { data, error } = await sb
+      .from("dealer_partners")
+      .select(SELECT)
+      .eq("id", id)
+      .maybeSingle();
+    if (error) {
+      if (isMigrationMissing(error)) return null;
+      throw error;
+    }
+    return (data as unknown as DealerPartner) ?? null;
+  },
+
+  /**
+   * SPEC Point 7 — every vehicle ever sourced from this partner,
+   * INCLUDING sold/returned (the "Historical Stock" section).
+   */
+  async historicalStock(
+    companyId: UUID,
+    partnerId: UUID,
+  ): Promise<Vehicle[]> {
+    const sb = looseClient();
+    const { data, error } = await sb
+      .from("vehicles")
+      .select("id, supplier_id")
+      .eq("company_id", companyId);
+    if (error) {
+      if (isMigrationMissing(error)) return [];
+      throw error;
+    }
+    const ids = new Set(
+      ((data ?? []) as unknown as Array<{
+        id: string;
+        supplier_id: string | null;
+      }>)
+        .filter((r) => r.supplier_id === partnerId)
+        .map((r) => r.id),
+    );
+    if (ids.size === 0) return [];
+    const all = await vehicleService.getAll(companyId);
+    return all.filter((v) => ids.has(v.id));
   },
 };

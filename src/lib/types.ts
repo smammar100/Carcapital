@@ -355,9 +355,15 @@ export interface Vendor {
 export interface DealerPartner {
   id: UUID;
   companyId: UUID;
+  /** Primary contact person. */
   name: string;
   phone: string | null;
   companyName: string | null;
+  /** SPEC Points 6/7 — richer contact detail (migration 0005, nullable). */
+  email: string | null;
+  companyAddress: string | null;
+  vatNumber: string | null;
+  notes: string | null;
   active: boolean;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
