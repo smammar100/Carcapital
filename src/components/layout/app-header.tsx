@@ -12,6 +12,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { titleFromPath } from "./sidebar-config";
+import { HealthIndicator } from "./health-indicator";
 import { useAuth } from "@/contexts/auth-context";
 import { useNotifications } from "@/contexts/notifications-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -104,6 +105,7 @@ export function AppHeader() {
         className="flex items-center"
         style={{ gap: "var(--space-3)", marginLeft: "auto" }}
       >
+        <HealthIndicator />
         <NotificationsDropdown
           notifications={notifications}
           unreadCount={unreadCount}

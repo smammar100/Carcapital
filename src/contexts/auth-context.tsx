@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateAll } from "@/lib/cache";
 import { warmDashboardCache } from "@/lib/cache-warmup";
@@ -159,8 +160,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // here refreshes it BEFORE any service call can 401 into a blank page.
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // SPEC Point 9 — when the tab has been hidden a long time, the cached
+    // service data is stale on return. Track how long we were hidden and,
+    // past a threshold, blow the shared cache so the next reads refetch,
+    // plus a subtle toast so the user knows why the screen just updated.
+    const STALE_AFTER_MS = 5 * 60 * 1000;
+    let hiddenAt: number | null = null;
     const onWake = () => {
-      if (document.visibilityState === "visible") void revalidate();
+      if (document.visibilityState !== "visible") {
+        if (hiddenAt === null) hiddenAt = Date.now();
+        return;
+      }
+      const wasHiddenFor = hiddenAt === null ? 0 : Date.now() - hiddenAt;
+      hiddenAt = null;
+      void revalidate();
+      if (wasHiddenFor > STALE_AFTER_MS) {
+        invalidateAll();
+        toast.success("Refreshed data after returning", {
+          id: "stale-tab-refresh", // de-dupe a focus burst
+        });
+      }
     };
     window.addEventListener("focus", onWake);
     window.addEventListener("online", onWake);

@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 
 export default function DashboardError({
   error,
-  reset,
+  unstable_retry,
 }: {
   error: Error & { digest?: string };
-  reset: () => void;
+  // Next 16.2 renamed the recovery prop reset → unstable_retry (re-fetches
+  // + re-renders the segment, not just a state reset).
+  unstable_retry: () => void;
 }) {
   useEffect(() => {
     // eslint-disable-next-line no-console
@@ -27,9 +29,15 @@ export default function DashboardError({
           {error.message || "An unexpected error occurred."}
         </p>
       </div>
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={reset}>
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button variant="outline" onClick={() => unstable_retry()}>
           Try again
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => window.location.reload()}
+        >
+          Reload page
         </Button>
         <Button asChild>
           <Link href="/dashboard">Back to dashboard</Link>
