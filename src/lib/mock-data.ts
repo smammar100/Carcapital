@@ -679,7 +679,7 @@ export const mockInvoices: Invoice[] = [
       { id: "li-2", lineType: "fee", addonType: null, description: "Buyer's fee", quantity: 1, unitPrice: 200, vatRate: 0.2, subtotal: 200, vatAmount: 40 },
     ],
     subtotal: 8700, addonsTotal: 0, discountTotal: 0, vatAmount: 40, total: 8740,
-    payment: null, status: "paid", notes: null, attachmentUrl: null,
+    payment: null, status: "paid", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(147) + "T09:00:00.000Z",
   },
   {
@@ -693,7 +693,7 @@ export const mockInvoices: Invoice[] = [
       { id: "li-4", lineType: "fee", addonType: null, description: "Buyer's fee", quantity: 1, unitPrice: 200, vatRate: 0.2, subtotal: 200, vatAmount: 40 },
     ],
     subtotal: 6400, addonsTotal: 0, discountTotal: 0, vatAmount: 40, total: 6440,
-    payment: null, status: "paid", notes: null, attachmentUrl: null,
+    payment: null, status: "paid", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(314) + "T09:00:00.000Z",
   },
   {
@@ -706,7 +706,7 @@ export const mockInvoices: Invoice[] = [
       { id: "li-5", lineType: "vehicle", addonType: null, description: "AUDI Q3 KR71 FRP", quantity: 1, unitPrice: 14200, vatRate: 0, subtotal: 14200, vatAmount: 0 },
     ],
     subtotal: 14200, addonsTotal: 0, discountTotal: 0, vatAmount: 0, total: 14200,
-    payment: null, status: "paid", notes: null, attachmentUrl: null,
+    payment: null, status: "paid", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(95) + "T09:00:00.000Z",
   },
   {
@@ -719,7 +719,7 @@ export const mockInvoices: Invoice[] = [
       { id: "li-6", lineType: "vehicle", addonType: null, description: "RANGE ROVER EVOQUE DE71 FRG", quantity: 1, unitPrice: 15850, vatRate: 0, subtotal: 15850, vatAmount: 0 },
     ],
     subtotal: 15850, addonsTotal: 0, discountTotal: 0, vatAmount: 0, total: 15850,
-    payment: null, status: "sent", notes: null, attachmentUrl: null,
+    payment: null, status: "sent", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(1) + "T09:00:00.000Z",
   },
   // ----------------------------------------------------------------------
@@ -744,7 +744,7 @@ export const mockInvoices: Invoice[] = [
       financeAmount: 0, financeProvider: null,
       balanceDue: 2800, balanceDueBy: daysAgo(5),
     },
-    status: "paid", notes: null, attachmentUrl: null,
+    status: "paid", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(5) + "T16:00:00.000Z",
   },
   {
@@ -764,7 +764,7 @@ export const mockInvoices: Invoice[] = [
       financeAmount: 0, financeProvider: null,
       balanceDue: 0, balanceDueBy: null,
     },
-    status: "paid", notes: null, attachmentUrl: null,
+    status: "paid", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(5) + "T17:00:00.000Z",
   },
   {
@@ -779,7 +779,7 @@ export const mockInvoices: Invoice[] = [
     ],
     subtotal: 350, addonsTotal: 350, discountTotal: 0, vatAmount: 70, total: 420,
     payment: null,
-    status: "sent", notes: null, attachmentUrl: null,
+    status: "sent", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(5) + "T16:30:00.000Z",
   },
   {
@@ -793,7 +793,7 @@ export const mockInvoices: Invoice[] = [
     ],
     subtotal: 175, addonsTotal: 0, discountTotal: 0, vatAmount: 35, total: 210,
     payment: null,
-    status: "paid", notes: null, attachmentUrl: null,
+    status: "paid", notes: null, attachmentUrl: null, relatedReturnId: null, relatedInvoiceId: null,
     createdAt: daysAgo(2) + "T13:00:00.000Z",
   },
 ];
@@ -803,7 +803,7 @@ export const mockInvoices: Invoice[] = [
 // ============================================================
 
 export const mockReturns: VehicleReturn[] = [
-  { id: "return-1", companyId: "company-1", vehicleId: "vehicle-10", saleDealId: null, customerName: "Earlier Customer", customerPhone: "07700400001", returnDate: daysAgo(60), reason: "Repeated electrical faults outside warranty cover", resolutionPath: "g_trader", resolutionNotes: "Returned to G-Trader for resolution; full credit received", refundAmount: 2200, status: "resolved", createdAt: daysAgo(60) + "T09:00:00.000Z", resolvedAt: daysAgo(45) + "T15:00:00.000Z" },
+  { id: "return-1", companyId: "company-1", vehicleId: "vehicle-10", saleDealId: null, customerName: "Earlier Customer", customerPhone: "07700400001", returnDate: daysAgo(60), reason: "Repeated electrical faults outside warranty cover", resolutionPath: "g_trader", resolutionNotes: "Returned to G-Trader for resolution; full credit received", refundAmount: 2200, status: "resolved", originalInvoiceId: null, refundBankAccountName: null, refundSortCode: null, refundAccountNumber: null, refundBankName: null, createdAt: daysAgo(60) + "T09:00:00.000Z", resolvedAt: daysAgo(45) + "T15:00:00.000Z" },
 ];
 
 // ============================================================

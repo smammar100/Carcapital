@@ -135,7 +135,22 @@ export default function InvoicingPage() {
           <span className="font-mono text-xs">{i.invoiceNumber}</span>
         ),
       },
-      { key: "type", label: "Type", type: "select", width: 110 },
+      {
+        key: "type",
+        label: "Type",
+        type: "custom",
+        width: 130,
+        render: (i) =>
+          i.type === "refund" ? (
+            <Badge className="border-transparent bg-rose-100 text-rose-700">
+              Refund
+            </Badge>
+          ) : (
+            <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
+              {i.type}
+            </span>
+          ),
+      },
       { key: "partyName", label: "Party", type: "text", width: 180 },
       { key: "invoiceDate", label: "Date", type: "date", width: 120 },
       { key: "subtotal", label: "Subtotal", type: "currency", width: 110 },
@@ -374,6 +389,7 @@ export default function InvoicingPage() {
           <TabsTrigger value="all">All</TabsTrigger>
           <TabsTrigger value="purchase">Purchase</TabsTrigger>
           <TabsTrigger value="sale">Sales</TabsTrigger>
+          <TabsTrigger value="refund">Refunds / Cancellations</TabsTrigger>
         </TabsList>
       </Tabs>
 

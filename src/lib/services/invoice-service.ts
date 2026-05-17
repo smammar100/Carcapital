@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type {
   Invoice,
@@ -15,7 +15,10 @@ import { activityService } from "./activity-service";
 
 const NS = "invoices:";
 
-const INVOICE_SELECT = `
+// Columns present in every project. Reads fall back to this if the
+// migration-0001 related_* columns aren't applied yet (PostgREST 42703),
+// so an un-applied migration cannot break the invoices list.
+const BASE_INVOICE_SELECT = `
   id,
   companyId:company_id,
   type,
@@ -63,6 +66,21 @@ const INVOICE_SELECT = `
   )
 `;
 
+const INVOICE_SELECT = `
+  ${BASE_INVOICE_SELECT},
+  relatedReturnId:related_return_id,
+  relatedInvoiceId:related_invoice_id
+`;
+
+/** PostgREST undefined_column → migration 0001 related_* not applied yet. */
+function isMissingColumn(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null;
+  return (
+    e?.code === "42703" ||
+    /column .* does not exist/i.test(e?.message ?? "")
+  );
+}
+
 function normalizeInvoice(row: unknown): Invoice {
   const r = row as Record<string, unknown>;
   // payment comes back as an array (1-to-1 child); pick the single element.
@@ -70,7 +88,14 @@ function normalizeInvoice(row: unknown): Invoice {
   const payment: InvoicePayment | null = Array.isArray(payments)
     ? (payments[0] ?? null)
     : (payments ?? null);
-  return { ...(r as unknown as Invoice), payment };
+  return {
+    ...(r as unknown as Invoice),
+    payment,
+    // Default the migration-0001 columns so reads off BASE_INVOICE_SELECT
+    // (un-applied migration) still satisfy the Invoice type.
+    relatedReturnId: (r.relatedReturnId as string | null) ?? null,
+    relatedInvoiceId: (r.relatedInvoiceId as string | null) ?? null,
+  };
 }
 
 interface CreateInput {
@@ -91,6 +116,12 @@ interface CreateInput {
   payment?: Omit<InvoicePayment, "id" | "invoiceId" | "balanceDue"> | null;
   notes: string | null;
   attachmentUrl: string | null;
+  /**
+   * Refund linkage (migration 0001). Persisted via a guarded follow-up
+   * update so pre-migration purchase/sale creation is unaffected.
+   */
+  relatedReturnId?: UUID | null;
+  relatedInvoiceId?: UUID | null;
 }
 
 interface InvoiceTotals {
@@ -148,11 +179,16 @@ export const invoiceService = {
   async getAll(companyId: UUID): Promise<Invoice[]> {
     return withCache(`${NS}all:${companyId}`, async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("invoices")
-        .select(INVOICE_SELECT)
-        .eq("company_id", companyId)
-        .order("invoice_date", { ascending: false });
+      const run = (sel: string) =>
+        supabase
+          .from("invoices")
+          .select(sel)
+          .eq("company_id", companyId)
+          .order("invoice_date", { ascending: false });
+      let { data, error } = await run(INVOICE_SELECT);
+      if (error && isMissingColumn(error)) {
+        ({ data, error } = await run(BASE_INVOICE_SELECT));
+      }
       if (error) throw error;
       return (data ?? []).map(normalizeInvoice);
     });
@@ -161,24 +197,61 @@ export const invoiceService = {
   async getByType(companyId: UUID, type: InvoiceType): Promise<Invoice[]> {
     return withCache(`${NS}type:${companyId}:${type}`, async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("invoices")
-        .select(INVOICE_SELECT)
-        .eq("company_id", companyId)
-        .eq("type", type);
+      const run = (sel: string) =>
+        supabase
+          .from("invoices")
+          .select(sel)
+          .eq("company_id", companyId)
+          .eq("type", type);
+      let { data, error } = await run(INVOICE_SELECT);
+      if (error && isMissingColumn(error)) {
+        ({ data, error } = await run(BASE_INVOICE_SELECT));
+      }
       if (error) throw error;
       return (data ?? []).map(normalizeInvoice);
     });
   },
 
+  /**
+   * All invoices for a vehicle, optionally narrowed to a type. Used by the
+   * returns flow to auto-fetch the original SALE invoice by registration.
+   */
+  async getByVehicle(
+    companyId: UUID,
+    vehicleId: UUID,
+    type?: InvoiceType,
+  ): Promise<Invoice[]> {
+    const supabase = createClient();
+    const run = (sel: string) => {
+      let q = supabase
+        .from("invoices")
+        .select(sel)
+        .eq("company_id", companyId)
+        .eq("vehicle_id", vehicleId);
+      if (type) q = q.eq("type", type);
+      return q.order("invoice_date", { ascending: false });
+    };
+    let { data, error } = await run(INVOICE_SELECT);
+    if (error && isMissingColumn(error)) {
+      ({ data, error } = await run(BASE_INVOICE_SELECT));
+    }
+    if (error) throw error;
+    return (data ?? []).map(normalizeInvoice);
+  },
+
   async getById(id: UUID): Promise<Invoice | null> {
     return withCache(`${NS}by-id:${id}`, async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("invoices")
-        .select(INVOICE_SELECT)
-        .eq("id", id)
-        .maybeSingle();
+      const run = (sel: string) =>
+        supabase
+          .from("invoices")
+          .select(sel)
+          .eq("id", id)
+          .maybeSingle();
+      let { data, error } = await run(INVOICE_SELECT);
+      if (error && isMissingColumn(error)) {
+        ({ data, error } = await run(BASE_INVOICE_SELECT));
+      }
       if (error) throw error;
       return data ? normalizeInvoice(data) : null;
     });
@@ -285,6 +358,26 @@ export const invoiceService = {
       if (error) throw error;
     }
 
+    // Refund linkage — guarded follow-up so a not-yet-applied migration
+    // 0001 doesn't break ordinary purchase/sale invoice creation.
+    if (
+      input.relatedReturnId !== undefined ||
+      input.relatedInvoiceId !== undefined
+    ) {
+      const link: Record<string, unknown> = {};
+      if (input.relatedReturnId !== undefined)
+        link.related_return_id = input.relatedReturnId;
+      if (input.relatedInvoiceId !== undefined)
+        link.related_invoice_id = input.relatedInvoiceId;
+      const { error: linkErr } = await supabase
+        .from("invoices")
+        // Cast: migration-0001 related_* columns aren't in the generated
+        // DB types until the user regenerates them post-migration.
+        .update(link as unknown as TableUpdate<"invoices">)
+        .eq("id", invoiceId);
+      if (linkErr && !isMissingColumn(linkErr)) throw linkErr;
+    }
+
     // Invalidate before the read-back so the fresh row is fetched.
     invalidate(NS);
 
@@ -309,12 +402,17 @@ export const invoiceService = {
     actorId: UUID,
   ): Promise<Invoice> {
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from("invoices")
-      .update({ status })
-      .eq("id", id)
-      .select(INVOICE_SELECT)
-      .single();
+    const run = (sel: string) =>
+      supabase
+        .from("invoices")
+        .update({ status })
+        .eq("id", id)
+        .select(sel)
+        .single();
+    let { data, error } = await run(INVOICE_SELECT);
+    if (error && isMissingColumn(error)) {
+      ({ data, error } = await run(BASE_INVOICE_SELECT));
+    }
     if (error) throw error;
     const invoice = normalizeInvoice(data);
     invalidate(NS);
@@ -364,6 +462,10 @@ export const invoiceService = {
           vat_amount: number;
         }>) {
           if (row.type === "purchase") inputVat += row.vat_amount;
+          // A refund reverses a sale, so its VAT reduces output VAT
+          // rather than adding to it (the refund invoice carries a
+          // positive amount for a clean customer-facing PDF).
+          else if (row.type === "refund") outputVat -= row.vat_amount;
           else outputVat += row.vat_amount;
         }
         return {

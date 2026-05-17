@@ -74,6 +74,19 @@ const s = StyleSheet.create({
     fontWeight: 700,
   },
   vatNote: { marginTop: 12, fontSize: 8, color: "#666", fontStyle: "italic" },
+  refundBox: {
+    marginTop: 16,
+    padding: 10,
+    border: "1pt solid #ccc",
+    backgroundColor: "#fafafa",
+  },
+  refundTitle: { fontSize: 11, fontWeight: 700, marginBottom: 6 },
+  refundLine: { fontSize: 9, marginBottom: 2 },
+  refundStatement: {
+    marginTop: 8,
+    fontSize: 9,
+    fontWeight: 700,
+  },
   footer: {
     position: "absolute",
     bottom: 24,
@@ -126,12 +139,30 @@ export function InvoiceTemplate({
     linesByGroup.set(li.lineType, arr);
   }
 
-  const buyerName =
-    invoice.type === "sale" ? invoice.buyerName ?? invoice.partyName : invoice.partyName;
-  const buyerPhone =
-    invoice.type === "sale" ? invoice.buyerPhone ?? invoice.partyPhone : invoice.partyPhone;
-  const buyerEmail =
-    invoice.type === "sale" ? invoice.buyerEmail ?? invoice.partyEmail : invoice.partyEmail;
+  const isRefund = invoice.type === "refund";
+  const usesBuyerFields = invoice.type === "sale" || isRefund;
+  const buyerName = usesBuyerFields
+    ? invoice.buyerName ?? invoice.partyName
+    : invoice.partyName;
+  const buyerPhone = usesBuyerFields
+    ? invoice.buyerPhone ?? invoice.partyPhone
+    : invoice.partyPhone;
+  const buyerEmail = usesBuyerFields
+    ? invoice.buyerEmail ?? invoice.partyEmail
+    : invoice.partyEmail;
+
+  const headingTitle =
+    invoice.type === "purchase"
+      ? "Purchase Invoice"
+      : isRefund
+        ? "Refund / Cancellation Invoice"
+        : "Sales Invoice";
+  const billToLabel =
+    invoice.type === "purchase"
+      ? "Seller / Supplier"
+      : isRefund
+        ? "Refund To"
+        : "Bill To";
 
   return (
     <Document>
@@ -143,9 +174,7 @@ export function InvoiceTemplate({
             {vatNumber && <Text style={s.small}>VAT: {vatNumber}</Text>}
           </View>
           <View style={s.rh}>
-            <Text style={[s.brand, { fontSize: 14 }]}>
-              {invoice.type === "purchase" ? "Purchase Invoice" : "Sales Invoice"}
-            </Text>
+            <Text style={[s.brand, { fontSize: 14 }]}>{headingTitle}</Text>
             <Text style={s.small}>{invoice.invoiceNumber}</Text>
             <Text style={s.small}>Date: {fmtDate(invoice.invoiceDate)}</Text>
             {invoice.dueDate && (
@@ -156,9 +185,7 @@ export function InvoiceTemplate({
 
         <View style={s.twoCol}>
           <View style={s.col}>
-            <Text style={s.label}>
-              {invoice.type === "purchase" ? "Seller / Supplier" : "Bill To"}
-            </Text>
+            <Text style={s.label}>{billToLabel}</Text>
             <Text style={{ fontWeight: 700 }}>{buyerName}</Text>
             {invoice.type === "sale" && invoice.buyerAddress && (
               <Text>{invoice.buyerAddress}</Text>
@@ -250,6 +277,25 @@ export function InvoiceTemplate({
               </Text>
               <Text>{fmt(invoice.payment.balanceDue)}</Text>
             </View>
+          </View>
+        )}
+
+        {isRefund && invoice.notes && (
+          <View style={s.refundBox}>
+            <Text style={s.refundTitle}>Refund / cancellation details</Text>
+            {invoice.notes.split("\n").map((line, i) =>
+              line.trim() === "" ? (
+                <View key={i} style={{ height: 4 }} />
+              ) : /14 working days/i.test(line) ? (
+                <Text key={i} style={s.refundStatement}>
+                  {line}
+                </Text>
+              ) : (
+                <Text key={i} style={s.refundLine}>
+                  {line}
+                </Text>
+              ),
+            )}
           </View>
         )}
 

@@ -534,7 +534,7 @@ export interface WarrantyClaim {
 // INVOICES
 // ============================================================
 
-export type InvoiceType = "purchase" | "sale";
+export type InvoiceType = "purchase" | "sale" | "refund";
 export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
 export type VatScheme = "margin" | "standard" | "zero_rated";
 export type InvoiceLineType = "vehicle" | "addon" | "discount" | "fee";
@@ -623,6 +623,14 @@ export interface Invoice {
   status: InvoiceStatus;
   notes: string | null;
   attachmentUrl: string | null;
+  /**
+   * Set only on `type === "refund"` invoices. Links the refund back to the
+   * `VehicleReturn` that generated it and the original SALE invoice it
+   * reverses. Both are nullable because the migration that adds the columns
+   * is user-applied — code reads them defensively (see invoice-service).
+   */
+  relatedReturnId: UUID | null;
+  relatedInvoiceId: UUID | null;
   createdAt: ISODateTime;
 }
 
@@ -654,6 +662,18 @@ export interface VehicleReturn {
   resolutionNotes: string | null;
   refundAmount: number | null;
   status: ReturnStatus;
+  /**
+   * The original SALE invoice this return reverses, auto-fetched by
+   * registration when the return is created. NULL when no sale invoice was
+   * on file (manual-entry fallback). Columns are user-applied via migration
+   * 0001 — services read these defensively.
+   */
+  originalInvoiceId: UUID | null;
+  /** UK domestic refund bank block — where the refund is paid back to. */
+  refundBankAccountName: string | null;
+  refundSortCode: string | null;
+  refundAccountNumber: string | null;
+  refundBankName: string | null;
   createdAt: ISODateTime;
   resolvedAt: ISODateTime | null;
 }
