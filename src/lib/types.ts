@@ -111,6 +111,44 @@ export type FinanceProvider =
   | "infinit"
   | "none";
 
+// ── Custom Fields (SPEC Point 1) ────────────────────────────────────────────
+export type CustomFieldType =
+  | "text"
+  | "number"
+  | "date"
+  | "dropdown"
+  | "multi_select"
+  | "boolean"
+  | "currency";
+
+export interface CustomFieldDefinition {
+  id: UUID;
+  companyId: UUID;
+  /** Immutable slug auto-derived from the label at creation. */
+  fieldKey: string;
+  /** Human-readable, editable. */
+  label: string;
+  fieldType: CustomFieldType;
+  /** For dropdown / multi_select; null otherwise. */
+  options: string[] | null;
+  required: boolean;
+  showInMasterSheet: boolean;
+  showInArrivalForm: boolean;
+  displayOrder: number;
+  createdBy: UUID | null;
+  createdAt: ISODateTime;
+  /** Soft-delete — archived defs vanish from forms/tables, values persist. */
+  archivedAt: ISODateTime | null;
+}
+
+/** A per-vehicle custom field value, keyed by `CustomFieldDefinition.fieldKey`. */
+export type CustomFieldValue =
+  | string
+  | number
+  | boolean
+  | string[]
+  | null;
+
 export interface Vehicle {
   id: UUID;
   companyId: UUID;
@@ -199,6 +237,13 @@ export interface Vehicle {
 
   // AI-generated hero image (lazy, persisted to public/generated/cars/<id>/hero.png)
   heroImageUrl: string | null;
+
+  /**
+   * Custom field values keyed by CustomFieldDefinition.fieldKey
+   * (SPEC Point 1). Defaults to `{}`. Read defensively — the column is
+   * user-applied via migration 0003.
+   */
+  customFields: Record<string, CustomFieldValue>;
 
   createdAt: ISODateTime;
   updatedAt: ISODateTime;

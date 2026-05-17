@@ -18,7 +18,13 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
-import type { DealerPartner, Vehicle, VehicleStatus } from "@/lib/types";
+import { customFieldService } from "@/lib/services/custom-field-service";
+import type {
+  CustomFieldDefinition,
+  DealerPartner,
+  Vehicle,
+  VehicleStatus,
+} from "@/lib/types";
 import { VEHICLE_STATUSES } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -201,6 +207,27 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat("en-GB").format(n);
 }
 
+/** Display string for a custom field value (SPEC Point 1, master sheet). */
+function formatCustomCell(
+  value: unknown,
+  def: CustomFieldDefinition,
+): string {
+  if (value === null || value === undefined || value === "") return "";
+  if (def.fieldType === "boolean") return value ? "Yes" : "No";
+  if (def.fieldType === "multi_select")
+    return Array.isArray(value) ? value.join(", ") : String(value);
+  if (def.fieldType === "currency") {
+    const n = Number(value);
+    return Number.isNaN(n) ? String(value) : formatCurrency(n);
+  }
+  if (def.fieldType === "date") return formatDate(String(value));
+  if (def.fieldType === "number") {
+    const n = Number(value);
+    return Number.isNaN(n) ? String(value) : formatNumber(n);
+  }
+  return String(value);
+}
+
 // Direct, non-computed Vehicle attributes that are safe to inline-edit.
 // Deliberately excludes the cost-chain inputs (buyingPrice, fees) and all
 // computed/derived totals (totalBuyingPrice, landedCost, baseCost,
@@ -379,6 +406,8 @@ export default function MasterSheetPage() {
   );
   const [draft, setDraft] = useState("");
   const [savingCell, setSavingCell] = useState(false);
+  // Custom field definitions shown on the master sheet (SPEC Point 1).
+  const [customDefs, setCustomDefs] = useState<CustomFieldDefinition[]>([]);
   // Quick-add row state.
   const [partners, setPartners] = useState<DealerPartner[]>([]);
   const [quick, setQuick] = useState<QuickAdd>({ ...EMPTY_QUICK_ADD });
@@ -393,6 +422,11 @@ export default function MasterSheetPage() {
     if (!company) return;
     void vehicleService.getAll(company.id).then(setVehicles);
     void dealerPartnerService.getAll(company.id).then(setPartners);
+    void customFieldService
+      .getActive(company.id)
+      .then((defs) =>
+        setCustomDefs(defs.filter((d) => d.showInMasterSheet)),
+      );
   }, [company]);
 
   function startEdit(v: Vehicle, c: ColDef) {
@@ -486,6 +520,7 @@ export default function MasterSheetPage() {
           sourceType: "dealer",
           purchaseChannel: null,
           supplierId: null,
+          customFields: {},
           localOrImport: "local",
           auctionHouse: null,
           ownedBy: null,
@@ -545,10 +580,24 @@ export default function MasterSheetPage() {
     }
   }
 
-  const cols = useMemo(
-    () => COLS.filter((c) => visible.has(colKey(c))),
-    [visible],
-  );
+  const cols = useMemo(() => {
+    const base = COLS.filter((c) => visible.has(colKey(c)));
+    // Append company custom-field columns (SPEC Point 1). Read-only here
+    // (key "customFields" is a real Vehicle key; `format` resolves the
+    // specific field's value so rawValue() returns the display string).
+    const customCols: ColDef[] = customDefs.map((d) => ({
+      key: "customFields",
+      label: d.label,
+      type: "text",
+      width: 150,
+      format: (v: Vehicle) =>
+        formatCustomCell(
+          (v.customFields ?? {})[d.fieldKey],
+          d,
+        ),
+    }));
+    return [...base, ...customCols];
+  }, [visible, customDefs]);
 
   const filtered = useMemo(() => {
     if (!vehicles) return null;

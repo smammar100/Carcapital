@@ -68,6 +68,7 @@ const SELECT = `
   daysInStock:days_in_stock,
   imagesCount:images_count,
   heroImageUrl:hero_image_url,
+  customFields:custom_fields,
   createdAt:created_at,
   updatedAt:updated_at
 `;
@@ -135,6 +136,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   daysInStock: "days_in_stock",
   imagesCount: "images_count",
   heroImageUrl: "hero_image_url",
+  customFields: "custom_fields",
 };
 
 function vehicleToRow(

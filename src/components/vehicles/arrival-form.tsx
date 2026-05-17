@@ -30,6 +30,11 @@ import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
 import { dvlaService } from "@/lib/services/dvla-service";
+import { customFieldService } from "@/lib/services/custom-field-service";
+import type {
+  CustomFieldDefinition,
+  CustomFieldValue,
+} from "@/lib/types";
 import {
   AUCTION_HOUSES,
   BODY_TYPES,
@@ -152,6 +157,20 @@ export function ArrivalForm() {
   } | null>(null);
   const [todos, setTodos] = useState<{ description: string; cost: number }[]>([]);
   const [newTodo, setNewTodo] = useState({ description: "", cost: 0 });
+  // Custom fields shown on the arrival form (SPEC Point 1).
+  const [customDefs, setCustomDefs] = useState<CustomFieldDefinition[]>([]);
+  const [customValues, setCustomValues] = useState<
+    Record<string, CustomFieldValue>
+  >({});
+
+  useEffect(() => {
+    if (!company) return;
+    void customFieldService
+      .getActive(company.id)
+      .then((defs) =>
+        setCustomDefs(defs.filter((d) => d.showInArrivalForm)),
+      );
+  }, [company]);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -401,6 +420,7 @@ export function ArrivalForm() {
           sourceType: values.sourceType === "trade_in" ? "trade_in" : values.sourceType,
           purchaseChannel: "supplier",
           supplierId: null,
+          customFields: customValues,
           localOrImport: values.localOrImport,
           auctionHouse: values.auctionHouse || null,
           ownedBy: values.ownedBy || company.name,
@@ -960,6 +980,112 @@ export function ArrivalForm() {
             </div>
           </div>
         </Card>
+
+        {/* Custom Fields (SPEC Point 1 — company-defined) */}
+        {customDefs.length > 0 && (
+          <Card className="flex flex-col gap-3 p-5">
+            <h2 className="text-sm font-semibold">Custom Fields</h2>
+            <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
+              {customDefs.map((d) => {
+                const val = customValues[d.fieldKey];
+                const set = (v: CustomFieldValue) =>
+                  setCustomValues((p) => ({ ...p, [d.fieldKey]: v }));
+                return (
+                  <div key={d.id} className="flex flex-col gap-2">
+                    <Label>
+                      {d.label}
+                      {d.required && (
+                        <span className="text-destructive"> *</span>
+                      )}
+                    </Label>
+                    {d.fieldType === "boolean" ? (
+                      <div className="flex h-9 items-center rounded-md border bg-background px-3">
+                        <Switch
+                          checked={Boolean(val)}
+                          onCheckedChange={(c) => set(c)}
+                        />
+                      </div>
+                    ) : d.fieldType === "dropdown" ? (
+                      <Select
+                        value={typeof val === "string" ? val : ""}
+                        onValueChange={(v) => set(v)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(d.options ?? []).map((o) => (
+                            <SelectItem key={o} value={o}>
+                              {o}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : d.fieldType === "multi_select" ? (
+                      <div className="flex flex-wrap gap-2">
+                        {(d.options ?? []).map((o) => {
+                          const arr = Array.isArray(val) ? val : [];
+                          const on = arr.includes(o);
+                          return (
+                            <button
+                              key={o}
+                              type="button"
+                              onClick={() =>
+                                set(
+                                  on
+                                    ? arr.filter((x) => x !== o)
+                                    : [...arr, o],
+                                )
+                              }
+                              className={cn(
+                                "rounded-md border px-2 py-1 text-xs",
+                                on
+                                  ? "border-primary bg-primary/10 text-foreground"
+                                  : "text-muted-foreground",
+                              )}
+                            >
+                              {o}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <Input
+                        type={
+                          d.fieldType === "date"
+                            ? "date"
+                            : d.fieldType === "number" ||
+                                d.fieldType === "currency"
+                              ? "number"
+                              : "text"
+                        }
+                        step={
+                          d.fieldType === "currency" ? "0.01" : undefined
+                        }
+                        value={
+                          val === null || val === undefined
+                            ? ""
+                            : String(val)
+                        }
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          set(
+                            d.fieldType === "number" ||
+                              d.fieldType === "currency"
+                              ? raw === ""
+                                ? null
+                                : Number(raw)
+                              : raw,
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+        )}
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" disabled={submitting}>
