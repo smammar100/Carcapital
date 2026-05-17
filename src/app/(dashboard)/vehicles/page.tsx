@@ -52,6 +52,7 @@ import {
 } from "@/components/data-grid";
 
 type SortKey =
+  | "registration"
   | "daysInStock"
   | "make"
   | "year"
@@ -65,6 +66,38 @@ type SortKey =
   | "status"
   | "motExpiry";
 type SortDir = "asc" | "desc";
+
+const SORT_KEYS = new Set<string>([
+  "registration",
+  "daysInStock",
+  "make",
+  "year",
+  "mileage",
+  "variant",
+  "fuelType",
+  "bodyType",
+  "totalCost",
+  "listingPrice",
+  "profit",
+  "status",
+  "motExpiry",
+]);
+
+/** SPEC Point 8 — push nullish values to the bottom in BOTH directions. */
+function cmpNulls<T>(
+  a: T,
+  b: T,
+  isNull: (v: T) => boolean,
+  base: (a: T, b: T) => number,
+  dir: number,
+): number {
+  const an = isNull(a);
+  const bn = isNull(b);
+  if (an && bn) return 0;
+  if (an) return 1; // a sinks regardless of dir
+  if (bn) return -1;
+  return base(a, b) * dir;
+}
 
 const PAGE_SIZE = 25;
 
@@ -143,8 +176,15 @@ export default function VehiclesPage() {
   const [bodyFilter, setBodyFilter] = useState<BodyType | "all">("all");
   const [fuelFilter, setFuelFilter] = useState<FuelType | "all">("all");
   const [view, setView] = useState<"table" | "card">("table");
-  const [sortKey, setSortKey] = useState<SortKey>("daysInStock");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  // SPEC Point 8 — sort lives in the URL (?sort=&dir=) so it survives
+  // refresh + back-button. URL is the single source of truth (no local
+  // sort state → no setState-in-effect). Absent params = default order
+  // (registration A→Z, no active indicator).
+  const sortParam = searchParams.get("sort");
+  const sortKey: SortKey | null =
+    sortParam && SORT_KEYS.has(sortParam) ? (sortParam as SortKey) : null;
+  const sortDir: SortDir =
+    searchParams.get("dir") === "desc" ? "desc" : "asc";
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
 
@@ -195,8 +235,14 @@ export default function VehiclesPage() {
       });
     }
     out.sort((a, b) => {
+      // Default (no active sort) = registration A→Z.
+      if (sortKey === null) {
+        return a.registration.localeCompare(b.registration);
+      }
       const dir = sortDir === "asc" ? 1 : -1;
       switch (sortKey) {
+        case "registration":
+          return a.registration.localeCompare(b.registration) * dir;
         case "daysInStock":
           return (a.daysInStock - b.daysInStock) * dir;
         case "year":
@@ -206,11 +252,24 @@ export default function VehiclesPage() {
         case "totalCost":
           return (a.baseCost - b.baseCost) * dir;
         case "listingPrice":
-          return ((a.listingPrice ?? 0) - (b.listingPrice ?? 0)) * dir;
+          // Empty web price sinks to the bottom in both directions.
+          return cmpNulls(
+            a.listingPrice,
+            b.listingPrice,
+            (v) => v === null,
+            (x, y) => (x as number) - (y as number),
+            dir,
+          );
         case "profit": {
-          const pa = a.listingPrice !== null ? a.listingPrice - a.baseCost : 0;
-          const pb = b.listingPrice !== null ? b.listingPrice - b.baseCost : 0;
-          return (pa - pb) * dir;
+          const pa = a.listingPrice !== null ? a.listingPrice - a.baseCost : null;
+          const pb = b.listingPrice !== null ? b.listingPrice - b.baseCost : null;
+          return cmpNulls(
+            pa,
+            pb,
+            (v) => v === null,
+            (x, y) => (x as number) - (y as number),
+            dir,
+          );
         }
         case "make":
           return (
@@ -228,8 +287,13 @@ export default function VehiclesPage() {
             dir
           );
         case "motExpiry":
-          return (
-            (a.motExpiry ?? "").localeCompare(b.motExpiry ?? "") * dir
+          // Null MOT date sinks to the bottom in both directions.
+          return cmpNulls(
+            a.motExpiry,
+            b.motExpiry,
+            (v) => !v,
+            (x, y) => String(x).localeCompare(String(y)),
+            dir,
           );
         default:
           return 0;
@@ -255,6 +319,8 @@ export default function VehiclesPage() {
         type: "vehicle",
         sticky: true,
         width: 200,
+        sortable: true,
+        sortKey: "registration",
         render: (v) => <VehicleCell vehicle={v} />,
       },
       {
@@ -372,13 +438,27 @@ export default function VehiclesPage() {
     [],
   );
 
-  function toggleSort(k: SortKey) {
-    if (k === sortKey) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+  // SPEC Point 8 — 3-state cycle per column: a different column → asc;
+  // same column asc → desc; same column desc → cleared (default order).
+  // State is written to the URL (router.replace, preserving q/status so
+  // sort + filter combine) so it survives refresh + back-button.
+  function applySort(nextKey: SortKey | null, nextDir: SortDir) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (nextKey) {
+      params.set("sort", nextKey);
+      params.set("dir", nextDir);
     } else {
-      setSortKey(k);
-      setSortDir("desc");
+      params.delete("sort");
+      params.delete("dir");
     }
+    const qs = params.toString();
+    router.replace(qs ? `/vehicles?${qs}` : "/vehicles", { scroll: false });
+  }
+
+  function toggleSort(k: SortKey) {
+    if (k !== sortKey) applySort(k, "asc");
+    else if (sortDir === "asc") applySort(k, "desc");
+    else applySort(null, "asc"); // third click → back to default
   }
 
   return (
@@ -504,7 +584,7 @@ export default function VehiclesPage() {
           <DataGridTable cols={tableCols}>
             <DataGridHeaderRow
               cols={tableCols}
-              sortKey={sortKey}
+              sortKey={sortKey ?? undefined}
               sortDir={sortDir}
               onSort={(k) => toggleSort(k as SortKey)}
             />
@@ -532,7 +612,7 @@ export default function VehiclesPage() {
           <DataGridTable cols={tableCols}>
             <DataGridHeaderRow
               cols={tableCols}
-              sortKey={sortKey}
+              sortKey={sortKey ?? undefined}
               sortDir={sortDir}
               onSort={(k) => toggleSort(k as SortKey)}
             />

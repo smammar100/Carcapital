@@ -285,8 +285,9 @@ export function DataGridHeaderRow<T>({
                 <button
                   type="button"
                   onClick={() => onSort?.(sortId)}
+                  title={`Click to sort by ${c.label}`}
                   className={cn(
-                    "flex h-8 w-full cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground",
+                    "-mx-1 flex h-8 w-full cursor-pointer items-center gap-1.5 rounded px-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground",
                     align === "right" && "justify-end",
                     align === "center" && "justify-center",
                   )}
