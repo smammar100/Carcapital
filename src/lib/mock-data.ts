@@ -805,7 +805,7 @@ export const mockInvoices: Invoice[] = [
 // ============================================================
 
 export const mockReturns: VehicleReturn[] = [
-  { id: "return-1", companyId: "company-1", vehicleId: "vehicle-10", saleDealId: null, customerName: "Earlier Customer", customerPhone: "07700400001", returnDate: daysAgo(60), reason: "Repeated electrical faults outside warranty cover", resolutionPath: "g_trader", resolutionNotes: "Returned to G-Trader for resolution; full credit received", refundAmount: 2200, status: "resolved", originalInvoiceId: null, refundBankAccountName: null, refundSortCode: null, refundAccountNumber: null, refundBankName: null, createdAt: daysAgo(60) + "T09:00:00.000Z", resolvedAt: daysAgo(45) + "T15:00:00.000Z" },
+  { id: "return-1", companyId: "company-1", vehicleId: "vehicle-10", saleDealId: null, customerName: "Earlier Customer", customerPhone: "07700400001", returnDate: daysAgo(60), reason: "Repeated electrical faults outside warranty cover", resolutionPath: "g_trader", resolutionNotes: "Returned to G-Trader for resolution; full credit received", refundAmount: 2200, status: "resolved", originalInvoiceId: null, refundBankAccountName: null, refundSortCode: null, refundAccountNumber: null, refundBankName: null, reasonCode: null, createdAt: daysAgo(60) + "T09:00:00.000Z", resolvedAt: daysAgo(45) + "T15:00:00.000Z" },
 ];
 
 // ============================================================

@@ -727,6 +727,24 @@ export type ReturnStatus =
   | "resolved"
   | "rejected";
 
+/** SPEC Point 3 — structured return reason (free-text `reason` = detail). */
+export type ReturnReason =
+  | "mechanical_fault"
+  | "misrepresentation"
+  | "finance_failure"
+  | "customer_change_of_mind"
+  | "cooling_off_period"
+  | "other";
+
+export const RETURN_REASON_LABELS: Record<ReturnReason, string> = {
+  mechanical_fault: "Mechanical Fault",
+  misrepresentation: "Misrepresentation",
+  finance_failure: "Finance Failure",
+  customer_change_of_mind: "Customer Change of Mind",
+  cooling_off_period: "Cooling-off Period",
+  other: "Other",
+};
+
 export interface VehicleReturn {
   id: UUID;
   companyId: UUID;
@@ -752,6 +770,8 @@ export interface VehicleReturn {
   refundSortCode: string | null;
   refundAccountNumber: string | null;
   refundBankName: string | null;
+  /** Structured reason category (migration 0006; `reason` = the detail). */
+  reasonCode: ReturnReason | null;
   createdAt: ISODateTime;
   resolvedAt: ISODateTime | null;
 }

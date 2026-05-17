@@ -123,6 +123,37 @@ export default function InvoicingPage() {
     return invoices.filter((i) => i.type === filter);
   }, [invoices, filter]);
 
+  // SPEC Point 4 — sale invoices that a refund invoice reverses, so we
+  // can badge them "Refunded" (derived; no schema needed).
+  const refundedSaleIds = useMemo(() => {
+    const s = new Set<string>();
+    for (const i of invoices ?? []) {
+      if (i.type === "refund" && i.relatedInvoiceId) {
+        s.add(i.relatedInvoiceId);
+      }
+    }
+    return s;
+  }, [invoices]);
+
+  // SPEC Point 5 — refunds summary (this month / YTD / count).
+  const refundSummary = useMemo(() => {
+    const now = new Date();
+    const yStart = `${now.getFullYear()}-01-01`;
+    const mStart = `${now.getFullYear()}-${String(
+      now.getMonth() + 1,
+    ).padStart(2, "0")}-01`;
+    let month = 0;
+    let ytd = 0;
+    let count = 0;
+    for (const i of invoices ?? []) {
+      if (i.type !== "refund") continue;
+      count++;
+      if (i.invoiceDate >= yStart) ytd += i.total;
+      if (i.invoiceDate >= mStart) month += i.total;
+    }
+    return { month, ytd, count };
+  }, [invoices]);
+
   const cols = useMemo<ColumnDef<Invoice>[]>(
     () => [
       {
@@ -146,8 +177,15 @@ export default function InvoicingPage() {
               Refund
             </Badge>
           ) : (
-            <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
-              {i.type}
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
+                {i.type}
+              </span>
+              {refundedSaleIds.has(i.id) && (
+                <Badge className="border-transparent bg-amber-100 text-amber-800">
+                  Refunded
+                </Badge>
+              )}
             </span>
           ),
       },
@@ -206,9 +244,10 @@ export default function InvoicingPage() {
         ),
       },
     ],
-    // Re-build cols when permissions change so the Email gate updates.
+    // Re-build cols when permissions change so the Email gate updates,
+    // and when the refunded-sale set changes so badges stay accurate.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [can],
+    [can, refundedSaleIds],
   );
 
   async function handleSendEmail() {
@@ -392,6 +431,35 @@ export default function InvoicingPage() {
           <TabsTrigger value="refund">Refunds / Cancellations</TabsTrigger>
         </TabsList>
       </Tabs>
+
+      {filter === "refund" && (
+        <Card className="flex flex-wrap gap-6 p-4 text-sm">
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Refunds this month
+            </div>
+            <div className="mt-0.5 font-semibold tabular-nums">
+              {formatCurrency(refundSummary.month)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Refunds YTD
+            </div>
+            <div className="mt-0.5 font-semibold tabular-nums">
+              {formatCurrency(refundSummary.ytd)}
+            </div>
+          </div>
+          <div>
+            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              Total refund invoices
+            </div>
+            <div className="mt-0.5 font-semibold tabular-nums">
+              {refundSummary.count}
+            </div>
+          </div>
+        </Card>
+      )}
 
       {!filtered ? (
         // Row-aware skeleton — matches the table's column structure

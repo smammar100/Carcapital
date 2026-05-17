@@ -16,10 +16,12 @@ import {
 } from "@/lib/services/pdf-service";
 import type {
   Invoice,
+  ReturnReason,
   ReturnResolutionPath,
   Vehicle,
   VehicleReturn,
 } from "@/lib/types";
+import { RETURN_REASON_LABELS } from "@/lib/types";
 import { formatRegPlate, formatCurrency } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -71,7 +73,15 @@ const schema = z.object({
   customerPhone: z.string().min(1),
   customerEmail: z.string().optional(),
   returnDate: z.string().min(1),
-  reason: z.string().min(1),
+  reasonCode: z.enum([
+    "mechanical_fault",
+    "misrepresentation",
+    "finance_failure",
+    "customer_change_of_mind",
+    "cooling_off_period",
+    "other",
+  ]),
+  reason: z.string().min(1, "Please describe the reason for return"),
   resolutionPath: z.enum(["vendor", "supplier", "g_trader", "other"]),
   resolutionNotes: z.string().optional(),
   refundAmount: z.coerce.number().optional(),
@@ -93,7 +103,9 @@ function buildRefundNotes(ret: VehicleReturn, reg: string): string {
   const path = ret.resolutionPath.replace(/_/g, " ");
   return [
     `Refund / cancellation for ${reg}.`,
-    `Reason for return: ${ret.reason}`,
+    `Reason for return: ${
+      ret.reasonCode ? RETURN_REASON_LABELS[ret.reasonCode] : "—"
+    }${ret.reason ? ` — ${ret.reason}` : ""}`,
     `Resolution path: ${path}${
       ret.resolutionNotes ? ` — ${ret.resolutionNotes}` : ""
     }`,
@@ -138,6 +150,7 @@ export default function ReturnsPage() {
       customerPhone: "",
       customerEmail: "",
       returnDate: new Date().toISOString().slice(0, 10),
+      reasonCode: "mechanical_fault",
       reason: "",
       resolutionPath: "g_trader",
       resolutionNotes: "",
@@ -320,6 +333,7 @@ export default function ReturnsPage() {
         customerPhone: values.customerPhone,
         returnDate: values.returnDate,
         reason: values.reason,
+        reasonCode: values.reasonCode,
         resolutionPath: values.resolutionPath,
         resolutionNotes: values.resolutionNotes || null,
         refundAmount: values.refundAmount ?? null,
@@ -533,11 +547,43 @@ export default function ReturnsPage() {
 
               <div>
                 <Label>Reason</Label>
+                <Select
+                  value={form.watch("reasonCode")}
+                  onValueChange={(v) =>
+                    form.setValue("reasonCode", v as ReturnReason)
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(
+                      Object.keys(RETURN_REASON_LABELS) as ReturnReason[]
+                    ).map((rc) => (
+                      <SelectItem key={rc} value={rc}>
+                        {RETURN_REASON_LABELS[rc]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>
+                  Reason detail
+                  {form.watch("reasonCode") === "other" && (
+                    <span className="text-destructive"> *</span>
+                  )}
+                </Label>
                 <Textarea
                   {...form.register("reason")}
                   className="min-h-16"
-                  placeholder="Why is the vehicle being returned?"
+                  placeholder="Describe the reason for the return…"
                 />
+                {form.formState.errors.reason && (
+                  <p className="mt-1 text-xs text-destructive">
+                    {form.formState.errors.reason.message}
+                  </p>
+                )}
               </div>
 
               <div>

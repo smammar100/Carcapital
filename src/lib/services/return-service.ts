@@ -40,7 +40,8 @@ const SELECT = `
   refundBankAccountName:refund_bank_account_name,
   refundSortCode:refund_sort_code,
   refundAccountNumber:refund_account_number,
-  refundBankName:refund_bank_name
+  refundBankName:refund_bank_name,
+  reasonCode:reason_code
 `;
 
 /** PostgREST undefined_column → migration 0001 not applied yet. */
@@ -62,6 +63,7 @@ function normalizeReturn(row: unknown): VehicleReturn {
     refundSortCode: (r.refundSortCode as string | null) ?? null,
     refundAccountNumber: (r.refundAccountNumber as string | null) ?? null,
     refundBankName: (r.refundBankName as string | null) ?? null,
+    reasonCode: (r.reasonCode as VehicleReturn["reasonCode"]) ?? null,
   };
 }
 
@@ -76,6 +78,8 @@ interface CreateInput {
   resolutionPath: ReturnResolutionPath;
   resolutionNotes: string | null;
   refundAmount: number | null;
+  /** SPEC Point 3 — structured reason (migration 0006). */
+  reasonCode?: string | null;
   /** Migration-0001 fields — persisted via a guarded follow-up update. */
   originalInvoiceId?: UUID | null;
   refundBankAccountName?: string | null;
@@ -157,6 +161,8 @@ export const returnService = {
       enrich.refund_account_number = input.refundAccountNumber;
     if (input.refundBankName !== undefined)
       enrich.refund_bank_name = input.refundBankName;
+    if (input.reasonCode !== undefined)
+      enrich.reason_code = input.reasonCode;
     let ret = baseRet;
     if (Object.keys(enrich).length > 0) {
       const { data: upd, error: updErr } = await supabase
