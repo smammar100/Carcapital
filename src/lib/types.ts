@@ -54,6 +54,12 @@ export interface User {
   /** Most recent login. Null = never logged in. */
   lastLoginAt: ISODateTime | null;
   twoStepEnabled: boolean;
+  /** SPEC Point 2 — how the account was created. */
+  creationMode: "invite" | "direct";
+  /** True for directly-created users until they set their own password. */
+  passwordResetRequired: boolean;
+  /** When a directly-created user first set their own password. */
+  activatedAt: ISODateTime | null;
   createdAt: ISODateTime;
 }
 

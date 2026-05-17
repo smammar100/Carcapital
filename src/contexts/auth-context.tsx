@@ -58,6 +58,9 @@ const USER_WITH_COMPANY_SELECT = `
   acceptedAt:accepted_at,
   lastLoginAt:last_login_at,
   twoStepEnabled:two_step_enabled,
+  creationMode:creation_mode,
+  passwordResetRequired:password_reset_required,
+  activatedAt:activated_at,
   createdAt:created_at,
   company:companies (
     id,

@@ -202,6 +202,10 @@ export default function TeamAndSecurityPage() {
                             <span className="rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-800 dark:bg-amber-950/30 dark:text-amber-300">
                               Invitation sent
                             </span>
+                          ) : u.passwordResetRequired ? (
+                            <span className="rounded bg-violet-100 px-2 py-0.5 text-xs text-violet-800 dark:bg-violet-950/30 dark:text-violet-300">
+                              Pending First Login
+                            </span>
                           ) : u.twoStepEnabled ? (
                             <span className="rounded bg-cyan-100 px-2 py-0.5 text-xs text-cyan-800 dark:bg-cyan-950/30 dark:text-cyan-300">
                               Two-step

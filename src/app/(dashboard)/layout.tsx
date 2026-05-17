@@ -30,6 +30,10 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
+    } else if (!loading && user && user.passwordResetRequired) {
+      // SPEC Point 2 — directly-created users must set their own
+      // password before they can use the app.
+      router.replace("/set-password");
     }
   }, [loading, user, router]);
 

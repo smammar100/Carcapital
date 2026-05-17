@@ -131,6 +131,10 @@ export async function POST(request: Request) {
     accepted_at: now,
     last_login_at: null,
     two_step_enabled: false,
+    // SPEC Point 2 — direct creation; force a password change on first login.
+    creation_mode: "direct",
+    password_reset_required: true,
+    activated_at: null,
   } as never);
 
   if (rowErr) {

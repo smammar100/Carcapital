@@ -101,3 +101,28 @@ export function getInitials(name: string): string {
     .join("")
     .toUpperCase();
 }
+
+/**
+ * SPEC Point 2 — 12-char temporary password for direct user creation.
+ * Excludes ambiguous chars (0/O, 1/l/I) so it can be read aloud.
+ */
+export function generateTempPassword(): string {
+  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  const lower = "abcdefghjkmnpqrstuvwxyz";
+  const digits = "23456789";
+  const symbols = "!@#$%&*";
+  const pick = (set: string, n: number) => {
+    const r = new Uint32Array(n);
+    crypto.getRandomValues(r);
+    return Array.from(r, (x) => set[x % set.length]).join("");
+  };
+  const raw = pick(upper, 3) + pick(lower, 3) + pick(digits, 3) + pick(symbols, 3);
+  const arr = raw.split("");
+  const ord = new Uint32Array(arr.length);
+  crypto.getRandomValues(ord);
+  return arr
+    .map((c, i) => ({ c, k: ord[i] }))
+    .sort((a, b) => a.k - b.k)
+    .map((x) => x.c)
+    .join("");
+}
