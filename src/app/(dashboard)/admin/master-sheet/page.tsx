@@ -17,12 +17,15 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import type { Vehicle, VehicleStatus } from "@/lib/types";
+import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
+import type { DealerPartner, Vehicle, VehicleStatus } from "@/lib/types";
 import { VEHICLE_STATUSES } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
@@ -198,6 +201,60 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat("en-GB").format(n);
 }
 
+// Direct, non-computed Vehicle attributes that are safe to inline-edit.
+// Deliberately excludes the cost-chain inputs (buyingPrice, fees) and all
+// computed/derived totals (totalBuyingPrice, landedCost, baseCost,
+// grossEarning, profit, daysInStock) plus stockId / status / the vehicle
+// composite — editing those would persist an inconsistent sheet or bypass
+// the status-change service. Leaf prices (listing/min/sold) are allowed.
+const EDITABLE_KEYS = new Set<string>([
+  "make",
+  "model",
+  "variantCode",
+  "year",
+  "colour",
+  "mileage",
+  "vehicleType",
+  "bodyType",
+  "fuelType",
+  "transmission",
+  "engineSizeCC",
+  "receivedDate",
+  "sellerName",
+  "sellerPhone",
+  "sourceType",
+  "auctionHouse",
+  "v5Received",
+  "serviceHistory",
+  "numKeys",
+  "lockNut",
+  "motExpiry",
+  "minimumSalePrice",
+  "listingPrice",
+  "sellingPrice",
+  "dateSold",
+  "sellingAgent",
+]);
+
+function isEditableCol(c: ColDef): boolean {
+  if (c.key === "profit") return false;
+  if (c.type === "vehicle" || c.type === "stockId" || c.type === "status")
+    return false;
+  return EDITABLE_KEYS.has(String(c.key));
+}
+
+/** Coerce a raw string editor value into the typed Vehicle field value. */
+function coerceCellValue(c: ColDef, draft: string): unknown {
+  const t = draft.trim();
+  if (c.type === "number" || c.type === "currency") {
+    if (t === "") return null;
+    const n = Number(t);
+    return Number.isNaN(n) ? null : n;
+  }
+  if (c.type === "date") return t === "" ? null : t;
+  return t === "" ? null : t;
+}
+
 function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
   const raw = rawValue(col, v);
 
@@ -287,8 +344,28 @@ function searchableText(v: Vehicle): string {
     .toLowerCase();
 }
 
+interface QuickAdd {
+  registration: string;
+  make: string;
+  model: string;
+  year: string;
+  colour: string;
+  mileage: string;
+  supplierId: string;
+}
+
+const EMPTY_QUICK_ADD: QuickAdd = {
+  registration: "",
+  make: "",
+  model: "",
+  year: "",
+  colour: "",
+  mileage: "",
+  supplierId: "",
+};
+
 export default function MasterSheetPage() {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [visible, setVisible] = useState<Set<string>>(
     new Set(COLS.map((c) => colKey(c))),
@@ -296,6 +373,16 @@ export default function MasterSheetPage() {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
+  // Inline-edit: which cell is open + the in-progress draft string.
+  const [editing, setEditing] = useState<{ id: string; key: string } | null>(
+    null,
+  );
+  const [draft, setDraft] = useState("");
+  const [savingCell, setSavingCell] = useState(false);
+  // Quick-add row state.
+  const [partners, setPartners] = useState<DealerPartner[]>([]);
+  const [quick, setQuick] = useState<QuickAdd>({ ...EMPTY_QUICK_ADD });
+  const [adding, setAdding] = useState(false);
 
   // Reset to page 1 whenever the search query changes
   useEffect(() => {
@@ -305,7 +392,158 @@ export default function MasterSheetPage() {
   useEffect(() => {
     if (!company) return;
     void vehicleService.getAll(company.id).then(setVehicles);
+    void dealerPartnerService.getAll(company.id).then(setPartners);
   }, [company]);
+
+  function startEdit(v: Vehicle, c: ColDef) {
+    const raw = rawValue(c, v);
+    setEditing({ id: v.id, key: colKey(c) });
+    setDraft(raw === null || raw === undefined ? "" : String(raw));
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setDraft("");
+  }
+
+  async function commitEdit(v: Vehicle, c: ColDef, valueOverride?: unknown) {
+    if (!user || !company) return;
+    const value =
+      valueOverride !== undefined ? valueOverride : coerceCellValue(c, draft);
+    const field = c.key as keyof Vehicle;
+    if (v[field] === value) {
+      cancelEdit();
+      return;
+    }
+    setSavingCell(true);
+    const snapshot = vehicles;
+    // Optimistic: patch the local row immediately.
+    setVehicles((prev) =>
+      prev
+        ? prev.map((row) =>
+            row.id === v.id ? { ...row, [field]: value } : row,
+          )
+        : prev,
+    );
+    try {
+      const updated = await vehicleService.update(
+        v.id,
+        { [field]: value } as Partial<Vehicle>,
+        user.id,
+      );
+      // Replace with the authoritative row (also refreshes any derived
+      // values the server recomputed).
+      setVehicles((prev) =>
+        prev ? prev.map((row) => (row.id === v.id ? updated : row)) : prev,
+      );
+      toast.success(`${updated.registration}: ${c.label} updated`);
+    } catch (e) {
+      console.warn("[master-sheet] cell update failed", e);
+      setVehicles(snapshot); // revert
+      toast.error(`Couldn't save ${c.label} — reverted`);
+    } finally {
+      setSavingCell(false);
+      cancelEdit();
+    }
+  }
+
+  async function handleQuickAdd() {
+    if (!user || !company) return;
+    const reg = quick.registration.trim().toUpperCase();
+    if (!reg || !quick.make.trim()) {
+      toast.error("Registration and make are required");
+      return;
+    }
+    setAdding(true);
+    try {
+      const yearNum = Number(quick.year);
+      const mileageNum = Number(quick.mileage);
+      const today = new Date().toISOString().slice(0, 10);
+      const created = await vehicleService.create(
+        {
+          companyId: company.id,
+          registration: reg,
+          tagNumber: null,
+          make: quick.make.trim(),
+          model: quick.model.trim(),
+          variantName: null,
+          variantCode: null,
+          year:
+            Number.isFinite(yearNum) && yearNum > 0
+              ? yearNum
+              : new Date().getFullYear(),
+          colour: quick.colour.trim() || "Unknown",
+          mileage: Number.isFinite(mileageNum) ? mileageNum : 0,
+          vehicleType: "car",
+          bodyType: "hatchback",
+          fuelType: "petrol",
+          transmission: "manual",
+          engineSizeCC: null,
+          receivedDate: today,
+          receivedBy: user.id,
+          sellerName: "—",
+          sellerPhone: "",
+          sourceType: "dealer",
+          purchaseChannel: null,
+          supplierId: null,
+          localOrImport: "local",
+          auctionHouse: null,
+          ownedBy: null,
+          managedBy: null,
+          invoiceDate: null,
+          v5Received: false,
+          serviceHistory: "none",
+          numKeys: 1,
+          lockNut: false,
+          motExpiry: null,
+          buyingPrice: 0,
+          vatOnBuyingPrice: 0,
+          buyersFee: null,
+          inspectionCharge: null,
+          collectionFee: null,
+          deliveryFee: null,
+          lateStorageFee: null,
+          otherCharges: null,
+          totalBuyingPrice: 0,
+          financeProvider: "none",
+          loadingFee: null,
+          dailyChargeRate: null,
+          unloadingFee: null,
+          stockingCharges: 0,
+          valueAddition: 0,
+          warrantyCost: null,
+          landedCost: 0,
+          baseCost: 0,
+          minimumSalePrice: null,
+          listingPrice: null,
+          sellingPrice: null,
+          dateSold: null,
+          sellingAgent: null,
+          grossEarning: null,
+          status: "received",
+          removedFromWebsiteAt: null,
+          daysInStock: 0,
+          imagesCount: 0,
+          heroImageUrl: null,
+        },
+        user.id,
+      );
+      if (quick.supplierId) {
+        await dealerPartnerService.assignSupplier(
+          created.id,
+          quick.supplierId,
+        );
+      }
+      setVehicles(await vehicleService.getAll(company.id));
+      toast.success(`${created.stockId} — ${reg} added`);
+      setQuick({ ...EMPTY_QUICK_ADD });
+    } catch (e) {
+      console.warn("[master-sheet] quick-add failed", e);
+      toast.error("Couldn't add vehicle");
+    } finally {
+      setAdding(false);
+    }
+  }
 
   const cols = useMemo(
     () => COLS.filter((c) => visible.has(colKey(c))),
@@ -539,40 +777,185 @@ export default function MasterSheetPage() {
                           />
                         </div>
                       </td>
-                      {cols.map((c) => (
-                        <td
-                          key={colKey(c)}
-                          className={cn(
-                            "border-b border-r px-2",
-                            // Sticky data cells: SOLID bg + shadow.
-                            // Inner sticky cells' shadows are occluded
-                            // by the next sticky cell's solid bg via
-                            // paint order; only the rightmost shadow
-                            // is visually present.
-                            c.sticky &&
-                              "sticky z-10 bg-background shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-muted",
-                            isSelected && c.sticky && "bg-muted",
-                            !c.sticky && "group-hover/row:bg-muted/40",
-                          )}
-                          style={c.sticky ? { left: 40 } : undefined}
-                        >
-                          <div
+                      {cols.map((c) => {
+                        const editable = isEditableCol(c);
+                        const isEditingThis =
+                          editing?.id === v.id &&
+                          editing?.key === colKey(c);
+                        const alignEnd =
+                          c.type === "currency" || c.type === "number";
+                        return (
+                          <td
+                            key={colKey(c)}
                             className={cn(
-                              "flex h-11 items-center",
-                              c.type === "currency" ||
-                                c.type === "number"
-                                ? "justify-end"
-                                : "justify-start",
+                              "border-b border-r px-2",
+                              // Sticky data cells: SOLID bg + shadow.
+                              // Inner sticky cells' shadows are occluded
+                              // by the next sticky cell's solid bg via
+                              // paint order; only the rightmost shadow
+                              // is visually present.
+                              c.sticky &&
+                                "sticky z-10 bg-background shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-muted",
+                              isSelected && c.sticky && "bg-muted",
+                              !c.sticky && "group-hover/row:bg-muted/40",
                             )}
+                            style={c.sticky ? { left: 40 } : undefined}
                           >
-                            <CellContent col={c} v={v} />
-                          </div>
-                        </td>
-                      ))}
+                            <div
+                              className={cn(
+                                "flex h-11 items-center",
+                                alignEnd ? "justify-end" : "justify-start",
+                              )}
+                            >
+                              {isEditingThis ? (
+                                <Input
+                                  autoFocus
+                                  type={
+                                    c.type === "date"
+                                      ? "date"
+                                      : c.type === "number" ||
+                                          c.type === "currency"
+                                        ? "number"
+                                        : "text"
+                                  }
+                                  value={draft}
+                                  disabled={savingCell}
+                                  onChange={(e) => setDraft(e.target.value)}
+                                  onBlur={() => void commitEdit(v, c)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      void commitEdit(v, c);
+                                    } else if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      cancelEdit();
+                                    }
+                                  }}
+                                  className={cn(
+                                    "h-7 px-1.5 py-0 text-xs",
+                                    alignEnd && "text-right",
+                                  )}
+                                />
+                              ) : editable ? (
+                                <button
+                                  type="button"
+                                  title="Click to edit"
+                                  onClick={() => {
+                                    if (c.type === "boolean") {
+                                      void commitEdit(
+                                        v,
+                                        c,
+                                        !v[c.key as keyof Vehicle],
+                                      );
+                                    } else {
+                                      startEdit(v, c);
+                                    }
+                                  }}
+                                  className="-mx-1 flex w-full cursor-pointer items-center rounded px-1 text-left hover:bg-primary/5 focus-visible:outline-1"
+                                  style={
+                                    alignEnd
+                                      ? { justifyContent: "flex-end" }
+                                      : undefined
+                                  }
+                                >
+                                  <CellContent col={c} v={v} />
+                                </button>
+                              ) : (
+                                <CellContent col={c} v={v} />
+                              )}
+                            </div>
+                          </td>
+                        );
+                      })}
                       <td className="border-b group-hover/row:bg-muted/40" />
                     </tr>
                   );
                 })}
+                {/* Quick-add row — minimal create with auto stock ID */}
+                <tr className="bg-muted/20">
+                  <td
+                    colSpan={cols.length + 2}
+                    className="border-b px-2 py-2"
+                  >
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+                        <Plus className="h-3.5 w-3.5" /> Quick add
+                      </span>
+                      <Input
+                        value={quick.registration}
+                        onChange={(e) =>
+                          setQuick({ ...quick, registration: e.target.value })
+                        }
+                        placeholder="Reg *"
+                        className="h-8 w-28 text-xs uppercase"
+                      />
+                      <Input
+                        value={quick.make}
+                        onChange={(e) =>
+                          setQuick({ ...quick, make: e.target.value })
+                        }
+                        placeholder="Make *"
+                        className="h-8 w-28 text-xs"
+                      />
+                      <Input
+                        value={quick.model}
+                        onChange={(e) =>
+                          setQuick({ ...quick, model: e.target.value })
+                        }
+                        placeholder="Model"
+                        className="h-8 w-28 text-xs"
+                      />
+                      <Input
+                        value={quick.year}
+                        onChange={(e) =>
+                          setQuick({ ...quick, year: e.target.value })
+                        }
+                        placeholder="Year"
+                        type="number"
+                        className="h-8 w-20 text-xs"
+                      />
+                      <Input
+                        value={quick.colour}
+                        onChange={(e) =>
+                          setQuick({ ...quick, colour: e.target.value })
+                        }
+                        placeholder="Colour"
+                        className="h-8 w-24 text-xs"
+                      />
+                      <Input
+                        value={quick.mileage}
+                        onChange={(e) =>
+                          setQuick({ ...quick, mileage: e.target.value })
+                        }
+                        placeholder="Mileage"
+                        type="number"
+                        className="h-8 w-24 text-xs"
+                      />
+                      <select
+                        value={quick.supplierId}
+                        onChange={(e) =>
+                          setQuick({ ...quick, supplierId: e.target.value })
+                        }
+                        className="h-8 rounded-md border bg-background px-2 text-xs"
+                      >
+                        <option value="">No dealer partner</option>
+                        {partners.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name}
+                          </option>
+                        ))}
+                      </select>
+                      <Button
+                        size="sm"
+                        className="h-8"
+                        onClick={() => void handleQuickAdd()}
+                        disabled={adding}
+                      >
+                        {adding ? "Adding…" : "Add vehicle"}
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
               </tbody>
             </table>
           </div>

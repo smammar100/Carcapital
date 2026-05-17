@@ -400,6 +400,7 @@ export function ArrivalForm() {
           sellerPhone: values.sellerPhone ?? "",
           sourceType: values.sourceType === "trade_in" ? "trade_in" : values.sourceType,
           purchaseChannel: "supplier",
+          supplierId: null,
           localOrImport: values.localOrImport,
           auctionHouse: values.auctionHouse || null,
           ownedBy: values.ownedBy || company.name,

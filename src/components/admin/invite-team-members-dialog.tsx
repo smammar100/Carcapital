@@ -27,14 +27,33 @@ interface Props {
   onInvited?: (count: number) => void;
 }
 
+function generatePassword(): string {
+  // Readable, strong-enough temp password the admin relays then the user
+  // changes. Avoids ambiguous chars.
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+  let out = "";
+  const rnd = new Uint32Array(14);
+  crypto.getRandomValues(rnd);
+  for (let i = 0; i < 14; i++) out += chars[rnd[i] % chars.length];
+  return `${out}!9`;
+}
+
 export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props) {
   const { user, company } = useAuth();
+  const [mode, setMode] = useState<"invite" | "password">("invite");
   const [emails, setEmails] = useState<string[]>([]);
   const [emailDraft, setEmailDraft] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [roles, setRoles] = useState<Set<RoleValue>>(new Set());
   const [roleSearch, setRoleSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  // Create-with-password mode state.
+  const [pwEmail, setPwEmail] = useState("");
+  const [password, setPassword] = useState(generatePassword());
+  const [createdCreds, setCreatedCreds] = useState<{
+    email: string;
+    password: string;
+  } | null>(null);
 
   function reset() {
     setEmails([]);
@@ -42,6 +61,10 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
     setEmailError(null);
     setRoles(new Set());
     setRoleSearch("");
+    setPwEmail("");
+    setPassword(generatePassword());
+    setCreatedCreds(null);
+    setMode("invite");
   }
 
   function commitEmail(raw: string) {
@@ -96,8 +119,58 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
     [roles],
   );
 
+  async function handleCreateWithPassword() {
+    if (!user || !company) return;
+    const email = pwEmail.trim().toLowerCase();
+    if (!EMAIL_RE.test(email)) {
+      setEmailError(`"${pwEmail}" is not a valid email address`);
+      return;
+    }
+    if (password.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+    if (roles.size === 0) {
+      toast.error("Select at least one role");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/team/create-with-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          companyId: company.id,
+          email,
+          password,
+          roles: [...roles],
+        }),
+      });
+      const json = (await res.json()) as {
+        email?: string;
+        password?: string;
+        error?: string;
+      };
+      if (!res.ok) {
+        toast.error(json.error ?? "Could not create the member");
+        return;
+      }
+      setCreatedCreds({ email: json.email ?? email, password });
+      toast.success(`${email} created — relay the credentials below`);
+      onInvited?.(1);
+    } catch {
+      toast.error("Could not create the member");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!user || !company) return;
+    if (mode === "password") {
+      void handleCreateWithPassword();
+      return;
+    }
     setEmailError(null);
     // Commit any draft text as a final email
     if (emailDraft.trim()) commitEmail(emailDraft);
@@ -158,9 +231,39 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
             </DialogPrimitive.Close>
           </div>
 
+          <div className="flex gap-2 border-b px-8 py-3">
+            <button
+              type="button"
+              onClick={() => setMode("invite")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm transition-colors",
+                mode === "invite"
+                  ? "bg-secondary font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              data-testid="mode-invite"
+            >
+              Email invite
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("password")}
+              className={cn(
+                "rounded-md px-3 py-1.5 text-sm transition-colors",
+                mode === "password"
+                  ? "bg-secondary font-medium"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+              data-testid="mode-password"
+            >
+              Create with password
+            </button>
+          </div>
+
           <div className="grid flex-1 grid-cols-1 gap-0 overflow-hidden md:grid-cols-[1fr_1fr] md:divide-x">
             {/* Left column — email + role pickers */}
             <div className="flex flex-col gap-5 overflow-y-auto px-8 py-6">
+            {mode === "invite" && (
             <div>
               <Label className="text-sm font-medium">
                 Enter team member email addresses
@@ -210,6 +313,93 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
                 <p className="mt-1 text-xs text-destructive">{emailError}</p>
               )}
             </div>
+            )}
+
+            {mode === "password" && (
+              <div className="flex flex-col gap-4">
+                {createdCreds ? (
+                  <div className="rounded-md border bg-emerald-50 p-4 text-sm dark:bg-emerald-950/20">
+                    <p className="font-medium text-emerald-800 dark:text-emerald-300">
+                      Member created — relay these credentials
+                    </p>
+                    <div className="mt-2 grid gap-1 font-mono text-xs">
+                      <div>
+                        <span className="text-muted-foreground">Email: </span>
+                        {createdCreds.email}
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">
+                          Password:{" "}
+                        </span>
+                        {createdCreds.password}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => {
+                        void navigator.clipboard
+                          .writeText(
+                            `Email: ${createdCreds.email}\nPassword: ${createdCreds.password}`,
+                          )
+                          .then(() => toast.success("Credentials copied"));
+                      }}
+                    >
+                      Copy credentials
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Team member email
+                      </Label>
+                      <Input
+                        value={pwEmail}
+                        onChange={(e) => {
+                          setPwEmail(e.target.value);
+                          if (emailError) setEmailError(null);
+                        }}
+                        placeholder="ada@stripe.com"
+                        className="mt-2"
+                        data-testid="pw-email"
+                      />
+                      {emailError && (
+                        <p className="mt-1 text-xs text-destructive">
+                          {emailError}
+                        </p>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-sm font-medium">
+                        Temporary password
+                      </Label>
+                      <div className="mt-2 flex gap-2">
+                        <Input
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="font-mono"
+                          data-testid="pw-password"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => setPassword(generatePassword())}
+                        >
+                          Generate
+                        </Button>
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        The member signs in immediately with these — no email
+                        is sent. Ask them to change it after first login.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             <div>
               <Label className="text-sm font-medium">Select team member roles</Label>
@@ -285,9 +475,13 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
             <Button variant="outline" onClick={handleClose} disabled={submitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting} data-testid="send-invites">
+            <Button
+              onClick={handleSubmit}
+              disabled={submitting || (mode === "password" && createdCreds !== null)}
+              data-testid="send-invites"
+            >
               {submitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
-              Send invites
+              {mode === "password" ? "Create member" : "Send invites"}
             </Button>
           </div>
         </DialogPrimitive.Content>

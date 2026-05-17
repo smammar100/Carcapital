@@ -139,6 +139,12 @@ export interface Vehicle {
   sellerPhone: string;
   sourceType: SourceType;
   purchaseChannel: PurchaseChannel | null;
+  /**
+   * The dealer partner this vehicle was sourced from (migration 0002).
+   * NULL for private-seller / unmatched stock. Read defensively — the
+   * column is user-applied so services tolerate its absence.
+   */
+  supplierId: UUID | null;
   localOrImport: "local" | "import";
   auctionHouse: string | null;
   ownedBy: string | null;
@@ -289,6 +295,21 @@ export interface Vendor {
   phone: string;
   speciality: VendorSpeciality;
   active: boolean;
+}
+
+/**
+ * A trade partner who supplies stock to sell (migration 0002). Distinct
+ * from `Vendor` (service garages) — different lifecycle and payment flow.
+ */
+export interface DealerPartner {
+  id: UUID;
+  companyId: UUID;
+  name: string;
+  phone: string | null;
+  companyName: string | null;
+  active: boolean;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
 }
 
 // ============================================================

@@ -455,6 +455,7 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     sellerPhone: "07700900000",
     sourceType: isAuction ? "auction" : s.source === "Trade-in" ? "trade_in" : s.source === "Private" ? "private" : "dealer",
     purchaseChannel: isAuction ? "supplier" : "vendor",
+    supplierId: null,
     localOrImport: s.localOrImport ?? "local",
     auctionHouse: isAuction ? s.source : null,
     ownedBy: "Car Capital UK",
