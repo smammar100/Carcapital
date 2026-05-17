@@ -15,12 +15,11 @@ import {
   Type,
   X,
 } from "lucide-react";
+import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
-import { customFieldService } from "@/lib/services/custom-field-service";
 import type {
-  CustomFieldDefinition,
   DealerPartner,
   Vehicle,
   VehicleStatus,
@@ -43,10 +42,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { PageShell } from "@/components/layout/page-shell";
-import {
-  DataGridPagination,
-  DataGridSearchBar,
-} from "@/components/data-grid";
+import { DataGridPagination } from "@/components/data-grid";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 type ColType =
@@ -207,27 +203,6 @@ function formatNumber(n: number): string {
   return new Intl.NumberFormat("en-GB").format(n);
 }
 
-/** Display string for a custom field value (SPEC Point 1, master sheet). */
-function formatCustomCell(
-  value: unknown,
-  def: CustomFieldDefinition,
-): string {
-  if (value === null || value === undefined || value === "") return "";
-  if (def.fieldType === "boolean") return value ? "Yes" : "No";
-  if (def.fieldType === "multi_select")
-    return Array.isArray(value) ? value.join(", ") : String(value);
-  if (def.fieldType === "currency") {
-    const n = Number(value);
-    return Number.isNaN(n) ? String(value) : formatCurrency(n);
-  }
-  if (def.fieldType === "date") return formatDate(String(value));
-  if (def.fieldType === "number") {
-    const n = Number(value);
-    return Number.isNaN(n) ? String(value) : formatNumber(n);
-  }
-  return String(value);
-}
-
 // Direct, non-computed Vehicle attributes that are safe to inline-edit.
 // Deliberately excludes the cost-chain inputs (buyingPrice, fees) and all
 // computed/derived totals (totalBuyingPrice, landedCost, baseCost,
@@ -356,20 +331,6 @@ function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
   }
 }
 
-function searchableText(v: Vehicle): string {
-  return [
-    v.stockId,
-    v.registration,
-    v.make,
-    v.model,
-    v.variantName,
-    v.colour,
-    v.sellerName,
-    v.auctionHouse ?? "",
-  ]
-    .join(" ")
-    .toLowerCase();
-}
 
 interface QuickAdd {
   registration: string;
@@ -397,7 +358,6 @@ export default function MasterSheetPage() {
   const [visible, setVisible] = useState<Set<string>>(
     new Set(COLS.map((c) => colKey(c))),
   );
-  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   // Inline-edit: which cell is open + the in-progress draft string.
@@ -406,27 +366,15 @@ export default function MasterSheetPage() {
   );
   const [draft, setDraft] = useState("");
   const [savingCell, setSavingCell] = useState(false);
-  // Custom field definitions shown on the master sheet (SPEC Point 1).
-  const [customDefs, setCustomDefs] = useState<CustomFieldDefinition[]>([]);
   // Quick-add row state.
   const [partners, setPartners] = useState<DealerPartner[]>([]);
   const [quick, setQuick] = useState<QuickAdd>({ ...EMPTY_QUICK_ADD });
   const [adding, setAdding] = useState(false);
 
-  // Reset to page 1 whenever the search query changes
-  useEffect(() => {
-    setPage(1);
-  }, [query]);
-
   useEffect(() => {
     if (!company) return;
     void vehicleService.getAll(company.id).then(setVehicles);
     void dealerPartnerService.getAll(company.id).then(setPartners);
-    void customFieldService
-      .getActive(company.id)
-      .then((defs) =>
-        setCustomDefs(defs.filter((d) => d.showInMasterSheet)),
-      );
   }, [company]);
 
   function startEdit(v: Vehicle, c: ColDef) {
@@ -580,31 +528,12 @@ export default function MasterSheetPage() {
     }
   }
 
-  const cols = useMemo(() => {
-    const base = COLS.filter((c) => visible.has(colKey(c)));
-    // Append company custom-field columns (SPEC Point 1). Read-only here
-    // (key "customFields" is a real Vehicle key; `format` resolves the
-    // specific field's value so rawValue() returns the display string).
-    const customCols: ColDef[] = customDefs.map((d) => ({
-      key: "customFields",
-      label: d.label,
-      type: "text",
-      width: 150,
-      format: (v: Vehicle) =>
-        formatCustomCell(
-          (v.customFields ?? {})[d.fieldKey],
-          d,
-        ),
-    }));
-    return [...base, ...customCols];
-  }, [visible, customDefs]);
+  const cols = useMemo(
+    () => COLS.filter((c) => visible.has(colKey(c))),
+    [visible],
+  );
 
-  const filtered = useMemo(() => {
-    if (!vehicles) return null;
-    const q = query.trim().toLowerCase();
-    if (!q) return vehicles;
-    return vehicles.filter((v) => searchableText(v).includes(q));
-  }, [vehicles, query]);
+  const filtered = useMemo(() => vehicles, [vehicles]);
 
   const totalPages = filtered
     ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -674,12 +603,12 @@ export default function MasterSheetPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <DataGridSearchBar
-            value={query}
-            onChange={setQuery}
-            placeholder="Search reg, stock ID, make…"
-            className="w-64"
-          />
+          <Button size="sm" asChild>
+            <Link href="/inventory/add-vehicle">
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Vehicle
+            </Link>
+          </Button>
           {/* The page's existing column visibility popover stays — it uses
               a 2-column grid layout that the generic DataGridColumnsButton
               doesn't replicate. Migrate in a follow-up if we want parity. */}
@@ -724,8 +653,8 @@ export default function MasterSheetPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={FileSpreadsheet}
-          title={query ? "No matches" : "No vehicles"}
-          description={query ? `No vehicles match "${query}".` : undefined}
+          title="No vehicles"
+          description="Add a vehicle to populate the master sheet."
         />
       ) : (
         <Card className="flex min-h-0 flex-1 flex-col p-0">

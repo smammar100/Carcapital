@@ -23,7 +23,6 @@ import {
   Briefcase,
   Handshake,
   ShieldAlert,
-  ListPlus,
   type LucideIcon,
 } from "lucide-react";
 
@@ -52,7 +51,6 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     label: "Administrative",
     items: [
       { label: "Master Sheet", href: "/admin/master-sheet", icon: FileSpreadsheet },
-      { label: "Custom Fields", href: "/admin/custom-fields", icon: ListPlus },
       { label: "Master Calendar", href: "/admin/master-calendar", icon: CalendarIcon },
       { label: "Users & Permissions", href: "/admin/users-and-permissions", icon: Users },
       { label: "Vehicle Returns", href: "/admin/vehicle-returns", icon: Undo2 },

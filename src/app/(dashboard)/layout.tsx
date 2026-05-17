@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import {
@@ -21,8 +21,19 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading, error } = useAuth();
+  const { user, loading, error, revalidate } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+
+  // Client-side route switches (sidebar nav) don't fire a window focus
+  // event, so the focus-based session refresh never runs on an in-app
+  // tab change. Proactively re-validate the session on every route
+  // change — single-flighted + a no-op when the session is unchanged,
+  // so it's cheap — so the destination page's data fetches run against
+  // a fresh JWT instead of a silently-expired one (blank-until-refresh).
+  useEffect(() => {
+    void revalidate();
+  }, [pathname, revalidate]);
 
   // Belt-and-suspenders redirect once auth resolves. Sits at the top of
   // the component so it runs in the same order on every render (rules
