@@ -4,6 +4,9 @@ import {
   Calendar as CalendarIcon,
   Car,
   Check,
+  ChevronDown,
+  ChevronUp,
+  ChevronsUpDown,
   Hash,
   Phone,
   Plus,
@@ -168,6 +171,20 @@ interface HeaderProps<T> {
   trailing?: boolean;
   /** Pass-through from DataGridTable. Only used to attach min-width hints. */
   fluid?: boolean;
+  /**
+   * The identifier of the column the data is currently sorted by (matches a
+   * column's `sortKey` or, if absent, its `key`). When it matches a sortable
+   * column, that header shows an active up/down chevron.
+   */
+  sortKey?: string;
+  /** Direction of the active sort. Drives the chevron icon. */
+  sortDir?: "asc" | "desc";
+  /**
+   * Called with a column's `sortKey ?? key` when a sortable header is
+   * clicked. The consumer owns toggling asc/desc + the actual comparison.
+   * Sortable headers are inert (plain labels) when this is omitted.
+   */
+  onSort?: (key: string) => void;
 }
 
 export function DataGridHeaderRow<T>({
@@ -175,6 +192,9 @@ export function DataGridHeaderRow<T>({
   selection,
   trailing,
   fluid = true,
+  sortKey,
+  sortDir,
+  onSort,
 }: HeaderProps<T>) {
   // Sticky cells need SOLID backgrounds — a translucent sticky cell lets
   // scrolled-out content show through, corrupting the cell text. The
@@ -215,9 +235,45 @@ export function DataGridHeaderRow<T>({
           const stickyStyle: React.CSSProperties = c.sticky
             ? { left: selection ? 40 : 0 }
             : {};
+          // A column is an interactive sort control only when it opts in
+          // (`sortable`) AND the consumer wired an `onSort` handler. The
+          // identifier passed back is `sortKey` when present, else `key`.
+          const sortId = c.sortKey ?? c.key;
+          const isSortable = Boolean(c.sortable && onSort);
+          const isActiveSort = isSortable && sortKey === sortId;
+          const SortIcon = isActiveSort
+            ? sortDir === "asc"
+              ? ChevronUp
+              : ChevronDown
+            : ChevronsUpDown;
+          const inner = (
+            <>
+              <Icon className="h-3 w-3 shrink-0" />
+              <span className="truncate text-foreground">{c.label}</span>
+              {isSortable ? (
+                <SortIcon
+                  className={cn(
+                    "h-3 w-3 shrink-0",
+                    isActiveSort
+                      ? "text-foreground"
+                      : "text-muted-foreground/40",
+                  )}
+                />
+              ) : null}
+            </>
+          );
           return (
             <th
               key={c.key}
+              aria-sort={
+                isActiveSort
+                  ? sortDir === "asc"
+                    ? "ascending"
+                    : "descending"
+                  : isSortable
+                    ? "none"
+                    : undefined
+              }
               className={cn(
                 "border-b border-r px-3 text-left font-medium",
                 c.sticky &&
@@ -225,16 +281,29 @@ export function DataGridHeaderRow<T>({
               )}
               style={{ ...widthStyle, ...stickyStyle }}
             >
-              <div
-                className={cn(
-                  "flex h-8 items-center gap-1.5 text-[11px] text-muted-foreground",
-                  align === "right" && "justify-end",
-                  align === "center" && "justify-center",
-                )}
-              >
-                <Icon className="h-3 w-3 shrink-0" />
-                <span className="truncate text-foreground">{c.label}</span>
-              </div>
+              {isSortable ? (
+                <button
+                  type="button"
+                  onClick={() => onSort?.(sortId)}
+                  className={cn(
+                    "flex h-8 w-full cursor-pointer items-center gap-1.5 text-[11px] text-muted-foreground transition-colors hover:text-foreground",
+                    align === "right" && "justify-end",
+                    align === "center" && "justify-center",
+                  )}
+                >
+                  {inner}
+                </button>
+              ) : (
+                <div
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 text-[11px] text-muted-foreground",
+                    align === "right" && "justify-end",
+                    align === "center" && "justify-center",
+                  )}
+                >
+                  {inner}
+                </div>
+              )}
             </th>
           );
         })}

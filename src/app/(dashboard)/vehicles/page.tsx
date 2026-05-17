@@ -51,10 +51,29 @@ import {
   VehicleCell,
 } from "@/components/data-grid";
 
-type SortKey = "daysInStock" | "make" | "year" | "listingPrice" | "status";
+type SortKey =
+  | "daysInStock"
+  | "make"
+  | "year"
+  | "mileage"
+  | "variant"
+  | "fuelType"
+  | "bodyType"
+  | "totalCost"
+  | "listingPrice"
+  | "profit"
+  | "status"
+  | "motExpiry";
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 25;
+
+// Status sorts by lifecycle order (received → … → returned), not
+// alphabetically — `VEHICLE_STATUSES` is already declared in lifecycle
+// order, so its index is the natural rank.
+const STATUS_ORDER: Record<string, number> = Object.fromEntries(
+  VEHICLE_STATUSES.map((s, i) => [s.value, i]),
+);
 
 function csvEscape(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -182,12 +201,38 @@ export default function VehiclesPage() {
           return (a.daysInStock - b.daysInStock) * dir;
         case "year":
           return (a.year - b.year) * dir;
+        case "mileage":
+          return (a.mileage - b.mileage) * dir;
+        case "totalCost":
+          return (a.baseCost - b.baseCost) * dir;
         case "listingPrice":
           return ((a.listingPrice ?? 0) - (b.listingPrice ?? 0)) * dir;
+        case "profit": {
+          const pa = a.listingPrice !== null ? a.listingPrice - a.baseCost : 0;
+          const pb = b.listingPrice !== null ? b.listingPrice - b.baseCost : 0;
+          return (pa - pb) * dir;
+        }
         case "make":
-          return a.make.localeCompare(b.make) * dir;
+          return (
+            `${a.make} ${a.model}`.localeCompare(`${b.make} ${b.model}`) * dir
+          );
+        case "variant":
+          return (a.variantCode ?? "").localeCompare(b.variantCode ?? "") * dir;
+        case "fuelType":
+          return a.fuelType.localeCompare(b.fuelType) * dir;
+        case "bodyType":
+          return a.bodyType.localeCompare(b.bodyType) * dir;
         case "status":
-          return a.status.localeCompare(b.status) * dir;
+          return (
+            ((STATUS_ORDER[a.status] ?? 0) - (STATUS_ORDER[b.status] ?? 0)) *
+            dir
+          );
+        case "motExpiry":
+          return (
+            (a.motExpiry ?? "").localeCompare(b.motExpiry ?? "") * dir
+          );
+        default:
+          return 0;
       }
     });
 
@@ -217,6 +262,8 @@ export default function VehiclesPage() {
         label: "Make / Model",
         type: "text",
         width: 180,
+        sortable: true,
+        sortKey: "make",
         render: (v) => (
           <div className="flex flex-col leading-tight">
             <span className="font-medium">
@@ -228,15 +275,41 @@ export default function VehiclesPage() {
           </div>
         ),
       },
-      { key: "variantCode", label: "Variant", type: "text", width: 220 },
-      { key: "fuelType", label: "Fuel", type: "select", width: 100 },
-      { key: "bodyType", label: "Body", type: "select", width: 110 },
-      { key: "mileage", label: "Mileage", type: "number", width: 100 },
+      {
+        key: "variantCode",
+        label: "Variant",
+        type: "text",
+        width: 220,
+        sortable: true,
+        sortKey: "variant",
+      },
+      {
+        key: "fuelType",
+        label: "Fuel",
+        type: "select",
+        width: 100,
+        sortable: true,
+      },
+      {
+        key: "bodyType",
+        label: "Body",
+        type: "select",
+        width: 110,
+        sortable: true,
+      },
+      {
+        key: "mileage",
+        label: "Mileage",
+        type: "number",
+        width: 100,
+        sortable: true,
+      },
       {
         key: "daysInStock",
         label: "Days",
         type: "custom",
         width: 80,
+        sortable: true,
         render: (v) => <DaysInStockChip days={v.daysInStock} />,
       },
       {
@@ -244,15 +317,30 @@ export default function VehiclesPage() {
         label: "Status",
         type: "vehicleStatus",
         width: 140,
+        sortable: true,
         render: (v) => <VehicleStatusBadge status={v.status} />,
       },
-      { key: "baseCost", label: "Total cost", type: "currency", width: 110 },
-      { key: "listingPrice", label: "Web price", type: "currency", width: 110 },
+      {
+        key: "baseCost",
+        label: "Total cost",
+        type: "currency",
+        width: 110,
+        sortable: true,
+        sortKey: "totalCost",
+      },
+      {
+        key: "listingPrice",
+        label: "Web price",
+        type: "currency",
+        width: 110,
+        sortable: true,
+      },
       {
         key: "profit",
         label: "Profit",
         type: "currency",
         width: 110,
+        sortable: true,
         get: (v) =>
           v.listingPrice !== null ? v.listingPrice - v.baseCost : null,
         render: (v) => {
@@ -273,7 +361,13 @@ export default function VehiclesPage() {
           );
         },
       },
-      { key: "motExpiry", label: "MOT", type: "date", width: 120 },
+      {
+        key: "motExpiry",
+        label: "MOT",
+        type: "date",
+        width: 120,
+        sortable: true,
+      },
     ],
     [],
   );
@@ -408,7 +502,12 @@ export default function VehiclesPage() {
         // table case study at /docs/case-studies/data-tables.md.
         <DataGridShell>
           <DataGridTable cols={tableCols}>
-            <DataGridHeaderRow cols={tableCols} />
+            <DataGridHeaderRow
+              cols={tableCols}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as SortKey)}
+            />
             <tbody>
               <DataGridSkeletonRows columns={tableCols} rows={8} />
             </tbody>
@@ -431,7 +530,12 @@ export default function VehiclesPage() {
       ) : view === "table" ? (
         <DataGridShell>
           <DataGridTable cols={tableCols}>
-            <DataGridHeaderRow cols={tableCols} />
+            <DataGridHeaderRow
+              cols={tableCols}
+              sortKey={sortKey}
+              sortDir={sortDir}
+              onSort={(k) => toggleSort(k as SortKey)}
+            />
             <tbody>
               {(pagedRows ?? []).map((v, i) => (
                 <DataGridRow

@@ -47,7 +47,19 @@ export function createClient() {
     );
   }
 
-  cached = createBrowserClient<Database>(url, anonKey);
+  // Explicit auth options (defensive — these are createBrowserClient's
+  // defaults, but pinning them avoids drift across @supabase/ssr versions).
+  // autoRefreshToken keeps the JWT alive while the tab is active; the
+  // auth-context adds a focus/visibility revalidation on top so a
+  // backgrounded tab (where refresh timers are throttled) recovers when
+  // the user returns instead of every request 401-ing into blank pages.
+  cached = createBrowserClient<Database>(url, anonKey, {
+    auth: {
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  });
   return cached;
 }
 

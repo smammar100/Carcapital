@@ -44,6 +44,15 @@ export interface ColumnDef<T> {
   render?: (row: T, index: number) => ReactNode;
   /** Convert the value to a CSV string. Defaults to `String(get(row) ?? "")`. */
   csv?: (row: T) => string;
+  /**
+   * When true, the column header is a clickable sort control. The consumer
+   * owns the actual sort state + comparison (via DataGridHeaderRow's
+   * `sortKey` / `sortDir` / `onSort`); `sortKey` overrides `key` as the
+   * identifier passed to `onSort` when the two differ.
+   */
+  sortable?: boolean;
+  /** Sort identifier passed to `onSort`. Defaults to `key`. */
+  sortKey?: string;
 }
 
 export interface SelectionState {

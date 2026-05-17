@@ -28,24 +28,76 @@ export function useRealtimeTable(opts: {
   useEffect(() => {
     if (!companyId) return;
     const supabase = createClient();
-    const channel = supabase
-      .channel(`realtime-${table}-${companyId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table,
-          filter: `company_id=eq.${companyId}`,
-        },
-        () => {
-          if (invalidatePrefix) invalidate(invalidatePrefix);
-          onChange?.();
-        },
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let disposed = false;
+
+    const handleEvent = () => {
+      if (invalidatePrefix) invalidate(invalidatePrefix);
+      onChange?.();
+    };
+
+    const subscribe = () => {
+      if (disposed) return;
+      channel = supabase
+        .channel(`realtime-${table}-${companyId}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table,
+            filter: `company_id=eq.${companyId}`,
+          },
+          handleEvent,
+        )
+        .subscribe((status) => {
+          // The realtime socket drops on idle timeout / network blips with
+          // no built-in recovery — that's why live data went stale until a
+          // hard reload. Tear down and re-subscribe on a short backoff so
+          // updates resume on their own.
+          if (
+            status === "CHANNEL_ERROR" ||
+            status === "TIMED_OUT" ||
+            status === "CLOSED"
+          ) {
+            if (retryTimer) clearTimeout(retryTimer);
+            retryTimer = setTimeout(() => {
+              if (disposed) return;
+              if (channel) void supabase.removeChannel(channel);
+              subscribe();
+            }, 2000);
+          }
+        });
+    };
+
+    subscribe();
+
+    // Reconnect immediately when the tab/network returns rather than
+    // waiting for the next error tick (debounced so a focus burst doesn't
+    // stack channels).
+    const onWake = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState !== "visible"
       )
-      .subscribe();
+        return;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => {
+        if (disposed) return;
+        if (channel) void supabase.removeChannel(channel);
+        subscribe();
+      }, 500);
+    };
+    window.addEventListener("focus", onWake);
+    window.addEventListener("online", onWake);
+
     return () => {
-      void supabase.removeChannel(channel);
+      disposed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      window.removeEventListener("focus", onWake);
+      window.removeEventListener("online", onWake);
+      if (channel) void supabase.removeChannel(channel);
     };
   }, [table, companyId, invalidatePrefix, onChange]);
 }
