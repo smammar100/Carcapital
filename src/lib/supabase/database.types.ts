@@ -309,6 +309,41 @@ export type Database = {
           },
         ]
       }
+      team_join_links: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          default_role: string
+          id: string
+          token: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          default_role?: string
+          id?: string
+          token: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          default_role?: string
+          id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_join_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       enquiries: {
         Row: {
           company_id: string

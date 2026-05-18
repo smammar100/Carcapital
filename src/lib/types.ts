@@ -75,6 +75,20 @@ export interface UserPermission {
   grantedAt: ISODateTime;
 }
 
+/**
+ * Reusable magic-link a company shares so people can self-join without an
+ * email invite. One row per company; "Reset" rotates the token.
+ */
+export interface TeamJoinLink {
+  id: UUID;
+  companyId: UUID;
+  token: string;
+  /** Role new joiners land with — editable later in the permissions grid. */
+  defaultRole: import("./roles").RoleValue;
+  createdBy: UUID | null;
+  createdAt: ISODateTime;
+}
+
 // ============================================================
 // VEHICLES
 // ============================================================

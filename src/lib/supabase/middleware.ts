@@ -2,7 +2,12 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "./database.types";
 
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/reset-password"];
+const PUBLIC_PATHS = [
+  "/login",
+  "/forgot-password",
+  "/reset-password",
+  "/join",
+];
 
 // Accept either the modern PUBLISHABLE_KEY or the legacy ANON_KEY env var.
 const SUPABASE_ANON_KEY =
