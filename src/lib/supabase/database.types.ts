@@ -165,6 +165,7 @@ export type Database = {
           id: string
           logo_url: string | null
           name: string
+          next_cc_inv_seq: number
           next_purchase_invoice_seq: number
           next_refund_invoice_seq: number
           next_sale_invoice_seq: number
@@ -179,6 +180,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name: string
+          next_cc_inv_seq?: number
           next_purchase_invoice_seq?: number
           next_refund_invoice_seq?: number
           next_sale_invoice_seq?: number
@@ -193,6 +195,7 @@ export type Database = {
           id?: string
           logo_url?: string | null
           name?: string
+          next_cc_inv_seq?: number
           next_purchase_invoice_seq?: number
           next_refund_invoice_seq?: number
           next_sale_invoice_seq?: number
@@ -561,11 +564,13 @@ export type Database = {
       }
       invoice_line_items: {
         Row: {
+          addon_category: string | null
           addon_type: string | null
           created_at: string
           description: string
           id: string
           invoice_id: string
+          item_type: string | null
           line_type: string
           quantity: number
           sort_order: number
@@ -575,11 +580,13 @@ export type Database = {
           vat_rate: number
         }
         Insert: {
+          addon_category?: string | null
           addon_type?: string | null
           created_at?: string
           description: string
           id?: string
           invoice_id: string
+          item_type?: string | null
           line_type: string
           quantity?: number
           sort_order?: number
@@ -589,11 +596,13 @@ export type Database = {
           vat_rate?: number
         }
         Update: {
+          addon_category?: string | null
           addon_type?: string | null
           created_at?: string
           description?: string
           id?: string
           invoice_id?: string
+          item_type?: string | null
           line_type?: string
           quantity?: number
           sort_order?: number
@@ -660,6 +669,30 @@ export type Database = {
         Row: {
           addons_total: number
           attachment_url: string | null
+          balance_due: number
+          balance_due_by: string | null
+          buyer_postcode: string | null
+          created_by: string | null
+          custom_note: string | null
+          deposit_amount: number
+          deposit_method: string | null
+          deposit_received_date: string | null
+          discount: number
+          dor_date: string | null
+          finance_amount: number
+          finance_provider: string | null
+          grand_total_incl_addons: number
+          include_id_requirement_note: boolean
+          include_service_history_note: boolean
+          include_unit_stocking_note: boolean
+          issued_at: string | null
+          non_warranty_disclaimer_accepted: boolean
+          paid_addons_total: number
+          pre_delivery_check: Json | null
+          present_mileage: number | null
+          sale_id: string | null
+          sales_price: number
+          warranty: Json | null
           buyer_address: string | null
           buyer_email: string | null
           buyer_name: string | null
@@ -689,6 +722,30 @@ export type Database = {
         Insert: {
           addons_total?: number
           attachment_url?: string | null
+          balance_due?: number
+          balance_due_by?: string | null
+          buyer_postcode?: string | null
+          created_by?: string | null
+          custom_note?: string | null
+          deposit_amount?: number
+          deposit_method?: string | null
+          deposit_received_date?: string | null
+          discount?: number
+          dor_date?: string | null
+          finance_amount?: number
+          finance_provider?: string | null
+          grand_total_incl_addons?: number
+          include_id_requirement_note?: boolean
+          include_service_history_note?: boolean
+          include_unit_stocking_note?: boolean
+          issued_at?: string | null
+          non_warranty_disclaimer_accepted?: boolean
+          paid_addons_total?: number
+          pre_delivery_check?: Json | null
+          present_mileage?: number | null
+          sale_id?: string | null
+          sales_price?: number
+          warranty?: Json | null
           buyer_address?: string | null
           buyer_email?: string | null
           buyer_name?: string | null
@@ -718,6 +775,30 @@ export type Database = {
         Update: {
           addons_total?: number
           attachment_url?: string | null
+          balance_due?: number
+          balance_due_by?: string | null
+          buyer_postcode?: string | null
+          created_by?: string | null
+          custom_note?: string | null
+          deposit_amount?: number
+          deposit_method?: string | null
+          deposit_received_date?: string | null
+          discount?: number
+          dor_date?: string | null
+          finance_amount?: number
+          finance_provider?: string | null
+          grand_total_incl_addons?: number
+          include_id_requirement_note?: boolean
+          include_service_history_note?: boolean
+          include_unit_stocking_note?: boolean
+          issued_at?: string | null
+          non_warranty_disclaimer_accepted?: boolean
+          paid_addons_total?: number
+          pre_delivery_check?: Json | null
+          present_mileage?: number | null
+          sale_id?: string | null
+          sales_price?: number
+          warranty?: Json | null
           buyer_address?: string | null
           buyer_email?: string | null
           buyer_name?: string | null
@@ -1529,6 +1610,8 @@ export type Database = {
           collection_fee: number | null
           colour: string
           company_id: string
+          first_registered_date: string | null
+          vin: string | null
           created_at: string
           daily_charge_rate: number | null
           date_sold: string | null
@@ -1596,6 +1679,8 @@ export type Database = {
           collection_fee?: number | null
           colour: string
           company_id: string
+          first_registered_date?: string | null
+          vin?: string | null
           created_at?: string
           daily_charge_rate?: number | null
           date_sold?: string | null
@@ -1663,6 +1748,8 @@ export type Database = {
           collection_fee?: number | null
           colour?: string
           company_id?: string
+          first_registered_date?: string | null
+          vin?: string | null
           created_at?: string
           daily_charge_rate?: number | null
           date_sold?: string | null
@@ -2048,6 +2135,10 @@ export type Database = {
     }
     Functions: {
       current_company_id: { Args: never; Returns: string }
+      next_cc_invoice_number: {
+        Args: { p_company_id: string }
+        Returns: string
+      }
       next_invoice_number: {
         Args: { p_company_id: string; p_type: string }
         Returns: string

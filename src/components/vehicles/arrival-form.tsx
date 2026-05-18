@@ -427,6 +427,8 @@ export function ArrivalForm() {
           numKeys: Number(values.numKeys),
           lockNut: values.lockNut,
           motExpiry: values.motExpiry || null,
+          vin: null,
+          firstRegisteredDate: null,
           buyingPrice: Number(values.buyingPrice),
           vatOnBuyingPrice: Math.round(Number(values.buyingPrice) * VAT_RATE * 100) / 100,
           buyersFee: values.buyersFee ? Number(values.buyersFee) : null,

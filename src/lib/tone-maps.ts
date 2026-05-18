@@ -67,6 +67,8 @@ export const INVOICE_STATUS_TONE: Record<InvoiceStatus, string> = {
   sent: "blue",
   paid: "green",
   overdue: "red",
+  issued: "blue",
+  cancelled: "red",
 };
 
 export const RETURN_STATUS_TONE: Record<ReturnStatus, string> = {

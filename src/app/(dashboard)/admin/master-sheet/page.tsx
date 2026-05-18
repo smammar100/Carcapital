@@ -479,6 +479,8 @@ export default function MasterSheetPage() {
           numKeys: 1,
           lockNut: false,
           motExpiry: null,
+          vin: null,
+          firstRegisteredDate: null,
           buyingPrice: 0,
           vatOnBuyingPrice: 0,
           buyersFee: null,

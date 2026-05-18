@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Eye,
   Loader2,
   Mail,
+  Pencil,
   Plus,
   Printer,
   Receipt,
@@ -63,8 +65,10 @@ import { toast } from "sonner";
 type Filter = InvoiceType | "all";
 
 export default function InvoicingPage() {
+  const router = useRouter();
   const { user, company } = useAuth();
-  const { can } = usePermissions();
+  const { can, isSuperUser } = usePermissions();
+  const canEdit = isSuperUser || can("invoice:edit");
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [vat, setVat] = useState<{
@@ -203,6 +207,28 @@ export default function InvoicingPage() {
         align: "right",
         render: (i) => (
           <div className="flex justify-end gap-1">
+            {i.type === "sale" &&
+              i.status !== "paid" &&
+              i.status !== "cancelled" && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  disabled={!canEdit}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    router.push(
+                      `/sales/invoice-generation?invoiceId=${i.id}`,
+                    );
+                  }}
+                  title={
+                    canEdit ? "Edit" : "Permission required: Edit Invoice"
+                  }
+                  data-testid={`edit-invoice-${i.id}`}
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             <Button
               size="icon"
               variant="ghost"
@@ -300,11 +326,14 @@ export default function InvoicingPage() {
         vatScheme: "zero_rated",
         lineItems: [
           {
-            lineType: "fee",
-            addonType: null,
+            type: "addon_paid",
+            addonCategory: null,
             description: "Uploaded invoice",
             quantity: 1,
             unitPrice: total,
+            total,
+            lineType: "fee",
+            addonType: null,
             vatRate: 0,
           },
         ],
@@ -582,7 +611,7 @@ export default function InvoicingPage() {
                           {formatCurrency(li.vatAmount)}
                         </td>
                         <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {formatCurrency(li.subtotal + li.vatAmount)}
+                          {formatCurrency(li.total + li.vatAmount)}
                         </td>
                       </tr>
                     ))}

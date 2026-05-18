@@ -1,33 +1,40 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, Receipt, Trash2 } from "lucide-react";
+import { ChevronDown, Plus, Trash2, ShieldX } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { salesService } from "@/lib/services/sales-service";
-import {
-  downloadBlob,
-  openBlobInNewTab,
-  pdfService,
-} from "@/lib/services/pdf-service";
+import { openBlobInNewTab, pdfService } from "@/lib/services/pdf-service";
 import type {
-  AddonType,
+  AddonCategory,
   DepositMethod,
   Invoice,
-  InvoiceLineType,
+  InvoiceLineItem,
+  InvoiceLineItemType,
+  PreDeliveryCheck,
   SalesDeal,
   Vehicle,
   VatScheme,
+  WarrantyDeclaration,
 } from "@/lib/types";
-import { calculateVat, formatVatLabel } from "@/lib/vat";
+import {
+  ADDON_CATEGORY_OPTIONS,
+  FINANCE_PROVIDERS,
+  PDI_ITEMS,
+  WARRANTY_DEFAULTS,
+} from "@/lib/invoice-templates";
+import { computeInvoiceTotals } from "@/lib/invoice-calc";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -36,56 +43,80 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RegPlate } from "@/components/shared/reg-plate";
-import { formatCurrency } from "@/lib/utils";
+import { formatCurrency, cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const ADDON_OPTIONS: { value: AddonType; label: string; defaultDescription: string }[] = [
-  { value: "warranty", label: "Warranty", defaultDescription: "Extended Warranty (12 months)" },
-  { value: "home_delivery", label: "Home Delivery", defaultDescription: "Home delivery service" },
-  { value: "wash", label: "Wash", defaultDescription: "Vehicle wash" },
-  { value: "polish", label: "Polish", defaultDescription: "Polish & detail" },
-  { value: "fuel", label: "Fuel", defaultDescription: "Full tank of fuel" },
-  { value: "floor_mats", label: "Floor Mats", defaultDescription: "Floor mats" },
-  { value: "service_pack", label: "Service Pack", defaultDescription: "Service pack" },
-  { value: "paint_protection", label: "Paint Protection", defaultDescription: "Paint protection" },
-  { value: "accessories", label: "Accessories", defaultDescription: "Accessories" },
-  { value: "custom", label: "Custom", defaultDescription: "" },
-];
-
-const FINANCE_PROVIDERS = [
-  "Close Brothers",
-  "MotoNovo",
-  "Black Horse",
-  "V12 Finance",
-  "Other",
-] as const;
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+function round2(n: number) {
+  return Math.round(n * 100) / 100;
+}
 
 interface DraftLine {
   uid: string;
-  lineType: InvoiceLineType;
-  addonType: AddonType | null;
+  type: InvoiceLineItemType;
+  addonCategory: AddonCategory | null;
   description: string;
   quantity: number;
   unitPrice: number;
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
+const emptyPdc = (v: Vehicle | null): PreDeliveryCheck => ({
+  engineStarts: true,
+  engineNoise: true,
+  transmission: true,
+  noiseNormal: true,
+  clutch: true,
+  steering: true,
+  bodyCondition: true,
+  bodySuspension: true,
+  brakes: true,
+  gauges: true,
+  warningLights: true,
+  exhaust: true,
+  exteriorLights: true,
+  serviceLight: true,
+  lockNut: v?.lockNut ?? true,
+  numKeys: v?.numKeys ?? 2,
+  serviceHistoryStatus: v
+    ? `${v.serviceHistory[0].toUpperCase()}${v.serviceHistory.slice(1)} - Provided`
+    : "Full - Provided",
+  engineServiceDoneDate: null,
+  engineServiceDoneMileage: null,
+  v5Status: v?.v5Received ? "V5C-2 Green Slip" : "V5C — Awaited",
+  hpiCheckResult: "Clear",
+});
 
-function makeVehicleLine(vehicle: Vehicle | null, deal: SalesDeal | null): DraftLine {
-  const price = deal?.agreedPrice ?? vehicle?.listingPrice ?? 0;
-  return {
-    uid: "vehicle-line",
-    lineType: "vehicle",
-    addonType: null,
-    description: vehicle
-      ? `${vehicle.make} ${vehicle.model} ${vehicle.registration}`
-      : "Vehicle",
-    quantity: 1,
-    unitPrice: price,
-  };
+const defaultWarranty = (): WarrantyDeclaration => ({ ...WARRANTY_DEFAULTS });
+
+function Section({
+  title,
+  letter,
+  children,
+}: {
+  title: string;
+  letter: string;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(true);
+  return (
+    <Card className="p-0">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between px-4 py-3 text-left"
+      >
+        <span className="text-sm font-semibold">
+          <span className="text-muted-foreground">{letter}.</span> {title}
+        </span>
+        <ChevronDown
+          className={cn("h-4 w-4 transition-transform", !open && "-rotate-90")}
+        />
+      </button>
+      {open && <div className="border-t px-4 py-4">{children}</div>}
+    </Card>
+  );
 }
 
 export default function InvoiceGenerationPage() {
@@ -100,49 +131,152 @@ function InvoiceGenerationForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const vehicleIdParam = searchParams.get("vehicleId");
+  const invoiceIdParam = searchParams.get("invoiceId");
+  const editing = !!invoiceIdParam;
   const { user, company } = useAuth();
+  const { can, isSuperUser, isLoading: permLoading } = usePermissions();
+  const canGenerate = isSuperUser || can("invoice:generate");
+  const canEdit = isSuperUser || can("invoice:edit");
+  const allowed = editing ? canEdit : canGenerate;
 
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
-  const [vehicleId, setVehicleId] = useState<string>("");
+  const [vehicleId, setVehicleId] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [deal, setDeal] = useState<SalesDeal | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Buyer
   const [buyerName, setBuyerName] = useState("");
+  const [buyerAddress, setBuyerAddress] = useState("");
+  const [buyerPostcode, setBuyerPostcode] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
-  const [buyerAddress, setBuyerAddress] = useState("");
 
-  // Lines
-  const [lines, setLines] = useState<DraftLine[]>([makeVehicleLine(null, null)]);
+  const [presentMileage, setPresentMileage] = useState<number>(0);
+  const [dorDate, setDorDate] = useState<string>("");
 
-  // VAT
-  const [vatScheme, setVatScheme] = useState<VatScheme>("margin");
+  const [invoiceDate, setInvoiceDate] = useState(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [lines, setLines] = useState<DraftLine[]>([
+    {
+      uid: "vehicle-line",
+      type: "vehicle_price",
+      addonCategory: null,
+      description: "SALES PRICE",
+      quantity: 1,
+      unitPrice: 0,
+    },
+  ]);
 
-  // Payment
-  const [depositAmount, setDepositAmount] = useState<number>(0);
-  const [depositMethod, setDepositMethod] = useState<DepositMethod>("card");
-  const [financeAmount, setFinanceAmount] = useState<number>(0);
-  const [financeProvider, setFinanceProvider] = useState<string>("");
-  const [balanceDueBy, setBalanceDueBy] = useState<string>("");
+  const [vatScheme, setVatScheme] = useState<VatScheme>("margin_used");
 
-  // Submit state
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [depositMethod, setDepositMethod] =
+    useState<DepositMethod>("bank_transfer");
+  const [depositReceivedDate, setDepositReceivedDate] = useState("");
+  const [financeAmount, setFinanceAmount] = useState(0);
+  const [financeProvider, setFinanceProvider] = useState<string>(
+    FINANCE_PROVIDERS[0],
+  );
+  const [balanceDueBy, setBalanceDueBy] = useState("");
+
+  const [warranty, setWarranty] = useState<WarrantyDeclaration>(
+    defaultWarranty(),
+  );
+  const [nonWarrantyDisclaimer, setNonWarrantyDisclaimer] = useState(false);
+  const [pdc, setPdc] = useState<PreDeliveryCheck>(emptyPdc(null));
+
+  const [includeUnitStockingNote, setUnitNote] = useState(true);
+  const [includeIdRequirementNote, setIdNote] = useState(true);
+  const [includeServiceHistoryNote, setShNote] = useState(true);
+  const [customNote, setCustomNote] = useState("");
+
   const [submitting, setSubmitting] = useState(false);
+  const restoredRef = useRef(false);
 
-  // Load vehicles + initialise from query param
+  function applyVehicle(v: Vehicle | null, d: SalesDeal | null) {
+    setVehicle(v);
+    if (v) {
+      setPresentMileage(v.mileage);
+      setDorDate(v.firstRegisteredDate ?? "");
+      setPdc(emptyPdc(v));
+      setLines((prev) => [
+        {
+          uid: "vehicle-line",
+          type: "vehicle_price",
+          addonCategory: null,
+          description: "SALES PRICE",
+          quantity: 1,
+          unitPrice: d?.agreedPrice ?? v.sellingPrice ?? v.listingPrice ?? 0,
+        },
+        ...prev.filter((l) => l.type !== "vehicle_price"),
+      ]);
+    }
+  }
+
   useEffect(() => {
     if (!company) return;
     void vehicleService.getAll(company.id).then(async (vs) => {
       setVehicles(vs);
-      const initialId = vehicleIdParam ?? "";
-      if (initialId) {
-        const v = vs.find((x) => x.id === initialId) ?? null;
-        setVehicleId(initialId);
+
+      if (invoiceIdParam) {
+        // ---- EDIT MODE: prefill from the existing invoice ----
+        const inv = await invoiceService.getById(invoiceIdParam);
+        if (!inv) {
+          toast.error("Invoice not found");
+          router.replace("/admin/invoicing");
+          return;
+        }
+        if (inv.status === "paid" || inv.status === "cancelled") {
+          toast.error(`${inv.status} invoices cannot be edited`);
+          router.replace("/admin/invoicing");
+          return;
+        }
+        const v = vs.find((x) => x.id === inv.vehicleId) ?? null;
         setVehicle(v);
-        // pre-fill from sales deal
+        setVehicleId(inv.vehicleId ?? "");
+        setBuyerName(inv.buyerName ?? inv.partyName);
+        setBuyerAddress(inv.buyerAddress ?? "");
+        setBuyerPostcode(inv.buyerPostcode ?? "");
+        setBuyerPhone(inv.buyerPhone ?? inv.partyPhone ?? "");
+        setBuyerEmail(inv.buyerEmail ?? inv.partyEmail ?? "");
+        setPresentMileage(inv.presentMileage ?? v?.mileage ?? 0);
+        setDorDate(inv.dorDate ?? v?.firstRegisteredDate ?? "");
+        setInvoiceDate(inv.invoiceDate);
+        setLines(
+          inv.lineItems.map((li, i) => ({
+            uid: li.type === "vehicle_price" ? "vehicle-line" : `${li.id || i}`,
+            type: li.type,
+            addonCategory: li.addonCategory,
+            description: li.description,
+            quantity: li.quantity,
+            unitPrice: li.unitPrice,
+          })),
+        );
+        setVatScheme(inv.vatScheme);
+        setDepositAmount(inv.depositAmount);
+        if (inv.depositMethod) setDepositMethod(inv.depositMethod);
+        setDepositReceivedDate(inv.depositReceivedDate ?? "");
+        setFinanceAmount(inv.financeAmount);
+        setFinanceProvider(inv.financeProvider ?? FINANCE_PROVIDERS[0]);
+        setBalanceDueBy(inv.balanceDueBy ?? "");
+        setWarranty(inv.warranty ?? defaultWarranty());
+        setNonWarrantyDisclaimer(inv.nonWarrantyDisclaimerAccepted);
+        setPdc(inv.preDeliveryCheck ?? emptyPdc(v));
+        setUnitNote(inv.includeUnitStockingNote);
+        setIdNote(inv.includeIdRequirementNote);
+        setShNote(inv.includeServiceHistoryNote);
+        setCustomNote(inv.customNote ?? "");
+        restoredRef.current = true; // skip the draft-restore prompt in edit mode
+        setLoading(false);
+        return;
+      }
+
+      if (vehicleIdParam) {
+        const v = vs.find((x) => x.id === vehicleIdParam) ?? null;
+        setVehicleId(vehicleIdParam);
         const deals = await salesService.getAll(company.id);
-        const d = deals.find((x) => x.vehicleId === initialId) ?? null;
+        const d = deals.find((x) => x.vehicleId === vehicleIdParam) ?? null;
         setDeal(d);
         if (d) {
           setBuyerName(d.customerName);
@@ -150,130 +284,199 @@ function InvoiceGenerationForm() {
           setBuyerEmail(d.customerEmail ?? "");
           setDepositAmount(d.depositAmount ?? 0);
         }
-        setLines([makeVehicleLine(v, d)]);
+        applyVehicle(v, d);
       }
       setLoading(false);
     });
-  }, [company, vehicleIdParam]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [company, vehicleIdParam, invoiceIdParam]);
 
-  // When vehicle changes manually, refresh the vehicle line
+  // ---- localStorage draft autosave (every 10s) ----
+  const draftKey = company
+    ? `cc-invoice-draft:${company.id}:${invoiceIdParam ?? vehicleIdParam ?? "new"}`
+    : null;
+
+  useEffect(() => {
+    if (!draftKey || restoredRef.current) return;
+    restoredRef.current = true;
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw) as Record<string, unknown>;
+      if (d.buyerName) setBuyerName(d.buyerName as string);
+      if (d.buyerAddress) setBuyerAddress(d.buyerAddress as string);
+      if (d.buyerPostcode) setBuyerPostcode(d.buyerPostcode as string);
+      if (d.buyerPhone) setBuyerPhone(d.buyerPhone as string);
+      if (d.buyerEmail) setBuyerEmail(d.buyerEmail as string);
+      if (Array.isArray(d.lines)) setLines(d.lines as DraftLine[]);
+      if (d.vatScheme) setVatScheme(d.vatScheme as VatScheme);
+      if (d.customNote) setCustomNote(d.customNote as string);
+      toast("Draft restored", {
+        description: "A saved draft for this invoice was loaded.",
+        action: {
+          label: "Discard",
+          onClick: () => {
+            localStorage.removeItem(draftKey);
+            window.location.reload();
+          },
+        },
+      });
+    } catch {
+      /* ignore corrupt draft */
+    }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    const t = setInterval(() => {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({
+          buyerName,
+          buyerAddress,
+          buyerPostcode,
+          buyerPhone,
+          buyerEmail,
+          lines,
+          vatScheme,
+          customNote,
+        }),
+      );
+    }, 10_000);
+    return () => clearInterval(t);
+  }, [
+    draftKey,
+    buyerName,
+    buyerAddress,
+    buyerPostcode,
+    buyerPhone,
+    buyerEmail,
+    lines,
+    vatScheme,
+    customNote,
+  ]);
+
   function handleVehicleChange(id: string) {
     if (!vehicles) return;
     const v = vehicles.find((x) => x.id === id) ?? null;
     setVehicleId(id);
-    setVehicle(v);
-    setLines((prev) => [
-      makeVehicleLine(v, deal),
-      ...prev.filter((l) => l.lineType !== "vehicle"),
-    ]);
+    applyVehicle(v, deal);
   }
 
-  function addAddon() {
-    const opt = ADDON_OPTIONS[0];
-    setLines((prev) => [
-      ...prev,
+  function addAddon(free: boolean) {
+    const opt = ADDON_CATEGORY_OPTIONS[0];
+    setLines((p) => [
+      ...p,
       {
         uid: uid(),
-        lineType: "addon",
-        addonType: opt.value,
+        type: free ? "addon_free" : "addon_paid",
+        addonCategory: opt.value,
         description: opt.defaultDescription,
         quantity: 1,
         unitPrice: 0,
       },
     ]);
   }
-
   function addDiscount() {
-    setLines((prev) => [
-      ...prev,
+    if (lines.some((l) => l.type === "discount")) {
+      toast.error("Only one discount line is allowed");
+      return;
+    }
+    setLines((p) => [
+      ...p,
       {
         uid: uid(),
-        lineType: "discount",
-        addonType: null,
-        description: "Discount",
+        type: "discount",
+        addonCategory: null,
+        description: "DISCOUNT",
         quantity: 1,
-        unitPrice: 0, // user enters as positive, we render as negative below
+        unitPrice: 0,
       },
     ]);
   }
+  function removeLine(u: string) {
+    setLines((p) => p.filter((l) => l.uid !== u || l.type === "vehicle_price"));
+  }
+  function updateLine(u: string, patch: Partial<DraftLine>) {
+    setLines((p) => p.map((l) => (l.uid === u ? { ...l, ...patch } : l)));
+  }
 
-  function changeAddonType(uidStr: string, addon: AddonType) {
-    const opt = ADDON_OPTIONS.find((o) => o.value === addon);
-    setLines((prev) =>
-      prev.map((l) =>
-        l.uid === uidStr
-          ? { ...l, addonType: addon, description: opt?.defaultDescription ?? l.description }
-          : l,
+  const calcLines: InvoiceLineItem[] = useMemo(
+    () =>
+      lines.map((l, i) => ({
+        id: String(i),
+        type: l.type,
+        description: l.description,
+        addonCategory: l.addonCategory,
+        quantity: l.quantity,
+        unitPrice: l.unitPrice,
+        total:
+          l.type === "addon_free"
+            ? 0
+            : round2(l.quantity * l.unitPrice),
+        vatAmount: 0,
+      })),
+    [lines],
+  );
+
+  const totals = useMemo(
+    () =>
+      computeInvoiceTotals(
+        calcLines,
+        vatScheme,
+        depositAmount,
+        financeAmount,
       ),
-    );
+    [calcLines, vatScheme, depositAmount, financeAmount],
+  );
+
+  const hasWarrantyAddon = lines.some((l) => l.addonCategory === "warranty");
+
+  function validate(): string | null {
+    if (!vehicle) return "Select a vehicle";
+    if (!buyerName.trim()) return "Buyer name is required";
+    if (!buyerAddress.trim()) return "Buyer address is required";
+    if (!buyerPostcode.trim()) return "Buyer post code is required";
+    if (!buyerPhone.trim()) return "Buyer phone is required";
+    const vp = lines.find((l) => l.type === "vehicle_price");
+    if (!vp || vp.quantity * vp.unitPrice <= 0)
+      return "A vehicle SALES PRICE greater than zero is required";
+    if (lines.filter((l) => l.type === "discount").length > 1)
+      return "Only one discount line is allowed";
+    if (depositAmount > 0 && !depositReceivedDate)
+      return "Deposit received date is required when a deposit is entered";
+    if (financeAmount > 0 && !financeProvider)
+      return "Finance provider is required when a finance amount is entered";
+    if (hasWarrantyAddon && nonWarrantyDisclaimer)
+      return "Non-Warranty Disclaimer cannot be ticked alongside a Warranty add-on";
+    if (pdc.numKeys < 1 || pdc.numKeys > 4)
+      return "Number of keys must be between 1 and 4";
+    if (
+      pdc.engineServiceDoneMileage != null &&
+      pdc.engineServiceDoneMileage > presentMileage
+    )
+      return "Engine service mileage cannot exceed present mileage";
+    return null;
   }
-
-  function removeLine(uidStr: string) {
-    setLines((prev) => prev.filter((l) => l.uid !== uidStr || l.lineType === "vehicle"));
-  }
-
-  function updateLine(uidStr: string, patch: Partial<DraftLine>) {
-    setLines((prev) => prev.map((l) => (l.uid === uidStr ? { ...l, ...patch } : l)));
-  }
-
-  // Totals
-  const totals = useMemo(() => {
-    const vehicleCost = vehicle?.totalBuyingPrice ?? vehicle?.buyingPrice ?? 0;
-    let subtotal = 0;
-    let addonsTotal = 0;
-    let discountTotal = 0;
-    let vatAmount = 0;
-    for (const l of lines) {
-      // Discounts: user types positive, we treat as negative
-      const signedNet =
-        l.lineType === "discount"
-          ? -Math.abs(l.quantity * l.unitPrice)
-          : l.quantity * l.unitPrice;
-      const { vatAmount: lineVat } = calculateVat({
-        scheme: vatScheme,
-        lineNet: signedNet,
-        isVehicleLine: l.lineType === "vehicle",
-        vehicleCost,
-      });
-      subtotal += signedNet;
-      if (l.lineType === "addon") addonsTotal += signedNet;
-      if (l.lineType === "discount") discountTotal += signedNet;
-      vatAmount += lineVat;
-    }
-    const grandTotal = subtotal + vatAmount;
-    const balanceDue = grandTotal - depositAmount - financeAmount;
-    return {
-      subtotal: round2(subtotal),
-      addonsTotal: round2(addonsTotal),
-      discountTotal: round2(discountTotal),
-      vatAmount: round2(vatAmount),
-      grandTotal: round2(grandTotal),
-      balanceDue: round2(balanceDue),
-    };
-  }, [lines, vatScheme, vehicle, depositAmount, financeAmount]);
-
-  const paymentMismatch = Math.abs(totals.balanceDue) > 0.01 && depositAmount + financeAmount > totals.grandTotal + 0.01;
 
   async function handleSubmit() {
-    if (!user || !company) return;
-    if (!vehicle) {
-      toast.error("Pick a vehicle");
+    if (!user || !company || !vehicle) return;
+    const err = validate();
+    if (err) {
+      toast.error(err);
       return;
     }
-    if (!buyerName.trim()) {
-      toast.error("Buyer name is required");
-      return;
-    }
-    if (!buyerAddress.trim()) {
-      toast.error("Buyer address is required for sales invoices");
-      return;
+    if (totals.overpayment) {
+      const ok = window.confirm(
+        "Deposit + finance exceed the grand total (overpayment). Continue anyway?",
+      );
+      if (!ok) return;
     }
     setSubmitting(true);
     try {
-      const invoice = await invoiceService.create(
-        {
+      const payload = {
           companyId: company.id,
-          type: "sale",
+          type: "sale" as const,
           vehicleId: vehicle.id,
           partyName: buyerName,
           partyPhone: buyerPhone || null,
@@ -282,35 +485,57 @@ function InvoiceGenerationForm() {
           buyerPhone: buyerPhone || null,
           buyerEmail: buyerEmail || null,
           buyerAddress: buyerAddress || null,
-          invoiceDate: new Date().toISOString().slice(0, 10),
+          buyerPostcode: buyerPostcode || null,
+          invoiceDate,
           dueDate: balanceDueBy || null,
           vatScheme,
           lineItems: lines.map((l) => ({
-            lineType: l.lineType,
-            addonType: l.addonType,
+            type: l.type,
+            addonCategory: l.addonCategory,
             description: l.description,
             quantity: l.quantity,
-            unitPrice:
-              l.lineType === "discount" ? -Math.abs(l.unitPrice) : l.unitPrice,
-            vatRate: vatScheme === "standard" ? 0.2 : 0,
+            unitPrice: l.type === "addon_free" ? 0 : l.unitPrice,
+            total:
+              l.type === "addon_free"
+                ? 0
+                : round2(l.quantity * l.unitPrice),
           })),
-          payment:
-            depositAmount > 0 || financeAmount > 0
-              ? {
-                  depositAmount,
-                  depositMethod,
-                  financeAmount,
-                  financeProvider: financeAmount > 0 ? financeProvider || null : null,
-                  balanceDueBy: balanceDueBy || null,
-                }
-              : null,
+          payment: null,
           notes: null,
           attachmentUrl: null,
-        },
-        user.id,
+          presentMileage,
+          dorDate: dorDate || null,
+          depositAmount,
+          depositReceivedDate: depositReceivedDate || null,
+          depositMethod,
+          financeAmount,
+          financeProvider: financeAmount > 0 ? financeProvider : null,
+          balanceDueBy: balanceDueBy || null,
+          warranty: hasWarrantyAddon || !nonWarrantyDisclaimer ? warranty : null,
+          nonWarrantyDisclaimerAccepted: nonWarrantyDisclaimer,
+          preDeliveryCheck: pdc,
+          includeUnitStockingNote,
+          includeIdRequirementNote,
+          includeServiceHistoryNote,
+          customNote: customNote || null,
+          status: "issued" as const,
+      };
+      const invoice =
+        editing && invoiceIdParam
+          ? await invoiceService.update(invoiceIdParam, payload, user.id)
+          : await invoiceService.create(payload, user.id);
+      if (draftKey) localStorage.removeItem(draftKey);
+      toast.success(
+        `Invoice ${invoice.invoiceNumber} ${editing ? "updated" : "created"}`,
       );
-      toast.success(`Invoice ${invoice.invoiceNumber} created`);
-      await openInvoicePdf(invoice);
+      const blob = await pdfService.generateInvoice({
+        invoice,
+        companyName: company.name,
+        companyAddress: company.address,
+        vatNumber: company.vatNumber,
+        vehicle,
+      });
+      openBlobInNewTab(blob);
       router.push("/admin/invoicing");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create invoice");
@@ -319,82 +544,57 @@ function InvoiceGenerationForm() {
     }
   }
 
-  async function openInvoicePdf(invoice: Invoice) {
-    if (!company) return;
-    const blob = await pdfService.generateInvoice({
-      invoice,
-      companyName: company.name,
-      companyAddress: company.address,
-      vatNumber: company.vatNumber,
-    });
-    openBlobInNewTab(blob);
-  }
+  if (permLoading || loading || !vehicles) return <Skeleton className="h-96" />;
 
-  if (loading || !vehicles) {
-    return <Skeleton className="h-96" />;
-  }
-
-  if (vehicles.length === 0) {
+  if (!allowed) {
     return (
       <EmptyState
-        icon={Receipt}
-        title="No vehicles to invoice"
-        description="Add a vehicle and progress a deal to deposit-taken before generating an invoice."
+        icon={ShieldX}
+        title="You don't have access"
+        description={
+          editing
+            ? "Editing invoices requires the Edit Invoice capability."
+            : "Generating invoices requires the Generate Invoice capability."
+        }
       />
     );
   }
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-      <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6 xl:flex-row">
+      <div className="flex flex-1 flex-col gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Generate Invoice</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {editing ? "Edit Invoice" : "Generate Invoice"}
+          </h1>
           <p className="text-sm text-muted-foreground">
-            Sales invoice with structured add-ons, VAT scheme, and payment breakdown.
+            Two-page legal sales invoice. Draft auto-saves every 10s.
           </p>
         </div>
 
-        {/* Section 1 — Vehicle */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">Vehicle</h2>
-          <div>
-            <Label>Vehicle</Label>
-            <Select value={vehicleId} onValueChange={handleVehicleChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Pick a vehicle" />
-              </SelectTrigger>
-              <SelectContent>
-                {vehicles.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.stockId} — {v.registration} — {v.make} {v.model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {vehicle && (
-            <div className="flex flex-wrap items-center gap-3 rounded border bg-muted/30 p-3 text-xs">
-              <RegPlate registration={vehicle.registration} size="sm" />
-              <span className="font-medium">
-                {vehicle.make} {vehicle.model}
-              </span>
-              <span className="text-muted-foreground">
-                {vehicle.year} · {vehicle.colour} · {vehicle.mileage.toLocaleString()} mi
-              </span>
-              <span className="ml-auto font-mono">{vehicle.stockId}</span>
-            </div>
-          )}
-        </Card>
+        <Section letter="A" title="Vehicle">
+          <Label>Vehicle</Label>
+          <Select value={vehicleId} onValueChange={handleVehicleChange}>
+            <SelectTrigger className="mt-1">
+              <SelectValue placeholder="Select a vehicle…" />
+            </SelectTrigger>
+            <SelectContent>
+              {vehicles.map((v) => (
+                <SelectItem key={v.id} value={v.id}>
+                  {v.stockId} — {v.registration} — {v.make} {v.model}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </Section>
 
-        {/* Section 2 — Buyer */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">Buyer details</h2>
+        <Section letter="B" title="Buyer Details">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Buyer name *</Label>
+              <Label>Buyer name (e.g. MR JOHN SMITH)</Label>
               <Input
                 value={buyerName}
-                onChange={(e) => setBuyerName(e.target.value)}
+                onChange={(e) => setBuyerName(e.target.value.toUpperCase())}
               />
             </div>
             <div>
@@ -405,149 +605,178 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>Email</Label>
+              <Label>Address line</Label>
               <Input
-                type="email"
+                value={buyerAddress}
+                onChange={(e) => setBuyerAddress(e.target.value.toUpperCase())}
+              />
+            </div>
+            <div>
+              <Label>Post code</Label>
+              <Input
+                value={buyerPostcode}
+                onChange={(e) =>
+                  setBuyerPostcode(e.target.value.toUpperCase())
+                }
+              />
+            </div>
+            <div>
+              <Label>Email (optional)</Label>
+              <Input
                 value={buyerEmail}
                 onChange={(e) => setBuyerEmail(e.target.value)}
               />
             </div>
+          </div>
+        </Section>
+
+        <Section letter="C" title="Sale Details (Date + Line Items)">
+          <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label>Address *</Label>
+              <Label>Invoice date</Label>
               <Input
-                value={buyerAddress}
-                onChange={(e) => setBuyerAddress(e.target.value)}
-                placeholder="12 Maple Street, Slough, SL1 1AA"
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Present mileage</Label>
+              <Input
+                type="number"
+                value={presentMileage}
+                onChange={(e) => setPresentMileage(Number(e.target.value))}
+              />
+            </div>
+            <div>
+              <Label>D.O.R (first registered)</Label>
+              <Input
+                type="date"
+                value={dorDate}
+                onChange={(e) => setDorDate(e.target.value)}
               />
             </div>
           </div>
-        </Card>
 
-        {/* Section 3 — Line items */}
-        <Card className="flex flex-col gap-3 p-5">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-semibold">Line items</h2>
-            <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={addAddon}>
-                <Plus className="mr-1 h-3 w-3" />
-                Add Add-on
-              </Button>
-              <Button size="sm" variant="outline" onClick={addDiscount}>
-                <Plus className="mr-1 h-3 w-3" />
-                Add Discount
-              </Button>
-            </div>
-          </div>
-          <div className="flex flex-col gap-2">
+          <div className="mt-4 flex flex-col gap-2">
             {lines.map((l) => (
               <div
                 key={l.uid}
-                className="grid grid-cols-[100px_1fr_60px_100px_30px] items-end gap-2 rounded border p-2 text-xs"
+                className="flex flex-wrap items-end gap-2 rounded-md border p-2"
               >
-                <div>
-                  <Label className="text-[10px] uppercase">Type</Label>
-                  {l.lineType === "addon" ? (
+                <div className="w-28">
+                  <Label className="text-xs">Type</Label>
+                  <div className="text-sm font-medium capitalize">
+                    {l.type.replace("_", " ")}
+                  </div>
+                </div>
+                {(l.type === "addon_paid" || l.type === "addon_free") && (
+                  <div className="w-40">
+                    <Label className="text-xs">Category</Label>
                     <Select
-                      value={l.addonType ?? "custom"}
-                      onValueChange={(v) => changeAddonType(l.uid, v as AddonType)}
+                      value={l.addonCategory ?? "custom"}
+                      onValueChange={(v) => {
+                        const opt = ADDON_CATEGORY_OPTIONS.find(
+                          (o) => o.value === v,
+                        );
+                        updateLine(l.uid, {
+                          addonCategory: v as AddonCategory,
+                          description:
+                            opt?.defaultDescription || l.description,
+                        });
+                      }}
                     >
-                      <SelectTrigger className="h-8">
+                      <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        {ADDON_OPTIONS.map((o) => (
+                        {ADDON_CATEGORY_OPTIONS.map((o) => (
                           <SelectItem key={o.value} value={o.value}>
                             {o.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                  ) : (
-                    <div className="flex h-8 items-center px-2 capitalize text-muted-foreground">
-                      {l.lineType}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase">Description</Label>
+                  </div>
+                )}
+                <div className="flex-1 min-w-[160px]">
+                  <Label className="text-xs">Description</Label>
                   <Input
                     value={l.description}
-                    onChange={(e) => updateLine(l.uid, { description: e.target.value })}
-                    className="h-8"
+                    onChange={(e) =>
+                      updateLine(l.uid, { description: e.target.value })
+                    }
                   />
                 </div>
-                <div>
-                  <Label className="text-[10px] uppercase">Qty</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={l.quantity}
-                    onChange={(e) => updateLine(l.uid, { quantity: Number(e.target.value) || 1 })}
-                    className="h-8 text-right"
-                  />
-                </div>
-                <div>
-                  <Label className="text-[10px] uppercase">
-                    {l.lineType === "discount" ? "Amount £" : "Unit £"}
-                  </Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    value={l.unitPrice}
-                    onChange={(e) => updateLine(l.uid, { unitPrice: Number(e.target.value) || 0 })}
-                    className="h-8 text-right"
-                  />
-                </div>
-                <div className="self-center">
-                  {l.lineType !== "vehicle" && (
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-7 w-7"
-                      onClick={() => removeLine(l.uid)}
-                      title="Remove line"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
-                </div>
+                {l.type !== "addon_free" && (
+                  <div className="w-24">
+                    <Label className="text-xs">Unit £</Label>
+                    <Input
+                      type="number"
+                      value={l.unitPrice}
+                      onChange={(e) =>
+                        updateLine(l.uid, {
+                          unitPrice: Number(e.target.value),
+                        })
+                      }
+                    />
+                  </div>
+                )}
+                {l.type !== "vehicle_price" && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => removeLine(l.uid)}
+                    aria-label="Remove line"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
-        </Card>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => addAddon(false)}>
+              <Plus className="mr-1 h-3 w-3" /> Paid add-on
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => addAddon(true)}>
+              <Plus className="mr-1 h-3 w-3" /> Free add-on
+            </Button>
+            <Button size="sm" variant="outline" onClick={addDiscount}>
+              <Plus className="mr-1 h-3 w-3" /> Discount
+            </Button>
+          </div>
+        </Section>
 
-        {/* Section 4 — VAT scheme */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">VAT scheme</h2>
-          <div className="flex flex-wrap gap-2">
-            {(["margin", "standard", "zero_rated"] as VatScheme[]).map((v) => (
-              <Button
-                key={v}
-                variant={vatScheme === v ? "default" : "outline"}
-                size="sm"
-                onClick={() => setVatScheme(v)}
-              >
-                {formatVatLabel(v)}
-              </Button>
+        <Section letter="D" title="VAT Scheme">
+          <div className="flex flex-col gap-2">
+            {(
+              [
+                ["margin_used", "Margin scheme (UK used-car standard)"],
+                ["standard_20", "Standard 20% VAT"],
+                ["zero_rated", "Zero rated (export / commercial)"],
+              ] as [VatScheme, string][]
+            ).map(([v, label]) => (
+              <label key={v} className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  checked={vatScheme === v}
+                  onChange={() => setVatScheme(v)}
+                />
+                {label}
+              </label>
             ))}
           </div>
-          <p className="text-xs text-muted-foreground">
-            Margin scheme applies VAT to the profit margin only on the vehicle line.
-            Add-ons fall back to standard 20%.
-          </p>
-        </Card>
+        </Section>
 
-        {/* Section 5 — Payment breakdown */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">Payment breakdown</h2>
+        <Section letter="E" title="Payment Breakdown">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Deposit (£)</Label>
+              <Label>Customer deposit (£)</Label>
               <Input
                 type="number"
-                step="0.01"
                 value={depositAmount}
-                onChange={(e) => setDepositAmount(Number(e.target.value) || 0)}
+                onChange={(e) => setDepositAmount(Number(e.target.value))}
               />
             </div>
             <div>
@@ -560,19 +789,36 @@ function InvoiceGenerationForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
+                  {(
+                    [
+                      ["bank_transfer", "Bank Transfer"],
+                      ["cash", "Cash"],
+                      ["card", "Card"],
+                      ["cheque", "Cheque"],
+                      ["pdq", "PDQ"],
+                    ] as [DepositMethod, string][]
+                  ).map(([v, l]) => (
+                    <SelectItem key={v} value={v}>
+                      {l}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Finance (£)</Label>
+              <Label>Deposit received date</Label>
+              <Input
+                type="date"
+                value={depositReceivedDate}
+                onChange={(e) => setDepositReceivedDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Finance amount (£)</Label>
               <Input
                 type="number"
-                step="0.01"
                 value={financeAmount}
-                onChange={(e) => setFinanceAmount(Number(e.target.value) || 0)}
+                onChange={(e) => setFinanceAmount(Number(e.target.value))}
               />
             </div>
             <div>
@@ -580,10 +826,9 @@ function InvoiceGenerationForm() {
               <Select
                 value={financeProvider}
                 onValueChange={setFinanceProvider}
-                disabled={financeAmount === 0}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick a provider" />
+                  <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   {FINANCE_PROVIDERS.map((p) => (
@@ -595,14 +840,6 @@ function InvoiceGenerationForm() {
               </Select>
             </div>
             <div>
-              <Label>Balance due (auto)</Label>
-              <Input
-                value={formatCurrency(totals.balanceDue)}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-            <div>
               <Label>Balance due by</Label>
               <Input
                 type="date"
@@ -611,67 +848,357 @@ function InvoiceGenerationForm() {
               />
             </div>
           </div>
-          {paymentMismatch && (
-            <p className="rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
-              Deposit + finance exceed grand total — please review.
+        </Section>
+
+        <Section letter="F" title="Warranty Declaration">
+          {hasWarrantyAddon && (
+            <p className="mb-2 text-xs text-amber-600">
+              A Warranty add-on is present — this section is required.
             </p>
           )}
-        </Card>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label>Cover type</Label>
+              <Select
+                value={warranty.coverType}
+                onValueChange={(v) =>
+                  setWarranty({
+                    ...warranty,
+                    coverType: v as WarrantyDeclaration["coverType"],
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Basic", "Standard", "Premier", "Comprehensive"].map(
+                    (c) => (
+                      <SelectItem key={c} value={c}>
+                        {c}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Claim limit (£)</Label>
+              <Input
+                type="number"
+                value={warranty.claimLimit}
+                onChange={(e) =>
+                  setWarranty({
+                    ...warranty,
+                    claimLimit: Number(e.target.value),
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Diagnostics cover (£)</Label>
+              <Input
+                type="number"
+                value={warranty.diagnosticsCover}
+                onChange={(e) =>
+                  setWarranty({
+                    ...warranty,
+                    diagnosticsCover: Number(e.target.value),
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Duration</Label>
+              <Select
+                value={warranty.duration}
+                onValueChange={(v) =>
+                  setWarranty({
+                    ...warranty,
+                    duration: v as WarrantyDeclaration["duration"],
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["1 Month", "3 Months", "6 Months", "12 Months"].map(
+                    (d) => (
+                      <SelectItem key={d} value={d}>
+                        {d}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Excess (%)</Label>
+              <Input
+                type="number"
+                value={warranty.excessPercent}
+                onChange={(e) =>
+                  setWarranty({
+                    ...warranty,
+                    excessPercent: Number(e.target.value),
+                  })
+                }
+              />
+            </div>
+            <label className="flex items-end gap-2 text-sm">
+              <Checkbox
+                checked={warranty.wearTearCovered}
+                onCheckedChange={(v) =>
+                  setWarranty({ ...warranty, wearTearCovered: Boolean(v) })
+                }
+              />
+              Wear &amp; Tear covered
+            </label>
+          </div>
+          <label className="mt-3 flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={nonWarrantyDisclaimer}
+              onCheckedChange={(v) =>
+                setNonWarrantyDisclaimer(Boolean(v))
+              }
+            />
+            Non-Warranty Disclaimer accepted (opted out of comprehensive cover)
+          </label>
+        </Section>
+
+        <Section letter="G" title="Pre-Delivery Check">
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {PDI_ITEMS.map((it) => (
+              <label
+                key={it.key as string}
+                className="flex items-center gap-2 text-xs"
+              >
+                <Checkbox
+                  checked={Boolean(pdc[it.key])}
+                  onCheckedChange={(v) =>
+                    setPdc({ ...pdc, [it.key]: Boolean(v) })
+                  }
+                />
+                {it.label}
+              </label>
+            ))}
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={pdc.lockNut}
+                onCheckedChange={(v) =>
+                  setPdc({ ...pdc, lockNut: Boolean(v) })
+                }
+              />
+              Lock nut
+            </label>
+            <div>
+              <Label>No. of keys</Label>
+              <Input
+                type="number"
+                value={pdc.numKeys}
+                onChange={(e) =>
+                  setPdc({ ...pdc, numKeys: Number(e.target.value) })
+                }
+              />
+            </div>
+            <div>
+              <Label>Service history</Label>
+              <Input
+                value={pdc.serviceHistoryStatus}
+                onChange={(e) =>
+                  setPdc({ ...pdc, serviceHistoryStatus: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <Label>Engine service date</Label>
+              <Input
+                type="date"
+                value={pdc.engineServiceDoneDate ?? ""}
+                onChange={(e) =>
+                  setPdc({
+                    ...pdc,
+                    engineServiceDoneDate: e.target.value || null,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>Engine service mileage</Label>
+              <Input
+                type="number"
+                value={pdc.engineServiceDoneMileage ?? ""}
+                onChange={(e) =>
+                  setPdc({
+                    ...pdc,
+                    engineServiceDoneMileage: e.target.value
+                      ? Number(e.target.value)
+                      : null,
+                  })
+                }
+              />
+            </div>
+            <div>
+              <Label>V5 status</Label>
+              <Select
+                value={pdc.v5Status}
+                onValueChange={(v) =>
+                  setPdc({
+                    ...pdc,
+                    v5Status: v as PreDeliveryCheck["v5Status"],
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["V5C-2 Green Slip", "V5C — Awaited", "Not Received"].map(
+                    (o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>HPI / history check</Label>
+              <Select
+                value={pdc.hpiCheckResult}
+                onValueChange={(v) =>
+                  setPdc({
+                    ...pdc,
+                    hpiCheckResult: v as PreDeliveryCheck["hpiCheckResult"],
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {["Clear", "Issues Found", "Pending", "Not Performed"].map(
+                    (o) => (
+                      <SelectItem key={o} value={o}>
+                        {o}
+                      </SelectItem>
+                    ),
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </Section>
+
+        <Section letter="H" title="Notes & Declarations">
+          <div className="flex flex-col gap-2 text-sm">
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={includeUnitStockingNote}
+                onCheckedChange={(v) => setUnitNote(Boolean(v))}
+              />
+              Include unit-stocking note
+            </label>
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={includeIdRequirementNote}
+                onCheckedChange={(v) => setIdNote(Boolean(v))}
+              />
+              Include ID-requirement note
+            </label>
+            <label className="flex items-center gap-2">
+              <Checkbox
+                checked={includeServiceHistoryNote}
+                onCheckedChange={(v) => setShNote(Boolean(v))}
+              />
+              Include service-history note
+            </label>
+            <div>
+              <Label>Custom note</Label>
+              <Textarea
+                value={customNote}
+                onChange={(e) => setCustomNote(e.target.value)}
+              />
+            </div>
+          </div>
+        </Section>
 
         <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={() => router.push("/sales/pipeline")}>
+          <Button
+            variant="outline"
+            onClick={() => router.push("/admin/invoicing")}
+            disabled={submitting}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? "Generating…" : "Generate PDF"}
+          <Button
+            onClick={handleSubmit}
+            disabled={submitting}
+            data-testid="generate-invoice"
+          >
+            {submitting
+              ? editing
+                ? "Updating…"
+                : "Generating…"
+              : editing
+                ? "Update Invoice"
+                : "Generate Invoice"}
           </Button>
         </div>
       </div>
 
       {/* Sticky cost summary */}
-      <Card className="flex h-fit flex-col gap-2 p-5 lg:sticky lg:top-4">
-        <h2 className="text-sm font-semibold">Cost summary</h2>
-        <Row label="Vehicle" value={lines.find((l) => l.lineType === "vehicle")?.unitPrice ?? 0} />
-        <Row label="Add-ons" value={totals.addonsTotal} />
-        <Row label="Discounts" value={totals.discountTotal} />
-        <div className="my-1 border-t" />
-        <Row label="Subtotal" value={totals.subtotal} />
-        <Row label="VAT" value={totals.vatAmount} />
-        <div className="my-1 border-t" />
-        <Row label="Grand Total" value={totals.grandTotal} bold />
-        <div className="my-2 border-t border-dashed" />
-        <Row label="Deposit Paid" value={-depositAmount} muted />
-        <Row label="Finance" value={-financeAmount} muted />
-        <div className="my-1 border-t" />
-        <Row label="Balance Due" value={totals.balanceDue} bold />
-      </Card>
+      <div className="xl:w-72">
+        <Card className="xl:sticky xl:top-4 p-4">
+          <h2 className="text-sm font-semibold">Cost Summary</h2>
+          <div className="mt-3 flex flex-col gap-1.5 text-sm">
+            <Row label="Vehicle (Sales Price)" v={totals.salesPrice} />
+            {totals.discount > 0 && (
+              <Row label="Discount" v={-totals.discount} />
+            )}
+            <div className="my-1 border-t" />
+            <Row label="Subtotal" v={totals.subtotal} />
+            <Row label="Add-ons (paid)" v={totals.paidAddonsTotal} />
+            <div className="flex justify-between text-muted-foreground">
+              <span>Add-ons (free)</span>
+              <span>{totals.freeAddonsCount} items</span>
+            </div>
+            <Row label="VAT" v={totals.vatAmount} />
+            <div className="my-1 border-t" />
+            <div className="flex justify-between font-semibold">
+              <span>GRAND TOTAL</span>
+              <span>{formatCurrency(totals.grandTotalInclAddons)}</span>
+            </div>
+            {depositAmount > 0 && (
+              <Row label="Customer Deposit" v={-depositAmount} />
+            )}
+            {financeAmount > 0 && (
+              <Row label="Finance Amount" v={-financeAmount} />
+            )}
+            <div className="my-1 border-t" />
+            <div className="flex justify-between font-semibold">
+              <span>BALANCE DUE</span>
+              <span>{formatCurrency(totals.balanceDue)}</span>
+            </div>
+            {totals.overpayment && (
+              <p className="text-xs text-destructive">Overpayment</p>
+            )}
+          </div>
+        </Card>
+      </div>
     </div>
   );
 }
 
-function Row({
-  label,
-  value,
-  bold,
-  muted,
-}: {
-  label: string;
-  value: number;
-  bold?: boolean;
-  muted?: boolean;
-}) {
+function Row({ label, v }: { label: string; v: number }) {
   return (
-    <div
-      className={`flex items-center justify-between text-xs ${
-        bold ? "text-base font-semibold" : ""
-      } ${muted ? "text-muted-foreground" : ""}`}
-    >
-      <span>{label}</span>
-      <span className="tabular-nums">{formatCurrency(value)}</span>
+    <div className="flex justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="tabular-nums">{formatCurrency(v)}</span>
     </div>
   );
-}
-
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
 }

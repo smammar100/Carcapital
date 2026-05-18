@@ -20,6 +20,13 @@ export interface InvoicePdfInput {
   companyName: string;
   companyAddress: string;
   vatNumber: string | null;
+  /**
+   * The linked vehicle, when available. The 2-page sales invoice derives
+   * Make & Model / VRM-VIN / Gearbox / Origin from it (SPEC §3 Section C).
+   * Optional — the template degrades gracefully (admin list reprints may
+   * not have it loaded).
+   */
+  vehicle?: Vehicle | null;
 }
 
 /**

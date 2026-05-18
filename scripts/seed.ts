@@ -435,10 +435,188 @@ async function seedCustomerEnquiryDelta(): Promise<void> {
   );
 }
 
+/**
+ * SPEC_Invoicing_Module §9 — the reference DL68 Mercedes + CC-INV-0001
+ * sales invoice (matches Car_Capital_Sales_Invoice.pdf). Idempotent:
+ * upserts by registration / invoice_number so re-runs are no-ops.
+ */
+async function seedInvoiceDl68Delta(): Promise<void> {
+  const { data: company } = await supabase
+    .from("companies")
+    .select("id")
+    .limit(1)
+    .single();
+  if (!company) return;
+  const companyId = (company as { id: string }).id;
+
+  const { data: owner } = await supabase
+    .from("users")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("is_super_user", true)
+    .limit(1)
+    .single();
+  const ownerId = (owner as { id: string } | null)?.id ?? null;
+
+  // Upsert the DL68 vehicle by registration.
+  let vehicleId: string;
+  const { data: existingVeh } = await supabase
+    .from("vehicles")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("registration", "DL68 FUT")
+    .maybeSingle();
+  if (existingVeh) {
+    vehicleId = (existingVeh as { id: string }).id;
+  } else {
+    vehicleId = randomUUID();
+    const { error } = await supabase.from("vehicles").insert({
+      id: vehicleId,
+      company_id: companyId,
+      registration: "DL68 FUT",
+      stock_id: "CC-DL68",
+      make: "MERCEDES-BENZ",
+      model: "A-CLASS",
+      variant_code: "1.3 A200 Sport (Executive)",
+      year: 2019,
+      colour: "Grey",
+      mileage: 45505,
+      vehicle_type: "car",
+      body_type: "hatchback",
+      fuel_type: "petrol",
+      transmission: "automatic",
+      received_date: "2026-04-20",
+      received_by: ownerId,
+      seller_name: "BCA Auction",
+      seller_phone: "01234567890",
+      source_type: "auction",
+      local_or_import: "local",
+      service_history: "partial",
+      finance_provider: "close_brothers",
+      status: "sold",
+      vin: "WDD1770872J077062",
+      first_registered_date: "2019-02-20",
+      lock_nut: true,
+      num_keys: 2,
+      v5_received: true,
+      selling_price: 13850,
+      date_sold: "2026-05-04",
+      listing_price: 14990,
+    } as never);
+    if (error) {
+      console.warn(`  ⚠ DL68 vehicle insert skipped: ${error.message}`);
+      return;
+    }
+  }
+
+  const { data: existingInv } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("company_id", companyId)
+    .eq("invoice_number", "CC-INV-0001")
+    .maybeSingle();
+  if (existingInv) {
+    console.log("  ✓ CC-INV-0001 already present.");
+    return;
+  }
+
+  const invoiceId = randomUUID();
+  const warranty = {
+    provider: "Car Capital Ltd",
+    providerPhone: "02088434878",
+    providerEmail: "info@thecarcapital.co.uk",
+    coverType: "Premier",
+    claimLimit: 2000,
+    diagnosticsCover: 60,
+    duration: "3 Months",
+    excessPercent: 10,
+    wearTearCovered: false,
+  };
+  const pdc = {
+    engineStarts: true, engineNoise: true, transmission: true,
+    noiseNormal: true, clutch: true, steering: true, bodyCondition: true,
+    bodySuspension: true, brakes: true, gauges: true, warningLights: true,
+    exhaust: true, exteriorLights: true, serviceLight: true,
+    lockNut: true, numKeys: 2, serviceHistoryStatus: "Full - Provided",
+    engineServiceDoneDate: "2026-04-27", engineServiceDoneMileage: 45505,
+    v5Status: "V5C-2 Green Slip", hpiCheckResult: "Clear",
+  };
+  const { error: invErr } = await supabase.from("invoices").insert({
+    id: invoiceId,
+    company_id: companyId,
+    type: "sale",
+    vehicle_id: vehicleId,
+    party_name: "MR GURSIMRAN SINGH",
+    party_phone: "7748365859",
+    party_email: "gursimransinghguruwali@gmail.com",
+    buyer_name: "MR GURSIMRAN SINGH",
+    buyer_phone: "7748365859",
+    buyer_email: "gursimransinghguruwali@gmail.com",
+    buyer_address: "38 WARLEY ROAD, HAYES",
+    buyer_postcode: "UB4 0QH",
+    invoice_number: "CC-INV-0001",
+    invoice_date: "2026-05-04",
+    vat_scheme: "margin_used",
+    subtotal: 13850,
+    addons_total: 0,
+    discount_total: -440,
+    vat_amount: 0,
+    total: 13850,
+    present_mileage: 45505,
+    dor_date: "2019-02-20",
+    sales_price: 14290,
+    discount: 440,
+    paid_addons_total: 0,
+    grand_total_incl_addons: 13850,
+    deposit_amount: 4000,
+    deposit_received_date: "2025-05-04",
+    deposit_method: "bank_transfer",
+    finance_amount: 9850,
+    finance_provider: "Close Brothers",
+    balance_due: 0,
+    warranty,
+    non_warranty_disclaimer_accepted: false,
+    pre_delivery_check: pdc,
+    include_unit_stocking_note: true,
+    include_id_requirement_note: true,
+    include_service_history_note: true,
+    status: "issued",
+    created_by: ownerId,
+    issued_at: new Date().toISOString(),
+  } as never);
+  if (invErr) {
+    console.warn(`  ⚠ CC-INV-0001 insert skipped: ${invErr.message}`);
+    return;
+  }
+
+  await supabase.from("invoice_line_items").insert([
+    { invoice_id: invoiceId, line_type: "vehicle", item_type: "vehicle_price", description: "SALES PRICE", quantity: 1, unit_price: 14290, vat_rate: 0, subtotal: 14290, vat_amount: 0, sort_order: 0 },
+    { invoice_id: invoiceId, line_type: "discount", item_type: "discount", description: "DISCOUNT", quantity: 1, unit_price: 440, vat_rate: 0, subtotal: 440, vat_amount: 0, sort_order: 1 },
+    { invoice_id: invoiceId, line_type: "addon", addon_type: "warranty", item_type: "addon_free", addon_category: "warranty", description: "3 MONTH COMPREHENSIVE WARRANTY - BACK TO BASE", quantity: 1, unit_price: 0, vat_rate: 0, subtotal: 0, vat_amount: 0, sort_order: 2 },
+    { invoice_id: invoiceId, line_type: "addon", addon_type: "service_pack", item_type: "addon_free", addon_category: "service_pack", description: "FRESH OIL SERVICE", quantity: 1, unit_price: 0, vat_rate: 0, subtotal: 0, vat_amount: 0, sort_order: 3 },
+    { invoice_id: invoiceId, line_type: "addon", addon_type: "custom", item_type: "addon_free", addon_category: "custom", description: "LONG MOT", quantity: 1, unit_price: 0, vat_rate: 0, subtotal: 0, vat_amount: 0, sort_order: 4 },
+  ] as never);
+  await supabase.from("invoice_payments").insert({
+    invoice_id: invoiceId,
+    deposit_amount: 4000,
+    deposit_method: "bank_transfer",
+    finance_amount: 9850,
+    finance_provider: "Close Brothers",
+    balance_due: 0,
+    balance_due_by: null,
+  } as never);
+  await supabase
+    .from("companies")
+    .update({ next_cc_inv_seq: 2 } as never)
+    .eq("id", companyId);
+  console.log("  ✓ Seeded DL68 Mercedes + CC-INV-0001.");
+}
+
 async function main() {
   if (await alreadySeeded()) {
     await seedWarrantyDelta();
     await seedCustomerEnquiryDelta();
+    await seedInvoiceDl68Delta();
     return;
   }
 
@@ -1008,6 +1186,8 @@ async function main() {
     });
     if (error) throw error;
   }
+
+  await seedInvoiceDl68Delta();
 
   console.log("\n✅ Seed complete.\n");
   console.log("Sign-in credentials (shared password):");

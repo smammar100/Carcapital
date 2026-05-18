@@ -215,6 +215,10 @@ export interface Vehicle {
   numKeys: number;
   lockNut: boolean;
   motExpiry: ISODate | null;
+  /** Chassis number — VRM/VIN composite on the sales invoice (DVLA in prod). */
+  vin: string | null;
+  /** Date of first registration — D.O.R on the sales invoice. */
+  firstRegisteredDate: ISODate | null;
 
   // Purchase Cost Breakdown
   buyingPrice: number;
@@ -627,16 +631,34 @@ export interface WarrantyClaim {
 // ============================================================
 
 export type InvoiceType = "purchase" | "sale" | "refund";
-export type InvoiceStatus = "draft" | "sent" | "paid" | "overdue";
-export type VatScheme = "margin" | "standard" | "zero_rated";
+export type InvoiceStatus =
+  | "draft"
+  | "sent"
+  | "paid"
+  | "overdue"
+  | "issued"
+  | "cancelled";
+
+/** SPEC_Invoicing_Module §3 Section F — new VAT scheme enum. */
+export type VatScheme = "margin_used" | "standard_20" | "zero_rated";
+/** Pre-spec values still present on existing rows; mapped at the edges. */
+export type LegacyVatScheme = "margin" | "standard" | "zero_rated";
+
+/** Legacy line grouping (purchases / refunds / external uploads still use it). */
 export type InvoiceLineType = "vehicle" | "addon" | "discount" | "fee";
+/** SPEC §3 Section D / §5 — sales-invoice line item type. */
+export type InvoiceLineItemType =
+  | "vehicle_price"
+  | "discount"
+  | "addon_paid"
+  | "addon_free";
 
 /**
- * Predefined add-on types for the line-item picker on the sales invoice form.
- * Order matches the spec §11.15 dropdown. "custom" lets the user type a free
- * description for one-off line items.
+ * Add-on dropdown categories (SPEC §3 Section D — 10 types). Identical value
+ * set to the legacy `AddonType`; `AddonType` is kept as an alias so existing
+ * code keeps compiling.
  */
-export type AddonType =
+export type AddonCategory =
   | "warranty"
   | "home_delivery"
   | "wash"
@@ -647,28 +669,82 @@ export type AddonType =
   | "paint_protection"
   | "accessories"
   | "custom";
+export type AddonType = AddonCategory;
 
-export type DepositMethod = "cash" | "card" | "bank_transfer";
+export type DepositMethod =
+  | "cash"
+  | "card"
+  | "bank_transfer"
+  | "cheque"
+  | "pdq";
 
 export interface InvoiceLineItem {
   id: UUID;
-  lineType: InvoiceLineType;
-  /** Populated when lineType === "addon"; null otherwise. */
-  addonType: AddonType | null;
+  /** SPEC line item type. */
+  type: InvoiceLineItemType;
   description: string;
+  /** Set for addon_paid / addon_free; null for vehicle_price / discount. */
+  addonCategory: AddonCategory | null;
   quantity: number;
   unitPrice: number;
-  vatRate: number;
-  /** quantity × unitPrice (signed for discounts). */
-  subtotal: number;
-  /** VAT for this line, computed against the invoice's vatScheme. */
+  /** quantity × unitPrice (0 for addon_free). */
+  total: number;
+  /** VAT for this line (0 under margin_used). */
   vatAmount: number;
+  // ---- Legacy aliases (kept so the invoicing list / refund flow compile) ----
+  /** @deprecated use `type`. vehicle_price→vehicle, addon_*→addon. */
+  lineType?: InvoiceLineType;
+  /** @deprecated use `addonCategory`. */
+  addonType?: AddonType | null;
+  /** @deprecated alias of `total`. */
+  subtotal?: number;
+  /** @deprecated legacy per-line VAT rate. */
+  vatRate?: number;
+}
+
+/** SPEC §3 Section G / §5 — warranty declaration (Page 2 top). */
+export interface WarrantyDeclaration {
+  provider: string;
+  providerPhone: string;
+  providerEmail: string;
+  coverType: "Basic" | "Standard" | "Premier" | "Comprehensive";
+  claimLimit: number;
+  diagnosticsCover: number;
+  duration: "1 Month" | "3 Months" | "6 Months" | "12 Months";
+  excessPercent: number;
+  wearTearCovered: boolean;
+}
+
+/** SPEC §3 Section H / §5 — 14-item pre-delivery check + documents row. */
+export interface PreDeliveryCheck {
+  engineStarts: boolean;
+  engineNoise: boolean;
+  transmission: boolean;
+  noiseNormal: boolean;
+  clutch: boolean;
+  steering: boolean;
+  bodyCondition: boolean;
+  bodySuspension: boolean;
+  brakes: boolean;
+  gauges: boolean;
+  warningLights: boolean;
+  exhaust: boolean;
+  exteriorLights: boolean;
+  serviceLight: boolean;
+  // Documents & records
+  lockNut: boolean;
+  numKeys: number;
+  serviceHistoryStatus: string;
+  engineServiceDoneDate: ISODate | null;
+  engineServiceDoneMileage: number | null;
+  v5Status: "V5C-2 Green Slip" | "V5C — Awaited" | "Not Received";
+  hpiCheckResult: "Clear" | "Issues Found" | "Pending" | "Not Performed";
 }
 
 /**
- * Payment breakdown sub-record — Bass Bhai feedback v4.1.
- * Captures how the customer is paying for a sales invoice: upfront deposit,
- * finance amount via a provider, and the residual balance due by a date.
+ * Payment breakdown sub-record. Captures how the customer is paying for a
+ * sales invoice: upfront deposit, finance amount via a provider, and the
+ * residual balance due by a date. (Mirrored onto Invoice.* columns too.)
  */
 export interface InvoicePayment {
   id: UUID;
@@ -682,47 +758,80 @@ export interface InvoicePayment {
   balanceDueBy: ISODate | null;
 }
 
+/**
+ * Invoice — compatibility superset. The new sales path populates the SPEC
+ * fields; the legacy fields (`partyName`, `subtotal`, `total`, `vatAmount`,
+ * `relatedReturnId`, …) are retained and synthesised by invoice-service so
+ * the invoicing list, the vehicle-returns refund flow, and the VAT summary
+ * keep working untouched.
+ */
 export interface Invoice {
   id: UUID;
   companyId: UUID;
   type: InvoiceType;
   vehicleId: UUID | null;
-  /** Legacy name — kept for vendor invoices (purchases). For sales invoices, prefer the buyer* fields. */
+  /** Legacy — vendor/purchase invoices. Sales invoices use buyer* fields. */
   partyName: string;
   partyPhone: string | null;
   partyEmail: string | null;
-  /** Sales-invoice buyer fields. Required by the v4.1 PDF template for sales. */
   buyerName: string | null;
   buyerPhone: string | null;
   buyerEmail: string | null;
+  /** Street + town (SPEC `buyerAddressLine`). Alias of legacy buyerAddress. */
   buyerAddress: string | null;
+  buyerPostcode: string | null;
   invoiceNumber: string;
   invoiceDate: ISODate;
   dueDate: ISODate | null;
   vatScheme: VatScheme;
   lineItems: InvoiceLineItem[];
-  /** Sum of all line subtotals (excl. VAT), signed. */
+
+  // SPEC §3 Section C — vehicle identity snapshot
+  presentMileage: number | null;
+  dorDate: ISODate | null;
+
+  // SPEC §6 totals (persisted, immutable)
+  salesPrice: number;
+  discount: number;
+  paidAddonsTotal: number;
+  /** Subtotal − discount + paid add-ons + VAT. Alias of legacy `total`. */
+  grandTotalInclAddons: number;
+
+  // SPEC §3 Section E — payment
+  depositAmount: number;
+  depositReceivedDate: ISODate | null;
+  depositMethod: DepositMethod | null;
+  financeAmount: number;
+  financeProvider: string | null;
+  balanceDue: number;
+  balanceDueBy: ISODate | null;
+
+  // SPEC §3 Sections G/H
+  warranty: WarrantyDeclaration | null;
+  nonWarrantyDisclaimerAccepted: boolean;
+  preDeliveryCheck: PreDeliveryCheck | null;
+
+  // SPEC §3 Section I — footer notes
+  includeUnitStockingNote: boolean;
+  includeIdRequirementNote: boolean;
+  includeServiceHistoryNote: boolean;
+  customNote: string | null;
+
+  // ---- Legacy totals/links (kept; synthesised by invoice-service) ----
   subtotal: number;
-  /** Sum of subtotals where lineType === "addon". */
   addonsTotal: number;
-  /** Sum of subtotals where lineType === "discount" (negative). */
   discountTotal: number;
-  /** Sum of all line vatAmounts. Aliases the legacy `vatAmount`. */
   vatAmount: number;
-  /** Subtotal + vatAmount. */
   total: number;
   payment: InvoicePayment | null;
   status: InvoiceStatus;
   notes: string | null;
   attachmentUrl: string | null;
-  /**
-   * Set only on `type === "refund"` invoices. Links the refund back to the
-   * `VehicleReturn` that generated it and the original SALE invoice it
-   * reverses. Both are nullable because the migration that adds the columns
-   * is user-applied — code reads them defensively (see invoice-service).
-   */
   relatedReturnId: UUID | null;
   relatedInvoiceId: UUID | null;
+  saleId: UUID | null;
+  createdBy: UUID | null;
+  issuedAt: ISODateTime | null;
   createdAt: ISODateTime;
 }
 

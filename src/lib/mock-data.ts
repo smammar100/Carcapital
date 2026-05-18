@@ -15,6 +15,15 @@ import type {
   Enquiry,
   InspectionNote,
   Invoice,
+  InvoiceLineItem,
+  InvoiceLineType,
+  InvoiceLineItemType,
+  InvoiceType,
+  InvoiceStatus,
+  InvoicePayment,
+  AddonType,
+  VatScheme,
+  LegacyVatScheme,
   Lead,
   Listing,
   MaintenanceJob,
@@ -467,6 +476,8 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     numKeys: 2,
     lockNut: true,
     motExpiry: s.motExpiry !== undefined ? s.motExpiry : inDays(180),
+    vin: null,
+    firstRegisteredDate: null,
     buyingPrice: s.buyingPrice,
     vatOnBuyingPrice: 0,
     buyersFee,
@@ -666,7 +677,121 @@ export const mockClaims: WarrantyClaim[] = [
 // INVOICES
 // ============================================================
 
-export const mockInvoices: Invoice[] = [
+interface LegacyLineLiteral {
+  id: string;
+  lineType: InvoiceLineType;
+  addonType: AddonType | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  vatRate: number;
+  subtotal: number;
+  vatAmount: number;
+}
+interface LegacyInvoiceLiteral {
+  id: string;
+  companyId: string;
+  type: InvoiceType;
+  vehicleId: string | null;
+  partyName: string;
+  partyPhone: string | null;
+  partyEmail: string | null;
+  buyerName: string | null;
+  buyerPhone: string | null;
+  buyerEmail: string | null;
+  buyerAddress: string | null;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string | null;
+  vatScheme: VatScheme | LegacyVatScheme;
+  lineItems: LegacyLineLiteral[];
+  subtotal: number;
+  addonsTotal: number;
+  discountTotal: number;
+  vatAmount: number;
+  total: number;
+  payment: InvoicePayment | null;
+  status: InvoiceStatus;
+  notes: string | null;
+  attachmentUrl: string | null;
+  relatedReturnId: string | null;
+  relatedInvoiceId: string | null;
+  createdAt: string;
+}
+
+function legacyVatToNew(s: VatScheme | LegacyVatScheme): VatScheme {
+  if (s === "margin") return "margin_used";
+  if (s === "standard") return "standard_20";
+  return s as VatScheme;
+}
+
+function legacyLineToNew(l: LegacyLineLiteral): InvoiceLineItem {
+  const itemType: InvoiceLineItemType =
+    l.lineType === "vehicle"
+      ? "vehicle_price"
+      : l.lineType === "discount"
+        ? "discount"
+        : l.lineType === "addon"
+          ? l.unitPrice > 0
+            ? "addon_paid"
+            : "addon_free"
+          : "addon_paid"; // legacy "fee"
+  return {
+    id: l.id,
+    type: itemType,
+    description: l.description,
+    addonCategory: l.addonType,
+    quantity: l.quantity,
+    unitPrice: l.unitPrice,
+    total: l.subtotal,
+    vatAmount: l.vatAmount,
+    // legacy aliases retained for the invoicing list / refund flow
+    lineType: l.lineType,
+    addonType: l.addonType,
+    subtotal: l.subtotal,
+    vatRate: l.vatRate,
+  };
+}
+
+/**
+ * Adapt the pre-spec mock invoice literals to the compatibility-superset
+ * `Invoice` type so seed data still satisfies the new shape without
+ * rewriting ~10 fixtures by hand.
+ */
+function legacyMockInvoice(r: LegacyInvoiceLiteral): Invoice {
+  const vehicleLine = r.lineItems.find((l) => l.lineType === "vehicle");
+  return {
+    ...r,
+    vatScheme: legacyVatToNew(r.vatScheme),
+    lineItems: r.lineItems.map(legacyLineToNew),
+    buyerPostcode: null,
+    presentMileage: null,
+    dorDate: null,
+    salesPrice: vehicleLine?.subtotal ?? 0,
+    discount: Math.abs(r.discountTotal),
+    paidAddonsTotal: r.addonsTotal,
+    grandTotalInclAddons: r.total,
+    depositAmount: r.payment?.depositAmount ?? 0,
+    depositReceivedDate: null,
+    depositMethod: r.payment?.depositMethod ?? null,
+    financeAmount: r.payment?.financeAmount ?? 0,
+    financeProvider: r.payment?.financeProvider ?? null,
+    balanceDue: r.payment?.balanceDue ?? 0,
+    balanceDueBy: r.payment?.balanceDueBy ?? null,
+    warranty: null,
+    nonWarrantyDisclaimerAccepted: false,
+    preDeliveryCheck: null,
+    includeUnitStockingNote: true,
+    includeIdRequirementNote: true,
+    includeServiceHistoryNote: true,
+    customNote: null,
+    saleId: null,
+    createdBy: null,
+    issuedAt: null,
+  };
+}
+
+const mockInvoiceSeeds: LegacyInvoiceLiteral[] = [
   // ----------------------------------------------------------------------
   // PURCHASE INVOICES (4 from BCA — zero-rated, no buyer block)
   // ----------------------------------------------------------------------
@@ -799,6 +924,9 @@ export const mockInvoices: Invoice[] = [
     createdAt: daysAgo(2) + "T13:00:00.000Z",
   },
 ];
+
+export const mockInvoices: Invoice[] =
+  mockInvoiceSeeds.map(legacyMockInvoice);
 
 // ============================================================
 // VEHICLE RETURNS

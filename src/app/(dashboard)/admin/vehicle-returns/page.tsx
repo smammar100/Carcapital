@@ -388,11 +388,14 @@ export default function ReturnsPage() {
             vatScheme: "zero_rated",
             lineItems: [
               {
-                lineType: "fee",
-                addonType: null,
+                type: "addon_paid",
+                addonCategory: null,
                 description: `Refund — ${reg} (${ret.reason})`,
                 quantity: 1,
                 unitPrice: amount,
+                total: amount,
+                lineType: "fee",
+                addonType: null,
                 vatRate: 0,
               },
             ],

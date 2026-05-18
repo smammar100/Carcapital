@@ -348,6 +348,8 @@ const INVOICE_STATUS_LABEL: Record<InvoiceStatus, string> = {
   sent: "Sent",
   paid: "Paid",
   overdue: "Overdue",
+  issued: "Issued",
+  cancelled: "Cancelled",
 };
 
 export function InvoiceStatusCell({
