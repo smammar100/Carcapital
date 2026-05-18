@@ -222,23 +222,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!mounted) return;
         await hydrate(session?.user?.id ?? null);
 
-        const sub = supabase.auth.onAuthStateChange(
-          async (event, nextSession) => {
+        const sub = supabase.auth.onAuthStateChange((event, nextSession) => {
+          if (!mounted) return;
+          // TOKEN_REFRESHED only rotates the JWT — the public.users /
+          // companies rows are unchanged, so re-querying them is wasteful
+          // and can cause a render flash. Keeping the session alive is
+          // the whole point; nothing to re-hydrate.
+          if (event === "TOKEN_REFRESHED") return;
+
+          const nextId = nextSession?.user?.id ?? null;
+          // Tab refocus re-emits SIGNED_IN / INITIAL_SESSION for the SAME
+          // user. Re-hydrating then is pointless and the cause of the
+          // blank-on-tab-switch bug, so skip when nothing changed.
+          if (nextId === userIdRef.current && event !== "SIGNED_OUT") return;
+
+          // CRITICAL: never await a Supabase call inside this callback.
+          // supabase-js runs it while holding the GoTrue auth lock; a DB
+          // query in hydrate() needs that same lock to attach the token,
+          // so awaiting here deadlocks (callback ⇄ query ⇄ lock) and the
+          // request never resolves — data "doesn't load" until refresh.
+          // Deferring lets the callback return and release the lock first.
+          setTimeout(() => {
             if (!mounted) return;
-            // TOKEN_REFRESHED only rotates the JWT — the public.users /
-            // companies rows are unchanged, so re-querying them is wasteful
-            // and can cause a render flash. Keeping the session alive is
-            // the whole point; nothing to re-hydrate.
-            if (event === "TOKEN_REFRESHED") return;
-            try {
-              await hydrate(nextSession?.user?.id ?? null);
-            } catch (e) {
-              // Don't kill the listener — log and keep going.
+            void hydrate(nextId).catch((e) => {
               // eslint-disable-next-line no-console
               console.error("[auth] hydrate failed during state change:", e);
-            }
-          },
-        );
+            });
+          }, 0);
+        });
         subscription = sub.data.subscription;
       } catch (e) {
         if (!mounted) return;
