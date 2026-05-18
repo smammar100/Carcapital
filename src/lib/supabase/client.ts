@@ -1,4 +1,5 @@
 import { createBrowserClient } from "@supabase/ssr";
+import { processLock } from "@supabase/supabase-js";
 import type { Database } from "./database.types";
 
 let cached: ReturnType<typeof createBrowserClient<Database>> | null = null;
@@ -47,14 +48,18 @@ export function createClient() {
     );
   }
 
-  // Explicit auth options (defensive — these are createBrowserClient's
-  // defaults, but pinning them avoids drift across @supabase/ssr versions).
-  // autoRefreshToken keeps the JWT alive while the tab is active; the
-  // auth-context adds a focus/visibility revalidation on top so a
-  // backgrounded tab (where refresh timers are throttled) recovers when
-  // the user returns instead of every request 401-ing into blank pages.
+  // `lock: processLock` is the critical bit. The default browser lock uses
+  // the Navigator LockManager (Web Locks API), which is shared across tabs
+  // and processes. When a tab is backgrounded the browser can freeze it
+  // mid-operation while it still holds that lock; on return EVERY auth call
+  // — and every DB query, which calls getSession() internally to attach the
+  // token — blocks forever waiting on the orphaned lock, so pages hang on
+  // "Loading…" until a full refresh. processLock is an in-process
+  // promise-chain lock: it can't be held by a frozen/other tab and can't
+  // orphan, eliminating the entire tab-switch deadlock class for this SPA.
   cached = createBrowserClient<Database>(url, anonKey, {
     auth: {
+      lock: processLock,
       autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,

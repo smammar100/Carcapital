@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Handshake, Plus, Store } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -52,11 +52,32 @@ import {
 import { toast } from "sonner";
 
 export default function VendorsPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
-  // SPEC Point 6 (T6.5) — tab in the URL so it survives refresh.
-  const tab =
-    searchParams.get("tab") === "dealer-partners" ? "partners" : "garages";
+  // SPEC Point 6 (T6.5) — tab persists in the URL across refresh. The active
+  // tab is LOCAL state. We deliberately do NOT use router.replace() to switch
+  // it: replacing only the ?tab= query on the same route is unreliable in the
+  // App Router (it neither updates useSearchParams nor reliably preserves
+  // local state), which froze the controlled <Tabs> when going back to
+  // Garages. Instead history.replaceState() reflects the tab into the URL
+  // bar with zero React/Next re-render, so local state stays authoritative
+  // and the switch is instant in both directions.
+  const [tab, setTab] = useState<"garages" | "partners">(() =>
+    searchParams.get("tab") === "dealer-partners" ? "partners" : "garages",
+  );
+
+  function selectTab(v: "garages" | "partners") {
+    setTab(v);
+    if (typeof window !== "undefined") {
+      window.history.replaceState(
+        null,
+        "",
+        v === "partners"
+          ? "/admin/vendors?tab=dealer-partners"
+          : "/admin/vendors",
+      );
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -68,14 +89,7 @@ export default function VendorsPage() {
       </div>
       <Tabs
         value={tab}
-        onValueChange={(v) =>
-          router.replace(
-            v === "partners"
-              ? "/admin/vendors?tab=dealer-partners"
-              : "/admin/vendors",
-            { scroll: false },
-          )
-        }
+        onValueChange={(v) => selectTab(v as "garages" | "partners")}
       >
         <TabsList>
           <TabsTrigger value="garages">Garages</TabsTrigger>
@@ -131,17 +145,29 @@ function GaragesTab() {
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [maintJobs, setMaintJobs] = useState<MaintenanceJob[]>([]);
   const [draft, setDraft] = useState<DraftVendor | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
     if (!company) return;
-    void Promise.all([
-      vendorService.getAll(company.id),
-      maintenanceService.getAll(company.id),
-    ]).then(([v, m]) => {
+    setLoadError(false);
+    try {
+      const [v, m] = await Promise.all([
+        vendorService.getAll(company.id),
+        maintenanceService.getAll(company.id),
+      ]);
       setVendors(v);
       setMaintJobs(m);
-    });
+    } catch {
+      // No catch here previously: any failed/slow read left the tab on an
+      // infinite skeleton. Surface a retry instead.
+      setVendors(null);
+      setLoadError(true);
+    }
   }, [company]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const rows = useMemo<VendorRow[] | null>(() => {
     if (!vendors) return null;
@@ -283,7 +309,16 @@ function GaragesTab() {
         </Dialog>
       </div>
 
-      {!rows ? (
+      {loadError && !rows ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Couldn&apos;t load garages.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void load()}>
+            Retry
+          </Button>
+        </div>
+      ) : !rows ? (
         <DataGridShell>
           <DataGridTable cols={cols}>
             <DataGridHeaderRow cols={cols} />
@@ -369,27 +404,27 @@ function DealerPartnersTab() {
   const [partners, setPartners] = useState<DealerPartner[] | null>(null);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [draft, setDraft] = useState<DraftPartner | null>(null);
+  const [loadError, setLoadError] = useState(false);
 
-  async function reload() {
+  const reload = useCallback(async () => {
     if (!company) return;
-    const [p, c] = await Promise.all([
-      dealerPartnerService.getAll(company.id),
-      dealerPartnerService.activeStockCounts(company.id),
-    ]);
-    setPartners(p);
-    setCounts(c);
-  }
-
-  useEffect(() => {
-    if (!company) return;
-    void Promise.all([
-      dealerPartnerService.getAll(company.id),
-      dealerPartnerService.activeStockCounts(company.id),
-    ]).then(([p, c]) => {
+    setLoadError(false);
+    try {
+      const [p, c] = await Promise.all([
+        dealerPartnerService.getAll(company.id),
+        dealerPartnerService.activeStockCounts(company.id),
+      ]);
       setPartners(p);
       setCounts(c);
-    });
+    } catch {
+      setPartners(null);
+      setLoadError(true);
+    }
   }, [company]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
 
   const rows = useMemo<PartnerRow[] | null>(() => {
     if (!partners) return null;
@@ -560,7 +595,16 @@ function DealerPartnersTab() {
         </Dialog>
       </div>
 
-      {!rows ? (
+      {loadError && !rows ? (
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Couldn&apos;t load dealer partners.
+          </p>
+          <Button variant="outline" size="sm" onClick={() => void reload()}>
+            Retry
+          </Button>
+        </div>
+      ) : !rows ? (
         <DataGridShell>
           <DataGridTable cols={cols}>
             <DataGridHeaderRow cols={cols} />

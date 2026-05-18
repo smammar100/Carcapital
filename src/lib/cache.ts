@@ -19,6 +19,34 @@ import { createClient } from "@/lib/supabase/client";
 
 const DEFAULT_TTL_MS = 30_000;
 
+// Hard ceiling for a single service read. A healthy PostgREST query is
+// sub-second; anything past this is a hung request (historically a frozen
+// Supabase auth lock after a tab switch). Rejecting instead of awaiting
+// forever lets `inflight` clear in the `finally` below, so the next mount
+// or navigation retries cleanly instead of the page wedging on "Loading…".
+const FETCH_TIMEOUT_MS = 20_000;
+
+class FetchTimeoutError extends Error {}
+
+function withTimeout<T>(p: Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(
+      () => reject(new FetchTimeoutError("Service read timed out")),
+      FETCH_TIMEOUT_MS,
+    );
+    p.then(
+      (v) => {
+        clearTimeout(t);
+        resolve(v);
+      },
+      (e) => {
+        clearTimeout(t);
+        reject(e);
+      },
+    );
+  });
+}
+
 interface CacheEntry<T> {
   value: T;
   expires: number;
@@ -78,7 +106,7 @@ export async function withCache<T>(
     try {
       let value: T;
       try {
-        value = await fetcher();
+        value = await withTimeout(fetcher());
       } catch (e) {
         if (!isAuthError(e)) throw e;
         // Session likely died while idle / between route switches.
@@ -89,7 +117,7 @@ export async function withCache<T>(
         } catch {
           /* fall through — the retry will surface the real error */
         }
-        value = await fetcher();
+        value = await withTimeout(fetcher());
       }
       cache.set(key, { value, expires: Date.now() + ttlMs });
       return value;
