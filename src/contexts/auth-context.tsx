@@ -122,6 +122,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { company: companyRow, ...userRow } = data as unknown as User & {
       company: Company;
     };
+
+    // Removed members are deactivated (active=false) + auth-banned. A banned
+    // user's already-issued access token stays valid until expiry, so close
+    // that gap here: treat an inactive profile as logged out.
+    if (userRow.active === false) {
+      await supabase.auth.signOut();
+      setUser(null);
+      setCompany(null);
+      return;
+    }
+
     setUser(userRow);
     setCompany(companyRow);
     // Fire-and-forget cache warm-up so the dashboard renders against a warm

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, RotateCw, Users } from "lucide-react";
+import { Loader2, RotateCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,13 +10,11 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ROLE_DEFS, type RoleValue } from "@/lib/roles";
 import { teamService, InviteValidationError } from "@/lib/services/team-service";
 import { joinLinkService } from "@/lib/services/join-link-service";
 import { useAuth } from "@/contexts/auth-context";
-import type { User } from "@/lib/types";
-import { cn, getInitials } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,23 +35,14 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
   const { user, company } = useAuth();
   const [emailDraft, setEmailDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [members, setMembers] = useState<User[] | null>(null);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
 
-  async function loadMembers() {
-    if (!company) return;
-    setMembers(await teamService.getAll(company.id));
-  }
-
   useEffect(() => {
     if (!open || !company || !user) return;
-    void loadMembers();
     void joinLinkService
       .ensure(company.id, user.id)
-      .then((l) =>
-        setJoinUrl(`${window.location.origin}/join/${l.token}`),
-      )
+      .then((l) => setJoinUrl(`${window.location.origin}/join/${l.token}`))
       .catch(() => setJoinUrl(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, company, user]);
@@ -86,7 +75,6 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
       );
       setEmailDraft("");
       onInvited?.(created.length);
-      void loadMembers();
     } catch (err) {
       if (err instanceof InviteValidationError) toast.error(err.message);
       else toast.error("Could not send invitations");
@@ -148,72 +136,6 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
             {submitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
             Invite
           </Button>
-        </div>
-
-        <div className="flex flex-col">
-          <div className="flex items-center gap-2 border-b pb-2">
-            <Avatar className="h-6 w-6">
-              <AvatarFallback className="text-[10px]">
-                {getInitials(company?.name ?? "?")}
-              </AvatarFallback>
-            </Avatar>
-            <span className="text-sm font-medium">
-              {company?.name ?? "Your team"}
-            </span>
-          </div>
-
-          <div className="max-h-56 overflow-y-auto py-1">
-            {!members ? (
-              <p className="px-1 py-3 text-xs text-muted-foreground">
-                Loading members…
-              </p>
-            ) : members.length === 0 ? (
-              <p className="px-1 py-3 text-xs text-muted-foreground">
-                No members yet.
-              </p>
-            ) : (
-              members.map((m) => {
-                const isYou = m.id === user?.id;
-                const label = m.isSuperUser
-                  ? "Owner"
-                  : m.roles.length > 0
-                    ? roleLabel(m.roles[0])
-                    : "—";
-                return (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2 px-1 py-2"
-                    data-testid={`invite-member-${m.id}`}
-                  >
-                    <Avatar className="h-6 w-6">
-                      <AvatarFallback className="text-[10px]">
-                        {getInitials(m.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="flex-1 truncate text-sm">
-                      {m.email}
-                      {isYou && (
-                        <span className="text-muted-foreground"> (You)</span>
-                      )}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {label}
-                    </span>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => onOpenChange(false)}
-            className="mx-auto mt-1 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-            data-testid="manage-team-members"
-          >
-            <Users className="h-3.5 w-3.5" />
-            Manage team members
-          </button>
         </div>
 
         <div className="rounded-xl border p-4">

@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import Link from "next/link";
-import { ChevronRight, Plus, ShieldX } from "lucide-react";
+import { Plus, ShieldX } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -22,13 +21,7 @@ export default function TeamAndSecurityPage() {
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link
-          href="/admin/settings"
-          className="inline-flex items-center text-sm text-primary hover:underline"
-        >
-          Settings <ChevronRight className="h-4 w-4" />
-        </Link>
-        <h1 className="mt-1 text-3xl font-semibold tracking-tight">
+        <h1 className="text-3xl font-semibold tracking-tight">
           Team and security
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
@@ -44,8 +37,9 @@ export default function TeamAndSecurityPage() {
           description="Managing team permissions requires the Manage Permissions capability."
         />
       ) : (
-        <>
-          <div className="flex justify-end">
+        <PermissionsGrid
+          ref={gridRef}
+          toolbarAction={
             <Button
               size="sm"
               onClick={() => setInviteOpen(true)}
@@ -54,10 +48,8 @@ export default function TeamAndSecurityPage() {
               <Plus className="mr-1.5 h-3 w-3" />
               New member
             </Button>
-          </div>
-
-          <PermissionsGrid ref={gridRef} />
-        </>
+          }
+        />
       )}
 
       <InviteMemberDialog

@@ -45,13 +45,7 @@ export function usePermissionsGrid(): UsePermissionsGrid {
     if (!company) return;
     setLoading(true);
     const list = await teamService.getAll(company.id);
-    const entries = await Promise.all(
-      list.map(
-        async (u) =>
-          [u.id, await permissionService.effectiveCapabilities(u.id)] as const,
-      ),
-    );
-    const server: PermissionsMap = new Map(entries);
+    const server = await permissionService.effectiveCapabilitiesForUsers(list);
     setUsers(list);
     setServerState(server);
     setLocalState(cloneMap(server));

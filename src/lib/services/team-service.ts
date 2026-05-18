@@ -60,6 +60,7 @@ export const teamService = {
         .from("users")
         .select(SELECT)
         .eq("company_id", companyId)
+        .eq("active", true)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []) as unknown as User[];
@@ -248,38 +249,26 @@ export const teamService = {
     return user.invitedAt !== null && user.acceptedAt === null;
   },
 
+  /**
+   * Removal must run server-side: public.users has no RLS DELETE policy (a
+   * browser delete silently no-ops) and RESTRICT FKs make a hard delete
+   * impossible for users with history. The route hard-deletes pending
+   * invites and deactivates + bans established users. Guards (self / last
+   * super-admin) are enforced there too.
+   */
   async removeMember(userId: UUID, actorId: UUID): Promise<void> {
     if (userId === actorId) {
       throw new Error("You cannot remove yourself from the team.");
     }
-    const supabase = createClient();
-    const target = await teamService.getById(userId);
-    if (!target) throw new Error("User not found");
-    if (target.isSuperUser) {
-      const { count } = await supabase
-        .from("users")
-        .select("id", { count: "exact", head: true })
-        .eq("company_id", target.companyId)
-        .eq("is_super_user", true)
-        .neq("id", userId);
-      if ((count ?? 0) === 0) {
-        throw new Error(
-          "Cannot remove the last super-administrator — promote someone else first.",
-        );
-      }
-    }
-    // Removes the public.users row. The matching auth.users row stays until
-    // the server-side delete route lands (see file-level note).
-    const { error } = await supabase.from("users").delete().eq("id", userId);
-    if (error) throw error;
-    bustUserCaches();
-    await activityService.log({
-      companyId: target.companyId,
-      userId: actorId,
-      vehicleId: null,
-      actionType: "user_invited",
-      description: `Removed ${target.name} (${target.email}) from the team`,
-      metadata: { removedUserId: userId, roles: target.roles },
+    const res = await fetch("/api/team/remove-member", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, actorId }),
     });
+    const json = (await res.json()) as { ok?: boolean; error?: string };
+    if (!res.ok || !json.ok) {
+      throw new Error(json.error ?? "Could not remove member");
+    }
+    bustUserCaches();
   },
 };

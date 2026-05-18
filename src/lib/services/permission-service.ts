@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
-import type { UserPermission, UUID } from "@/lib/types";
+import type { User, UserPermission, UUID } from "@/lib/types";
 import type { Capability } from "@/lib/capabilities";
 import { capabilitiesForRoles } from "@/lib/roles";
 import { authService } from "./auth-service";
@@ -36,6 +36,34 @@ export const permissionService = {
     const grants = await permissionService.getForUser(userId);
     for (const p of grants) fromRoles.add(p.capability as Capability);
     return fromRoles;
+  },
+
+  /**
+   * Batch variant for the permissions grid. The caller already has the full
+   * `User` rows (with `roles`), so role caps need no DB call — and all
+   * explicit grants are fetched in ONE query instead of 2N round trips.
+   */
+  async effectiveCapabilitiesForUsers(
+    users: User[],
+  ): Promise<Map<UUID, Set<Capability>>> {
+    const result = new Map<UUID, Set<Capability>>();
+    for (const u of users) result.set(u.id, capabilitiesForRoles(u.roles));
+    if (users.length === 0) return result;
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("user_permissions")
+      .select("user_id, capability")
+      .in(
+        "user_id",
+        users.map((u) => u.id),
+      );
+    if (error) throw error;
+
+    for (const row of (data ?? []) as { user_id: string; capability: string }[]) {
+      result.get(row.user_id)?.add(row.capability as Capability);
+    }
+    return result;
   },
 
   async userHas(userId: UUID, capability: Capability): Promise<boolean> {

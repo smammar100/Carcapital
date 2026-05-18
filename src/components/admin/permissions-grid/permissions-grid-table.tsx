@@ -6,6 +6,7 @@ import {
   CAPABILITY_LABELS,
   type Capability,
 } from "@/lib/capabilities";
+import { Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
 import type { User, UUID } from "@/lib/types";
@@ -18,6 +19,7 @@ interface Props {
   serverState: PermissionsMap;
   currentUserId?: UUID;
   onToggle: (userId: UUID, cap: Capability) => void;
+  onRemove?: (user: User) => void;
 }
 
 const STICKY_COL =
@@ -29,6 +31,7 @@ export function PermissionsGridTable({
   serverState,
   currentUserId,
   onToggle,
+  onRemove,
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -62,9 +65,16 @@ export function PermissionsGridTable({
             <th
               className={cn(
                 STICKY_COL,
-                "z-2 border-b px-4 align-bottom",
+                "z-2 border-b px-4 pb-2 align-bottom",
               )}
-            />
+            >
+              <span
+                className="text-xs font-medium text-muted-foreground"
+                data-testid="member-count"
+              >
+                {users.length} member{users.length === 1 ? "" : "s"}
+              </span>
+            </th>
             {CAPABILITY_GROUPS.map((g) =>
               g.capabilities.map((cap, i) => (
                 <th
@@ -94,13 +104,13 @@ export function PermissionsGridTable({
                 data-testid={`permissions-grid-row-${u.id}`}
               >
                 <td className={cn(STICKY_COL, "border-b px-4 py-2")}>
-                  <div className="flex items-center gap-2">
+                  <div className="group/member flex items-center gap-2">
                     <Avatar className="h-7 w-7">
                       <AvatarFallback className="text-[10px]">
                         {getInitials(u.name)}
                       </AvatarFallback>
                     </Avatar>
-                    <div className="flex min-w-0 flex-col leading-tight">
+                    <div className="flex min-w-0 flex-1 flex-col leading-tight">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-medium">
                           {u.name}
@@ -120,6 +130,17 @@ export function PermissionsGridTable({
                         {u.email}
                       </span>
                     </div>
+                    {onRemove && !isYou && !u.isSuperUser && (
+                      <button
+                        type="button"
+                        onClick={() => onRemove(u)}
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/member:opacity-100"
+                        aria-label={`Remove ${u.name}`}
+                        data-testid={`remove-member-${u.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    )}
                   </div>
                 </td>
                 {ALL_CAPABILITIES.map((cap) => {

@@ -5,12 +5,15 @@ import {
   useImperativeHandle,
   useMemo,
   useState,
+  type ReactNode,
 } from "react";
 import { ShieldCheck } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DataGridSearchBar } from "@/components/data-grid";
+import { RemoveMemberDialog } from "@/components/admin/remove-member-dialog";
+import type { User } from "@/lib/types";
 import { usePermissionsGrid } from "./use-permissions-grid";
 import { PermissionsGridTable } from "./permissions-grid-table";
 import { PermissionsGridSaveBar } from "./permissions-grid-save-bar";
@@ -19,8 +22,15 @@ export interface PermissionsGridHandle {
   reload: () => Promise<void>;
 }
 
-export const PermissionsGrid = forwardRef<PermissionsGridHandle>(
-  function PermissionsGrid(_props, ref) {
+interface PermissionsGridProps {
+  /** Rendered on the right of the toolbar row, inline with the search field. */
+  toolbarAction?: ReactNode;
+}
+
+export const PermissionsGrid = forwardRef<
+  PermissionsGridHandle,
+  PermissionsGridProps
+>(function PermissionsGrid({ toolbarAction }, ref) {
     const { user: currentUser } = useAuth();
     const {
       users,
@@ -35,6 +45,7 @@ export const PermissionsGrid = forwardRef<PermissionsGridHandle>(
       saving,
     } = usePermissionsGrid();
     const [filter, setFilter] = useState("");
+    const [removeTarget, setRemoveTarget] = useState<User | null>(null);
 
     useImperativeHandle(ref, () => ({ reload }), [reload]);
 
@@ -56,16 +67,9 @@ export const PermissionsGrid = forwardRef<PermissionsGridHandle>(
             value={filter}
             onChange={setFilter}
             placeholder="Filter by name or email…"
-            className="w-full max-w-xs"
+            className="max-w-xs flex-1"
           />
-          {filtered && (
-            <span
-              className="text-xs text-muted-foreground"
-              data-testid="member-count"
-            >
-              {filtered.length} member{filtered.length === 1 ? "" : "s"}
-            </span>
-          )}
+          {toolbarAction}
         </div>
 
         {loading || !filtered ? (
@@ -83,6 +87,7 @@ export const PermissionsGrid = forwardRef<PermissionsGridHandle>(
             serverState={serverState}
             currentUserId={currentUser?.id}
             onToggle={toggleCapability}
+            onRemove={setRemoveTarget}
           />
         )}
 
@@ -91,6 +96,15 @@ export const PermissionsGrid = forwardRef<PermissionsGridHandle>(
           saving={saving}
           onSave={() => void save()}
           onDiscard={discard}
+        />
+
+        <RemoveMemberDialog
+          user={removeTarget}
+          open={removeTarget !== null}
+          onOpenChange={(o) => {
+            if (!o) setRemoveTarget(null);
+          }}
+          onRemoved={() => void reload()}
         />
       </div>
     );
