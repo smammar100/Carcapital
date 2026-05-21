@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { Plus, UserPlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -42,14 +42,27 @@ import { VehicleImage } from "@/components/shared/vehicle-image";
 import {
   type ColumnDef,
   DataGridFooterRow,
+  DataGridGroupHeaderRow,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridSkeletonRows,
   DataGridTable,
+  DataGridTotalsRow,
+  useRowGroups,
   UserCell,
 } from "@/components/data-grid";
 import { toast } from "sonner";
+
+const LEAD_STATUS_LABEL: Record<string, string> = {
+  new: "New",
+  contacted: "Contacted",
+  appointment_booked: "Appointment Booked",
+  lost: "Lost",
+};
+// Stable refs so useRowGroups' memo doesn't recompute every render.
+const leadGroupBy = (l: Lead) => l.status;
+const leadGroupLabel = (k: string) => LEAD_STATUS_LABEL[k] ?? k;
 
 interface LeadRow extends Lead {
   assigneeName: string;
@@ -190,6 +203,13 @@ export default function LeadsPage() {
       },
     ],
     [],
+  );
+
+  // Collapsible grouping by lead status (ClickUp-style pipeline view).
+  const { groups, isCollapsed, toggle } = useRowGroups(
+    filtered ?? undefined,
+    leadGroupBy,
+    leadGroupLabel,
   );
 
   async function onCreate(values: CreateOutput) {
@@ -419,15 +439,35 @@ export default function LeadsPage() {
           <DataGridTable cols={cols}>
             <DataGridHeaderRow cols={cols} />
             <tbody>
-              {filtered.map((l, i) => (
-                <DataGridRow
-                  key={l.id}
-                  row={l}
-                  cols={cols}
-                  index={i}
-                  onClick={(row) => setDrillLead(row)}
-                />
+              {(groups ?? []).map((g) => (
+                <Fragment key={g.key}>
+                  <DataGridGroupHeaderRow
+                    label={g.label}
+                    count={g.rows.length}
+                    collapsed={isCollapsed(g.key)}
+                    onToggle={() => toggle(g.key)}
+                    span={cols.length}
+                  />
+                  {!isCollapsed(g.key) &&
+                    g.rows.map((l, i) => (
+                      <DataGridRow
+                        key={l.id}
+                        row={l}
+                        cols={cols}
+                        index={i}
+                        onClick={(row) => setDrillLead(row)}
+                      />
+                    ))}
+                </Fragment>
               ))}
+              <DataGridTotalsRow
+                cols={cols}
+                total={(c) =>
+                  c.key === "customerName"
+                    ? `${filtered.length} lead${filtered.length === 1 ? "" : "s"}`
+                    : null
+                }
+              />
               <DataGridFooterRow
                 label="New lead"
                 span={cols.length}

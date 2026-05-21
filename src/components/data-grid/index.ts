@@ -12,8 +12,22 @@ export {
 export { DataGridSkeletonRows } from "./skeleton-rows";
 export { DataGridPagination, usePagination } from "./pagination";
 export { DataGridSearchBar, useTableSearch } from "./search-bar";
-export { DataGridColumnsButton } from "./columns-button";
+export { DataGridColumnsButton, useColumnVisibility } from "./columns-button";
 export { DataGridBulkBar, type BulkAction } from "./bulk-bar";
+// Complex-table v3 primitives (Mobbin-pattern pass, May 2026)
+export {
+  DataGridDensityToggle,
+  useDensity,
+  DENSITY_ROW_HEIGHT,
+  type Density,
+} from "./density";
+export { useSort, type Comparator, type UseSortResult } from "./sort";
+export {
+  DataGridGroupHeaderRow,
+  DataGridTotalsRow,
+  useRowGroups,
+  type RowGroup,
+} from "./grouping";
 export {
   AppointmentOutcomeCell,
   AppointmentStatusCell,

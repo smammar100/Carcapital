@@ -46,12 +46,16 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   type ColumnDef,
+  DataGridColumnsButton,
+  DataGridDensityToggle,
   DataGridFooterRow,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridTable,
   VehicleCell,
+  useColumnVisibility,
+  useDensity,
 } from "@/components/data-grid";
 import { toast } from "sonner";
 
@@ -321,6 +325,10 @@ export default function ReturnsPage() {
     ],
     [],
   );
+
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
+  const lockedKeys = useMemo(() => new Set(["vehicle"]), []);
 
   async function onSubmit(values: FormOutput) {
     if (!user || !company) return;
@@ -677,21 +685,32 @@ export default function ReturnsPage() {
           description="Process customer returns and track resolution paths."
         />
       ) : (
-        <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
-            <tbody>
-              {rows.map((r, i) => (
-                <DataGridRow key={r.id} row={r} cols={cols} index={i} />
-              ))}
-              <DataGridFooterRow
-                label="New return"
-                span={cols.length}
-                onClick={() => setOpen(true)}
-              />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
+        <>
+          <div className="flex items-center justify-end gap-2">
+            <DataGridColumnsButton
+              columns={cols}
+              hiddenKeys={hiddenKeys}
+              onChange={setHiddenKeys}
+              lockedKeys={lockedKeys}
+            />
+            <DataGridDensityToggle density={density} onChange={setDensity} />
+          </div>
+          <DataGridShell>
+            <DataGridTable cols={visibleCols} density={density}>
+              <DataGridHeaderRow cols={visibleCols} />
+              <tbody>
+                {rows.map((r, i) => (
+                  <DataGridRow key={r.id} row={r} cols={visibleCols} index={i} />
+                ))}
+                <DataGridFooterRow
+                  label="New return"
+                  span={visibleCols.length}
+                  onClick={() => setOpen(true)}
+                />
+              </tbody>
+            </DataGridTable>
+          </DataGridShell>
+        </>
       )}
 
       {/* Resolve → refund-invoice dialog */}

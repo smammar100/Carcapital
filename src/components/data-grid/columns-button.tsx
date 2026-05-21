@@ -27,6 +27,30 @@ import type { ColumnDef } from "./types";
  * optional `lockedKeys` prop; they appear in the popover with a
  * disabled checkbox.
  */
+/**
+ * Column-visibility state hook. Owns the hidden-key set and derives the
+ * visible column list so a page wires show/hide in two lines:
+ *
+ *   const { hiddenKeys, setHiddenKeys, visibleCols } =
+ *     useColumnVisibility(cols);
+ *   …<DataGridColumnsButton columns={cols} hiddenKeys={hiddenKeys}
+ *        onChange={setHiddenKeys} />
+ *   …<DataGridTable cols={visibleCols}> / <DataGridRow cols={visibleCols}>
+ */
+export function useColumnVisibility<T>(
+  cols: ColumnDef<T>[],
+  initialHidden?: string[],
+) {
+  const [hiddenKeys, setHiddenKeys] = React.useState<Set<string>>(
+    () => new Set(initialHidden ?? []),
+  );
+  const visibleCols = React.useMemo(
+    () => cols.filter((c) => !hiddenKeys.has(String(c.key))),
+    [cols, hiddenKeys],
+  );
+  return { hiddenKeys, setHiddenKeys, visibleCols };
+}
+
 export function DataGridColumnsButton<T>({
   columns,
   hiddenKeys,

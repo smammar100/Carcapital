@@ -28,6 +28,10 @@ import { Card } from "@/components/ui/card";
 import {
   DataGridSkeletonRows,
   DataGridPagination,
+  DataGridColumnsButton,
+  useColumnVisibility,
+  DataGridDensityToggle,
+  useDensity,
 } from "@/components/data-grid";
 import {
   Select,
@@ -438,6 +442,13 @@ export default function VehiclesPage() {
     [],
   );
 
+  // Complex-table controls: row density + per-column show/hide. The
+  // identity "vehicle" column is locked (always visible).
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } =
+    useColumnVisibility(tableCols);
+  const lockedKeys = useMemo(() => new Set(["vehicle"]), []);
+
   // SPEC Point 8 — 3-state cycle per column: a different column → asc;
   // same column asc → desc; same column desc → cleared (default order).
   // State is written to the URL (router.replace, preserving q/status so
@@ -471,6 +482,14 @@ export default function VehiclesPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => filtered && exportCsv(filtered)}
+            disabled={!filtered || filtered.length === 0}
+          >
+            <Download className="mr-1.5 h-4 w-4" />
+            Export CSV
+          </Button>
           <Button asChild>
             <Link href="/inventory/add-vehicle">
               <Plus className="mr-1.5 h-4 w-4" />
@@ -533,15 +552,17 @@ export default function VehiclesPage() {
           </SelectContent>
         </Select>
         <div className="ml-auto flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => filtered && exportCsv(filtered)}
-            disabled={!filtered || filtered.length === 0}
-          >
-            <Download className="mr-1.5 h-4 w-4" />
-            CSV
-          </Button>
+          {view === "table" && (
+            <>
+              <DataGridColumnsButton
+                columns={tableCols}
+                hiddenKeys={hiddenKeys}
+                onChange={setHiddenKeys}
+                lockedKeys={lockedKeys}
+              />
+              <DataGridDensityToggle density={density} onChange={setDensity} />
+            </>
+          )}
           <div className="flex rounded-md border bg-background p-0.5">
             <Button
               variant={view === "table" ? "secondary" : "ghost"}
@@ -581,15 +602,15 @@ export default function VehiclesPage() {
         // the layout doesn't shift when real data lands. See the data-
         // table case study at /docs/case-studies/data-tables.md.
         <DataGridShell>
-          <DataGridTable cols={tableCols}>
+          <DataGridTable cols={visibleCols} density={density}>
             <DataGridHeaderRow
-              cols={tableCols}
+              cols={visibleCols}
               sortKey={sortKey ?? undefined}
               sortDir={sortDir}
               onSort={(k) => toggleSort(k as SortKey)}
             />
             <tbody>
-              <DataGridSkeletonRows columns={tableCols} rows={8} />
+              <DataGridSkeletonRows columns={visibleCols} rows={8} />
             </tbody>
           </DataGridTable>
         </DataGridShell>
@@ -609,9 +630,9 @@ export default function VehiclesPage() {
         />
       ) : view === "table" ? (
         <DataGridShell>
-          <DataGridTable cols={tableCols}>
+          <DataGridTable cols={visibleCols} density={density}>
             <DataGridHeaderRow
-              cols={tableCols}
+              cols={visibleCols}
               sortKey={sortKey ?? undefined}
               sortDir={sortDir}
               onSort={(k) => toggleSort(k as SortKey)}
@@ -621,14 +642,14 @@ export default function VehiclesPage() {
                 <DataGridRow
                   key={v.id}
                   row={v}
-                  cols={tableCols}
+                  cols={visibleCols}
                   index={i}
                   onClick={(row) => router.push(`/vehicles/${row.id}`)}
                 />
               ))}
               <DataGridFooterRow
                 label="New vehicle"
-                span={tableCols.length}
+                span={visibleCols.length}
                 href="/inventory/add-vehicle"
               />
             </tbody>

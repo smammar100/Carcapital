@@ -47,6 +47,10 @@ import {
   WarrantyStatusCell,
 } from "./cells";
 import type { ColumnDef, ColType, SelectionState } from "./types";
+import { DENSITY_ROW_HEIGHT, type Density } from "./density";
+
+/** Row height fallback (matches the legacy h-13 = 3.25rem). */
+const ROW_H = "var(--dg-row-h, 3.25rem)";
 
 const TYPE_ICON: Record<ColType, LucideIcon> = {
   vehicle: Car,
@@ -122,6 +126,8 @@ interface TableProps<T> {
    * (master-sheet) where horizontal scroll is preferable.
    */
   fluid?: boolean;
+  /** Row density — sets the `--dg-row-h` CSS variable rows render against. */
+  density?: Density;
   children: ReactNode;
 }
 
@@ -130,6 +136,7 @@ export function DataGridTable<T>({
   selection,
   trailing,
   fluid = true,
+  density = "normal",
   children,
 }: TableProps<T>) {
   return (
@@ -138,9 +145,15 @@ export function DataGridTable<T>({
         "border-separate text-xs",
         fluid ? "w-full min-w-max" : "w-max",
       )}
-      style={{ borderSpacing: 0 }}
+      style={
+        {
+          borderSpacing: 0,
+          "--dg-row-h": DENSITY_ROW_HEIGHT[density],
+        } as React.CSSProperties
+      }
       data-grid=""
       data-fluid={fluid ? "" : undefined}
+      data-density={density}
     >
       {/* In non-fluid mode (master-sheet style), pin column widths via colgroup
        * so very wide tables stay at min-content width and scroll horizontally.
@@ -381,7 +394,10 @@ export function DataGridRow<T>({
             "group-hover/row:bg-muted",
           )}
         >
-          <div className="flex h-13 items-center justify-center">
+          <div
+            className="flex items-center justify-center"
+            style={{ height: ROW_H }}
+          >
             <span className="text-[11px] tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
               {index + 1}
             </span>
@@ -420,10 +436,11 @@ export function DataGridRow<T>({
           >
             <div
               className={cn(
-                "flex h-13 items-center",
+                "flex items-center",
                 align === "right" && "justify-end",
                 align === "center" && "justify-center",
               )}
+              style={{ height: ROW_H }}
             >
               <DataGridCell col={c} row={row} index={index} />
             </div>

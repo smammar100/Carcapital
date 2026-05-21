@@ -39,6 +39,8 @@ import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
 import {
   type ColumnDef,
   ChannelsCell,
+  DataGridColumnsButton,
+  DataGridDensityToggle,
   DataGridHeaderRow,
   DataGridRow,
   DataGridSearchBar,
@@ -46,6 +48,8 @@ import {
   DataGridSkeletonRows,
   DataGridTable,
   VehicleCell,
+  useColumnVisibility,
+  useDensity,
 } from "@/components/data-grid";
 import { toast } from "sonner";
 
@@ -224,6 +228,10 @@ export default function ListingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [],
   );
+
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
+  const lockedKeys = useMemo(() => new Set(["stockId"]), []);
 
   const watchedVehicle = form.watch("vehicleId");
   useEffect(() => {
@@ -444,15 +452,24 @@ export default function ListingsPage() {
             ))}
           </SelectContent>
         </Select>
+        <div className="ml-auto flex items-center gap-2">
+          <DataGridColumnsButton
+            columns={cols}
+            hiddenKeys={hiddenKeys}
+            onChange={setHiddenKeys}
+            lockedKeys={lockedKeys}
+          />
+          <DataGridDensityToggle density={density} onChange={setDensity} />
+        </div>
       </div>
 
       {!filtered ? (
         // Row-aware skeleton matching the table's column structure.
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
-              <DataGridSkeletonRows columns={cols} rows={6} />
+              <DataGridSkeletonRows columns={visibleCols} rows={6} />
             </tbody>
           </DataGridTable>
         </DataGridShell>
@@ -464,11 +481,11 @@ export default function ListingsPage() {
         />
       ) : (
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
               {filtered.map((l, i) => (
-                <DataGridRow key={l.id} row={l} cols={cols} index={i} />
+                <DataGridRow key={l.id} row={l} cols={visibleCols} index={i} />
               ))}
             </tbody>
           </DataGridTable>

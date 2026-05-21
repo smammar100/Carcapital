@@ -605,12 +605,6 @@ export default function MasterSheetPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button size="sm" asChild>
-            <Link href="/inventory/add-vehicle">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Vehicle
-            </Link>
-          </Button>
           {/* The page's existing column visibility popover stays — it uses
               a 2-column grid layout that the generic DataGridColumnsButton
               doesn't replicate. Migrate in a follow-up if we want parity. */}

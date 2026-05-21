@@ -42,12 +42,16 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   type ColumnDef,
+  DataGridColumnsButton,
+  DataGridDensityToggle,
   DataGridFooterRow,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridSkeletonRows,
   DataGridTable,
+  useColumnVisibility,
+  useDensity,
 } from "@/components/data-grid";
 import { toast } from "sonner";
 
@@ -213,6 +217,10 @@ function GaragesTab() {
     [],
   );
 
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
+  const lockedKeys = useMemo(() => new Set(["name"]), []);
+
   async function handleSave() {
     if (!company || !draft) return;
     if (!draft.name.trim()) {
@@ -234,22 +242,30 @@ function GaragesTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {vendors ? `${vendors.length} garages` : "Loading…"}
         </p>
-        <Dialog
-          open={draft !== null}
-          onOpenChange={(o) => {
-            if (!o) setDraft(null);
-            else if (draft === null) setDraft({ ...EMPTY_VENDOR });
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1.5 h-4 w-4" /> Add Garage
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <DataGridColumnsButton
+            columns={cols}
+            hiddenKeys={hiddenKeys}
+            onChange={setHiddenKeys}
+            lockedKeys={lockedKeys}
+          />
+          <DataGridDensityToggle density={density} onChange={setDensity} />
+          <Dialog
+            open={draft !== null}
+            onOpenChange={(o) => {
+              if (!o) setDraft(null);
+              else if (draft === null) setDraft({ ...EMPTY_VENDOR });
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-1.5 h-4 w-4" /> Add Garage
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{draft?.id ? "Edit Garage" : "Add Garage"}</DialogTitle>
@@ -306,7 +322,8 @@ function GaragesTab() {
               <Button onClick={handleSave}>Save</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {loadError && !rows ? (
@@ -320,10 +337,10 @@ function GaragesTab() {
         </div>
       ) : !rows ? (
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
-              <DataGridSkeletonRows columns={cols} rows={5} />
+              <DataGridSkeletonRows columns={visibleCols} rows={5} />
             </tbody>
           </DataGridTable>
         </DataGridShell>
@@ -335,14 +352,14 @@ function GaragesTab() {
         />
       ) : (
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
               {rows.map((row, i) => (
                 <DataGridRow
                   key={row.id}
                   row={row}
-                  cols={cols}
+                  cols={visibleCols}
                   index={i}
                   onClick={(v) =>
                     setDraft({
@@ -357,7 +374,7 @@ function GaragesTab() {
               ))}
               <DataGridFooterRow
                 label="New garage"
-                span={cols.length}
+                span={visibleCols.length}
                 onClick={() => setDraft({ ...EMPTY_VENDOR })}
               />
             </tbody>
@@ -465,6 +482,10 @@ function DealerPartnersTab() {
     [],
   );
 
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
+  const lockedKeys = useMemo(() => new Set(["name"]), []);
+
   async function handleSave() {
     if (!company || !draft) return;
     if (!draft.name.trim()) {
@@ -496,22 +517,30 @@ function DealerPartnersTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
           {partners ? `${partners.length} dealer partners` : "Loading…"}
         </p>
-        <Dialog
-          open={draft !== null}
-          onOpenChange={(o) => {
-            if (!o) setDraft(null);
-            else if (draft === null) setDraft({ ...EMPTY_PARTNER });
-          }}
-        >
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1.5 h-4 w-4" /> Add Dealer Partner
-            </Button>
-          </DialogTrigger>
+        <div className="flex items-center gap-2">
+          <DataGridColumnsButton
+            columns={cols}
+            hiddenKeys={hiddenKeys}
+            onChange={setHiddenKeys}
+            lockedKeys={lockedKeys}
+          />
+          <DataGridDensityToggle density={density} onChange={setDensity} />
+          <Dialog
+            open={draft !== null}
+            onOpenChange={(o) => {
+              if (!o) setDraft(null);
+              else if (draft === null) setDraft({ ...EMPTY_PARTNER });
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-1.5 h-4 w-4" /> Add Dealer Partner
+              </Button>
+            </DialogTrigger>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
@@ -592,7 +621,8 @@ function DealerPartnersTab() {
               <Button onClick={handleSave}>Save</Button>
             </DialogFooter>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       {loadError && !rows ? (
@@ -606,10 +636,10 @@ function DealerPartnersTab() {
         </div>
       ) : !rows ? (
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
-              <DataGridSkeletonRows columns={cols} rows={5} />
+              <DataGridSkeletonRows columns={visibleCols} rows={5} />
             </tbody>
           </DataGridTable>
         </DataGridShell>
@@ -621,14 +651,14 @@ function DealerPartnersTab() {
         />
       ) : (
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
               {rows.map((row, i) => (
                 <DataGridRow
                   key={row.id}
                   row={row}
-                  cols={cols}
+                  cols={visibleCols}
                   index={i}
                   onClick={() =>
                     router.push(
@@ -639,7 +669,7 @@ function DealerPartnersTab() {
               ))}
               <DataGridFooterRow
                 label="New dealer partner"
-                span={cols.length}
+                span={visibleCols.length}
                 onClick={() => setDraft({ ...EMPTY_PARTNER })}
               />
             </tbody>

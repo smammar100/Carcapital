@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronDown, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -24,11 +24,15 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   type ColumnDef,
+  DataGridColumnsButton,
+  DataGridDensityToggle,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridTable,
   VehicleCell,
+  useColumnVisibility,
+  useDensity,
 } from "@/components/data-grid";
 import { toast } from "sonner";
 
@@ -74,21 +78,29 @@ export default function DealerPartnerDetailPage({
     });
   }, [company, id]);
 
-  const stockCols: ColumnDef<Vehicle>[] = [
-    {
-      key: "vehicle",
-      label: "Vehicle",
-      type: "vehicle",
-      sticky: true,
-      width: 220,
-      render: (v) => <VehicleCell vehicle={v} />,
-    },
-    { key: "registration", label: "Reg", type: "text", width: 110 },
-    { key: "stockId", label: "Stock ID", type: "text", width: 110 },
-    { key: "status", label: "Status", type: "vehicleStatus", width: 140 },
-    { key: "daysInStock", label: "Days", type: "number", width: 80 },
-    { key: "listingPrice", label: "Web price", type: "currency", width: 110 },
-  ];
+  const stockCols = useMemo<ColumnDef<Vehicle>[]>(
+    () => [
+      {
+        key: "vehicle",
+        label: "Vehicle",
+        type: "vehicle",
+        sticky: true,
+        width: 220,
+        render: (v) => <VehicleCell vehicle={v} />,
+      },
+      { key: "registration", label: "Reg", type: "text", width: 110 },
+      { key: "stockId", label: "Stock ID", type: "text", width: 110 },
+      { key: "status", label: "Status", type: "vehicleStatus", width: 140 },
+      { key: "daysInStock", label: "Days", type: "number", width: 80 },
+      { key: "listingPrice", label: "Web price", type: "currency", width: 110 },
+    ],
+    [],
+  );
+
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } =
+    useColumnVisibility(stockCols);
+  const lockedKeys = useMemo(() => new Set(["vehicle"]), []);
 
   async function saveNotes() {
     if (!company || !partner) return;
@@ -226,12 +238,26 @@ export default function DealerPartnerDetailPage({
           </Card>
 
           <div>
-            <h2 className="mb-2 text-sm font-semibold">
-              Active Stock{" "}
-              <span className="text-muted-foreground">
-                ({active?.length ?? "…"})
-              </span>
-            </h2>
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                Active Stock{" "}
+                <span className="text-muted-foreground">
+                  ({active?.length ?? "…"})
+                </span>
+              </h2>
+              <div className="flex items-center gap-2">
+                <DataGridColumnsButton
+                  columns={stockCols}
+                  hiddenKeys={hiddenKeys}
+                  onChange={setHiddenKeys}
+                  lockedKeys={lockedKeys}
+                />
+                <DataGridDensityToggle
+                  density={density}
+                  onChange={setDensity}
+                />
+              </div>
+            </div>
             {!active ? (
               <Skeleton className="h-40" />
             ) : active.length === 0 ? (
@@ -242,14 +268,14 @@ export default function DealerPartnerDetailPage({
               />
             ) : (
               <DataGridShell>
-                <DataGridTable cols={stockCols}>
-                  <DataGridHeaderRow cols={stockCols} />
+                <DataGridTable cols={visibleCols} density={density}>
+                  <DataGridHeaderRow cols={visibleCols} />
                   <tbody>
                     {active.map((v, i) => (
                       <DataGridRow
                         key={v.id}
                         row={v}
-                        cols={stockCols}
+                        cols={visibleCols}
                         index={i}
                       />
                     ))}
@@ -285,14 +311,14 @@ export default function DealerPartnerDetailPage({
               ) : (
                 <div className="mt-2">
                   <DataGridShell>
-                    <DataGridTable cols={stockCols}>
-                      <DataGridHeaderRow cols={stockCols} />
+                    <DataGridTable cols={visibleCols} density={density}>
+                      <DataGridHeaderRow cols={visibleCols} />
                       <tbody>
                         {historical.map((v, i) => (
                           <DataGridRow
                             key={v.id}
                             row={v}
-                            cols={stockCols}
+                            cols={visibleCols}
                             index={i}
                           />
                         ))}

@@ -46,12 +46,16 @@ import {
 } from "@/components/shared/week-calendar";
 import {
   type ColumnDef,
+  DataGridColumnsButton,
+  DataGridDensityToggle,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridSkeletonRows,
   DataGridTable,
   VehicleCell,
+  useColumnVisibility,
+  useDensity,
 } from "@/components/data-grid";
 import { formatDate, formatTime12 } from "@/lib/utils";
 import { toast } from "sonner";
@@ -224,6 +228,10 @@ export default function AppointmentsPage() {
     [],
   );
 
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
+  const lockedKeys = useMemo(() => new Set(["customerName"]), []);
+
   const events: WeekCalendarEvent[] = useMemo(() => {
     if (!appts) return [];
     return appts
@@ -394,10 +402,10 @@ export default function AppointmentsPage() {
       {!appts ? (
         // Row-aware skeleton — same shape as the list tab's table.
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
-              <DataGridSkeletonRows columns={cols} rows={6} />
+              <DataGridSkeletonRows columns={visibleCols} rows={6} />
             </tbody>
           </DataGridTable>
         </DataGridShell>
@@ -409,10 +417,21 @@ export default function AppointmentsPage() {
         />
       ) : (
         <Tabs defaultValue="calendar">
-          <TabsList>
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="list">List</TabsTrigger>
-          </TabsList>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <TabsList>
+              <TabsTrigger value="calendar">Calendar</TabsTrigger>
+              <TabsTrigger value="list">List</TabsTrigger>
+            </TabsList>
+            <div className="flex items-center gap-2">
+              <DataGridColumnsButton
+                columns={cols}
+                hiddenKeys={hiddenKeys}
+                onChange={setHiddenKeys}
+                lockedKeys={lockedKeys}
+              />
+              <DataGridDensityToggle density={density} onChange={setDensity} />
+            </div>
+          </div>
           <TabsContent value="calendar" className="mt-3">
             <Card className="overflow-hidden p-0" size="sm">
               <CalendarToolbar
@@ -459,14 +478,14 @@ export default function AppointmentsPage() {
           </TabsContent>
           <TabsContent value="list" className="mt-3">
             <DataGridShell>
-              <DataGridTable cols={cols}>
-                <DataGridHeaderRow cols={cols} />
+              <DataGridTable cols={visibleCols} density={density}>
+                <DataGridHeaderRow cols={visibleCols} />
                 <tbody>
                   {(apptRows ?? []).map((a, i) => (
                     <DataGridRow
                       key={a.id}
                       row={a}
-                      cols={cols}
+                      cols={visibleCols}
                       index={i}
                       onClick={(row) => setDrill(row)}
                     />

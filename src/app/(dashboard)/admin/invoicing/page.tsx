@@ -52,12 +52,16 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   type ColumnDef,
+  DataGridColumnsButton,
+  DataGridDensityToggle,
   DataGridFooterRow,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridSkeletonRows,
   DataGridTable,
+  useColumnVisibility,
+  useDensity,
 } from "@/components/data-grid";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
@@ -276,6 +280,10 @@ export default function InvoicingPage() {
     [can, refundedSaleIds],
   );
 
+  const { density, setDensity } = useDensity();
+  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
+  const lockedKeys = useMemo(() => new Set(["invoiceNumber"]), []);
+
   async function handleSendEmail() {
     if (!emailing || !user) return;
     await invoiceService.updateStatus(emailing.id, "sent", user.id);
@@ -452,14 +460,25 @@ export default function InvoicingPage() {
         </Dialog>
       </div>
 
-      <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
-        <TabsList>
-          <TabsTrigger value="all">All</TabsTrigger>
-          <TabsTrigger value="purchase">Purchase</TabsTrigger>
-          <TabsTrigger value="sale">Sales</TabsTrigger>
-          <TabsTrigger value="refund">Refunds / Cancellations</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
+          <TabsList>
+            <TabsTrigger value="all">All</TabsTrigger>
+            <TabsTrigger value="purchase">Purchase</TabsTrigger>
+            <TabsTrigger value="sale">Sales</TabsTrigger>
+            <TabsTrigger value="refund">Refunds / Cancellations</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex items-center gap-2">
+          <DataGridColumnsButton
+            columns={cols}
+            hiddenKeys={hiddenKeys}
+            onChange={setHiddenKeys}
+            lockedKeys={lockedKeys}
+          />
+          <DataGridDensityToggle density={density} onChange={setDensity} />
+        </div>
+      </div>
 
       {filter === "refund" && (
         <Card className="flex flex-wrap gap-6 p-4 text-sm">
@@ -494,10 +513,10 @@ export default function InvoicingPage() {
         // Row-aware skeleton — matches the table's column structure
         // so the layout doesn't shift when invoices load in.
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
-              <DataGridSkeletonRows columns={cols} rows={6} />
+              <DataGridSkeletonRows columns={visibleCols} rows={6} />
             </tbody>
           </DataGridTable>
         </DataGridShell>
@@ -509,21 +528,21 @@ export default function InvoicingPage() {
         />
       ) : (
         <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+          <DataGridTable cols={visibleCols} density={density}>
+            <DataGridHeaderRow cols={visibleCols} />
             <tbody>
               {filtered.map((row, i) => (
                 <DataGridRow
                   key={row.id}
                   row={row}
-                  cols={cols}
+                  cols={visibleCols}
                   index={i}
                   onClick={(r) => setViewing(r)}
                 />
               ))}
               <DataGridFooterRow
                 label="Upload invoice"
-                span={cols.length}
+                span={visibleCols.length}
                 onClick={() => setUploadOpen(true)}
               />
             </tbody>
