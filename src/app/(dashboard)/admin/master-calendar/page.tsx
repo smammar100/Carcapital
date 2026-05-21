@@ -14,14 +14,15 @@ import type {
   Vehicle,
   WorkshopJob,
 } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
   CalendarFilterChip,
   CalendarToolbar,
+  TONE_CLASSES,
   type CalendarViewMode,
+  type EventDraft,
   type WeekCalendarEvent,
 } from "@/components/shared/week-calendar";
 import { AddEventSheet } from "@/components/shared/add-event-sheet";
@@ -30,12 +31,30 @@ import {
   type EventPreviewRow,
 } from "@/components/shared/event-preview-dialog";
 import { EventEditDialog } from "@/components/shared/event-edit-dialog";
-import { formatDate, formatTime12 } from "@/lib/utils";
+import { cn, formatDate, formatTime12 } from "@/lib/utils";
+import { notify } from "@/lib/toast";
 
 type EditTarget =
   | { kind: "appointment"; entity: Appointment }
   | { kind: "workshop"; entity: WorkshopJob }
   | { kind: "maintenance"; entity: MaintenanceJob };
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+/** Build a create-draft from a clicked / dragged calendar slot. */
+function draftFromSlot(start: Date, end: Date, allDay: boolean): EventDraft {
+  return {
+    kind: "appointment",
+    title: "",
+    date: isoDate(start),
+    fromTime: hhmm(start),
+    toTime: hhmm(end),
+    allDay,
+  };
+}
 
 export default function MasterCalendarPage() {
   const { company, user } = useAuth();
@@ -55,6 +74,7 @@ export default function MasterCalendarPage() {
     return d;
   });
   const [addOpen, setAddOpen] = useState(false);
+  const [sheetDraft, setSheetDraft] = useState<EventDraft | null>(null);
   const [preview, setPreview] = useState<WeekCalendarEvent | null>(null);
   const [editing, setEditing] = useState<EditTarget | null>(null);
 
@@ -136,6 +156,7 @@ export default function MasterCalendarPage() {
           href: v ? `/vehicles/${v.id}` : "/maintenance",
           vehicleId: v?.id,
           vehicleRegistration: v?.registration,
+          allDay: true,
         });
       }
     }
@@ -144,6 +165,72 @@ export default function MasterCalendarPage() {
 
   const handleSelectEvent = (e: WeekCalendarEvent) => {
     setPreview(e);
+  };
+
+  const handleSlotSelect = (start: Date, end: Date, allDay: boolean) => {
+    setSheetDraft(draftFromSlot(start, end, allDay));
+    setAddOpen(true);
+  };
+
+  // Drag-to-move → reschedule. Optimistically update local state, persist,
+  // then refetch so the cache + UI reconcile (server truth reverts failures).
+  const handleEventMove = async (
+    event: WeekCalendarEvent,
+    newStart: Date,
+  ) => {
+    if (!user) return;
+    const id = event.id;
+    try {
+      if (id.startsWith("appt-")) {
+        const realId = id.slice("appt-".length);
+        setAppts((prev) =>
+          prev.map((a) =>
+            a.id === realId
+              ? { ...a, date: isoDate(newStart), time: hhmm(newStart) }
+              : a,
+          ),
+        );
+        await appointmentService.update(
+          realId,
+          { date: isoDate(newStart), time: hhmm(newStart) },
+          user.id,
+        );
+      } else if (id.startsWith("ws-")) {
+        const realId = id.slice("ws-".length);
+        setShop((prev) =>
+          prev.map((j) =>
+            j.id === realId
+              ? {
+                  ...j,
+                  scheduledDate: isoDate(newStart),
+                  scheduledTime: hhmm(newStart),
+                }
+              : j,
+          ),
+        );
+        await workshopService.update(realId, {
+          scheduledDate: isoDate(newStart),
+          scheduledTime: hhmm(newStart),
+        });
+      } else if (id.startsWith("maint-")) {
+        const realId = id.slice("maint-".length);
+        setMaint((prev) =>
+          prev.map((j) =>
+            j.id === realId ? { ...j, dueDate: isoDate(newStart) } : j,
+          ),
+        );
+        await maintenanceService.update(
+          realId,
+          { dueDate: isoDate(newStart) },
+          user.id,
+        );
+      }
+      notify.success("Rescheduled");
+    } catch (e) {
+      notify.error(e instanceof Error ? e.message : "Could not reschedule");
+    } finally {
+      void reloadAll();
+    }
   };
 
   // Resolve a calendar event back to its underlying entity by id-prefix
@@ -172,7 +259,7 @@ export default function MasterCalendarPage() {
       }
       return {
         toneLabel: "Appointment",
-        toneClass: "bg-[rgba(14,165,233,0.12)] text-[#0369a1]",
+        toneClass: cn(TONE_CLASSES.blue.surface, TONE_CLASSES.blue.text),
         title: a.customerName,
         rows,
         editTarget: { kind: "appointment", entity: a } as EditTarget,
@@ -195,7 +282,7 @@ export default function MasterCalendarPage() {
       if (j.notes) rows.push({ label: "Notes", value: j.notes });
       return {
         toneLabel: "Workshop",
-        toneClass: "bg-[rgba(245,158,11,0.15)] text-[#92400e]",
+        toneClass: cn(TONE_CLASSES.amber.surface, TONE_CLASSES.amber.text),
         title: j.customerName,
         rows,
         editTarget: { kind: "workshop", entity: j } as EditTarget,
@@ -224,7 +311,7 @@ export default function MasterCalendarPage() {
       if (j.notes) rows.push({ label: "Notes", value: j.notes });
       return {
         toneLabel: "Maintenance",
-        toneClass: "bg-[rgba(168,85,247,0.15)] text-[#6b21a8]",
+        toneClass: cn(TONE_CLASSES.purple.surface, TONE_CLASSES.purple.text),
         title: j.description,
         rows,
         editTarget: { kind: "maintenance", entity: j } as EditTarget,
@@ -246,7 +333,7 @@ export default function MasterCalendarPage() {
         </p>
       </div>
 
-      <Card className="overflow-hidden p-0" size="sm">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <CalendarToolbar
           view={view}
           onViewChange={setView}
@@ -258,19 +345,19 @@ export default function MasterCalendarPage() {
                 checked={showAppt}
                 onChange={setShowAppt}
                 label="Appointments"
-                dotClass="bg-[#0ea5e9]"
+                tone="blue"
               />
               <CalendarFilterChip
                 checked={showShop}
                 onChange={setShowShop}
                 label="Workshop"
-                dotClass="bg-[#f59e0b]"
+                tone="amber"
               />
               <CalendarFilterChip
                 checked={showMaint}
                 onChange={setShowMaint}
                 label="Maintenance"
-                dotClass="bg-[#a855f7]"
+                tone="purple"
               />
               <button
                 type="button"
@@ -282,7 +369,10 @@ export default function MasterCalendarPage() {
               <Button
                 size="sm"
                 className="gap-1"
-                onClick={() => setAddOpen(true)}
+                onClick={() => {
+                  setSheetDraft(null);
+                  setAddOpen(true);
+                }}
               >
                 <Plus className="size-4" />
                 Add Event
@@ -300,14 +390,16 @@ export default function MasterCalendarPage() {
             currentDate={currentDate}
             onCurrentDateChange={setCurrentDate}
             onSelectEvent={handleSelectEvent}
+            onSlotSelect={handleSlotSelect}
+            onEventMove={handleEventMove}
           />
         )}
-      </Card>
+      </div>
 
       <AddEventSheet
         open={addOpen}
         onOpenChange={setAddOpen}
-        defaultDate={currentDate}
+        defaultDraft={sheetDraft}
         onCreated={() => void reloadAll()}
       />
 

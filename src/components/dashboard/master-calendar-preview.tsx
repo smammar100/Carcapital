@@ -60,10 +60,25 @@ function dayNumber(iso: string): string {
   return iso.slice(8, 10);
 }
 
-const KIND_STYLES: Record<EventKind, { dot: string; label: string; icon: typeof CalendarCheck }> = {
-  appointment: { dot: "bg-sky-500", label: "Appointment", icon: CalendarCheck },
-  workshop: { dot: "bg-amber-500", label: "Workshop", icon: Hammer },
-  maintenance: { dot: "bg-violet-500", label: "Maintenance", icon: Wrench },
+const KIND_STYLES: Record<
+  EventKind,
+  { dot: string; label: string; icon: typeof CalendarCheck }
+> = {
+  appointment: {
+    dot: "bg-[var(--cal-blue-bar)]",
+    label: "Appointment",
+    icon: CalendarCheck,
+  },
+  workshop: {
+    dot: "bg-[var(--cal-amber-bar)]",
+    label: "Workshop",
+    icon: Hammer,
+  },
+  maintenance: {
+    dot: "bg-[var(--cal-purple-bar)]",
+    label: "Maintenance",
+    icon: Wrench,
+  },
 };
 
 export function MasterCalendarPreview() {

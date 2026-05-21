@@ -1,49 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarCheck, Pencil, Plus, Search } from "lucide-react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { CalendarCheck, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import type {
-  Appointment,
-  AppointmentOutcome,
-  Vehicle,
-} from "@/lib/types";
-import { Card } from "@/components/ui/card";
+import type { Appointment, AppointmentOutcome, Vehicle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   Calendar,
   CalendarFilterChip,
   CalendarToolbar,
+  TONE_CLASSES,
   type CalendarTone,
   type CalendarViewMode,
+  type EventDraft,
   type WeekCalendarEvent,
 } from "@/components/shared/week-calendar";
+import { AddEventSheet } from "@/components/shared/add-event-sheet";
+import {
+  EventPreviewDialog,
+  type EventPreviewRow,
+} from "@/components/shared/event-preview-dialog";
+import { EventEditDialog } from "@/components/shared/event-edit-dialog";
 import {
   type ColumnDef,
   DataGridColumnsButton,
@@ -57,8 +39,8 @@ import {
   useColumnVisibility,
   useDensity,
 } from "@/components/data-grid";
-import { formatDate, formatTime12 } from "@/lib/utils";
-import { toast } from "sonner";
+import { cn, formatDate, formatTime12 } from "@/lib/utils";
+import { notify } from "@/lib/toast";
 
 interface ApptRow extends Appointment {
   vehicle: Vehicle | null;
@@ -71,31 +53,12 @@ const STATUS_TONE: Record<string, CalendarTone> = {
   no_show: "rose",
 };
 
-const STATUS_DOT: Record<string, string> = {
-  upcoming: "bg-[#0ea5e9]",
-  completed: "bg-[#10b981]",
-  cancelled: "bg-[#64748b]",
-  no_show: "bg-[#f43f5e]",
-};
-
 const STATUS_LABEL: Record<string, string> = {
   upcoming: "Upcoming",
   completed: "Completed",
   cancelled: "Cancelled",
   no_show: "No-show",
 };
-
-const schema = z.object({
-  vehicleId: z.string().min(1),
-  customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
-  customerEmail: z.string().min(1),
-  date: z.string().min(1),
-  time: z.string().min(1),
-  specialRequirements: z.string().optional(),
-});
-type FormInput = z.input<typeof schema>;
-type FormOutput = z.output<typeof schema>;
 
 const OUTCOMES: AppointmentOutcome[] = [
   "pending",
@@ -106,14 +69,16 @@ const OUTCOMES: AppointmentOutcome[] = [
   "lost",
 ];
 
+const pad = (n: number) => String(n).padStart(2, "0");
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
 export default function AppointmentsPage() {
   const { user, company } = useAuth();
   const router = useRouter();
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [open, setOpen] = useState(false);
-  const [drill, setDrill] = useState<Appointment | null>(null);
-  const [editing, setEditing] = useState(false);
   const [view, setView] = useState<CalendarViewMode>("weekly");
   const [statusFilters, setStatusFilters] = useState<Record<string, boolean>>({
     upcoming: true,
@@ -126,46 +91,10 @@ export default function AppointmentsPage() {
     d.setHours(0, 0, 0, 0);
     return d;
   });
-
-  const form = useForm<FormInput, unknown, FormOutput>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      vehicleId: "",
-      customerName: "",
-      customerPhone: "",
-      customerEmail: "",
-      date: new Date().toISOString().slice(0, 10),
-      time: "10:00",
-      specialRequirements: "",
-    },
-  });
-
-  const editForm = useForm<FormInput, unknown, FormOutput>({
-    resolver: zodResolver(schema),
-    defaultValues: {
-      vehicleId: "",
-      customerName: "",
-      customerPhone: "",
-      customerEmail: "",
-      date: "",
-      time: "",
-      specialRequirements: "",
-    },
-  });
-
-  useEffect(() => {
-    if (drill && editing) {
-      editForm.reset({
-        vehicleId: drill.vehicleId,
-        customerName: drill.customerName,
-        customerPhone: drill.customerPhone,
-        customerEmail: drill.customerEmail,
-        date: drill.date,
-        time: drill.time,
-        specialRequirements: drill.specialRequirements ?? "",
-      });
-    }
-  }, [drill, editing, editForm]);
+  const [addOpen, setAddOpen] = useState(false);
+  const [sheetDraft, setSheetDraft] = useState<EventDraft | null>(null);
+  const [preview, setPreview] = useState<Appointment | null>(null);
+  const [editing, setEditing] = useState<Appointment | null>(null);
 
   useEffect(() => {
     if (!company) return;
@@ -177,6 +106,11 @@ export default function AppointmentsPage() {
       setVehicles(v);
     });
   }, [company]);
+
+  const reload = async () => {
+    if (!company) return;
+    setAppts(await appointmentService.getAll(company.id));
+  };
 
   const apptRows = useMemo<ApptRow[] | null>(() => {
     if (!appts) return null;
@@ -212,12 +146,7 @@ export default function AppointmentsPage() {
         width: 200,
         render: (a) => <VehicleCell vehicle={a.vehicle} />,
       },
-      {
-        key: "status",
-        label: "Status",
-        type: "appointmentStatus",
-        width: 130,
-      },
+      { key: "status", label: "Status", type: "appointmentStatus", width: 130 },
       {
         key: "outcome",
         label: "Outcome",
@@ -255,54 +184,79 @@ export default function AppointmentsPage() {
       });
   }, [appts, vehicles, statusFilters]);
 
-  async function onSubmit(values: FormOutput) {
-    if (!user || !company) return;
-    await appointmentService.create({
-      companyId: company.id,
-      vehicleId: values.vehicleId,
-      leadId: null,
-      customerName: values.customerName,
-      customerPhone: values.customerPhone,
-      customerEmail: values.customerEmail,
-      date: values.date,
-      time: values.time,
-      specialRequirements: values.specialRequirements || null,
-      createdBy: user.id,
+  const handleSlotSelect = (start: Date, end: Date, allDay: boolean) => {
+    setSheetDraft({
+      kind: "appointment",
+      title: "",
+      date: isoDate(start),
+      fromTime: hhmm(start),
+      toTime: hhmm(end),
+      allDay,
     });
-    setAppts(await appointmentService.getAll(company.id));
-    toast.success("Booked — WhatsApp ✓ Email ✓");
-    setOpen(false);
-    form.reset();
-  }
+    setAddOpen(true);
+  };
+
+  // Drag-to-move → reschedule. Optimistic, persist, refetch to reconcile.
+  const handleEventMove = async (event: WeekCalendarEvent, newStart: Date) => {
+    if (!user) return;
+    setAppts((prev) =>
+      prev
+        ? prev.map((a) =>
+            a.id === event.id
+              ? { ...a, date: isoDate(newStart), time: hhmm(newStart) }
+              : a,
+          )
+        : prev,
+    );
+    try {
+      await appointmentService.update(
+        event.id,
+        { date: isoDate(newStart), time: hhmm(newStart) },
+        user.id,
+      );
+      notify.success("Rescheduled");
+    } catch (e) {
+      notify.error(e instanceof Error ? e.message : "Could not reschedule");
+    } finally {
+      void reload();
+    }
+  };
 
   async function handleOutcome(id: string, outcome: AppointmentOutcome) {
-    if (!user || !company) return;
-    await appointmentService.setOutcome(id, outcome, user.id);
-    setAppts(await appointmentService.getAll(company.id));
-    setDrill(null);
-    toast.success(`Outcome: ${outcome.replace("_", " ")}`);
+    if (!user) return;
+    try {
+      await appointmentService.setOutcome(id, outcome, user.id);
+      await reload();
+      setPreview(null);
+      notify.success(`Outcome: ${outcome.replace("_", " ")}`);
+    } catch (e) {
+      notify.error(e instanceof Error ? e.message : "Could not set outcome");
+    }
   }
 
-  async function handleEdit(values: FormOutput) {
-    if (!user || !company || !drill) return;
-    const updated = await appointmentService.update(
-      drill.id,
-      {
-        vehicleId: values.vehicleId,
-        customerName: values.customerName,
-        customerPhone: values.customerPhone,
-        customerEmail: values.customerEmail,
-        date: values.date,
-        time: values.time,
-        specialRequirements: values.specialRequirements || null,
-      },
-      user.id,
-    );
-    setAppts(await appointmentService.getAll(company.id));
-    setDrill(updated);
-    setEditing(false);
-    toast.success("Appointment updated");
-  }
+  const previewVehicle = preview
+    ? vehicles.find((v) => v.id === preview.vehicleId)
+    : undefined;
+
+  const previewRows: EventPreviewRow[] = preview
+    ? [
+        {
+          label: "When",
+          value: `${formatDate(preview.date)} · ${formatTime12(preview.time)}`,
+        },
+        {
+          label: "Vehicle",
+          value: previewVehicle
+            ? `${previewVehicle.registration} — ${previewVehicle.make} ${previewVehicle.model}`
+            : "—",
+        },
+        { label: "Phone", value: preview.customerPhone || "—" },
+        { label: "Email", value: preview.customerEmail || "—" },
+        ...(preview.specialRequirements
+          ? [{ label: "Notes", value: preview.specialRequirements }]
+          : []),
+      ]
+    : [];
 
   return (
     <div className="flex flex-col gap-4">
@@ -313,94 +267,18 @@ export default function AppointmentsPage() {
             Customer test drives and viewings.
           </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-1.5 h-4 w-4" />
-              Book Appointment
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Book Appointment</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="grid gap-3"
-            >
-              <div>
-                <Label>Vehicle</Label>
-                <Select
-                  value={form.watch("vehicleId")}
-                  onValueChange={(v) => form.setValue("vehicleId", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pick a listed / ready vehicle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {vehicles
-                      .filter(
-                        (v) =>
-                          v.status === "listed" ||
-                          v.status === "ready" ||
-                          v.status === "reserved",
-                      )
-                      .map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.registration} — {v.make} {v.model}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Customer name</Label>
-                  <Input {...form.register("customerName")} />
-                </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input {...form.register("customerPhone")} />
-                </div>
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input type="email" {...form.register("customerEmail")} />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Date</Label>
-                  <Input type="date" {...form.register("date")} />
-                </div>
-                <div>
-                  <Label>Time</Label>
-                  <Input type="time" {...form.register("time")} />
-                </div>
-              </div>
-              <div>
-                <Label>Special requirements</Label>
-                <Input {...form.register("specialRequirements")} />
-              </div>
-              <p className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                On book: WhatsApp ✓ Email ✓ (mocked)
-              </p>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button type="submit">Book</Button>
-              </DialogFooter>
-            </form>
-          </DialogContent>
-        </Dialog>
+        <Button
+          onClick={() => {
+            setSheetDraft(null);
+            setAddOpen(true);
+          }}
+        >
+          <Plus className="mr-1.5 h-4 w-4" />
+          Book Appointment
+        </Button>
       </div>
 
       {!appts ? (
-        // Row-aware skeleton — same shape as the list tab's table.
         <DataGridShell>
           <DataGridTable cols={visibleCols} density={density}>
             <DataGridHeaderRow cols={visibleCols} />
@@ -433,36 +311,25 @@ export default function AppointmentsPage() {
             </div>
           </div>
           <TabsContent value="calendar" className="mt-3">
-            <Card className="overflow-hidden p-0" size="sm">
+            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
               <CalendarToolbar
                 view={view}
                 onViewChange={setView}
                 currentDate={currentDate}
                 onCurrentDateChange={setCurrentDate}
-                rightSlot={
-                  <>
-                    {(
-                      Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>
-                    ).map((s) => (
-                      <CalendarFilterChip
-                        key={s}
-                        checked={!!statusFilters[s]}
-                        onChange={(c) =>
-                          setStatusFilters((f) => ({ ...f, [s]: c }))
-                        }
-                        label={STATUS_LABEL[s]}
-                        dotClass={STATUS_DOT[s]}
-                      />
-                    ))}
-                    <button
-                      type="button"
-                      aria-label="Search appointments"
-                      className="flex size-8 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted"
-                    >
-                      <Search className="size-4" />
-                    </button>
-                  </>
-                }
+                rightSlot={(
+                  Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>
+                ).map((s) => (
+                  <CalendarFilterChip
+                    key={s}
+                    checked={!!statusFilters[s]}
+                    onChange={(c) =>
+                      setStatusFilters((f) => ({ ...f, [s]: c }))
+                    }
+                    label={STATUS_LABEL[s]}
+                    tone={STATUS_TONE[s]}
+                  />
+                ))}
               />
               <Calendar
                 view={view}
@@ -471,10 +338,12 @@ export default function AppointmentsPage() {
                 onCurrentDateChange={setCurrentDate}
                 onSelectEvent={(e) => {
                   const a = appts.find((x) => x.id === e.id);
-                  if (a) setDrill(a);
+                  if (a) setPreview(a);
                 }}
+                onSlotSelect={handleSlotSelect}
+                onEventMove={handleEventMove}
               />
-            </Card>
+            </div>
           </TabsContent>
           <TabsContent value="list" className="mt-3">
             <DataGridShell>
@@ -487,7 +356,7 @@ export default function AppointmentsPage() {
                       row={a}
                       cols={visibleCols}
                       index={i}
-                      onClick={(row) => setDrill(row)}
+                      onClick={(row) => setPreview(row)}
                     />
                   ))}
                 </tbody>
@@ -497,168 +366,69 @@ export default function AppointmentsPage() {
         </Tabs>
       )}
 
-      <Dialog
-        open={drill !== null}
-        onOpenChange={(o) => {
-          if (!o) {
-            setDrill(null);
-            setEditing(false);
-          }
-        }}
-      >
-        <DialogContent className="max-w-md">
-          {drill && !editing && (
-            <>
-              <DialogHeader>
-                <div className="flex items-start gap-3 pr-10">
-                  <DialogTitle className="flex-1 truncate">
-                    {drill.customerName}
-                  </DialogTitle>
+      {preview ? (
+        <EventPreviewDialog
+          open={preview !== null}
+          onOpenChange={(o) => !o && setPreview(null)}
+          title={preview.customerName}
+          toneLabel={STATUS_LABEL[preview.status]}
+          toneClass={cn(
+            TONE_CLASSES[STATUS_TONE[preview.status] ?? "slate"].surface,
+            TONE_CLASSES[STATUS_TONE[preview.status] ?? "slate"].text,
+          )}
+          rows={previewRows}
+          bodySlot={
+            <div>
+              <p className="text-sm font-medium text-foreground">
+                Set outcome
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {OUTCOMES.map((o) => (
                   <Button
+                    key={o}
                     type="button"
                     size="sm"
-                    variant="outline"
-                    className="h-8 shrink-0 gap-1"
-                    onClick={() => setEditing(true)}
+                    variant={o === preview.outcome ? "default" : "outline"}
+                    onClick={() => void handleOutcome(preview.id, o)}
                   >
-                    <Pencil className="h-3.5 w-3.5" />
-                    Edit
+                    {o.replace("_", " ")}
                   </Button>
-                </div>
-              </DialogHeader>
-              <div className="grid gap-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">When: </span>
-                  {formatDate(drill.date)} · {formatTime12(drill.time)}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Vehicle: </span>
-                  {vehicles.find((v) => v.id === drill.vehicleId)
-                    ?.registration ?? "—"}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Phone: </span>
-                  {drill.customerPhone}
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Email: </span>
-                  {drill.customerEmail}
-                </div>
-                {drill.specialRequirements && (
-                  <div>
-                    <span className="text-muted-foreground">Notes: </span>
-                    {drill.specialRequirements}
-                  </div>
-                )}
-                <div className="text-xs text-muted-foreground">
-                  WhatsApp {drill.notificationsSent.whatsapp ? "✓" : "✗"} ·
-                  Email {drill.notificationsSent.email ? "✓" : "✗"}
-                </div>
+                ))}
               </div>
-              <div>
-                <Label>Set outcome</Label>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {OUTCOMES.map((o) => (
-                    <Button
-                      key={o}
-                      type="button"
-                      size="sm"
-                      variant={o === drill.outcome ? "default" : "outline"}
-                      onClick={() => void handleOutcome(drill.id, o)}
-                    >
-                      {o.replace("_", " ")}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    const id = drill.vehicleId;
-                    setDrill(null);
-                    router.push(`/vehicles/${id}`);
-                  }}
-                >
-                  View Vehicle
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-          {drill && editing && (
-            <>
-              <DialogHeader>
-                <DialogTitle>Edit Appointment</DialogTitle>
-              </DialogHeader>
-              <form
-                onSubmit={editForm.handleSubmit(handleEdit)}
-                className="grid gap-3"
-              >
-                <div>
-                  <Label>Vehicle</Label>
-                  <Select
-                    value={editForm.watch("vehicleId")}
-                    onValueChange={(v) => editForm.setValue("vehicleId", v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pick a vehicle" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {vehicles.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.registration} — {v.make} {v.model}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label>Customer name</Label>
-                    <Input {...editForm.register("customerName")} />
-                  </div>
-                  <div>
-                    <Label>Phone</Label>
-                    <Input {...editForm.register("customerPhone")} />
-                  </div>
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    {...editForm.register("customerEmail")}
-                  />
-                </div>
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div>
-                    <Label>Date</Label>
-                    <Input type="date" {...editForm.register("date")} />
-                  </div>
-                  <div>
-                    <Label>Time</Label>
-                    <Input type="time" {...editForm.register("time")} />
-                  </div>
-                </div>
-                <div>
-                  <Label>Special requirements</Label>
-                  <Input {...editForm.register("specialRequirements")} />
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button type="submit">Save</Button>
-                </DialogFooter>
-              </form>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+            </div>
+          }
+          onEdit={() => {
+            setEditing(preview);
+            setPreview(null);
+          }}
+          ctaLabel="View Vehicle"
+          onCta={() => {
+            const id = preview.vehicleId;
+            setPreview(null);
+            router.push(`/vehicles/${id}`);
+          }}
+        />
+      ) : null}
+
+      {editing && user ? (
+        <EventEditDialog
+          kind="appointment"
+          entity={editing}
+          open={editing !== null}
+          onOpenChange={(o) => !o && setEditing(null)}
+          vehicles={vehicles}
+          userId={user.id}
+          onSaved={() => void reload()}
+        />
+      ) : null}
+
+      <AddEventSheet
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        defaultDraft={sheetDraft}
+        lockKind="appointment"
+        onCreated={() => void reload()}
+      />
     </div>
   );
 }
-

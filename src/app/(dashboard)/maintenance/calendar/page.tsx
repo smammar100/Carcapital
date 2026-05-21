@@ -8,15 +8,16 @@ import { useAuth } from "@/contexts/auth-context";
 import { maintenanceService } from "@/lib/services/maintenance-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import type { MaintenanceJob, Vehicle } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import {
   Calendar,
   CalendarFilterChip,
   CalendarToolbar,
+  TONE_CLASSES,
   type CalendarTone,
   type CalendarViewMode,
+  type EventDraft,
   type WeekCalendarEvent,
 } from "@/components/shared/week-calendar";
 import {
@@ -24,20 +25,19 @@ import {
   type EventPreviewRow,
 } from "@/components/shared/event-preview-dialog";
 import { EventEditDialog } from "@/components/shared/event-edit-dialog";
+import { AddEventSheet } from "@/components/shared/add-event-sheet";
 import { cn, formatDate } from "@/lib/utils";
+import { notify } from "@/lib/toast";
+
+const pad = (n: number) => String(n).padStart(2, "0");
+const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
 const STATUS_TONE: Record<string, CalendarTone> = {
   pending: "amber",
   in_progress: "blue",
   completed: "emerald",
   stalled: "rose",
-};
-
-const STATUS_DOT: Record<string, string> = {
-  pending: "bg-[#f59e0b]",
-  in_progress: "bg-[#0ea5e9]",
-  completed: "bg-[#10b981]",
-  stalled: "bg-[#f43f5e]",
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -53,6 +53,8 @@ export default function MaintenanceCalendarPage() {
   const [jobs, setJobs] = useState<MaintenanceJob[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [editing, setEditing] = useState<MaintenanceJob | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [sheetDraft, setSheetDraft] = useState<EventDraft | null>(null);
 
   const reload = async () => {
     if (!company) return;
@@ -102,6 +104,7 @@ export default function MaintenanceCalendarPage() {
           href: v ? `/vehicles/${v.id}` : undefined,
           vehicleId: v?.id,
           vehicleRegistration: v?.registration,
+          allDay: true,
         } satisfies WeekCalendarEvent;
       });
   }, [jobs, vehicles, filters]);
@@ -110,6 +113,42 @@ export default function MaintenanceCalendarPage() {
 
   const handleSelectEvent = (e: WeekCalendarEvent) => {
     setPreview(e);
+  };
+
+  const handleSlotSelect = (start: Date, end: Date, allDay: boolean) => {
+    setSheetDraft({
+      kind: "maintenance",
+      title: "",
+      date: isoDate(start),
+      fromTime: `${pad(start.getHours())}:${pad(start.getMinutes())}`,
+      toTime: `${pad(end.getHours())}:${pad(end.getMinutes())}`,
+      allDay,
+    });
+    setAddOpen(true);
+  };
+
+  // Drag-to-move a maintenance job → change its due date (date-only).
+  const handleEventMove = async (event: WeekCalendarEvent, newStart: Date) => {
+    if (!user) return;
+    setJobs((prev) =>
+      prev
+        ? prev.map((j) =>
+            j.id === event.id ? { ...j, dueDate: isoDate(newStart) } : j,
+          )
+        : prev,
+    );
+    try {
+      await maintenanceService.update(
+        event.id,
+        { dueDate: isoDate(newStart) },
+        user.id,
+      );
+      notify.success("Rescheduled");
+    } catch (e) {
+      notify.error(e instanceof Error ? e.message : "Could not reschedule");
+    } finally {
+      void reload();
+    }
   };
 
   const previewMeta = useMemo(() => {
@@ -132,13 +171,11 @@ export default function MaintenanceCalendarPage() {
       },
     ];
     if (job.notes) rows.push({ label: "Notes", value: job.notes });
+    const tone = STATUS_TONE[job.status] ?? "slate";
     return {
       title: job.description,
       toneLabel: STATUS_LABEL[job.status],
-      toneClass: cn(
-        "text-white",
-        STATUS_DOT[job.status],
-      ),
+      toneClass: cn(TONE_CLASSES[tone].surface, TONE_CLASSES[tone].text),
       rows,
       vehicleHref: v ? `/vehicles/${v.id}` : null,
     };
@@ -160,7 +197,7 @@ export default function MaintenanceCalendarPage() {
         </Button>
       </div>
 
-      <Card className="overflow-hidden p-0" size="sm">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <CalendarToolbar
           view={view}
           onViewChange={setView}
@@ -177,7 +214,7 @@ export default function MaintenanceCalendarPage() {
                       setFilters((f) => ({ ...f, [status]: checked }))
                     }
                     label={STATUS_LABEL[status]}
-                    dotClass={STATUS_DOT[status]}
+                    tone={STATUS_TONE[status] ?? "slate"}
                   />
                 ),
               )}
@@ -188,7 +225,14 @@ export default function MaintenanceCalendarPage() {
               >
                 <Search className="size-4" />
               </button>
-              <Button size="sm" className="gap-1">
+              <Button
+                size="sm"
+                className="gap-1"
+                onClick={() => {
+                  setSheetDraft(null);
+                  setAddOpen(true);
+                }}
+              >
                 <Plus className="size-4" />
                 Add Job
               </Button>
@@ -205,9 +249,11 @@ export default function MaintenanceCalendarPage() {
             currentDate={currentDate}
             onCurrentDateChange={setCurrentDate}
             onSelectEvent={handleSelectEvent}
+            onSlotSelect={handleSlotSelect}
+            onEventMove={handleEventMove}
           />
         )}
-      </Card>
+      </div>
 
       {previewMeta ? (
         <EventPreviewDialog
@@ -242,6 +288,14 @@ export default function MaintenanceCalendarPage() {
           onSaved={() => void reload()}
         />
       ) : null}
+
+      <AddEventSheet
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        defaultDraft={sheetDraft}
+        lockKind="maintenance"
+        onCreated={() => void reload()}
+      />
     </div>
   );
 }

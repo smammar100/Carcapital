@@ -48,37 +48,40 @@ interface CalendarEvent {
   tone: Tone;
 }
 
+// Maps the widget's 4 tones onto the shared calendar tone tokens
+// (calendar/tone.ts) so the dashboard mini-calendar matches the full calendar
+// and adapts to dark mode.
 const TONE_STYLES: Record<
   Tone,
   { card: string; bar: string; title: string; time: string; dot: string }
 > = {
   yellow: {
-    card: "bg-[#fef7ec]",
-    bar: "bg-[#f4b855]",
-    title: "text-[#73531e]",
-    time: "text-[#b79e70]",
-    dot: "bg-[#f4b855]",
+    card: "bg-[var(--cal-amber-surface)]",
+    bar: "bg-[var(--cal-amber-bar)]",
+    title: "text-[var(--cal-amber-text)]",
+    time: "text-muted-foreground",
+    dot: "bg-[var(--cal-amber-bar)]",
   },
   green: {
-    card: "bg-[#e9f8e0]",
-    bar: "bg-[#82d754]",
-    title: "text-[#2d6a1b]",
-    time: "text-[#89b96c]",
-    dot: "bg-[#82d754]",
+    card: "bg-[var(--cal-emerald-surface)]",
+    bar: "bg-[var(--cal-emerald-bar)]",
+    title: "text-[var(--cal-emerald-text)]",
+    time: "text-muted-foreground",
+    dot: "bg-[var(--cal-emerald-bar)]",
   },
   blue: {
-    card: "bg-[#eff8fe]",
-    bar: "bg-[#4fa7f5]",
-    title: "text-[#173650]",
-    time: "text-[#6c9db9]",
-    dot: "bg-[#4fa7f5]",
+    card: "bg-[var(--cal-blue-surface)]",
+    bar: "bg-[var(--cal-blue-bar)]",
+    title: "text-[var(--cal-blue-text)]",
+    time: "text-muted-foreground",
+    dot: "bg-[var(--cal-blue-bar)]",
   },
   red: {
-    card: "bg-[#fceff2]",
-    bar: "bg-[#eb445a]",
-    title: "text-[#75140c]",
-    time: "text-[#975c66]",
-    dot: "bg-[#eb445a]",
+    card: "bg-[var(--cal-rose-surface)]",
+    bar: "bg-[var(--cal-rose-bar)]",
+    title: "text-[var(--cal-rose-text)]",
+    time: "text-muted-foreground",
+    dot: "bg-[var(--cal-rose-bar)]",
   },
 };
 
@@ -280,7 +283,7 @@ function DaySection({
           <span
             className={cn(
               "font-bold leading-5 tracking-wide",
-              isToday ? "text-[#3b82f6]" : "text-muted-foreground",
+              isToday ? "text-[var(--cal-blue-text)]" : "text-muted-foreground",
             )}
           >
             {dayLabel(date, today)}
@@ -455,7 +458,7 @@ export function DashboardCalendar() {
             <button
               type="button"
               onClick={goToday}
-              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-[#3b82f6] transition-colors hover:bg-[#eff8fe]"
+              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-[var(--cal-blue-text)] transition-colors hover:bg-[var(--cal-today-surface)]"
             >
               Today
             </button>
@@ -515,9 +518,9 @@ export function DashboardCalendar() {
                     className={cn(
                       "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold leading-none tabular-nums",
                       isSelected
-                        ? "bg-[#3b82f6] text-white"
+                        ? "bg-[var(--cal-blue-bar)] text-white"
                         : isToday
-                          ? "ring-1 ring-inset ring-[#3b82f6] text-[#3b82f6]"
+                          ? "ring-1 ring-inset ring-[var(--cal-blue-bar)] text-[var(--cal-blue-text)]"
                           : cell.inMonth
                             ? "text-foreground"
                             : "text-muted-foreground/40",

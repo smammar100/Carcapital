@@ -445,6 +445,41 @@
   --shadow-6: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color);
   --shadow-7: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color);
   --shadow-8: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color), 0 96px 96px -48px var(--shadow-color);
+
+  /* ==========================================================================
+   * Calendar tones — token-driven, dark-mode-aware. Each tone's base colour
+   * references a chart token (or destructive / muted-foreground); `surface`
+   * and `text` are `color-mix` recipes whose inner var()s re-resolve per mode,
+   * so a single :root definition adapts to `.dark` automatically. Consumed via
+   * src/components/shared/calendar/tone.ts (TONE_CLASSES).
+   * ========================================================================== */
+  --cal-blue-bar: var(--chart-1);
+  --cal-blue-surface: color-mix(in oklab, var(--chart-1) 14%, var(--background));
+  --cal-blue-text: color-mix(in oklab, var(--chart-1) 66%, var(--foreground));
+
+  --cal-emerald-bar: var(--chart-2);
+  --cal-emerald-surface: color-mix(in oklab, var(--chart-2) 14%, var(--background));
+  --cal-emerald-text: color-mix(in oklab, var(--chart-2) 66%, var(--foreground));
+
+  --cal-amber-bar: var(--chart-3);
+  --cal-amber-surface: color-mix(in oklab, var(--chart-3) 16%, var(--background));
+  --cal-amber-text: color-mix(in oklab, var(--chart-3) 70%, var(--foreground));
+
+  --cal-purple-bar: var(--chart-4);
+  --cal-purple-surface: color-mix(in oklab, var(--chart-4) 14%, var(--background));
+  --cal-purple-text: color-mix(in oklab, var(--chart-4) 66%, var(--foreground));
+
+  --cal-rose-bar: var(--destructive);
+  --cal-rose-surface: color-mix(in oklab, var(--destructive) 14%, var(--background));
+  --cal-rose-text: color-mix(in oklab, var(--destructive) 70%, var(--foreground));
+
+  --cal-slate-bar: var(--muted-foreground);
+  --cal-slate-surface: color-mix(in oklab, var(--muted-foreground) 12%, var(--background));
+  --cal-slate-text: color-mix(in oklab, var(--muted-foreground) 82%, var(--foreground));
+
+  /* Today-column tint + current-time ("now") indicator colour. */
+  --cal-today-surface: color-mix(in oklab, var(--chart-1) 7%, var(--background));
+  --cal-now: var(--destructive);
 }
 
 .dark {
