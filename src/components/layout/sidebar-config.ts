@@ -2,7 +2,6 @@ import {
   LayoutDashboard,
   Settings,
   Car,
-  Plus,
   Wrench,
   ClipboardCheck,
   Calendar as CalendarIcon,
@@ -68,7 +67,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
       // Spec v3.0 · Module A — Locations lives inside Inventory so the
       // four-tab page sits next to the vehicle list it filters.
       { label: "Locations", href: "/admin/locations", icon: MapPin },
-      { label: "Add Vehicle", href: "/inventory/add-vehicle", icon: Plus },
+      // "Add Vehicle" lives in the brand-row CTA above the nav, not here.
     ],
   },
   {

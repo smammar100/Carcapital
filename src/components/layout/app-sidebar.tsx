@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { ChevronDown, ChevronsLeft, ChevronsRight, Plus } from "lucide-react";
 import {
   Popover,
   PopoverContent,
@@ -135,8 +135,24 @@ export function AppSidebar() {
         </div>
       )}
 
-      {/* Brand → first nav-item gap */}
-      <div style={{ height: "var(--space-8)" }} />
+      {/* Primary CTA — "Add Vehicle" lives at the top of the sidebar so the
+          most frequent inventory-creation action is one click from anywhere
+          in the app. Mirrors the rail/expanded affordance of the rest of
+          the nav (icon-only with hover popover in rail mode). */}
+      <div
+        style={{
+          marginTop: "var(--space-5)",
+          paddingLeft: railCollapsed ? 0 : "var(--space-4)",
+          paddingRight: railCollapsed ? 0 : "var(--space-4)",
+        }}
+        className={cn(railCollapsed && "flex justify-center")}
+      >
+        <AddVehicleCta collapsed={railCollapsed} active={isActive("/inventory/add-vehicle")} />
+      </div>
+
+      {/* CTA → first nav-item gap (slightly tighter than the original
+          brand→nav gap because the CTA already provides visual breathing room). */}
+      <div style={{ height: "var(--space-6)" }} />
 
       {/* Scrollable nav region */}
       <nav
@@ -294,6 +310,66 @@ function NavRow({ item, active, collapsed }: NavRowProps) {
         className="w-auto p-2 text-xs"
       >
         {item.label}
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * AddVehicleCta — sidebar-top primary action.
+ *
+ * Expanded: full-width solid primary button with Plus icon + label.
+ * Railed: square icon button (32×32) styled as primary; popover reveals
+ * the label on hover, matching every other rail-mode nav row.
+ */
+function AddVehicleCta({
+  collapsed,
+  active,
+}: {
+  collapsed: boolean;
+  active: boolean;
+}) {
+  const expandedClass = cn(
+    "group/cta flex h-9 w-full items-center justify-center rounded-md bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    active && "ring-2 ring-primary/40",
+  );
+  const railClass = cn(
+    "grid place-items-center rounded-md bg-primary text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+    active && "ring-2 ring-primary/40",
+  );
+
+  if (!collapsed) {
+    return (
+      <Link
+        href="/inventory/add-vehicle"
+        className={expandedClass}
+        style={{ gap: "var(--space-2)" }}
+        aria-label="Add Vehicle"
+      >
+        <Plus className="h-4 w-4" />
+        <span>Add Vehicle</span>
+      </Link>
+    );
+  }
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Link
+          href="/inventory/add-vehicle"
+          className={railClass}
+          style={{ height: 32, width: 32 }}
+          aria-label="Add Vehicle"
+        >
+          <Plus className="h-4 w-4" />
+        </Link>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="center"
+        className="w-auto p-2 text-xs"
+      >
+        Add Vehicle
       </PopoverContent>
     </Popover>
   );
