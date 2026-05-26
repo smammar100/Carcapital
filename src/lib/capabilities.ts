@@ -55,7 +55,15 @@ export type Capability =
   | "admin:manage_users"
   | "admin:manage_permissions"
   | "admin:manage_vendors"
-  | "admin:manage_settings";
+  | "admin:manage_settings"
+  // Spec v3.0 — Phase 1 foundation
+  | "channels:configure"
+  | "data:migrate"
+  | "users:create_direct"
+  // Spec v3.0 — Module A · Vehicle Locations
+  | "locations:move"
+  | "locations:edit_history"
+  | "locations:delete";
 
 export const ALL_CAPABILITIES: Capability[] = [
   "inventory:add",
@@ -94,6 +102,12 @@ export const ALL_CAPABILITIES: Capability[] = [
   "admin:manage_permissions",
   "admin:manage_vendors",
   "admin:manage_settings",
+  "channels:configure",
+  "data:migrate",
+  "users:create_direct",
+  "locations:move",
+  "locations:edit_history",
+  "locations:delete",
 ];
 
 export const CAPABILITY_LABELS: Record<Capability, string> = {
@@ -133,6 +147,12 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "admin:manage_permissions": "Manage Permissions",
   "admin:manage_vendors": "Manage Vendors",
   "admin:manage_settings": "Manage Settings",
+  "channels:configure": "Configure Lead Channels",
+  "data:migrate": "Run Data Migration",
+  "users:create_direct": "Create Users Directly",
+  "locations:move": "Move Vehicle",
+  "locations:edit_history": "Edit Movement History",
+  "locations:delete": "Delete Movement",
 };
 
 export interface CapabilityGroup {
@@ -205,6 +225,10 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
     capabilities: ["returns:create"],
   },
   {
+    label: "Locations",
+    capabilities: ["locations:move", "locations:edit_history", "locations:delete"],
+  },
+  {
     label: "Admin",
     capabilities: [
       "admin:view_master_sheet",
@@ -214,6 +238,9 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       "admin:manage_permissions",
       "admin:manage_vendors",
       "admin:manage_settings",
+      "channels:configure",
+      "data:migrate",
+      "users:create_direct",
     ],
   },
 ];

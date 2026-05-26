@@ -75,6 +75,12 @@ export const ROLE_DEFS: RoleDef[] = [
       "advert:create",
       "advert:edit",
       "advert:publish",
+      // Spec v3.0 — Phase 1 foundation (Decisions C-2, F-1, F-3)
+      "channels:configure",
+      "data:migrate",
+      "users:create_direct",
+      // Spec v3.0 — Module A
+      "locations:move",
     ],
   },
   {
@@ -83,7 +89,11 @@ export const ROLE_DEFS: RoleDef[] = [
     group: "Admin roles",
     description:
       "Manages team members and per-user permissions only. No access to financials or inventory.",
-    capabilities: ["admin:manage_users", "admin:manage_permissions"],
+    capabilities: [
+      "admin:manage_users",
+      "admin:manage_permissions",
+      "users:create_direct",
+    ],
   },
 
   // ----------------------------------------------------------------------
@@ -106,6 +116,8 @@ export const ROLE_DEFS: RoleDef[] = [
       "advert:edit",
       "admin:view_master_sheet",
       "admin:view_financials",
+      // Spec v3.0 — Module A: move authority for the day-to-day operator
+      "locations:move",
     ],
   },
   {

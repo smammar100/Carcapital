@@ -14,10 +14,12 @@ const SELECT = `
   vehicleInterest:vehicle_interest,
   vehicleId:vehicle_id,
   source,
+  leadChannelId:lead_channel_id,
   status,
   assignedTo:assigned_to,
   notes,
   appointmentId:appointment_id,
+  isDemo:is_demo,
   createdAt:created_at,
   updatedAt:updated_at
 `;
@@ -30,6 +32,8 @@ interface CreateInput {
   vehicleInterest: string;
   vehicleId: UUID | null;
   source: LeadSource;
+  /** FK to lead_channels (migration 0009). Optional during the rollout. */
+  leadChannelId?: UUID | null;
   assignedTo: UUID;
   notes: string | null;
 }
@@ -95,6 +99,8 @@ export const leadService = {
     const supabase = createClient();
     const { data, error } = await supabase
       .from("leads")
+      // lead_channel_id added in migration 0009 — supabase types are
+      // regenerated after apply; cast for Phase 1.
       .insert({
         company_id: input.companyId,
         customer_name: input.customerName,
@@ -103,11 +109,12 @@ export const leadService = {
         vehicle_interest: input.vehicleInterest,
         vehicle_id: input.vehicleId,
         source: input.source,
+        lead_channel_id: input.leadChannelId ?? null,
         status: "new",
         assigned_to: input.assignedTo,
         notes: input.notes,
         appointment_id: null,
-      })
+      } as never)
       .select(SELECT)
       .single();
     if (error) throw error;
@@ -126,7 +133,9 @@ export const leadService = {
 
   async update(
     id: UUID,
-    patch: Partial<Pick<Lead, "status" | "notes" | "assignedTo" | "appointmentId">>,
+    patch: Partial<
+      Pick<Lead, "status" | "notes" | "assignedTo" | "appointmentId" | "leadChannelId">
+    >,
   ): Promise<Lead> {
     const supabase = createClient();
     const updates: TableUpdate<"leads"> = {};
@@ -135,6 +144,10 @@ export const leadService = {
     if (patch.assignedTo !== undefined) updates.assigned_to = patch.assignedTo;
     if (patch.appointmentId !== undefined)
       updates.appointment_id = patch.appointmentId;
+    if (patch.leadChannelId !== undefined)
+      // lead_channel_id added in migration 0009 — supabase types are
+      // regenerated after the migration applies; cast for Phase 1.
+      (updates as Record<string, unknown>).lead_channel_id = patch.leadChannelId;
     const { data, error } = await supabase
       .from("leads")
       .update(updates)

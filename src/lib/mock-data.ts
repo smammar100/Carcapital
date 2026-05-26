@@ -25,7 +25,9 @@ import type {
   VatScheme,
   LegacyVatScheme,
   Lead,
+  LeadChannel,
   Listing,
+  LocationMovement,
   MaintenanceJob,
   MaintenanceJobNote,
   Notification,
@@ -426,6 +428,18 @@ const SEED_IMAGE_IDS = new Set<string>([
   "vehicle-11", "vehicle-12", "vehicle-13", "vehicle-14", "vehicle-15",
 ]);
 
+// Module A · Spec v3.0 — explicit location overrides for the seed so the
+// Locations page has a few cars visibly in Yard / Garage / Staff. Vehicles
+// not in this map default to Forecourt.
+const SEED_LOCATION_OVERRIDES: Record<string, "forecourt" | "yard" | "garage" | "staff"> = {
+  "vehicle-2": "yard",
+  "vehicle-3": "garage",
+  "vehicle-4": "garage",
+  "vehicle-5": "staff",
+  "vehicle-8": "yard",
+  "vehicle-11": "yard",
+};
+
 function buildVehicle(s: VehicleSeed): Vehicle {
   const buyersFee = 200;
   const collectionFee = 100;
@@ -462,10 +476,13 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     receivedBy: "user-3",
     sellerName: isAuction ? s.source : "Private Seller",
     sellerPhone: "07700900000",
-    sourceType: isAuction ? "auction" : s.source === "Trade-in" ? "trade_in" : s.source === "Private" ? "private" : "dealer",
+    purchaseSource: isAuction ? "auction" : s.source === "Trade-in" ? "trade_in" : s.source === "Private" ? "private" : "dealer",
     purchaseChannel: isAuction ? "supplier" : "vendor",
     supplierId: null,
     customFields: {},
+    // Spec v3.0 — Decision F-3 / Chunk 1.5: every seed row is wiped on
+    // launch day. Real arrivals from the arrival form default to false.
+    isDemo: true,
     localOrImport: s.localOrImport ?? "local",
     auctionHouse: isAuction ? s.source : null,
     ownedBy: "Car Capital UK",
@@ -509,12 +526,51 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     // Pre-generated seed image baked into the deployment. Vehicles added via
     // the arrival form get heroImageUrl=null and lazy-generate via the API.
     heroImageUrl: SEED_IMAGE_IDS.has(s.id) ? `/cars/seed/${s.id}.png` : null,
+    // Module A — physical location (Spec v3.0 · migration 0010).
+    currentLocation: SEED_LOCATION_OVERRIDES[s.id] ?? "forecourt",
+    locationSince: `${daysAgo(s.daysInStock)}T09:00:00.000Z`,
+    outForTestDrive: false,
+    testDriveExpectedBackAt: null,
     createdAt: `${daysAgo(s.daysInStock)}T09:00:00.000Z`,
     updatedAt: NOW,
   };
 }
 
 export const mockVehicles: Vehicle[] = VEHICLE_SEEDS.map(buildVehicle);
+
+// ============================================================
+// LOCATION MOVEMENTS (Module A · Spec v3.0)
+// ============================================================
+//
+// Audit trail of vehicle relocations. Final to_location matches each
+// vehicle's `currentLocation` set above so the LocationCard's "Recent
+// moves" preview reads consistently. Newest first by createdAt.
+
+export const mockLocationMovements: LocationMovement[] = [
+  // vehicle-1 — arrived 17d ago, sent to garage 7d ago, back 2d ago
+  { id: "move-1a", vehicleId: "vehicle-1", fromLocation: null,        toLocation: "forecourt", externalVendorId: null,       staffUserId: null,   expectedReturnAt: null,                actualReturnAt: null,                  notes: null,                          createdBy: "user-3", createdAt: `${daysAgo(17)}T09:00:00.000Z` },
+  { id: "move-1b", vehicleId: "vehicle-1", fromLocation: "forecourt", toLocation: "garage",    externalVendorId: "vendor-1", staffUserId: null,   expectedReturnAt: `${daysAgo(2)}T17:00:00.000Z`,  actualReturnAt: `${daysAgo(2)}T16:30:00.000Z`, notes: "AC re-gas at Ali's Garage",  createdBy: "user-2", createdAt: `${daysAgo(7)}T11:00:00.000Z` },
+  { id: "move-1c", vehicleId: "vehicle-1", fromLocation: "garage",    toLocation: "forecourt", externalVendorId: null,       staffUserId: null,   expectedReturnAt: null,                actualReturnAt: null,                  notes: null,                          createdBy: "user-2", createdAt: `${daysAgo(2)}T16:40:00.000Z` },
+
+  // vehicle-2 — at yard since arrival
+  { id: "move-2a", vehicleId: "vehicle-2", fromLocation: null,        toLocation: "yard",      externalVendorId: null,       staffUserId: null,   expectedReturnAt: null,                actualReturnAt: null,                  notes: "Awaiting bodywork slot",      createdBy: "user-3", createdAt: `${daysAgo(34)}T09:00:00.000Z` },
+
+  // vehicle-3 — currently at garage (Ali's), still out
+  { id: "move-3a", vehicleId: "vehicle-3", fromLocation: null,        toLocation: "forecourt", externalVendorId: null,       staffUserId: null,   expectedReturnAt: null,                actualReturnAt: null,                  notes: null,                          createdBy: "user-3", createdAt: `${daysAgo(164)}T09:00:00.000Z` },
+  { id: "move-3b", vehicleId: "vehicle-3", fromLocation: "forecourt", toLocation: "garage",    externalVendorId: "vendor-2", staffUserId: null,   expectedReturnAt: `${daysAgo(-3)}T17:00:00.000Z`, actualReturnAt: null,                  notes: "Bodywork at Southall Body Shop", createdBy: "user-2", createdAt: `${daysAgo(5)}T10:00:00.000Z` },
+
+  // vehicle-4 — at garage (electrics)
+  { id: "move-4a", vehicleId: "vehicle-4", fromLocation: null,        toLocation: "forecourt", externalVendorId: null,       staffUserId: null,   expectedReturnAt: null,                actualReturnAt: null,                  notes: null,                          createdBy: "user-3", createdAt: `${daysAgo(45)}T09:00:00.000Z` },
+  { id: "move-4b", vehicleId: "vehicle-4", fromLocation: "forecourt", toLocation: "garage",    externalVendorId: "vendor-4", staffUserId: null,   expectedReturnAt: `${daysAgo(-1)}T17:00:00.000Z`, actualReturnAt: null,                  notes: "PK Auto — battery / electrics", createdBy: "user-2", createdAt: `${daysAgo(2)}T11:30:00.000Z` },
+
+  // vehicle-5 — courtesy car with Sikander (user-6)
+  { id: "move-5a", vehicleId: "vehicle-5", fromLocation: null,        toLocation: "forecourt", externalVendorId: null,       staffUserId: null,   expectedReturnAt: null,                actualReturnAt: null,                  notes: null,                          createdBy: "user-3", createdAt: `${daysAgo(28)}T09:00:00.000Z` },
+  { id: "move-5b", vehicleId: "vehicle-5", fromLocation: "forecourt", toLocation: "staff",     externalVendorId: null,       staffUserId: "user-6", expectedReturnAt: `${daysAgo(-2)}T17:00:00.000Z`, actualReturnAt: null,                  notes: "Courtesy car while CC-0042 is in for warranty", createdBy: "user-1", createdAt: `${daysAgo(1)}T08:00:00.000Z` },
+
+  // vehicle-8 / vehicle-11 — both at yard since arrival (no separate moves)
+  { id: "move-8a",  vehicleId: "vehicle-8",  fromLocation: null, toLocation: "yard", externalVendorId: null, staffUserId: null, expectedReturnAt: null, actualReturnAt: null, notes: "Stocked at yard until prep slot opens", createdBy: "user-3", createdAt: `${daysAgo(12)}T09:00:00.000Z` },
+  { id: "move-11a", vehicleId: "vehicle-11", fromLocation: null, toLocation: "yard", externalVendorId: null, staffUserId: null, expectedReturnAt: null, actualReturnAt: null, notes: "Awaiting V5 — yard hold",              createdBy: "user-3", createdAt: `${daysAgo(20)}T09:00:00.000Z` },
+];
 
 // ============================================================
 // VENDORS
@@ -591,6 +647,22 @@ export const mockListings: Listing[] = LISTED_IDS.map((vid, idx) => {
     createdAt: `${daysAgo(v.daysInStock - 5)}T09:30:00.000Z`,
   };
 });
+
+// ============================================================
+// LEAD CHANNELS (Spec v3.0 — Decision C-2, seeded by migration 0009)
+// ============================================================
+
+export const mockLeadChannels: LeadChannel[] = [
+  { id: "channel-1", companyId: "company-1", slug: "website",    label: "Website",    sortOrder: 1, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-2", companyId: "company-1", slug: "phone",      label: "Phone",      sortOrder: 2, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-3", companyId: "company-1", slug: "walk_in",    label: "Walk-in",    sortOrder: 3, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-4", companyId: "company-1", slug: "autotrader", label: "AutoTrader", sortOrder: 4, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-5", companyId: "company-1", slug: "ebay",       label: "eBay",       sortOrder: 5, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-6", companyId: "company-1", slug: "facebook",   label: "Facebook",   sortOrder: 6, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-7", companyId: "company-1", slug: "instagram",  label: "Instagram",  sortOrder: 7, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-8", companyId: "company-1", slug: "referral",   label: "Referral",   sortOrder: 8, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-9", companyId: "company-1", slug: "other",      label: "Other",      sortOrder: 9, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+];
 
 // ============================================================
 // LEADS

@@ -27,7 +27,7 @@ const SELECT = `
   receivedBy:received_by,
   sellerName:seller_name,
   sellerPhone:seller_phone,
-  sourceType:source_type,
+  purchaseSource:purchase_source,
   purchaseChannel:purchase_channel,
   localOrImport:local_or_import,
   auctionHouse:auction_house,
@@ -69,6 +69,12 @@ const SELECT = `
   imagesCount:images_count,
   heroImageUrl:hero_image_url,
   customFields:custom_fields,
+  legacyData:legacy_data,
+  isDemo:is_demo,
+  currentLocation:current_location,
+  locationSince:location_since,
+  outForTestDrive:out_for_test_drive,
+  testDriveExpectedBackAt:test_drive_expected_back_at,
   createdAt:created_at,
   updatedAt:updated_at
 `;
@@ -95,7 +101,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   receivedBy: "received_by",
   sellerName: "seller_name",
   sellerPhone: "seller_phone",
-  sourceType: "source_type",
+  purchaseSource: "purchase_source",
   purchaseChannel: "purchase_channel",
   localOrImport: "local_or_import",
   auctionHouse: "auction_house",
@@ -137,6 +143,12 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   imagesCount: "images_count",
   heroImageUrl: "hero_image_url",
   customFields: "custom_fields",
+  legacyData: "legacy_data",
+  isDemo: "is_demo",
+  currentLocation: "current_location",
+  locationSince: "location_since",
+  outForTestDrive: "out_for_test_drive",
+  testDriveExpectedBackAt: "test_drive_expected_back_at",
 };
 
 function vehicleToRow(
@@ -251,7 +263,24 @@ export const vehicleService = {
   },
 
   async create(
-    input: Omit<Vehicle, "id" | "createdAt" | "updatedAt" | "stockId">,
+    // Location fields (Module A · migration 0010) have DB defaults; let
+    // callers omit them and rely on the server-side default of
+    // `current_location='forecourt'`, `location_since=now()`,
+    // `out_for_test_drive=false`. Same for the import-only `legacyData`
+    // and the demo flag.
+    input: Omit<
+      Vehicle,
+      | "id"
+      | "createdAt"
+      | "updatedAt"
+      | "stockId"
+      | "currentLocation"
+      | "locationSince"
+      | "outForTestDrive"
+      | "testDriveExpectedBackAt"
+      | "legacyData"
+      | "isDemo"
+    >,
     actorId: UUID,
   ): Promise<Vehicle> {
     const supabase = createClient();

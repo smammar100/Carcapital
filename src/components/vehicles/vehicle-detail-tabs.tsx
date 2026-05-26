@@ -117,8 +117,8 @@ function OverviewTab({ vehicle }: { vehicle: Vehicle }) {
         <Field label="Seller" className="col-span-full sm:col-span-1">
           {vehicle.sellerName} · {vehicle.sellerPhone}
         </Field>
-        <Field label="Source" className="capitalize">
-          {vehicle.sourceType.replace("_", " ")}
+        <Field label="Purchase Source" className="capitalize">
+          {vehicle.purchaseSource.replace("_", " ")}
           {vehicle.auctionHouse ? ` (${vehicle.auctionHouse})` : ""}
         </Field>
         <Field label="V5 received">{vehicle.v5Received ? "Yes" : "No"}</Field>

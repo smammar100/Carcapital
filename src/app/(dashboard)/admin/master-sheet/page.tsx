@@ -8,6 +8,7 @@ import {
   Download,
   FileSpreadsheet,
   Hash,
+  MapPin,
   Plus,
   PoundSterling,
   SlidersHorizontal,
@@ -43,6 +44,7 @@ import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { PageShell } from "@/components/layout/page-shell";
 import { DataGridPagination } from "@/components/data-grid";
+import { LocationBadge } from "@/components/locations/location-badge";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 
 type ColType =
@@ -54,7 +56,9 @@ type ColType =
   | "date"
   | "boolean"
   | "select"
-  | "status";
+  | "status"
+  // Module A — physical location with off-site badge (Spec v3.0 · Chunk 2.6)
+  | "location";
 
 interface ColDef {
   key: keyof Vehicle | "profit";
@@ -106,7 +110,7 @@ const COLS: ColDef[] = [
   { key: "receivedDate", label: "Received", type: "date", width: 120 },
   { key: "sellerName", label: "Seller", type: "text", width: 140 },
   { key: "sellerPhone", label: "Phone", type: "text", width: 120 },
-  { key: "sourceType", label: "Source", type: "select", width: 110 },
+  { key: "purchaseSource", label: "Purchase Source", type: "select", width: 130 },
   { key: "auctionHouse", label: "Auction", type: "text", width: 130 },
   { key: "v5Received", label: "V5", type: "boolean", width: 60 },
   { key: "serviceHistory", label: "SH", type: "select", width: 90 },
@@ -140,6 +144,8 @@ const COLS: ColDef[] = [
         : "",
   },
   { key: "status", label: "Status", type: "status", width: 140 },
+  // Spec v3.0 · Module A — Location with Off-site badge for Garage/Staff.
+  { key: "currentLocation", label: "Location", type: "location", width: 150 },
   { key: "daysInStock", label: "Days", type: "number", width: 70 },
   { key: "imagesCount", label: "Imgs", type: "number", width: 70 },
 ];
@@ -154,6 +160,7 @@ const TYPE_ICON: Record<ColType, typeof Type> = {
   boolean: Check,
   select: Tag,
   status: Tag,
+  location: MapPin,
 };
 
 const STATUS_TONE: Record<VehicleStatus, string> = {
@@ -224,7 +231,7 @@ const EDITABLE_KEYS = new Set<string>([
   "receivedDate",
   "sellerName",
   "sellerPhone",
-  "sourceType",
+  "purchaseSource",
   "auctionHouse",
   "v5Received",
   "serviceHistory",
@@ -325,6 +332,18 @@ function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
         </span>
       );
     }
+    case "location":
+      // Spec v3.0 · Module A — renders the location label + off-site /
+      // test-drive affordances. Workshop / staff name tooltips need the
+      // related-entity lookup, which the master-sheet cell doesn't carry;
+      // the badge falls back to a generic tooltip in that case.
+      return (
+        <LocationBadge
+          location={v.currentLocation}
+          outForTestDrive={v.outForTestDrive}
+          testDriveExpectedBackAt={v.testDriveExpectedBackAt}
+        />
+      );
     case "text":
     default:
       return <span className="truncate">{String(raw)}</span>;
@@ -465,7 +484,7 @@ export default function MasterSheetPage() {
           receivedBy: user.id,
           sellerName: "—",
           sellerPhone: "",
-          sourceType: "dealer",
+          purchaseSource: "dealer",
           purchaseChannel: null,
           supplierId: null,
           customFields: {},

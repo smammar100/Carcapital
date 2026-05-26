@@ -96,7 +96,7 @@ const schema = z.object({
   // Section 2 — Source / Seller
   sellerName: z.string().min(1, "Seller name required"),
   sellerPhone: z.string().optional(),
-  sourceType: z.enum(["auction", "private", "trade_in", "dealer", "other"]),
+  purchaseSource: z.enum(["auction", "private", "trade_in", "dealer", "other"]),
   localOrImport: z.enum(["local", "import"]),
   auctionHouse: z.string().optional(),
   ownedBy: z.string().optional(),
@@ -188,7 +188,7 @@ export function ArrivalForm() {
       engineSizeCC: undefined,
       sellerName: "",
       sellerPhone: "",
-      sourceType: searchParams.get("dealerPartner") ? "dealer" : "auction",
+      purchaseSource: searchParams.get("dealerPartner") ? "dealer" : "auction",
       localOrImport: "local",
       auctionHouse: "",
       ownedBy: "",
@@ -413,7 +413,7 @@ export function ArrivalForm() {
           receivedBy: user.id,
           sellerName: values.sellerName,
           sellerPhone: values.sellerPhone ?? "",
-          sourceType: values.sourceType === "trade_in" ? "trade_in" : values.sourceType,
+          purchaseSource: values.purchaseSource === "trade_in" ? "trade_in" : values.purchaseSource,
           purchaseChannel: "supplier",
           supplierId: null,
           customFields: {},
@@ -474,7 +474,7 @@ export function ArrivalForm() {
       }
       // SPEC Point 7 — link the vehicle to its dealer partner (guarded;
       // no-ops if supplier_id / dealer_partners aren't migrated).
-      if (values.sourceType === "dealer" && selectedPartnerId) {
+      if (values.purchaseSource === "dealer" && selectedPartnerId) {
         await dealerPartnerService.assignSupplier(v.id, selectedPartnerId);
       }
       toast.success(`Vehicle ${v.stockId} added`);
@@ -486,7 +486,7 @@ export function ArrivalForm() {
     }
   }
 
-  const watchedSource = form.watch("sourceType");
+  const watchedSource = form.watch("purchaseSource");
 
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
@@ -716,7 +716,7 @@ export function ArrivalForm() {
               <Label>Source Type</Label>
               <Controller
                 control={form.control}
-                name="sourceType"
+                name="purchaseSource"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className="w-full">

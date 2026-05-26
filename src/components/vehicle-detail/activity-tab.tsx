@@ -1,17 +1,51 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { History } from "lucide-react";
+import {
+  ArrowRight,
+  BadgeCheck,
+  Briefcase,
+  Calendar,
+  CalendarCheck,
+  Car,
+  CheckCircle2,
+  CheckSquare,
+  ClipboardCheck,
+  ClipboardList,
+  Database,
+  History,
+  Image as ImageIcon,
+  MapPin,
+  Megaphone,
+  PoundSterling,
+  Receipt,
+  Send,
+  Settings,
+  Shield,
+  ShieldAlert,
+  Tag,
+  TrendingUp,
+  Trophy,
+  Undo2,
+  UserPlus,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import type { ActivityActionType, ActivityLogEntry, User } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { activityService } from "@/lib/services/activity-service";
 import { teamService } from "@/lib/services/team-service";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDateTime } from "@/lib/utils";
 import { Panel } from "./primitives";
 import { cn } from "@/lib/utils";
+import {
+  Timeline,
+  TimelineDayHeader,
+  TimelineItem,
+  type TimelineTone,
+} from "@/components/shared/timeline";
 
 interface ActivityTabProps {
   vehicleId: string;
@@ -34,6 +68,7 @@ const FILTER_MATCH: Record<FilterKey, (a: ActivityActionType) => boolean> = {
     a === "vehicle_status_changed" ||
     a === "vehicle_arrived" ||
     a === "vehicle_returned" ||
+    a === "vehicle_moved" ||
     a === "sale_stage_changed" ||
     a === "sale_completed",
   costs: (a) =>
@@ -51,43 +86,51 @@ const FILTER_MATCH: Record<FilterKey, (a: ActivityActionType) => boolean> = {
     a === "appointment_updated",
 };
 
-const MARKER_TONE: Record<ActivityActionType, string> = {
-  vehicle_arrived: "border-violet-500",
-  vehicle_status_changed: "border-amber-500",
-  vehicle_returned: "border-rose-500",
-  inspection_started: "border-emerald-500",
-  inspection_completed: "border-emerald-500",
-  todo_added: "border-amber-500",
-  todo_completed: "border-emerald-500",
-  maintenance_job_created: "border-amber-500",
-  maintenance_job_completed: "border-emerald-500",
-  workshop_job_created: "border-amber-500",
-  photo_uploaded: "border-emerald-500",
-  photo_processed: "border-emerald-500",
-  listing_created: "border-emerald-500",
-  listing_published: "border-emerald-500",
-  lead_created: "border-violet-500",
-  lead_converted: "border-emerald-500",
-  appointment_booked: "border-emerald-500",
-  appointment_updated: "border-amber-500",
-  appointment_completed: "border-emerald-500",
-  sale_stage_changed: "border-emerald-500",
-  sale_completed: "border-emerald-500",
-  warranty_created: "border-emerald-500",
-  warranty_claim_opened: "border-rose-500",
-  invoice_created: "border-emerald-500",
-  invoice_sent: "border-emerald-500",
-  invoice_paid: "border-emerald-500",
-  cost_updated: "border-amber-500",
-  user_invited: "border-emerald-500",
-  company_setting_changed: "border-muted-foreground",
+/**
+ * Per-action-type icon + tone for the shared `<Timeline>`. Tone families:
+ *   emerald = success / completion        amber = change / pending
+ *   rose    = warning / return / claim    violet = create / arrival
+ *   sky     = informational (location)    slate  = settings / migration
+ */
+const ACTION_VISUAL: Record<ActivityActionType, { icon: LucideIcon; tone: TimelineTone }> = {
+  vehicle_arrived: { icon: Car, tone: "violet" },
+  vehicle_status_changed: { icon: ArrowRight, tone: "amber" },
+  vehicle_returned: { icon: Undo2, tone: "rose" },
+  vehicle_moved: { icon: MapPin, tone: "sky" },
+  inspection_started: { icon: ClipboardList, tone: "amber" },
+  inspection_completed: { icon: ClipboardCheck, tone: "emerald" },
+  todo_added: { icon: CheckSquare, tone: "amber" },
+  todo_completed: { icon: CheckCircle2, tone: "emerald" },
+  maintenance_job_created: { icon: Wrench, tone: "amber" },
+  maintenance_job_completed: { icon: Wrench, tone: "emerald" },
+  workshop_job_created: { icon: Briefcase, tone: "amber" },
+  photo_uploaded: { icon: ImageIcon, tone: "emerald" },
+  photo_processed: { icon: ImageIcon, tone: "emerald" },
+  listing_created: { icon: Megaphone, tone: "amber" },
+  listing_published: { icon: Megaphone, tone: "emerald" },
+  lead_created: { icon: UserPlus, tone: "violet" },
+  lead_converted: { icon: ArrowRight, tone: "emerald" },
+  appointment_booked: { icon: CalendarCheck, tone: "emerald" },
+  appointment_updated: { icon: Calendar, tone: "amber" },
+  appointment_completed: { icon: CheckCircle2, tone: "emerald" },
+  sale_stage_changed: { icon: TrendingUp, tone: "amber" },
+  sale_completed: { icon: Trophy, tone: "emerald" },
+  warranty_created: { icon: Shield, tone: "emerald" },
+  warranty_claim_opened: { icon: ShieldAlert, tone: "rose" },
+  invoice_created: { icon: Receipt, tone: "amber" },
+  invoice_sent: { icon: Send, tone: "emerald" },
+  invoice_paid: { icon: BadgeCheck, tone: "emerald" },
+  cost_updated: { icon: PoundSterling, tone: "amber" },
+  user_invited: { icon: UserPlus, tone: "emerald" },
+  company_setting_changed: { icon: Settings, tone: "slate" },
+  channel_changed: { icon: Tag, tone: "violet" },
+  data_migrated: { icon: Database, tone: "slate" },
 };
 
 /**
- * Activity tab — every action taken on this vehicle since arrival, as a
- * vertical timeline with hollow tonal markers (colour-coded by action
- * category). Filter chips scope to one category; day separators group
- * events.
+ * Activity tab — every action taken on this vehicle since arrival, rendered
+ * through the shared GitHub-style `<Timeline>`. Filter chips scope to one
+ * category; day separators group events.
  */
 export function ActivityTab({ vehicleId }: ActivityTabProps) {
   const { company } = useAuth();
@@ -149,29 +192,32 @@ export function ActivityTab({ vehicleId }: ActivityTabProps) {
           No events match this filter.
         </div>
       ) : (
-        <div className="relative px-6 py-5">
-          <div
-            aria-hidden
-            className="absolute bottom-7 left-[35px] top-7 border-l border-dashed border-border"
-          />
-          <div className="space-y-1">
-            {grouped.map(([day, dayEntries]) => (
-              <div key={day}>
-                <div className="relative z-10 mb-1.5 mt-3 pl-9 first:mt-0">
-                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
-                    {day}
-                  </Badge>
-                </div>
-                {dayEntries.map((e) => (
-                  <TimelineEvent
+        <div className="px-6 py-5">
+          <Timeline>
+            {grouped.flatMap(([day, dayEntries]) => [
+              <TimelineDayHeader key={`day-${day}`}>{day}</TimelineDayHeader>,
+              ...dayEntries.map((e) => {
+                const visual =
+                  ACTION_VISUAL[e.actionType] ?? {
+                    icon: History,
+                    tone: "slate" as TimelineTone,
+                  };
+                const actorName = userById.get(e.userId)?.name ?? "Someone";
+                return (
+                  <TimelineItem
                     key={e.id}
-                    entry={e}
-                    actorName={userById.get(e.userId)?.name ?? "Someone"}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>
+                    icon={visual.icon}
+                    tone={visual.tone}
+                    timestamp={formatDateTime(e.createdAt)}
+                  >
+                    <span className="font-medium text-foreground">{actorName}</span>{" "}
+                    <span className="text-muted-foreground">·</span>{" "}
+                    <span>{e.description}</span>
+                  </TimelineItem>
+                );
+              }),
+            ])}
+          </Timeline>
         </div>
       )}
     </Panel>
@@ -200,34 +246,6 @@ function FilterChip({
     >
       {children}
     </button>
-  );
-}
-
-function TimelineEvent({
-  entry,
-  actorName,
-}: {
-  entry: ActivityLogEntry;
-  actorName: string;
-}) {
-  const markerCls = MARKER_TONE[entry.actionType] ?? "border-muted-foreground";
-  return (
-    <div className="relative z-10 py-2 pl-9">
-      <span
-        className={cn(
-          "absolute left-[26px] top-3 h-3 w-3 rounded-full border-2 bg-background",
-          "ring-4 ring-card",
-          markerCls,
-        )}
-      />
-      <div className="text-sm leading-relaxed">
-        <span className="text-muted-foreground">{actorName}</span>{" "}
-        <span>{entry.description}</span>
-      </div>
-      <div className="mt-0.5 text-xs text-muted-foreground">
-        {formatDateTime(entry.createdAt)}
-      </div>
-    </div>
   );
 }
 

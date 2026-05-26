@@ -12,6 +12,7 @@ import { todoService } from "@/lib/services/todo-service";
 import { enquiryService } from "@/lib/services/enquiry-service";
 import { OverviewTab } from "./overview-tab";
 import { DetailsTab } from "./details-tab";
+import { LocationTab } from "./location-tab";
 import { FinancialsTab } from "./financials-tab";
 import { TodoTab } from "./todo-tab";
 import { InspectionTab } from "./inspection-tab";
@@ -59,6 +60,7 @@ export function VehicleDetailShell({
       <TabsList className="w-full overflow-x-auto">
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="details">Details</TabsTrigger>
+        <TabsTrigger value="location">Location</TabsTrigger>
         <TabsTrigger value="financials">Financials</TabsTrigger>
         <TabsTrigger value="todo">
           Things to Do
@@ -82,6 +84,9 @@ export function VehicleDetailShell({
       </TabsContent>
       <TabsContent value="details">
         <DetailsTab vehicle={vehicle} />
+      </TabsContent>
+      <TabsContent value="location">
+        <LocationTab vehicle={vehicle} />
       </TabsContent>
       <TabsContent value="financials">
         <FinancialsTab vehicle={vehicle} />

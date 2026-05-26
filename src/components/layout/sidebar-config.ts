@@ -23,6 +23,7 @@ import {
   Briefcase,
   Handshake,
   ShieldAlert,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 
@@ -64,6 +65,9 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     label: "Inventory",
     items: [
       { label: "All Vehicles", href: "/vehicles", icon: Car },
+      // Spec v3.0 · Module A — Locations lives inside Inventory so the
+      // four-tab page sits next to the vehicle list it filters.
+      { label: "Locations", href: "/admin/locations", icon: MapPin },
       { label: "Add Vehicle", href: "/inventory/add-vehicle", icon: Plus },
     ],
   },

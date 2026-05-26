@@ -55,9 +55,9 @@ export function DetailsTab({ vehicle }: DetailsTabProps) {
             <Field label="Seller">
               {vehicle.sellerName} · {vehicle.sellerPhone}
             </Field>
-            <Field label="Source">
+            <Field label="Purchase Source">
               <span className="capitalize">
-                {vehicle.sourceType.replace("_", " ")}
+                {vehicle.purchaseSource.replace("_", " ")}
               </span>
               {vehicle.auctionHouse ? ` (${vehicle.auctionHouse})` : ""}
             </Field>

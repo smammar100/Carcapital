@@ -21,6 +21,7 @@ import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { KpiCard, Panel, Pill } from "./primitives";
 import { cn } from "@/lib/utils";
+import { VehicleLocationSection } from "@/components/locations/vehicle-location-section";
 
 interface OverviewTabProps {
   vehicle: Vehicle;
@@ -98,7 +99,12 @@ export function OverviewTab({ vehicle }: OverviewTabProps) {
           photoCount={vehicle.imagesCount}
         />
         <div className="flex flex-col gap-4">
+          {/* AutoTrader Valuation leads the right column (more frequent
+              glance value than the Location card per user feedback);
+              Module A's LocationCard sits beneath it and the
+              MarketplacePanel anchors the bottom. */}
           <ValuationPanel webPrice={webPrice} />
+          <VehicleLocationSection vehicle={vehicle} />
           <MarketplacePanel listing={listing ?? null} />
         </div>
       </div>

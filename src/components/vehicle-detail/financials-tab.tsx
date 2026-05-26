@@ -131,9 +131,9 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
         <FieldGrid cols={3}>
           <Field label="Supplier">{vehicle.sellerName}</Field>
           <Field label="VAT Scheme">Margin Based</Field>
-          <Field label="Source">
+          <Field label="Purchase Source">
             <span className="capitalize">
-              {vehicle.sourceType.replace("_", " ")}
+              {vehicle.purchaseSource.replace("_", " ")}
             </span>
           </Field>
           <Field label="Buying Price" numeric>

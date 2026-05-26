@@ -1,0 +1,20 @@
+excel_column_name,postgres_column_name,transformation_notes
+# Master-sheet column mapping — Phase 0 hard gate per Decision F-1.
+#
+# Each row maps one Excel column from Ali's master sheet to a column on
+# public.vehicles (or another table). Leave postgres_column_name blank for
+# columns that should be archived as-is into vehicles.legacy_data.
+#
+# transformation_notes documents the conversion applied at import time:
+#   - "date dd/mm/yyyy -> ISO"
+#   - "currency £1,234.56 -> 1234.56 numeric"
+#   - "Y/N -> boolean"
+#   - "trim + uppercase"
+#   - leave blank for a verbatim copy
+#
+# This file is delivered empty; Ammar fills it from the live master sheet
+# and Ali signs off in writing before Chunk 1.6 runs. The importer
+# (src/lib/services/migration-service.ts:importMasterSheet) refuses to run
+# against an empty / partial mapping — see Riskiest points #4 in the plan.
+#
+# ----- Begin mappings below this line (delete this comment block first) -----

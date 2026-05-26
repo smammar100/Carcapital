@@ -722,7 +722,7 @@ async function main() {
       received_by: lookup(idMap.user, v.receivedBy)!,
       seller_name: v.sellerName,
       seller_phone: v.sellerPhone,
-      source_type: v.sourceType,
+      purchase_source: v.purchaseSource,
       purchase_channel: v.purchaseChannel,
       local_or_import: v.localOrImport,
       auction_house: v.auctionHouse,

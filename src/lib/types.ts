@@ -60,6 +60,11 @@ export interface User {
   passwordResetRequired: boolean;
   /** When a directly-created user first set their own password. */
   activatedAt: ISODateTime | null;
+  /**
+   * Seed user shipped with the app (migration 0009 — Chunk 1.5). The wipe
+   * step deletes every row with `is_demo = true` before real-staff invites.
+   */
+  isDemo?: boolean;
   createdAt: ISODateTime;
 }
 
@@ -116,12 +121,41 @@ export type BodyType =
   | "coupe";
 export type FuelType = "petrol" | "diesel" | "hybrid" | "electric";
 export type Transmission = "automatic" | "manual";
-export type SourceType =
+/**
+ * Physical location of a vehicle (Spec v3.0 · Module A · Decision D-A2).
+ * Exactly one of these at any time; movements between values are audited
+ * via the `location_movements` table.
+ */
+export type VehicleLocation = "forecourt" | "yard" | "garage" | "staff";
+
+export const VEHICLE_LOCATIONS: VehicleLocation[] = [
+  "forecourt",
+  "yard",
+  "garage",
+  "staff",
+];
+
+export const VEHICLE_LOCATION_LABELS: Record<VehicleLocation, string> = {
+  forecourt: "Forecourt",
+  yard: "Yard",
+  garage: "Garage",
+  staff: "Staff",
+};
+
+/**
+ * Where the dealership *bought* the car (auction / private seller / trade-in
+ * / dealer / other). Renamed from `SourceType` in Spec v3.0 — Decision C-1.
+ * The legacy name is exported below as an alias so any straggling consumer
+ * keeps compiling during the rename pass.
+ */
+export type PurchaseSource =
   | "auction"
   | "private"
   | "trade_in"
   | "dealer"
   | "other";
+/** @deprecated renamed to PurchaseSource — Spec v3.0 Decision C-1. */
+export type SourceType = PurchaseSource;
 export type PurchaseChannel = "vendor" | "supplier" | "g_trader" | "direct";
 export type ServiceHistory = "full" | "partial" | "none" | "unknown";
 export type FinanceProvider =
@@ -195,7 +229,7 @@ export interface Vehicle {
   receivedBy: UUID;
   sellerName: string;
   sellerPhone: string;
-  sourceType: SourceType;
+  purchaseSource: PurchaseSource;
   purchaseChannel: PurchaseChannel | null;
   /**
    * The dealer partner this vehicle was sourced from (migration 0002).
@@ -269,8 +303,62 @@ export interface Vehicle {
    */
   customFields: Record<string, CustomFieldValue>;
 
+  /**
+   * Unmapped Excel columns preserved one-way from the master-sheet import
+   * (migration 0009 — Decision F-2). Read-only after import.
+   */
+  legacyData?: Record<string, unknown>;
+
+  // Module A — physical location (migration 0010).
+  /** Current physical location. Always set; defaults to 'forecourt'. */
+  currentLocation: VehicleLocation;
+  /** When the car was placed at `currentLocation`. Updates on every move. */
+  locationSince: ISODateTime;
+  /**
+   * True while a customer is out on a test drive. NOT a location — the car
+   * keeps its `currentLocation` while the flag is set (Decision D-A1).
+   */
+  outForTestDrive: boolean;
+  /** Expected return-by time when `outForTestDrive` is true; otherwise null. */
+  testDriveExpectedBackAt: ISODateTime | null;
+
+  /**
+   * True for the seed cars that ship with the app (migration 0009). Wiped
+   * on launch day along with seed leads / appointments / users — Chunk 1.5.
+   */
+  isDemo?: boolean;
+
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
+}
+
+/**
+ * Append-only audit of a vehicle relocation (Spec v3.0 · Module A).
+ *
+ * `from_location` is null only for the very first placement after arrival;
+ * `to_location` is always one of the 4 valid VehicleLocation values.
+ * Garage moves carry `externalVendorId`; staff moves carry `staffUserId`
+ * (DB-level CHECK constraints in migration 0010).
+ */
+export interface LocationMovement {
+  id: UUID;
+  vehicleId: UUID;
+  fromLocation: VehicleLocation | null;
+  toLocation: VehicleLocation;
+
+  /** Populated only when `toLocation === 'garage'`. */
+  externalVendorId: UUID | null;
+  /** Populated only when `toLocation === 'staff'`. */
+  staffUserId: UUID | null;
+
+  /** Optional everywhere; required (UI-enforced) for garage/staff moves. */
+  expectedReturnAt: ISODateTime | null;
+  /** Set when the car is marked returned. */
+  actualReturnAt: ISODateTime | null;
+
+  notes: string | null;
+  createdBy: UUID;
+  createdAt: ISODateTime;
 }
 
 export interface VehiclePhoto {
@@ -461,6 +549,11 @@ export interface Listing {
 // LEADS & APPOINTMENTS
 // ============================================================
 
+/**
+ * Legacy lead-source enum. Superseded by the dynamic `LeadChannel`
+ * catalogue (migration 0009 — Decision C-2). Kept for backfill / audit
+ * and as the column shape until every consumer is migrated.
+ */
 export type LeadSource =
   | "website"
   | "phone"
@@ -476,6 +569,28 @@ export type LeadStatus =
   | "appointment_booked"
   | "lost";
 
+/**
+ * Where the buyer came from (per-company catalogue, migration 0009).
+ * Seeded with 9 system rows; Super User can add / rename / disable from
+ * /admin/settings/lead-channels (Chunk 3.4 — Decision C-2).
+ */
+export interface LeadChannel {
+  id: UUID;
+  companyId: UUID;
+  /** Stable identifier used in code + URLs (lowercase snake_case). */
+  slug: string;
+  /** Human label shown in dropdowns. */
+  label: string;
+  /** Display order in dropdowns + admin grid. */
+  sortOrder: number;
+  /** Disabled channels stay in the data but vanish from dropdowns. */
+  enabled: boolean;
+  /** System rows can be disabled but not deleted. */
+  isSystem: boolean;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
 export interface Lead {
   id: UUID;
   companyId: UUID;
@@ -485,10 +600,19 @@ export interface Lead {
   vehicleInterest: string;
   vehicleId: UUID | null;
   source: LeadSource;
+  /**
+   * FK to lead_channels (migration 0009). Replaces the free-text `source`
+   * field over time — Module C. Optional during rollout so existing
+   * call-sites and seed data keep compiling; the 0009 backfill populates
+   * the column from `source` for every existing row.
+   */
+  leadChannelId?: UUID | null;
   status: LeadStatus;
   assignedTo: UUID;
   notes: string | null;
   appointmentId: UUID | null;
+  /** Seed lead — wiped on launch day (Chunk 1.5). */
+  isDemo?: boolean;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -521,6 +645,8 @@ export interface Appointment {
   outcome: AppointmentOutcome;
   notificationsSent: { whatsapp: boolean; email: boolean };
   createdBy: UUID;
+  /** Seed appointment — wiped on launch day (Chunk 1.5). */
+  isDemo?: boolean;
   createdAt: ISODateTime;
 }
 
@@ -832,6 +958,8 @@ export interface Invoice {
   saleId: UUID | null;
   createdBy: UUID | null;
   issuedAt: ISODateTime | null;
+  /** Seed invoice — wiped on launch day (Chunk 1.5). */
+  isDemo?: boolean;
   createdAt: ISODateTime;
 }
 
@@ -932,7 +1060,10 @@ export type ActivityActionType =
   | "invoice_paid"
   | "cost_updated"
   | "user_invited"
-  | "company_setting_changed";
+  | "company_setting_changed"
+  | "channel_changed"
+  | "data_migrated"
+  | "vehicle_moved";
 
 export interface ActivityLogEntry {
   id: UUID;
