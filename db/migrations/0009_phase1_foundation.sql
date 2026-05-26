@@ -60,6 +60,31 @@ CREATE INDEX IF NOT EXISTS lead_channels_company_idx
   ON public.lead_channels (company_id, sort_order)
   WHERE enabled IS TRUE;
 
+-- RLS policies — tenancy via company_id directly. Without these, every
+-- SDK read comes back empty even though the table holds the seeded rows
+-- (bug F4 from the Module C UAT round; same shape as F1 on
+-- location_movements).
+DROP POLICY IF EXISTS lead_channels_select ON public.lead_channels;
+CREATE POLICY lead_channels_select
+  ON public.lead_channels FOR SELECT
+  USING (company_id = current_company_id());
+
+DROP POLICY IF EXISTS lead_channels_insert ON public.lead_channels;
+CREATE POLICY lead_channels_insert
+  ON public.lead_channels FOR INSERT
+  WITH CHECK (company_id = current_company_id());
+
+DROP POLICY IF EXISTS lead_channels_update ON public.lead_channels;
+CREATE POLICY lead_channels_update
+  ON public.lead_channels FOR UPDATE
+  USING (company_id = current_company_id())
+  WITH CHECK (company_id = current_company_id());
+
+DROP POLICY IF EXISTS lead_channels_delete ON public.lead_channels;
+CREATE POLICY lead_channels_delete
+  ON public.lead_channels FOR DELETE
+  USING (company_id = current_company_id());
+
 COMMENT ON TABLE public.lead_channels IS
   'Where the buyer came from (per-company catalogue). Seeded with 9 system '
   'channels in 0009 — Decision C-2. Super User can add/rename/disable from '

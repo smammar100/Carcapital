@@ -652,16 +652,18 @@ export const mockListings: Listing[] = LISTED_IDS.map((vid, idx) => {
 // LEAD CHANNELS (Spec v3.0 — Decision C-2, seeded by migration 0009)
 // ============================================================
 
+// Module C · Spec v3.0 — canonical 9 lead channels with brand colours.
+// Slugs are stable identifiers; labels + hex colours come from the spec.
 export const mockLeadChannels: LeadChannel[] = [
-  { id: "channel-1", companyId: "company-1", slug: "website",    label: "Website",    sortOrder: 1, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-2", companyId: "company-1", slug: "phone",      label: "Phone",      sortOrder: 2, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-3", companyId: "company-1", slug: "walk_in",    label: "Walk-in",    sortOrder: 3, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-4", companyId: "company-1", slug: "autotrader", label: "AutoTrader", sortOrder: 4, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-5", companyId: "company-1", slug: "ebay",       label: "eBay",       sortOrder: 5, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-6", companyId: "company-1", slug: "facebook",   label: "Facebook",   sortOrder: 6, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-7", companyId: "company-1", slug: "instagram",  label: "Instagram",  sortOrder: 7, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-8", companyId: "company-1", slug: "referral",   label: "Referral",   sortOrder: 8, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
-  { id: "channel-9", companyId: "company-1", slug: "other",      label: "Other",      sortOrder: 9, enabled: true, isSystem: true, createdAt: NOW, updatedAt: NOW },
+  { id: "channel-1", companyId: "company-1", slug: "phone",           label: "Phone",           sortOrder: 1, enabled: true, isSystem: true, colour: "#2563EB", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-2", companyId: "company-1", slug: "website",         label: "Website",         sortOrder: 2, enabled: true, isSystem: true, colour: "#0EA5E9", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-3", companyId: "company-1", slug: "walk_in",         label: "Walk-in",         sortOrder: 3, enabled: true, isSystem: true, colour: "#16A34A", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-4", companyId: "company-1", slug: "autotrader",      label: "AutoTrader",      sortOrder: 4, enabled: true, isSystem: true, colour: "#F59E0B", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-5", companyId: "company-1", slug: "ebay",            label: "eBay",            sortOrder: 5, enabled: true, isSystem: true, colour: "#7C3AED", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-6", companyId: "company-1", slug: "facebook",        label: "Facebook",        sortOrder: 6, enabled: true, isSystem: true, colour: "#1877F2", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-7", companyId: "company-1", slug: "referral",        label: "Referral",        sortOrder: 7, enabled: true, isSystem: true, colour: "#EC4899", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-8", companyId: "company-1", slug: "repeat_customer", label: "Repeat Customer", sortOrder: 8, enabled: true, isSystem: true, colour: "#B6731E", createdAt: NOW, updatedAt: NOW },
+  { id: "channel-9", companyId: "company-1", slug: "other",           label: "Other",           sortOrder: 9, enabled: true, isSystem: true, colour: "#6B7280", createdAt: NOW, updatedAt: NOW },
 ];
 
 // ============================================================

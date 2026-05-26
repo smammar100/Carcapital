@@ -63,7 +63,11 @@ export type Capability =
   // Spec v3.0 — Module A · Vehicle Locations
   | "locations:move"
   | "locations:edit_history"
-  | "locations:delete";
+  | "locations:delete"
+  // Spec v3.0 · Module D
+  | "external_invoice:create"
+  | "external_invoice:edit_any"
+  | "external_invoice:delete";
 
 export const ALL_CAPABILITIES: Capability[] = [
   "inventory:add",
@@ -108,6 +112,9 @@ export const ALL_CAPABILITIES: Capability[] = [
   "locations:move",
   "locations:edit_history",
   "locations:delete",
+  "external_invoice:create",
+  "external_invoice:edit_any",
+  "external_invoice:delete",
 ];
 
 export const CAPABILITY_LABELS: Record<Capability, string> = {
@@ -153,6 +160,9 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "locations:move": "Move Vehicle",
   "locations:edit_history": "Edit Movement History",
   "locations:delete": "Delete Movement",
+  "external_invoice:create": "Create External Invoice",
+  "external_invoice:edit_any": "Edit Any External Invoice",
+  "external_invoice:delete": "Delete External Invoice",
 };
 
 export interface CapabilityGroup {
@@ -227,6 +237,14 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   {
     label: "Locations",
     capabilities: ["locations:move", "locations:edit_history", "locations:delete"],
+  },
+  {
+    label: "External Invoicing",
+    capabilities: [
+      "external_invoice:create",
+      "external_invoice:edit_any",
+      "external_invoice:delete",
+    ],
   },
   {
     label: "Admin",

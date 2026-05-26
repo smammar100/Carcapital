@@ -1,0 +1,428 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useAuth } from "@/contexts/auth-context";
+import { externalInvoiceService } from "@/lib/services/external-invoice-service";
+import { vendorService } from "@/lib/services/vendor-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import type {
+  ExternalInvoice,
+  InvoiceKind,
+  UUID,
+  Vehicle,
+  Vendor,
+} from "@/lib/types";
+import { INVOICE_KIND_LABELS } from "@/lib/types";
+import { VendorInlineAdd } from "./vendor-inline-add";
+import { AttachmentUploader } from "./attachment-uploader";
+
+interface Props {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  /** Default kind for the form (the active tab when "+ New" is clicked). */
+  defaultKind: InvoiceKind;
+  /** When set, the form pre-selects this vehicle and locks the picker. */
+  fixedVehicleId?: UUID;
+  /** When set, the form edits this row instead of creating. */
+  editing?: ExternalInvoice | null;
+  onSaved?: (inv: ExternalInvoice) => void;
+}
+
+function poundsToPence(s: string): number {
+  if (!s) return 0;
+  const n = Number(s.replace(/[£,\s]/g, ""));
+  if (Number.isNaN(n) || n < 0) return 0;
+  return Math.round(n * 100);
+}
+
+function penceToPounds(p: number | null | undefined): string {
+  if (p == null) return "";
+  return (p / 100).toFixed(2);
+}
+
+/**
+ * Spec v3.0 · Module D.3 / 4 — external invoice form (covers both
+ * auction-purchase and external-job kinds).
+ *
+ * Vendor + Vehicle pickers are searchable selects. Total + VAT are
+ * currency inputs in pounds; Pre-VAT computes live (read-only). Cannot
+ * submit if VAT > Total. Attachment slot uploads to Supabase Storage
+ * via `externalInvoiceService.uploadAttachment` and stores the path.
+ */
+export function ExternalInvoiceForm({
+  open,
+  onOpenChange,
+  defaultKind,
+  fixedVehicleId,
+  editing,
+  onSaved,
+}: Props) {
+  const { company, user } = useAuth();
+
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+
+  const [kind, setKind] = useState<InvoiceKind>(defaultKind);
+  const [vendorId, setVendorId] = useState<string>("");
+  const [vehicleId, setVehicleId] = useState<string>(fixedVehicleId ?? "");
+  const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [invoiceDate, setInvoiceDate] = useState<string>(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [total, setTotal] = useState("");
+  const [vat, setVat] = useState("");
+  const [description, setDescription] = useState("");
+  const [notes, setNotes] = useState("");
+  const [attachment, setAttachment] = useState<{
+    path: string | null;
+    filename: string | null;
+    sizeBytes: number | null;
+    mimeType: string | null;
+  }>({ path: null, filename: null, sizeBytes: null, mimeType: null });
+  const [submitting, setSubmitting] = useState(false);
+
+  // Load lookups once when the dialog opens.
+  useEffect(() => {
+    if (!open || !company?.id) return;
+    let cancelled = false;
+    void Promise.all([
+      vendorService.getAll(company.id),
+      vehicleService.getAll(company.id),
+    ]).then(([v, veh]) => {
+      if (cancelled) return;
+      setVendors(v.filter((x) => x.active));
+      setVehicles(veh);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, company?.id]);
+
+  // Populate form from `editing` when re-opening for an existing row.
+  // setState-in-effect is the documented React pattern for "sync to external
+  // prop on open" — the rule is silenced for this block intentionally.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (!open) return;
+    if (editing) {
+      setKind(editing.invoiceKind);
+      setVendorId(editing.vendorId);
+      setVehicleId(editing.vehicleId);
+      setInvoiceNumber(editing.invoiceNumber ?? "");
+      setInvoiceDate(editing.invoiceDate.slice(0, 10));
+      setTotal(penceToPounds(editing.totalPence));
+      setVat(penceToPounds(editing.vatPence));
+      setDescription(editing.description);
+      setNotes(editing.notes ?? "");
+      setAttachment({
+        path: editing.attachmentUrl,
+        filename: editing.attachmentFilename,
+        sizeBytes: editing.attachmentSizeBytes,
+        mimeType: editing.attachmentMimeType,
+      });
+    } else {
+      // Fresh form — reset everything (preserve fixedVehicleId).
+      setKind(defaultKind);
+      setVendorId("");
+      setVehicleId(fixedVehicleId ?? "");
+      setInvoiceNumber("");
+      setInvoiceDate(new Date().toISOString().slice(0, 10));
+      setTotal("");
+      setVat("");
+      setDescription("");
+      setNotes("");
+      setAttachment({
+        path: null,
+        filename: null,
+        sizeBytes: null,
+        mimeType: null,
+      });
+    }
+  }, [open, editing, defaultKind, fixedVehicleId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  const totalPence = useMemo(() => poundsToPence(total), [total]);
+  const vatPence = useMemo(() => poundsToPence(vat), [vat]);
+  const preVatPence = Math.max(0, totalPence - vatPence);
+  const vatExceedsTotal = vatPence > totalPence && totalPence > 0;
+
+  const valid =
+    !!vendorId &&
+    !!vehicleId &&
+    !!invoiceDate &&
+    totalPence > 0 &&
+    !vatExceedsTotal &&
+    description.trim().length > 0;
+
+  async function handleSubmit() {
+    if (!company?.id || !user?.id || !valid) return;
+    setSubmitting(true);
+    try {
+      const payload = {
+        invoiceKind: kind,
+        invoiceNumber: invoiceNumber.trim() || null,
+        vendorId,
+        vehicleId,
+        invoiceDate,
+        totalPence,
+        vatPence,
+        description: description.trim(),
+        notes: notes.trim() || null,
+        attachmentUrl: attachment.path,
+        attachmentFilename: attachment.filename,
+        attachmentSizeBytes: attachment.sizeBytes,
+        attachmentMimeType: attachment.mimeType,
+      };
+      let saved: ExternalInvoice;
+      if (editing) {
+        saved = await externalInvoiceService.update(editing.id, payload, user.id);
+        toast.success("Invoice updated");
+      } else {
+        saved = await externalInvoiceService.create(company.id, payload, user.id);
+        toast.success("Invoice saved");
+      }
+      onSaved?.(saved);
+      onOpenChange(false);
+    } catch (err) {
+      const obj = err as { message?: string; hint?: string; details?: string };
+      toast.error(
+        obj?.message ?? obj?.hint ?? obj?.details ?? "Could not save invoice",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (!company?.id || !user?.id) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>
+            {editing ? "Edit invoice" : "New invoice"}
+          </DialogTitle>
+          <DialogDescription>
+            Records an inbound invoice the dealership has received.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid gap-3">
+          {/* Kind toggle */}
+          <div className="grid gap-1">
+            <Label>Kind</Label>
+            <div className="flex gap-2">
+              {(["auction_purchase", "external_job"] as InvoiceKind[]).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setKind(k)}
+                  className={
+                    "rounded-md border px-3 py-1.5 text-sm transition-colors " +
+                    (kind === k
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border text-muted-foreground hover:bg-muted/40")
+                  }
+                >
+                  {INVOICE_KIND_LABELS[k]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Vendor + inline add */}
+          <div className="grid gap-1">
+            <Label>
+              Vendor <span className="text-destructive">*</span>
+            </Label>
+            <div className="flex gap-2">
+              <Select value={vendorId} onValueChange={setVendorId}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Pick a vendor…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {vendors.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.name}
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        {v.speciality}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <VendorInlineAdd
+                companyId={company.id}
+                onCreated={(v) => {
+                  setVendors((curr) => [...curr, v]);
+                  setVendorId(v.id);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Vehicle */}
+          <div className="grid gap-1">
+            <Label>
+              Vehicle <span className="text-destructive">*</span>
+            </Label>
+            <Select
+              value={vehicleId}
+              onValueChange={setVehicleId}
+              disabled={!!fixedVehicleId}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a vehicle…" />
+              </SelectTrigger>
+              <SelectContent className="max-h-72">
+                {vehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.stockId} · {v.registration} — {v.make} {v.model}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Invoice number + date */}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-1">
+              <Label>Invoice number</Label>
+              <Input
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                placeholder="vendor's reference"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label>
+                Invoice date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                type="date"
+                value={invoiceDate}
+                onChange={(e) => setInvoiceDate(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* Money trio */}
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-1">
+              <Label>
+                Total (inc. VAT) <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                inputMode="decimal"
+                value={total}
+                onChange={(e) => setTotal(e.target.value)}
+                placeholder="£0.00"
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label>VAT</Label>
+              <Input
+                inputMode="decimal"
+                value={vat}
+                onChange={(e) => setVat(e.target.value)}
+                placeholder="£0.00"
+                aria-invalid={vatExceedsTotal ? true : undefined}
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-muted-foreground">Pre-VAT (auto)</Label>
+              <Input
+                value={penceToPounds(preVatPence)}
+                readOnly
+                tabIndex={-1}
+                className="bg-muted/40"
+              />
+            </div>
+          </div>
+          {vatExceedsTotal ? (
+            <p className="-mt-1 text-xs text-destructive">
+              VAT can&apos;t exceed Total.
+            </p>
+          ) : null}
+
+          {/* Description */}
+          <div className="grid gap-1">
+            <Label>
+              Description <span className="text-destructive">*</span>
+            </Label>
+            <Textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What was the job / what was purchased?"
+              className="min-h-16"
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="grid gap-1">
+            <Label>Notes (optional)</Label>
+            <Textarea
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              className="min-h-12"
+            />
+          </div>
+
+          {/* Attachment */}
+          <div className="grid gap-1">
+            <Label>Attachment (optional)</Label>
+            <AttachmentUploader
+              companyId={company.id}
+              vehicleId={vehicleId || null}
+              value={attachment}
+              onChange={setAttachment}
+              disabled={submitting}
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={submitting}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={!valid || submitting}
+          >
+            {submitting
+              ? "Saving…"
+              : editing
+                ? "Save changes"
+                : "Save invoice"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

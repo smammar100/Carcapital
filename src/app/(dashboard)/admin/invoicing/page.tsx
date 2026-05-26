@@ -21,6 +21,7 @@ import {
   pdfService,
 } from "@/lib/services/pdf-service";
 import type { Invoice, InvoiceType } from "@/lib/types";
+import { ExternalInvoiceList } from "@/components/external-invoices";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
@@ -67,12 +69,14 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "sonner";
 
 type Filter = InvoiceType | "all";
+type TopTab = "sales" | "purchase" | "external_job";
 
 export default function InvoicingPage() {
   const router = useRouter();
   const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
   const canEdit = isSuperUser || can("invoice:edit");
+  const [topTab, setTopTab] = useState<TopTab>("sales");
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [vat, setVat] = useState<{
@@ -369,9 +373,10 @@ export default function InvoicingPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight">Invoicing</h1>
           <p className="text-sm text-muted-foreground">
-            All purchase + sales invoices and VAT summary.
+            Sales + refunds, purchase invoices, and external-job invoices.
           </p>
         </div>
+        {topTab === "sales" ? (
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -458,7 +463,17 @@ export default function InvoicingPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        ) : null}
       </div>
+
+      <Tabs value={topTab} onValueChange={(v) => setTopTab(v as TopTab)}>
+        <TabsList>
+          <TabsTrigger value="sales">Sales</TabsTrigger>
+          <TabsTrigger value="purchase">Purchase Invoices</TabsTrigger>
+          <TabsTrigger value="external_job">External Job Invoices</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="sales" className="mt-4 flex flex-col gap-4">
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
@@ -588,6 +603,16 @@ export default function InvoicingPage() {
           </Select>
         </div>
       </Card>
+        </TabsContent>
+
+        <TabsContent value="purchase" className="mt-4">
+          <ExternalInvoiceList kind="auction_purchase" />
+        </TabsContent>
+
+        <TabsContent value="external_job" className="mt-4">
+          <ExternalInvoiceList kind="external_job" />
+        </TabsContent>
+      </Tabs>
 
       {/* View modal */}
       <Dialog

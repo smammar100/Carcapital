@@ -7,16 +7,20 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/contexts/auth-context";
 import { leadService } from "@/lib/services/lead-service";
+import { leadChannelService } from "@/lib/services/lead-channel-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { authService } from "@/lib/services/auth-service";
 import { appointmentService } from "@/lib/services/appointment-service";
 import type {
   Lead,
+  LeadChannel,
   LeadSource,
   LeadStatus,
+  UUID,
   User,
   Vehicle,
 } from "@/lib/types";
+import { ChannelChip, ChannelDropdown } from "@/components/lead-channels";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -85,16 +89,14 @@ const createSchema = z.object({
   customerEmail: z.string().optional(),
   vehicleInterest: z.string().min(1),
   vehicleId: z.string(),
-  source: z.enum([
-    "website",
-    "phone",
-    "walk_in",
-    "autotrader",
-    "ebay",
-    "facebook",
-    "referral",
-    "other",
-  ]),
+  /**
+   * Module C · Phase 1 — required channel FK. The legacy `source` enum
+   * is derived from the picked channel's slug on submit so existing
+   * filters / activity log still work.
+   */
+  leadChannelId: z.string().min(1, "Please pick a channel"),
+  /** Free-text clarification shown only when channel slug is "other". */
+  channelOtherReason: z.string().optional(),
   assignedTo: z.string().min(1),
   notes: z.string().optional(),
 });
@@ -114,6 +116,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<User[]>([]);
+  const [channels, setChannels] = useState<LeadChannel[]>([]);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -127,7 +130,8 @@ export default function LeadsPage() {
       customerEmail: "",
       vehicleInterest: "",
       vehicleId: "none",
-      source: "website",
+      leadChannelId: "",
+      channelOtherReason: "",
       assignedTo: "",
       notes: "",
     },
@@ -148,10 +152,12 @@ export default function LeadsPage() {
       leadService.getAll(company.id),
       vehicleService.getAll(company.id),
       authService.getUsersForCompany(company.id),
-    ]).then(([l, v, u]) => {
+      leadChannelService.getEnabled(company.id),
+    ]).then(([l, v, u, c]) => {
       setLeads(l);
       setVehicles(v);
       setUsers(u);
+      setChannels(c);
       const sales = u.find((x) => x.role === "sales");
       if (sales) create.setValue("assignedTo", sales.id);
     });
@@ -169,6 +175,12 @@ export default function LeadsPage() {
     }));
   }, [leads, statusFilter, sourceFilter, users]);
 
+  // Resolve channel by id for the Channel cell renderer.
+  const channelById = useMemo<Map<UUID, LeadChannel>>(
+    () => new Map(channels.map((c) => [c.id, c])),
+    [channels],
+  );
+
   const cols = useMemo<ColumnDef<LeadRow>[]>(
     () => [
       {
@@ -185,7 +197,23 @@ export default function LeadsPage() {
         type: "text",
         width: 240,
       },
-      { key: "source", label: "Source", type: "select", width: 130 },
+      {
+        key: "leadChannelId",
+        label: "Channel",
+        type: "custom",
+        width: 150,
+        render: (l) => {
+          const ch = l.leadChannelId ? channelById.get(l.leadChannelId) : null;
+          if (ch) return <ChannelChip channel={ch} compact />;
+          // Legacy fallback — lead created before Module C; render the
+          // raw `source` value muted so the row still has context.
+          return (
+            <span className="text-xs capitalize text-muted-foreground">
+              {l.source.replace("_", " ")}
+            </span>
+          );
+        },
+      },
       { key: "status", label: "Status", type: "leadStatus", width: 150 },
       {
         key: "assignedTo",
@@ -202,7 +230,7 @@ export default function LeadsPage() {
         get: (l) => l.createdAt.slice(0, 10),
       },
     ],
-    [],
+    [channelById],
   );
 
   // Collapsible grouping by lead status (ClickUp-style pipeline view).
@@ -214,6 +242,34 @@ export default function LeadsPage() {
 
   async function onCreate(values: CreateOutput) {
     if (!user || !company) return;
+
+    // Derive the legacy lead.source enum from the picked channel's
+    // slug so existing filters / activity-log strings keep working.
+    // Non-matching slugs (e.g. "repeat_customer") collapse to "other".
+    const channel = channels.find((c) => c.id === values.leadChannelId);
+    const LEGACY_SOURCES: readonly LeadSource[] = [
+      "website",
+      "phone",
+      "walk_in",
+      "autotrader",
+      "ebay",
+      "facebook",
+      "referral",
+      "other",
+    ];
+    const slugAsSource = channel?.slug as LeadSource | undefined;
+    const source: LeadSource =
+      slugAsSource && LEGACY_SOURCES.includes(slugAsSource)
+        ? slugAsSource
+        : "other";
+
+    // If "Other" was picked with a clarification, prefix it onto notes.
+    const reason = values.channelOtherReason?.trim();
+    const notes =
+      channel?.slug === "other" && reason
+        ? `Channel: ${reason}${values.notes ? `\n\n${values.notes}` : ""}`
+        : values.notes || null;
+
     await leadService.create(
       {
         companyId: company.id,
@@ -222,9 +278,10 @@ export default function LeadsPage() {
         customerEmail: values.customerEmail || null,
         vehicleInterest: values.vehicleInterest,
         vehicleId: values.vehicleId === "none" ? null : values.vehicleId,
-        source: values.source,
+        source,
+        leadChannelId: values.leadChannelId,
         assignedTo: values.assignedTo,
-        notes: values.notes || null,
+        notes: notes || null,
       },
       user.id,
     );
@@ -327,25 +384,36 @@ export default function LeadsPage() {
                 <Label>Vehicle interest</Label>
                 <Input {...create.register("vehicleInterest")} />
               </div>
+              <div>
+                <Label>
+                  Lead Channel <span className="text-destructive">*</span>
+                </Label>
+                <ChannelDropdown
+                  channels={channels}
+                  value={create.watch("leadChannelId") || undefined}
+                  onValueChange={(id) =>
+                    create.setValue("leadChannelId", id, { shouldValidate: true })
+                  }
+                  placeholder="Where did this lead come from?"
+                  invalid={!!create.formState.errors.leadChannelId}
+                />
+                {create.formState.errors.leadChannelId ? (
+                  <p className="mt-1 text-xs text-destructive">
+                    {create.formState.errors.leadChannelId.message}
+                  </p>
+                ) : null}
+                {/* "Other" clarification — appears only when "other" is picked */}
+                {channels.find(
+                  (c) => c.id === create.watch("leadChannelId"),
+                )?.slug === "other" ? (
+                  <Input
+                    {...create.register("channelOtherReason")}
+                    placeholder="How did they hear about us?"
+                    className="mt-2"
+                  />
+                ) : null}
+              </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Source</Label>
-                  <Select
-                    value={create.watch("source")}
-                    onValueChange={(v) => create.setValue("source", v as LeadSource)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SOURCES.map((s) => (
-                        <SelectItem key={s} value={s} className="capitalize">
-                          {s.replace("_", " ")}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
                 <div>
                   <Label>Assign to</Label>
                   <Select

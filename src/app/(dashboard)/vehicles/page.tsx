@@ -45,6 +45,7 @@ import { VehicleStatusBadge } from "@/components/shared/status-badge";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import { PageHelper } from "@/components/layout/page-helper";
 import {
   type ColumnDef,
   DataGridFooterRow,
@@ -477,6 +478,10 @@ export default function VehiclesPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">All Vehicles</h1>
+          <PageHelper>
+            Every car since the business opened. Sold, unsold, returned, all
+            of them. For historical analysis and reporting.
+          </PageHelper>
           <p className="text-sm text-muted-foreground">
             {filtered ? `${filtered.length} matching` : "Loading inventory…"}
           </p>

@@ -12,6 +12,14 @@ const nextConfig: NextConfig = {
         destination: "/warranties/in-house",
         permanent: false,
       },
+      // Module E.1 — the legacy Inventory > Listings route was removed
+      // (duplicated Worklist). Redirect any stale bookmarks to All
+      // Vehicles (the current Inventory equivalent in this codebase).
+      {
+        source: "/admin/inventory/listings",
+        destination: "/vehicles",
+        permanent: true,
+      },
     ];
   },
 };

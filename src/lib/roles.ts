@@ -81,6 +81,10 @@ export const ROLE_DEFS: RoleDef[] = [
       "users:create_direct",
       // Spec v3.0 — Module A
       "locations:move",
+      // Spec v3.0 · Module D — full external-invoice authority
+      "external_invoice:create",
+      "external_invoice:edit_any",
+      "external_invoice:delete",
     ],
   },
   {
@@ -118,6 +122,8 @@ export const ROLE_DEFS: RoleDef[] = [
       "admin:view_financials",
       // Spec v3.0 — Module A: move authority for the day-to-day operator
       "locations:move",
+      // Spec v3.0 · Module D — Inventory Manager creates external invoices
+      "external_invoice:create",
     ],
   },
   {

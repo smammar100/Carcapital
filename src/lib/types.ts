@@ -587,6 +587,12 @@ export interface LeadChannel {
   enabled: boolean;
   /** System rows can be disabled but not deleted. */
   isSystem: boolean;
+  /**
+   * Hex colour for the chip on Lead Detail + the dot on Sales Pipeline
+   * cards (Spec v3.0 · Module C). Always set; defaults to neutral grey
+   * for legacy rows pre-0013.
+   */
+  colour: string;
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -964,6 +970,42 @@ export interface Invoice {
 }
 
 // ============================================================
+// EXTERNAL / PURCHASE INVOICES (Spec v3.0 · Module D)
+// ============================================================
+
+/** Inbound invoice the dealership receives. */
+export type InvoiceKind = "auction_purchase" | "external_job";
+
+export const INVOICE_KIND_LABELS: Record<InvoiceKind, string> = {
+  auction_purchase: "Auction purchase",
+  external_job: "External job",
+};
+
+export interface ExternalInvoice {
+  id: UUID;
+  invoiceKind: InvoiceKind;
+  /** Vendor's invoice reference (BCA-style). Optional / often blank. */
+  invoiceNumber: string | null;
+  vendorId: UUID;
+  vehicleId: UUID;
+  invoiceDate: ISODate;
+  /** Money in pence (matches the existing legal-invoice convention). */
+  totalPence: number;
+  vatPence: number;
+  /** Generated column in DB (total − vat); always present on read. */
+  preVatPence: number;
+  description: string;
+  notes: string | null;
+  attachmentUrl: string | null;
+  attachmentFilename: string | null;
+  attachmentSizeBytes: number | null;
+  attachmentMimeType: string | null;
+  createdBy: UUID;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
+// ============================================================
 // VEHICLE RETURNS
 // ============================================================
 
@@ -1063,7 +1105,10 @@ export type ActivityActionType =
   | "company_setting_changed"
   | "channel_changed"
   | "data_migrated"
-  | "vehicle_moved";
+  | "vehicle_moved"
+  | "external_invoice_created"
+  | "external_invoice_updated"
+  | "external_invoice_deleted";
 
 export interface ActivityLogEntry {
   id: UUID;

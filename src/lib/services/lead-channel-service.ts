@@ -13,6 +13,7 @@ const SELECT = `
   sortOrder:sort_order,
   enabled,
   isSystem:is_system,
+  colour,
   createdAt:created_at,
   updatedAt:updated_at
 `;

@@ -13,6 +13,7 @@ import {
   Pill,
   SectionDivider,
 } from "./primitives";
+import { ExternalInvoicesSection } from "./external-invoices-section";
 import { cn } from "@/lib/utils";
 
 interface FinancialsTabProps {
@@ -170,6 +171,9 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
           />
         </div>
       </div>
+
+      {/* External invoices (Module D) — purchase-side + external-job spend */}
+      <ExternalInvoicesSection vehicleId={vehicle.id} />
 
       {/* VAT margin scheme */}
       <Panel
