@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -101,6 +101,14 @@ export function ExternalInvoiceForm({
   }>({ path: null, filename: null, sizeBytes: null, mimeType: null });
   const [submitting, setSubmitting] = useState(false);
 
+  // F-D3 — paths uploaded in this dialog session that are NOT yet persisted
+  // to the DB. On dialog close without save (or on attachment replace), we
+  // purge them from Storage so we don't leak orphans. The baseline (the
+  // attachment that already lives on the `editing` row) is preserved here so
+  // we know not to delete it on Cancel.
+  const persistedBaselineRef = useRef<string | null>(null);
+  const draftPathsRef = useRef<Set<string>>(new Set());
+
   // Load lookups once when the dialog opens.
   useEffect(() => {
     if (!open || !company?.id) return;
@@ -124,7 +132,9 @@ export function ExternalInvoiceForm({
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
+    draftPathsRef.current = new Set();
     if (editing) {
+      persistedBaselineRef.current = editing.attachmentUrl ?? null;
       setKind(editing.invoiceKind);
       setVendorId(editing.vendorId);
       setVehicleId(editing.vehicleId);
@@ -142,6 +152,7 @@ export function ExternalInvoiceForm({
       });
     } else {
       // Fresh form — reset everything (preserve fixedVehicleId).
+      persistedBaselineRef.current = null;
       setKind(defaultKind);
       setVendorId("");
       setVehicleId(fixedVehicleId ?? "");
@@ -173,6 +184,55 @@ export function ExternalInvoiceForm({
     totalPence > 0 &&
     !vatExceedsTotal &&
     description.trim().length > 0;
+
+  /**
+   * F-D3: wrap the AttachmentUploader's onChange so that:
+   *  - every uploaded path is registered as a draft (cleanup-on-cancel target)
+   *  - if the user replaces or clears an attachment that was a draft (i.e.
+   *    uploaded in this session, not yet saved), purge it immediately so we
+   *    don't leak orphans even mid-session.
+   *  - the persisted baseline (the attachment that lives on `editing`) is
+   *    NEVER auto-deleted — that's the responsibility of the service's
+   *    update() path, which runs on save.
+   */
+  function handleAttachmentChange(next: typeof attachment) {
+    const prevPath = attachment.path;
+    if (
+      prevPath &&
+      prevPath !== next.path &&
+      prevPath !== persistedBaselineRef.current
+    ) {
+      // The path we are about to overwrite was a draft → purge it now.
+      void externalInvoiceService.removeAttachmentObject(prevPath);
+      draftPathsRef.current.delete(prevPath);
+    }
+    if (next.path && next.path !== persistedBaselineRef.current) {
+      draftPathsRef.current.add(next.path);
+    }
+    setAttachment(next);
+  }
+
+  /**
+   * F-D3: when the dialog closes without a successful save, every entry in
+   * `draftPathsRef` is an uploaded-but-unreferenced Storage object. Best-
+   * effort delete each one. Called from both the Cancel button and the
+   * native dialog dismiss handler.
+   */
+  function purgeDrafts() {
+    for (const path of draftPathsRef.current) {
+      if (path && path !== persistedBaselineRef.current) {
+        void externalInvoiceService.removeAttachmentObject(path);
+      }
+    }
+    draftPathsRef.current = new Set();
+  }
+
+  function handleDialogOpenChange(nextOpen: boolean) {
+    if (!nextOpen) {
+      purgeDrafts();
+    }
+    onOpenChange(nextOpen);
+  }
 
   async function handleSubmit() {
     if (!company?.id || !user?.id || !valid) return;
@@ -206,6 +266,9 @@ export function ExternalInvoiceForm({
         saved = await externalInvoiceService.create(company.id, payload, user.id);
         toast.success("Invoice saved");
       }
+      // F-D3 — the attachment (if any) is now persisted; remove from drafts
+      // so the close handler doesn't try to delete it.
+      draftPathsRef.current = new Set();
       onSaved?.(saved);
       onOpenChange(false);
     } catch (err) {
@@ -221,7 +284,7 @@ export function ExternalInvoiceForm({
   if (!company?.id || !user?.id) return null;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>
@@ -278,8 +341,11 @@ export function ExternalInvoiceForm({
               </Select>
               <VendorInlineAdd
                 companyId={company.id}
+                existingVendors={vendors}
                 onCreated={(v) => {
-                  setVendors((curr) => [...curr, v]);
+                  setVendors((curr) =>
+                    curr.some((x) => x.id === v.id) ? curr : [...curr, v],
+                  );
                   setVendorId(v.id);
                 }}
               />
@@ -400,7 +466,7 @@ export function ExternalInvoiceForm({
               companyId={company.id}
               vehicleId={vehicleId || null}
               value={attachment}
-              onChange={setAttachment}
+              onChange={handleAttachmentChange}
               disabled={submitting}
             />
           </div>
@@ -410,7 +476,7 @@ export function ExternalInvoiceForm({
           <Button
             type="button"
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={() => handleDialogOpenChange(false)}
             disabled={submitting}
           >
             Cancel

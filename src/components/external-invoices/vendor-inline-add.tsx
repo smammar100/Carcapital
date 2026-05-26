@@ -28,6 +28,12 @@ interface Props {
   companyId: UUID;
   onCreated: (vendor: Vendor) => void;
   className?: string;
+  /**
+   * F-D4 — caller passes its current vendor list so we can short-circuit
+   * the round-trip when the user retypes an existing name. Optional —
+   * the DB unique index is the authoritative guard.
+   */
+  existingVendors?: Vendor[];
 }
 
 const SPECIALITIES = [
@@ -44,7 +50,12 @@ const SPECIALITIES = [
  * external-invoice form. Captures name (required) + speciality + phone,
  * then calls `onCreated(vendor)` so the parent can select it.
  */
-export function VendorInlineAdd({ companyId, onCreated, className }: Props) {
+export function VendorInlineAdd({
+  companyId,
+  onCreated,
+  className,
+  existingVendors,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [speciality, setSpeciality] = useState<string>("general");
@@ -55,6 +66,23 @@ export function VendorInlineAdd({ companyId, onCreated, className }: Props) {
     const trimmed = name.trim();
     if (!trimmed) {
       toast.error("Vendor name is required");
+      return;
+    }
+    // F-D4: client-side pre-check against the parent's known vendor list.
+    // The DB unique index (vendors_unique_name_per_company) is the
+    // authoritative guard, but a pre-check spares the round-trip and gives
+    // a friendlier message when we can detect the collision locally.
+    const lowerTrimmed = trimmed.toLowerCase();
+    const dup = (existingVendors ?? []).find(
+      (v) => v.name.trim().toLowerCase() === lowerTrimmed,
+    );
+    if (dup) {
+      toast.error(`A vendor named "${dup.name}" already exists`);
+      onCreated(dup);
+      setName("");
+      setPhone("");
+      setSpeciality("general");
+      setOpen(false);
       return;
     }
     setSaving(true);
@@ -74,8 +102,17 @@ export function VendorInlineAdd({ companyId, onCreated, className }: Props) {
       setSpeciality("general");
       setOpen(false);
     } catch (err) {
-      const obj = err as { message?: string };
-      toast.error(obj?.message ?? "Could not add vendor");
+      const obj = err as { message?: string; code?: string };
+      // F-D4 — friendly message when the DB unique index rejects.
+      // Postgres unique-violation SQLSTATE is 23505.
+      const isUnique =
+        obj?.code === "23505" ||
+        /duplicate key|already exists|unique/i.test(obj?.message ?? "");
+      toast.error(
+        isUnique
+          ? `A vendor named "${trimmed}" already exists`
+          : (obj?.message ?? "Could not add vendor"),
+      );
     } finally {
       setSaving(false);
     }

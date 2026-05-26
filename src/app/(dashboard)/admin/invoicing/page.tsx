@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Eye,
   Loader2,
@@ -71,12 +71,37 @@ import { toast } from "sonner";
 type Filter = InvoiceType | "all";
 type TopTab = "sales" | "purchase" | "external_job";
 
+const TOP_TAB_VALUES: ReadonlySet<TopTab> = new Set([
+  "sales",
+  "purchase",
+  "external_job",
+]);
+
+function parseTopTab(v: string | null): TopTab {
+  return v && TOP_TAB_VALUES.has(v as TopTab) ? (v as TopTab) : "sales";
+}
+
 export default function InvoicingPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
   const canEdit = isSuperUser || can("invoice:edit");
-  const [topTab, setTopTab] = useState<TopTab>("sales");
+  // F-D5: top-tab state is mirrored in `?tab=` so the URL is a
+  // deep-linkable + bookmarkable surface.
+  const topTab: TopTab = parseTopTab(searchParams.get("tab"));
+  function setTopTab(next: TopTab) {
+    const params = new URLSearchParams(searchParams.toString());
+    if (next === "sales") {
+      params.delete("tab");
+    } else {
+      params.set("tab", next);
+    }
+    const qs = params.toString();
+    router.replace(qs ? `/admin/invoicing?${qs}` : "/admin/invoicing", {
+      scroll: false,
+    });
+  }
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [vat, setVat] = useState<{

@@ -200,6 +200,15 @@ export const externalInvoiceService = {
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createClient() as any;
+    // F-D1: fetch the prior `attachment_url` so we can purge the orphaned
+    // Storage object when the user replaces (or clears) the attachment.
+    // Only fetch when the caller actually touches the attachment column to
+    // keep edits without attachment changes a single round-trip.
+    let prevAttachmentUrl: string | null = null;
+    if (patch.attachmentUrl !== undefined) {
+      const prev = await this.getById(id);
+      prevAttachmentUrl = prev?.attachmentUrl ?? null;
+    }
     // Build update payload (only set keys that were passed in).
     const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
     if (patch.invoiceKind !== undefined) row.invoice_kind = patch.invoiceKind;
@@ -223,6 +232,20 @@ export const externalInvoiceService = {
       .single();
     if (error) throw error;
     const inv = data as ExternalInvoice;
+    // F-D1: if the attachment was swapped or cleared, purge the now-orphaned
+    // Storage object. Swallow errors — the DB row is the source of truth.
+    if (
+      patch.attachmentUrl !== undefined &&
+      prevAttachmentUrl &&
+      prevAttachmentUrl !== inv.attachmentUrl
+    ) {
+      await supabase.storage
+        .from(BUCKET)
+        .remove([prevAttachmentUrl])
+        .catch(() => {
+          /* orphaned object will be GC'd by a later sweep. */
+        });
+    }
     invalidate(NS);
     await activityService.log({
       companyId,
@@ -233,6 +256,21 @@ export const externalInvoiceService = {
       metadata: { invoiceId: inv.id, patch: Object.keys(patch) },
     });
     return inv;
+  },
+
+  /**
+   * Storage-only helper used by the form to clean up an orphan when the
+   * user uploads an attachment and then closes the dialog (or replaces
+   * it) before saving. Safe to call with any path — bucket RLS keeps it
+   * scoped, and errors are swallowed.
+   */
+  async removeAttachmentObject(path: string): Promise<void> {
+    if (!path) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
+    await supabase.storage.from(BUCKET).remove([path]).catch(() => {
+      /* swallow — best-effort cleanup. */
+    });
   },
 
   async delete(id: UUID, actorId: UUID, companyId: UUID): Promise<void> {

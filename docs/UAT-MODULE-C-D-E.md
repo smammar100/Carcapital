@@ -6,6 +6,7 @@
 - `db/migrations/0013_lead_channels_canonical_seed.sql`
 - `db/migrations/0014_lead_channels_rls.sql`
 - `db/migrations/0015_external_invoices.sql`
+- `db/migrations/0016_vendors_unique_name_per_company.sql` (F-D4 fix)
 
 **Status:** Draft · ready for Ali walkthrough on Wednesday catch-up
 **Author:** Claude · 2026-05-26
@@ -151,7 +152,7 @@
 | D-V3 | Name required | Submit with empty name. | Toast "Vendor name is required". No insert. | B | N |
 | D-V4 | Save returns vendor | Fill name "Ali's Garage" + save. | Toast "Added Ali's Garage". Outer form's vendor field auto-selects the new vendor. | B | N |
 | D-V5 | Inactive speciality default | Default speciality is "general". | "general" pre-selected in the speciality `<Select>`. | M | N |
-| D-V6 | Duplicate name allowed | Save "Ali's Garage" twice. | Both rows inserted (no unique constraint on name). Documented behaviour; surfaces a follow-up if Ali wants dedup. | L | N |
+| D-V6 | Duplicate name rejected | Save "Ali's Garage", then try again as "ali's garage" (different casing). | **F-D4 fix**: client-side pre-check selects the existing vendor; if the user bypasses, the DB unique index (`vendors_unique_name_per_company`) raises 23505 and the dialog surfaces "A vendor named … already exists". | M | P (DB verified live) |
 | D-V7 | Cancel discards | Open dialog, type name, Cancel. | Inner dialog closes. Outer form unchanged. | L | N |
 | D-V8 | Vendor list refreshes | After Save, close outer form. Re-open. | New vendor appears in the dropdown. | M | N |
 
@@ -166,7 +167,7 @@
 | D-A5 | Size guard — 11 MB | Pick a 11 MB PDF. | Toast "File too large …". No upload attempted. | B | N |
 | D-A6 | Path format | Inspect the stored `attachment_url`. | Format: `<companyId>/<vehicleId>/<timestamp>_<sanitised>.<ext>`. | M | N |
 | D-A7 | Signed-URL download | Click the attachment thumbnail in the list. | New tab opens; signed URL valid for 7 days. | B | N |
-| D-A8 | Replace attachment leaves orphan | Edit an invoice with a PDF attached → replace with a JPG → save. | Row points at the new path. **Known issue**: old object stays in Storage. Track as F-D1 follow-up. | L | N |
+| D-A8 | Replace attachment purges orphan | Edit an invoice with a PDF attached → replace with a JPG → save. | Row points at the new path. **F-D1 fix**: old object is removed from Storage by `update()` (best-effort, swallows storage errors). | L | P (logic verified post-fix) |
 | D-A9 | Delete invoice removes object | Delete an invoice with attachment. | Row gone; Storage object purged (service catches + swallows storage error so the row delete still succeeds). | M | N |
 | D-A10 | Attachment-less invoice | Save without attaching. | Row written with `attachment_url IS NULL`. List shows the Paperclip placeholder. | B | N |
 
@@ -197,7 +198,9 @@
 | D-T4 | External Job tab mounts list | Click External Job Invoices. | `<ExternalInvoiceList kind="external_job" />` renders. | B | N |
 | D-T5 | Upload-Invoice button scope | Switch tabs. | "Upload Invoice" header button only shows on the Sales tab. | M | N |
 | D-T6 | Header subtitle updated | Sales tab. | Reads "Sales + refunds, purchase invoices, and external-job invoices." (not the old "All purchase + sales…"). | L | N |
-| D-T7 | Tab persistence after refresh | Switch to External Job, hard-refresh. | Defaults back to Sales (no URL state — acceptable for V1; track as L). | L | N |
+| D-T7 | Tab persistence after refresh | Switch to External Job, hard-refresh. | **F-D5 fix**: URL becomes `/admin/invoicing?tab=external_job`; refresh restores the same tab. Sales is the default (no `?tab=`). | M | P (logic verified post-fix) |
+| D-T9 | Deep-link to a tab | Visit `/admin/invoicing?tab=purchase`. | Loads with Purchase Invoices already active. | M | N |
+| D-T10 | Invalid `?tab=` falls back | Visit `/admin/invoicing?tab=banana`. | Falls back to Sales without erroring. | L | N |
 | D-T8 | Filter + grid live under Sales | Apply legacy "Refunds" filter under Sales. | The legacy refunds-summary card appears (existing behaviour preserved). | M | N |
 
 ### 4.10 · Vehicle Detail Financials integration (Module D.5)
@@ -267,22 +270,32 @@ Verify the table in `Module_D_External_Invoicing.md` § Permissions.
 | D-NE8 | Long description | Paste a 5 000-char block into Description. | Stored. List shows a 2-line `line-clamp-2` preview; full text visible on Edit. | L | N |
 | D-NE9 | Unicode filename | Upload `Audi A4 — 2018 (£2.5k).pdf` | Path's filename component is sanitised to `Audi_A4_-_2018_-2.5k_.pdf` (or similar) via `replace(/[^A-Za-z0-9._-]/g, "_")`. Original `filename` field keeps the human name. | L | N |
 | D-NE10 | Network failure mid-upload | Throttle "Offline" during upload. | Toast "Upload failed — try again". No DB row written. | M | N |
-| D-NE11 | Network failure mid-submit | Throttle after upload succeeds, before insert. | Toast surfaces; the storage object becomes an orphan. Track as F-D3 cleanup follow-up. | L | N |
+| D-NE11 | Network failure mid-submit | Throttle after upload succeeds, before insert. | Toast surfaces. **F-D3 fix**: on dialog close (Cancel or submit-failure), every path uploaded in this session that is not the persisted baseline is purged from Storage. | M | P (logic verified post-fix) |
+| D-NE15 | Mid-session attachment replace | Upload PDF A → upload PDF B → Cancel. | **F-D3 fix**: PDF A is purged immediately when B is uploaded; PDF B is purged on Cancel. Neither leaks. | L | N |
 | D-NE12 | Vendor deleted mid-flow | Open form, pick vendor, mark vendor inactive (other tab), submit. | FK still references the existing vendor; insert succeeds because `active` is a UI flag, not a constraint. | L | N |
 | D-NE13 | Vehicle deleted mid-flow | Pick a vehicle, delete it from another tab, submit. | FK fails; toast surfaces the error. | M | N |
 | D-NE14 | Mobile / tablet | Open at 768 px width. | Top-tabs wrap; list rows reflow; form dialog fits. | L | N |
 
 ---
 
-## 5. Known issues / follow-ups
+## 5. Resolved follow-ups
+
+All five edge-case follow-ups from Round-1 are now closed.
+
+| ID | Title | Sev | Status | Fix |
+|---|---|---|---|---|
+| F-D1 | Replacing an attachment leaks the old Storage object | L | **Resolved** | `update()` fetches `prevAttachmentUrl` when `patch.attachmentUrl` is touched; purges the orphan after a successful DB update. |
+| F-D2 | `companyId: ""` in update/delete activity log | B | **Resolved** | `update` + `delete` now take `companyId` as a required argument; all three call sites pass `company.id` from `useAuth()`. |
+| F-D3 | Network-failure-after-upload orphans Storage objects | M | **Resolved** | Form tracks `draftPathsRef`; replaces / Cancel / dialog-dismiss all call `externalInvoiceService.removeAttachmentObject(path)`. The persisted baseline is preserved. |
+| F-D4 | Inline vendor add allows duplicate names | M | **Resolved** | Migration `0016_vendors_unique_name_per_company` adds a unique index on `(company_id, lower(name))`; the dialog pre-checks and the service-side catches `23505`. Pre-existing dups are auto-suffixed. |
+| F-D5 | Invoicing tab state not in URL | M | **Resolved** | Top-tab state mirrored in `?tab=` via `useSearchParams` + `router.replace`. Invalid values fall back to Sales. |
+
+### New low-severity follow-ups (deferred to V1.1)
 
 | ID | Title | Severity | Owner | Notes |
 |---|---|---|---|---|
-| F-D1 | Replacing an attachment leaks the old Storage object | L | Backend | Could be fixed by deleting `prevPath` in `update()` when `attachment_url` changes. |
-| F-D2 | `companyId: ""` in update/delete activity log | B | Backend | **Fixed in this turn** — update + delete now accept `companyId` as a required argument; all three call sites pass it. |
-| F-D3 | Network-failure-after-upload orphans Storage objects | L | Backend | Optional cleanup pass via a daily cron, or wrap upload+insert in a "try insert / undo upload" sequence. |
-| F-D4 | Inline vendor add allows duplicate names | L | Product | If Ali wants dedup, add a unique index on `vendors (company_id, lower(name))` in a follow-up migration. |
-| F-D5 | Invoicing tab state not in URL | L | Frontend | Future enhancement: `?tab=purchase` so the link can deep-link. |
+| F-D6 | Storage orphan sweep job | L | Ops | Even with F-D1/F-D3, a process crash mid-upload could leak an object. A weekly cron that lists `external-invoices/` paths not referenced by any `external_invoices.attachment_url` row would close the gap. |
+| F-D7 | Vendor merge UI | L | Product | The unique index prevents new dups but doesn't help if Ali wants to merge two legacy vendors. A "merge into" action on the vendors admin page is the natural follow-up. |
 
 ---
 
@@ -304,8 +317,9 @@ Verify the table in `Module_D_External_Invoicing.md` § Permissions.
 ## 7. Round-1 findings (2026-05-26 — automated DB-side)
 
 Migrations applied: ✅ `0013_lead_channels_canonical_seed`,
-✅ `0014_lead_channels_rls`, ✅ `0015_external_invoices` — all idempotent
-on the live `tbhtdurpvysfuqzfvaol` Supabase project.
+✅ `0014_lead_channels_rls`, ✅ `0015_external_invoices`,
+✅ `0016_vendors_unique_name_per_company` — all idempotent on the live
+`tbhtdurpvysfuqzfvaol` Supabase project.
 
 | Case | Result | Notes |
 |---|---|---|
@@ -331,6 +345,25 @@ on the live `tbhtdurpvysfuqzfvaol` Supabase project.
 **Pending (require live browser session with Ali):** every UI test case
 marked **N** in §4 — D-F*, D-V*, D-A*, D-L*, D-T*, D-X*, D-AL1–3/5,
 D-P*, D-NE*, E-U3–6.
+
+---
+
+## 7.5 Round-2 findings (2026-05-26 — post-fix verification)
+
+All five follow-ups from §5 closed in the same turn:
+
+| Fix | Verification |
+|---|---|
+| F-D1 (orphan-on-replace) | Added `prevAttachmentUrl` fetch in `update()`. After write, if `prev ≠ new && prev ≠ null`, the prior path is removed from the `external-invoices` bucket (best-effort, swallows errors). |
+| F-D2 (companyId leak) | Closed in Round-1 commit `c289a34`. All three call sites pass `company.id`. |
+| F-D3 (orphan-on-cancel) | Form tracks `draftPathsRef`. `handleAttachmentChange` purges replaced drafts; `purgeDrafts()` is called from `handleDialogOpenChange(false)` and the Cancel button. Successful save clears the draft set so close doesn't double-delete. |
+| F-D4 (vendor dedup) | Migration `0016` applied to prod. DB-level probe: insert "UAT_F-D4_Probe_v2", then try "uat_f-d4_probe_v2" → Postgres raises `23505 duplicate key value violates unique constraint "vendors_unique_name_per_company"`. ✅ Probe row cleaned up. UI: pre-check in `VendorInlineAdd.save()` short-circuits with a friendly toast and auto-selects the existing vendor. |
+| F-D5 (URL tab state) | Page reads `?tab=` via `useSearchParams`; `setTopTab` calls `router.replace` with `scroll: false`. `parseTopTab` rejects unknown values back to `"sales"`. |
+
+**Build status after fixes:** `pnpm exec tsc --noEmit` exit 0;
+`pnpm build` green. Eslint clean on all touched files (the two
+remaining `react-hooks/set-state-in-effect` lints are pre-existing
+patterns in `page.tsx` that I didn't author).
 
 ---
 
