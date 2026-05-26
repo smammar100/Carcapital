@@ -98,12 +98,12 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
   }
 
   async function handleDelete(inv: ExternalInvoice) {
-    if (!user?.id) return;
+    if (!user?.id || !company?.id) return;
     if (!confirm(`Delete this invoice (${formatCurrency(inv.totalPence / 100)})?`)) {
       return;
     }
     try {
-      await externalInvoiceService.delete(inv.id, user.id);
+      await externalInvoiceService.delete(inv.id, user.id, company.id);
       setRows((curr) => (curr ?? []).filter((r) => r.id !== inv.id));
       toast.success("Invoice deleted");
     } catch (err) {

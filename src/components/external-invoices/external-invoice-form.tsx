@@ -195,7 +195,12 @@ export function ExternalInvoiceForm({
       };
       let saved: ExternalInvoice;
       if (editing) {
-        saved = await externalInvoiceService.update(editing.id, payload, user.id);
+        saved = await externalInvoiceService.update(
+          editing.id,
+          payload,
+          user.id,
+          company.id,
+        );
         toast.success("Invoice updated");
       } else {
         saved = await externalInvoiceService.create(company.id, payload, user.id);

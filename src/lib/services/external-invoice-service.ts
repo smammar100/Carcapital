@@ -189,6 +189,7 @@ export const externalInvoiceService = {
     id: UUID,
     patch: ExternalInvoicePatch,
     actorId: UUID,
+    companyId: UUID,
   ): Promise<ExternalInvoice> {
     if (
       patch.vatPence !== undefined &&
@@ -224,7 +225,7 @@ export const externalInvoiceService = {
     const inv = data as ExternalInvoice;
     invalidate(NS);
     await activityService.log({
-      companyId: "", // resolved by caller's tenancy; activity_log RLS scopes by user
+      companyId,
       userId: actorId,
       vehicleId: inv.vehicleId,
       actionType: "external_invoice_updated",
@@ -234,7 +235,7 @@ export const externalInvoiceService = {
     return inv;
   },
 
-  async delete(id: UUID, actorId: UUID): Promise<void> {
+  async delete(id: UUID, actorId: UUID, companyId: UUID): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createClient() as any;
     // Fetch first so we can include vehicleId in the activity-log row and
@@ -253,7 +254,7 @@ export const externalInvoiceService = {
     invalidate(NS);
     if (existing) {
       await activityService.log({
-        companyId: "",
+        companyId,
         userId: actorId,
         vehicleId: existing.vehicleId,
         actionType: "external_invoice_deleted",
