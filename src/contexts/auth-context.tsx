@@ -73,10 +73,26 @@ const USER_WITH_COMPANY_SELECT = `
   )
 `;
 
-export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [company, setCompany] = useState<Company | null>(null);
-  const [loading, setLoading] = useState(true);
+interface AuthProviderProps {
+  children: ReactNode;
+  /**
+   * Server-prefetched user + company. When provided the provider starts with
+   * `loading: false` so the first render already shows the signed-in shell —
+   * no client-side `getSession()` round-trip is required for FCP. The bootstrap
+   * effect still subscribes to `onAuthStateChange` for sign-out / token rotation.
+   */
+  initialUser?: User | null;
+  initialCompany?: Company | null;
+}
+
+export function AuthProvider({
+  children,
+  initialUser = null,
+  initialCompany = null,
+}: AuthProviderProps) {
+  const [user, setUser] = useState<User | null>(initialUser);
+  const [company, setCompany] = useState<Company | null>(initialCompany);
+  const [loading, setLoading] = useState(initialUser === null);
   const [error, setError] = useState<string | null>(null);
   // Single-flight guard so a burst of focus/visibility/online events
   // doesn't stampede getSession()/hydrate().

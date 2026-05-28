@@ -12,7 +12,6 @@ import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { GridOverlay } from "@/components/layout/grid-overlay";
 import { PageShell } from "@/components/layout/page-shell";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardLayout({
@@ -20,36 +19,26 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading, error, revalidate } = useAuth();
+  const { user, error, revalidate } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
 
-  // Client-side route switches (sidebar nav) don't fire a window focus
-  // event, so the focus-based session refresh never runs on an in-app
-  // tab change. Proactively re-validate the session on every route
-  // change — single-flighted + a no-op when the session is unchanged,
-  // so it's cheap — so the destination page's data fetches run against
-  // a fresh JWT instead of a silently-expired one (blank-until-refresh).
+  // Tab focus / route change → refresh the JWT in case it silently expired.
   useEffect(() => {
     void revalidate();
   }, [pathname, revalidate]);
 
-  // Belt-and-suspenders redirect once auth resolves. Sits at the top of
-  // the component so it runs in the same order on every render (rules
-  // of hooks — never call useEffect after a conditional `return`).
+  // Post-mount belt-and-suspenders: if the client-side auth becomes null
+  // (sign-out from another tab, banned account) bounce to /login. Server
+  // middleware already handles the cold-start unauthenticated case.
   useEffect(() => {
-    if (!loading && !user) {
+    if (!user) {
       router.replace("/login");
-    } else if (!loading && user && user.passwordResetRequired) {
-      // SPEC Point 2 — directly-created users must set their own
-      // password before they can use the app.
+    } else if (user.passwordResetRequired) {
       router.replace("/set-password");
     }
-  }, [loading, user, router]);
+  }, [user, router]);
 
-  // Hard failure path — auth context couldn't even initialise (typically
-  // missing NEXT_PUBLIC_SUPABASE_* env vars at build time). Show a visible
-  // error instead of leaving the user staring at an infinite skeleton.
   if (error) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-muted/20 px-4">
@@ -78,16 +67,7 @@ export default function DashboardLayout({
     );
   }
 
-  if (loading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="flex flex-col items-center gap-3">
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-48" />
-        </div>
-      </div>
-    );
-  }
+  if (!user) return null;
 
   return (
     <SidebarStateProvider>

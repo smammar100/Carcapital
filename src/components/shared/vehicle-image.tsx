@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { Car, RefreshCw } from "lucide-react";
 import type { Vehicle } from "@/lib/types";
 import type { CarAngle } from "@/lib/services/photo-service";
@@ -9,6 +10,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { RegPlate } from "./reg-plate";
 
 type Variant = "thumb" | "card" | "hero";
+
+const VARIANT_SIZES: Record<Variant, string> = {
+  thumb: "64px",
+  card: "(max-width: 768px) 100vw, 360px",
+  hero: "(max-width: 1024px) 100vw, 720px",
+};
 
 interface Props {
   vehicle: Pick<Vehicle, "id" | "registration" | "heroImageUrl">;
@@ -190,16 +197,21 @@ export function VehicleImage({
       {pending && (
         <Skeleton className="absolute inset-0 h-full w-full rounded-none" />
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
+      <Image
         src={url}
         alt={alt ?? `Vehicle ${vehicle.registration}`}
+        fill
+        sizes={VARIANT_SIZES[variant]}
         className={cn(
-          "h-full w-full object-cover transition-opacity",
+          "object-cover transition-opacity",
           pending && "opacity-0",
         )}
         onError={handleImgError}
-        loading="lazy"
+        unoptimized={
+          url.startsWith("data:") ||
+          url.startsWith("blob:") ||
+          /^https?:\/\//.test(url)
+        }
       />
       {pending && variant !== "thumb" && (
         <span className="absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground backdrop-blur">

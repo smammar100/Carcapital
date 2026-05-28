@@ -8,17 +8,27 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "@/components/ui/sonner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
+import { getInitialAuth } from "@/lib/auth-initial";
 
-const figtree = Figtree({ subsets: ["latin"], variable: "--font-sans" });
+const figtree = Figtree({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+  preload: true,
+});
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  display: "swap",
+  preload: false,
 });
 
 export const metadata: Metadata = {
@@ -26,11 +36,22 @@ export const metadata: Metadata = {
   description: "Used-car dealership management platform",
 };
 
-export default function RootLayout({
+const SUPABASE_HOSTNAME = (() => {
+  try {
+    const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    return u ? new URL(u).hostname : null;
+  } catch {
+    return null;
+  }
+})();
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { user, company } = await getInitialAuth();
+
   return (
     <html
       lang="en"
@@ -43,16 +64,25 @@ export default function RootLayout({
         figtree.variable,
       )}
     >
+      <head>
+        {SUPABASE_HOSTNAME && (
+          <>
+            <link
+              rel="preconnect"
+              href={`https://${SUPABASE_HOSTNAME}`}
+              crossOrigin=""
+            />
+            <link rel="dns-prefetch" href={`https://${SUPABASE_HOSTNAME}`} />
+          </>
+        )}
+      </head>
       <body className="min-h-full flex flex-col">
-        <AuthProvider>
+        <AuthProvider initialUser={user} initialCompany={company}>
           <NotificationsProvider>
             <TooltipProvider delay={150}>{children}</TooltipProvider>
           </NotificationsProvider>
         </AuthProvider>
         <Toaster richColors closeButton position="bottom-right" />
-        {/* Vercel Speed Insights + Analytics — Core Web Vitals and
-            page/audience analytics. Active on Vercel (our deployment
-            target); inert with zero overhead during local dev. */}
         <SpeedInsights />
         <Analytics />
       </body>
