@@ -38,16 +38,10 @@ export function PageShell({
   return (
     <div
       data-page-shell={wide ? "wide" : "default"}
-      className={cn(
-        // Symmetric padding on all four sides — the gap above the page
-        // title equals the gap on the left and right at every breakpoint.
-        "mx-auto w-full p-6 md:p-8",
-        // Full-width fill up to the 1400px outer cap. Content never gets
-        // wider than 1400 on a 4K monitor; on a typical 1366 viewport the
-        // cap never binds and the page fills the available room.
-        "max-w-[1400px]",
-        className,
-      )}
+      // Symmetric padding on all four sides — left/right gap equals the
+      // top gap at every breakpoint. No max-width cap; content fills the
+      // available width inside <main>.
+      className={cn("w-full p-6 md:p-8", className)}
     >
       {children}
     </div>
