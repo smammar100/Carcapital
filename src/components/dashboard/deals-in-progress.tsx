@@ -45,7 +45,7 @@ export function DealsInProgress() {
   );
 
   return (
-    <Card className="flex flex-col gap-3 p-5">
+    <Card className="flex h-full flex-col gap-3 p-5">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
