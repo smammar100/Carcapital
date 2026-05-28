@@ -443,7 +443,7 @@ export function DashboardCalendar() {
     displayMonth.getMonth() === today.getMonth();
 
   return (
-    <Card className="flex flex-col gap-4 p-4" size="sm">
+    <Card className="flex h-full flex-col gap-4 p-4" size="sm">
       <div className="flex items-center justify-between">
         <h2 className="flex items-baseline gap-1 text-2xl leading-8 font-medium tracking-tight">
           <span className="text-foreground">

@@ -89,7 +89,7 @@ export function DashboardRecentDeals() {
   );
 
   return (
-    <Card className="flex flex-col gap-4 pt-5 pb-4" size="sm">
+    <Card className="flex h-full flex-col gap-4 pt-5 pb-4" size="sm">
       <div className="flex flex-wrap items-center justify-between gap-2 px-5">
         <div className="flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-muted-foreground" />

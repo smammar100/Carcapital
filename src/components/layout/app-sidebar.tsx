@@ -83,7 +83,10 @@ export function AppSidebar() {
           {!railCollapsed && (
             <div className="flex min-w-0 flex-col leading-tight">
               <span className="truncate text-sm font-medium">Car Capital UK</span>
-              <span className="truncate text-[11px] text-muted-foreground">
+              <span
+                className="truncate text-[11px] text-muted-foreground"
+                suppressHydrationWarning
+              >
                 {company?.name ?? "—"}
               </span>
             </div>
