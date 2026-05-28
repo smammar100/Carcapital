@@ -62,15 +62,7 @@ export function AppHeader() {
   }
 
   return (
-    <div
-      className="flex h-full w-full items-center"
-      style={{
-        paddingLeft: "var(--space-4)",
-        paddingRight: "var(--space-4)",
-        gap: "var(--space-3)",
-      }}
-    >
-      {/* Breadcrumb (mobile + desktop label) */}
+    <div className="flex h-full w-full items-center gap-3 px-4">
       <Breadcrumb className="hidden md:block">
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -84,13 +76,10 @@ export function AppHeader() {
         {titleFromPath(pathname)}
       </div>
 
-      {/* Search — pinned right of breadcrumb, max 320px */}
       <form
         onSubmit={onSearchSubmit}
-        className="relative ml-auto hidden md:block"
-        style={{ maxWidth: 320, width: "100%" }}
+        className="relative ml-auto hidden w-full max-w-[320px] md:block"
       >
-        <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
           placeholder="Search reg or stock ID…"
@@ -98,13 +87,10 @@ export function AppHeader() {
           onChange={(e) => setSearchValue(e.target.value)}
           className="pl-8"
         />
+        <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
       </form>
 
-      {/* Right cluster — notification bell + profile dropdown */}
-      <div
-        className="flex items-center"
-        style={{ gap: "var(--space-3)", marginLeft: "auto" }}
-      >
+      <div className="ml-auto flex items-center gap-3">
         <HealthIndicator />
         <NotificationsDropdown
           notifications={notifications}
@@ -128,34 +114,30 @@ function NotificationsDropdown({
 }) {
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="relative"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5" />
-          {unreadCount > 0 && (
-            <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
-              {unreadCount}
-            </span>
-          )}
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon"
+            className="relative"
+            aria-label="Notifications"
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+                {unreadCount}
+              </span>
+            )}
+          </Button>
+        }
+      />
       <DropdownMenuContent
         align="end"
         sideOffset={8}
         className="w-80 rounded-xl p-0 shadow-lg"
         data-testid="notifications-dropdown"
       >
-        <div
-          className="flex items-center justify-between"
-          style={{
-            padding: "var(--space-3)",
-            borderBottom: "1px solid var(--border)",
-          }}
-        >
+        <div className="flex items-center justify-between border-b border-border p-3">
           <span className="text-sm font-semibold">Notifications</span>
           <button
             type="button"
@@ -165,18 +147,9 @@ function NotificationsDropdown({
             Mark all as read
           </button>
         </div>
-        {/* Native overflow scroll — Radix ScrollArea's viewport uses
-            height:100% which resolves to indefinite when the root only
-            has max-height (no explicit height), so it grew to full
-            content height and the list spilled under the fixed footer.
-            A plain max-h + overflow-y-auto respects max-height correctly
-            and keeps the header/footer as proper bookends. */}
         <div className="max-h-[320px] overflow-y-auto overscroll-contain">
           {notifications.length === 0 ? (
-            <div
-              className="text-center text-sm text-muted-foreground"
-              style={{ padding: "var(--space-6)" }}
-            >
+            <div className="p-6 text-center text-sm text-muted-foreground">
               No notifications
             </div>
           ) : (
@@ -185,11 +158,7 @@ function NotificationsDropdown({
                 <a
                   key={n.id}
                   href={n.link ?? "#"}
-                  className="flex items-start transition-colors hover:bg-accent/40"
-                  style={{
-                    padding: "var(--space-3)",
-                    gap: "var(--space-2)",
-                  }}
+                  className="flex items-start gap-2 p-3 transition-colors hover:bg-accent/40"
                 >
                   <span
                     className={cn(
@@ -216,12 +185,7 @@ function NotificationsDropdown({
             </div>
           )}
         </div>
-        <div
-          style={{
-            padding: "var(--space-3)",
-            borderTop: "1px solid var(--border)",
-          }}
-        >
+        <div className="border-t border-border p-3">
           <Button variant="secondary" className="w-full" size="sm">
             Show all
           </Button>
@@ -238,41 +202,34 @@ function ProfileDropdown({
   user: ReturnType<typeof useAuth>["user"];
   onSignOut: () => void;
 }) {
+  const router = useRouter();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          className="px-2"
-          style={{ gap: "var(--space-2)" }}
-        >
-          <Avatar className="h-7 w-7">
-            <AvatarFallback className="text-[11px]">
-              {user ? getInitials(user.name) : "—"}
-            </AvatarFallback>
-          </Avatar>
-          <div className="hidden flex-col items-start leading-tight sm:flex">
-            <span className="text-xs font-medium">{user?.name ?? ""}</span>
-            <span className="text-[10px] capitalize text-muted-foreground">
-              {user?.role.replace("_", " ")}
-            </span>
-          </div>
-          <ChevronDown className="hidden h-3 w-3 opacity-60 sm:block" />
-        </Button>
-      </DropdownMenuTrigger>
+      <DropdownMenuTrigger
+        render={
+          <Button variant="ghost" className="gap-2 px-2">
+            <Avatar className="h-7 w-7">
+              <AvatarFallback className="text-[11px]">
+                {user ? getInitials(user.name) : "—"}
+              </AvatarFallback>
+            </Avatar>
+            <div className="hidden flex-col items-start leading-tight sm:flex">
+              <span className="text-xs font-medium">{user?.name ?? ""}</span>
+              <span className="text-[10px] capitalize text-muted-foreground">
+                {user?.role.replace("_", " ")}
+              </span>
+            </div>
+            <ChevronDown className="hidden h-3 w-3 opacity-60 sm:block" />
+          </Button>
+        }
+      />
       <DropdownMenuContent
         align="end"
         sideOffset={8}
         className="w-56 rounded-xl p-1"
         data-testid="profile-dropdown"
       >
-        <div
-          className="flex flex-col"
-          style={{
-            padding: "var(--space-3)",
-            gap: "var(--space-1)",
-          }}
-        >
+        <div className="flex flex-col gap-1 p-3">
           <span className="text-sm font-medium">{user?.name}</span>
           <span className="text-xs text-muted-foreground">{user?.email}</span>
         </div>
@@ -285,12 +242,15 @@ function ProfileDropdown({
           <UserIcon className="h-4 w-4" />
           My Profile
         </DropdownMenuItem>
-        <DropdownMenuItem disabled className="gap-2">
+        <DropdownMenuItem
+          className="gap-2"
+          onClick={() => router.push("/admin/settings")}
+        >
           <SettingsIcon className="h-4 w-4" />
           Settings
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={onSignOut} className="gap-2">
+        <DropdownMenuItem onClick={onSignOut} className="gap-2">
           <LogOut className="h-4 w-4" />
           Log Out
         </DropdownMenuItem>

@@ -2,7 +2,14 @@
 
 import { useMemo, useState, type KeyboardEvent } from "react";
 import { Loader2, Search, X } from "lucide-react";
-import { Dialog as DialogPrimitive } from "radix-ui";
+import {
+  Dialog,
+  DialogPortal,
+  DialogOverlay,
+  DialogContent,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -213,22 +220,25 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
   }
 
   return (
-    <DialogPrimitive.Root open={open} onOpenChange={(o) => (o ? onOpenChange(true) : handleClose())}>
-      <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/30 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
-        <DialogPrimitive.Content
+    <Dialog open={open} onOpenChange={(o) => (o ? onOpenChange(true) : handleClose())}>
+      <DialogPortal>
+        <DialogOverlay className="fixed inset-0 z-50 bg-black/30 supports-backdrop-filter:backdrop-blur-sm data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0" />
+        <DialogContent
+          showCloseButton={false}
           className="fixed inset-0 z-50 flex h-screen w-screen flex-col gap-0 bg-popover text-popover-foreground outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <div className="flex items-center justify-between border-b px-8 py-5">
-            <DialogPrimitive.Title className="text-lg font-heading font-medium">
+            <DialogTitle className="text-lg font-heading font-medium">
               Invite team members
-            </DialogPrimitive.Title>
-            <DialogPrimitive.Close asChild>
-              <Button variant="ghost" size="icon-sm" className="bg-secondary">
-                <X className="h-4 w-4" />
-                <span className="sr-only">Close</span>
-              </Button>
-            </DialogPrimitive.Close>
+            </DialogTitle>
+            <DialogClose
+              render={
+                <Button variant="ghost" size="icon-sm" className="bg-secondary">
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Close</span>
+                </Button>
+              }
+            />
           </div>
 
           <div className="flex gap-2 border-b px-8 py-3">
@@ -484,9 +494,9 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
               {mode === "password" ? "Create member" : "Send invites"}
             </Button>
           </div>
-        </DialogPrimitive.Content>
-      </DialogPrimitive.Portal>
-    </DialogPrimitive.Root>
+        </DialogContent>
+      </DialogPortal>
+    </Dialog>
   );
 }
 

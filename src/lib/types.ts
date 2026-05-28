@@ -328,6 +328,19 @@ export interface Vehicle {
    */
   isDemo?: boolean;
 
+  // ─── DVLA + DVSA compliance fields (migration 0017) ──────────────────
+  // Populated by /api/vehicle/lookup. All nullable — DVLA omits euroStatus
+  // and automatedVehicle for most cars; DVSA returns 404 for brand-new
+  // vehicles that haven't had an MOT yet.
+  co2Emissions: number | null;
+  euroStatus: string | null;
+  taxStatus: string | null;
+  taxDueDate: ISODate | null;
+  motStatus: string | null;
+  wheelplan: string | null;
+  automatedVehicle: boolean | null;
+  dateOfLastV5CIssued: ISODate | null;
+
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }

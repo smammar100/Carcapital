@@ -2,36 +2,50 @@ import { DVLA_MOCK } from "@/lib/mock-data";
 import type { Vehicle } from "@/lib/types";
 
 /**
- * DVLA lookup — calls the live Vehicle Enquiry Service v1 via our server
- * proxy at /api/dvla/lookup. The API key lives in `.env.local` (server-side
- * only) — see src/app/api/dvla/lookup/route.ts.
+ * Vehicle lookup — calls the combined DVLA + DVSA proxy at
+ * `/api/vehicle/lookup`. Server-side route fans out to both gov.uk APIs
+ * in parallel, merges per spec, and returns the full 17-key payload.
  *
- * Consumers:
- *   - src/components/vehicles/arrival-form.tsx (DVLA-fills the form on reg blur)
- *   - src/components/dashboard/find-vehicle-card.tsx (jump-to-vehicle widget)
+ * Module name kept as `dvla-service.ts` for backward compat with all
+ * existing consumers (arrival-form, find-vehicle-card). The default
+ * export remains `dvlaService.lookup(reg)` which now returns the merged
+ * shape.
  *
  * Behaviour:
- *   - Returns Partial<Vehicle> on success (200 with body).
+ *   - Returns the merged Partial<Vehicle> on success (200 with body).
  *   - Returns null when DVLA doesn't recognise the reg (200 with null body).
- *   - On network failure or 5xx, falls back to the DVLA_MOCK seed data if the
- *     reg is present there — keeps the demo working in offline / no-key dev
- *     mode.
- *   - On 4xx other than 404, throws so consumers can show an error toast.
+ *   - On network failure / 5xx falls back to DVLA_MOCK seed data so demo
+ *     mode keeps working without live keys.
+ *   - On other 4xx logs + returns null (consumer renders manual-entry).
  *
- * Note: live DVLA VES does NOT return `model`. Expect `model` to be null on
- * the returned object even when the lookup succeeds.
+ * The route's DVLA half is the source of truth for vehicle identity. DVSA
+ * is authoritative for `motStatus` + `motExpiryDate` and the route handles
+ * the merge — no client-side merging happens here.
  */
 
-function mockFallback(reg: string): Partial<Vehicle> | null {
+function mockFallback(reg: string): DvlaLookupReturn | null {
   // Mock data uses spaced reg keys (e.g. "LX68 CZK") — try both.
   const cleaned = reg.toUpperCase().trim();
-  if (DVLA_MOCK[cleaned]) return DVLA_MOCK[cleaned];
-  // Try normalised (no spaces) match against keys
-  const normalised = cleaned.replace(/\s+/g, "");
-  const hit = Object.entries(DVLA_MOCK).find(
-    ([k]) => k.replace(/\s+/g, "") === normalised,
-  );
-  return hit ? hit[1] : null;
+  const hit = DVLA_MOCK[cleaned]
+    ? DVLA_MOCK[cleaned]
+    : Object.entries(DVLA_MOCK).find(
+        ([k]) => k.replace(/\s+/g, "") === cleaned.replace(/\s+/g, ""),
+      )?.[1] ?? null;
+  if (!hit) return null;
+  // DVLA_MOCK predates Module-F; pad the missing keys with nulls so the
+  // return shape matches DvlaLookupReturn exactly.
+  return {
+    ...hit,
+    registrationDate: null,
+    co2Emissions: null,
+    euroStatus: null,
+    taxStatus: null,
+    taxDueDate: null,
+    motStatus: null,
+    wheelplan: null,
+    automatedVehicle: null,
+    dateOfLastV5CIssued: null,
+  } as DvlaLookupReturn;
 }
 
 // Hard timeout so the form never hangs on a stuck serverless cold-start,
@@ -42,8 +56,69 @@ function mockFallback(reg: string): Partial<Vehicle> | null {
 // stays as defence-in-depth.)
 const DVLA_TIMEOUT_MS = 12_000;
 
+// --- Combined-route response shape (mirrors VehicleLookupPayload from
+// src/app/api/vehicle/lookup/route.ts but kept loose so this module stays
+// importable from server-only AND client code).
+export interface VehicleLookupResponse {
+  registration: string;
+  make: string | null;
+  model: string | null;
+  colour: string | null;
+  registrationDate: string | null;
+  yearOfManufacture: number | null;
+  fuelType: "petrol" | "diesel" | "hybrid" | "electric";
+  engineCapacityCC: number | null;
+  co2Emissions: number | null;
+  euroStatus: string | null;
+  vehicleType: "car" | "van" | null;
+  wheelplan: string | null;
+  automatedVehicle: boolean | null;
+  taxStatus: string | null;
+  taxDueDate: string | null;
+  motStatus: string | null;
+  motExpiryDate: string | null;
+  dateOfLastV5CIssued: string | null;
+  sources?: { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" };
+}
+
+/** Looser return shape: a Partial<Vehicle> for the fields the existing form
+ * already binds against, plus the route's provenance markers and the
+ * derived registrationDate (ISO date) for the Compliance card. */
+export type DvlaLookupReturn = Partial<Vehicle> & {
+  registrationDate: string | null;
+  sources?: { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" };
+};
+
+/** Map the combined route's payload onto the existing form-state shape so
+ * arrival-form callers don't need to learn new field names. The form reads
+ * `make / year / colour / fuelType / engineSizeCC / motExpiry` today; we
+ * keep those keys and add the eight new compliance fields alongside. */
+function toFormPartial(p: VehicleLookupResponse): DvlaLookupReturn {
+  return {
+    make: p.make ?? undefined,
+    model: p.model ?? undefined,
+    year: p.yearOfManufacture ?? undefined,
+    colour: p.colour ?? undefined,
+    fuelType: p.fuelType,
+    engineSizeCC: p.engineCapacityCC ?? undefined,
+    motExpiry: p.motExpiryDate,
+    firstRegisteredDate: p.registrationDate,
+    // Module-F compliance fields
+    co2Emissions: p.co2Emissions,
+    euroStatus: p.euroStatus,
+    taxStatus: p.taxStatus,
+    taxDueDate: p.taxDueDate,
+    motStatus: p.motStatus,
+    wheelplan: p.wheelplan,
+    automatedVehicle: p.automatedVehicle,
+    dateOfLastV5CIssued: p.dateOfLastV5CIssued,
+    registrationDate: p.registrationDate,
+    sources: p.sources,
+  };
+}
+
 export const dvlaService = {
-  async lookup(reg: string): Promise<Partial<Vehicle> | null> {
+  async lookup(reg: string): Promise<DvlaLookupReturn | null> {
     // This service is deliberately non-throwing. Every failure mode collapses
     // to `null` + a console.warn so consumers (arrival-form, find-vehicle-card)
     // can show a "not found / manual entry" state without try/catch. Throwing
@@ -52,7 +127,7 @@ export const dvlaService = {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DVLA_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/dvla/lookup", {
+      const res = await fetch("/api/vehicle/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ registrationNumber: reg }),
@@ -60,7 +135,9 @@ export const dvlaService = {
       });
 
       if (res.ok) {
-        return (await res.json()) as Partial<Vehicle> | null;
+        const body = (await res.json()) as VehicleLookupResponse | null;
+        if (!body) return null;
+        return toFormPartial(body);
       }
 
       // 500 (missing key) or 502 (upstream) — try mock fallback first

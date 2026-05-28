@@ -85,7 +85,7 @@ export function LocationBadge({
     : null;
 
   return (
-    <TooltipProvider delayDuration={150}>
+    <TooltipProvider delay={150}>
       <span
         className={cn(
           "inline-flex items-center gap-1.5 whitespace-nowrap text-xs",

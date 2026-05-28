@@ -40,7 +40,7 @@ export function PendingPurchaseBanner({
 
   return (
     <Alert
-      variant={destructive ? "destructive" : "default"}
+      variant={destructive ? "error" : "default"}
       className={
         destructive
           ? undefined

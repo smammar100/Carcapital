@@ -30,12 +30,30 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import type { Vehicle } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { notify } from "@/lib/toast";
-import { TONE_CLASSES, type EventDraft, type EventKind } from "./calendar";
+export type EventKind = "appointment" | "workshop" | "maintenance";
 
-const KINDS: { key: EventKind; label: string; tone: "blue" | "amber" | "purple" }[] = [
-  { key: "appointment", label: "Appointment", tone: "blue" },
-  { key: "workshop", label: "Workshop", tone: "amber" },
-  { key: "maintenance", label: "Maintenance", tone: "purple" },
+export interface EventDraft {
+  kind: EventKind;
+  title: string;
+  /** yyyy-mm-dd */
+  date: string;
+  /** HH:mm */
+  fromTime: string;
+  /** HH:mm */
+  toTime: string;
+  allDay: boolean;
+}
+
+const KIND_DOT: Record<EventKind, string> = {
+  appointment: "bg-sky-500",
+  workshop: "bg-amber-500",
+  maintenance: "bg-violet-500",
+};
+
+const KINDS: { key: EventKind; label: string }[] = [
+  { key: "appointment", label: "Appointment" },
+  { key: "workshop", label: "Workshop" },
+  { key: "maintenance", label: "Maintenance" },
 ];
 
 interface AddEventSheetProps {
@@ -251,7 +269,7 @@ export function AddEventSheet({
                       <span
                         className={cn(
                           "size-2 shrink-0 rounded-full",
-                          TONE_CLASSES[k.tone].chip,
+                          KIND_DOT[k.key],
                         )}
                       />
                       <span className="truncate">{k.label}</span>

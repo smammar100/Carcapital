@@ -40,6 +40,10 @@ import {
   VAT_RATE,
 } from "@/lib/constants";
 import { CostSummaryReceipt } from "./cost-summary-receipt";
+import {
+  ComplianceCard,
+  type ComplianceCardValue,
+} from "./compliance-card";
 import { toast } from "sonner";
 import { cn, formatCurrency, formatRegPlate } from "@/lib/utils";
 
@@ -154,6 +158,26 @@ export function ArrivalForm() {
   } | null>(null);
   const [todos, setTodos] = useState<{ description: string; cost: number }[]>([]);
   const [newTodo, setNewTodo] = useState({ description: "", cost: 0 });
+
+  // Module-F compliance card state — driven by the DVLA + DVSA lookup.
+  // Lives outside react-hook-form because these fields are read-only by
+  // default; user overrides flow through `setCompliance`.
+  const [compliance, setCompliance] = useState<ComplianceCardValue>({
+    registrationDate: null,
+    co2Emissions: null,
+    euroStatus: null,
+    taxStatus: null,
+    taxDueDate: null,
+    motStatus: null,
+    motExpiryDate: null,
+    wheelplan: null,
+    automatedVehicle: null,
+    dateOfLastV5CIssued: null,
+  });
+  const [complianceSources, setComplianceSources] = useState<
+    { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" } | undefined
+  >(undefined);
+  const [verifiedAt, setVerifiedAt] = useState<Date | null>(null);
   // SPEC Points 6/7 — dealer partner picker (shown when source = Dealer).
   const searchParams = useSearchParams();
   const [partners, setPartners] = useState<DealerPartner[]>([]);
@@ -321,17 +345,40 @@ export function ArrivalForm() {
         return;
       }
 
-      // Auto-fill from DVLA. Null/undefined checks (not truthy) so legitimate
-      // zero values — e.g. engineSizeCC=0 for electric cars — still populate.
+      // Auto-fill from the combined DVLA + DVSA payload. Null / undefined
+      // checks (not truthy) so legitimate zero values — e.g. engineSizeCC=0
+      // for electric cars, or co2Emissions=0 for some EVs — still populate.
       setDvlaState("found");
       landedTerminal = true;
       if (dvla.make) form.setValue("make", dvla.make);
-      if (dvla.model) form.setValue("model", dvla.model);
+      // Don't overwrite a user-typed model with DVLA's null. DVLA VES
+      // never returns model, but if a future version does we still respect
+      // any value already in the field.
+      const currentModel = form.getValues("model");
+      if (dvla.model && !currentModel?.trim()) form.setValue("model", dvla.model);
       if (dvla.year != null) form.setValue("year", dvla.year);
       if (dvla.colour) form.setValue("colour", dvla.colour);
       if (dvla.fuelType) form.setValue("fuelType", dvla.fuelType);
       if (dvla.engineSizeCC != null) form.setValue("engineSizeCC", dvla.engineSizeCC);
       if (dvla.motExpiry) form.setValue("motExpiry", dvla.motExpiry);
+
+      // Module-F — populate the Compliance & Verification card with the
+      // 8 additional fields the route now returns. Each value is taken
+      // verbatim (the merge rule lives server-side in /api/vehicle/lookup).
+      setCompliance({
+        registrationDate: dvla.registrationDate ?? null,
+        co2Emissions: dvla.co2Emissions ?? null,
+        euroStatus: dvla.euroStatus ?? null,
+        taxStatus: dvla.taxStatus ?? null,
+        taxDueDate: dvla.taxDueDate ?? null,
+        motStatus: dvla.motStatus ?? null,
+        motExpiryDate: dvla.motExpiry ?? null,
+        wheelplan: dvla.wheelplan ?? null,
+        automatedVehicle: dvla.automatedVehicle ?? null,
+        dateOfLastV5CIssued: dvla.dateOfLastV5CIssued ?? null,
+      });
+      setComplianceSources(dvla.sources);
+      setVerifiedAt(new Date());
     } catch (e) {
       console.warn("[arrival-form] handleDvlaLookup unexpected", e);
       if (!signal.aborted) {
@@ -426,9 +473,19 @@ export function ArrivalForm() {
           serviceHistory: values.serviceHistory,
           numKeys: Number(values.numKeys),
           lockNut: values.lockNut,
-          motExpiry: values.motExpiry || null,
+          motExpiry: values.motExpiry || compliance.motExpiryDate || null,
           vin: null,
-          firstRegisteredDate: null,
+          firstRegisteredDate: compliance.registrationDate,
+          // Module-F compliance fields — populated by /api/vehicle/lookup
+          // and persisted alongside the manually-entered data.
+          co2Emissions: compliance.co2Emissions,
+          euroStatus: compliance.euroStatus,
+          taxStatus: compliance.taxStatus,
+          taxDueDate: compliance.taxDueDate,
+          motStatus: compliance.motStatus,
+          wheelplan: compliance.wheelplan,
+          automatedVehicle: compliance.automatedVehicle,
+          dateOfLastV5CIssued: compliance.dateOfLastV5CIssued,
           buyingPrice: Number(values.buyingPrice),
           vatOnBuyingPrice: Math.round(Number(values.buyingPrice) * VAT_RATE * 100) / 100,
           buyersFee: values.buyersFee ? Number(values.buyersFee) : null,
@@ -876,6 +933,23 @@ export function ArrivalForm() {
             </div>
           </div>
         </Card>
+
+        {/* Section 3.5 — Compliance & Verification (DVLA + DVSA) */}
+        <ComplianceCard
+          value={compliance}
+          onChange={(next) =>
+            setCompliance((curr) => ({ ...curr, ...next }))
+          }
+          onRefetch={() => {
+            // Allow the user to force a re-fetch even if the registration
+            // hasn't changed since the last lookup.
+            lastLookupRegRef.current = "";
+            void handleDvlaLookup();
+          }}
+          refetching={dvlaState === "loading"}
+          verifiedAt={verifiedAt}
+          sources={complianceSources}
+        />
 
         {/* Section 4 — Purchase Cost Breakdown */}
         <Card className="flex flex-col gap-3 p-5">

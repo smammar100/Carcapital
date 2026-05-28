@@ -1,845 +1,307 @@
 @import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  /* ========================================================================
-   * shadcn semantic tokens — values resolved from :root / .dark below
-   * ======================================================================== */
+  --breakpoint-3xl: 1600px;
+  --breakpoint-4xl: 2000px;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
-
   --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
 
-  --radius-sm: 2px;
-  --radius-md: var(--radius);          /* 4px */
-  --radius-lg: var(--radius);          /* 4px */
-  --radius-xl: 6px;
-  --radius-2xl: 6px;
-  --radius-3xl: 8px;
-  --radius-4xl: 8px;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
 
-  /* ========================================================================
-   * Typography system — Major Third (1.250) scale on an 8pt vertical rhythm
-   * Each `--text-*` token is paired with line-height / letter-spacing /
-   * font-weight so the matching `text-*` Tailwind utility carries the full
-   * type spec in one class.
-   * ======================================================================== */
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
 
-  --text-display: 48px;
-  --text-display--line-height: 1.1;
-  --text-display--letter-spacing: -0.04em;
-  --text-display--font-weight: 700;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
 
-  --text-h1: 32px;
-  --text-h1--line-height: 1.2;
-  --text-h1--letter-spacing: -0.03em;
-  --text-h1--font-weight: 700;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
 
+  --animate-skeleton: skeleton 2s -1s infinite linear;
+  --animate-caret-blink: 1s ease-out infinite caret-blink;
+  --animate-toast-success-odd: toast-success-odd 0.32s
+    cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-success-even: toast-success-even 0.32s
+    cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-error-odd: toast-error-odd 0.28s cubic-bezier(0.5, 1, 0.89, 1);
+  --animate-toast-error-even: toast-error-even 0.28s
+    cubic-bezier(0.5, 1, 0.89, 1);
+
+  --tw-shadow-color: #000;
+
+  /* Compat: typography tokens still referenced by a few feature files. */
+  /* Removed gradually in Wave 3-5; for now they keep text-h and text-body Tailwind utilities working without rewrites. */
   --text-h2: 24px;
   --text-h2--line-height: 1.3;
   --text-h2--letter-spacing: -0.02em;
   --text-h2--font-weight: 600;
-
   --text-h3: 20px;
   --text-h3--line-height: 1.4;
   --text-h3--letter-spacing: -0.015em;
   --text-h3--font-weight: 600;
-
   --text-h4: 17px;
   --text-h4--line-height: 1.45;
   --text-h4--letter-spacing: -0.01em;
   --text-h4--font-weight: 600;
-
-  --text-h5: 15px;
-  --text-h5--line-height: 1.5;
-  --text-h5--letter-spacing: -0.005em;
-  --text-h5--font-weight: 600;
-
-  --text-h6: 13px;
-  --text-h6--line-height: 1.5;
-  --text-h6--letter-spacing: 0.04em;
-  --text-h6--font-weight: 600;
-
-  --text-body-lg: 18px;
-  --text-body-lg--line-height: 1.6;
-  --text-body-lg--letter-spacing: -0.011em;
-  --text-body-lg--font-weight: 400;
-
-  --text-body: 16px;
-  --text-body--line-height: 1.65;
-  --text-body--letter-spacing: -0.011em;
-  --text-body--font-weight: 400;
-
   --text-body-sm: 14px;
   --text-body-sm--line-height: 1.55;
   --text-body-sm--letter-spacing: -0.006em;
   --text-body-sm--font-weight: 400;
 
-  --text-caption: 12px;
-  --text-caption--line-height: 1.4;
-  --text-caption--letter-spacing: 0.02em;
-  --text-caption--font-weight: 500;
-
-  /* ========================================================================
-   * Spacing scale — 8pt grid plus strategic half-steps for tight clusters
-   * ======================================================================== */
-
-  --space-0-5: 4px;
-  --space-1: 8px;
-  --space-1-5: 12px;
-  --space-2: 16px;
-  --space-2-5: 20px;
-  --space-3: 24px;
-  --space-3-5: 28px;
-  --space-4: 32px;
-  --space-4-5: 36px;
-  --space-5: 40px;
-  --space-6: 48px;
-  --space-8: 64px;
-  --space-10: 80px;
-  --space-12: 96px;
-
-  /* LeafyGreen-style spacer block 22 = 88px — Tailwind doesn't have this
-     value by default. Exposed as the `gap-22` / `p-22` / `m-22` utility
-     so the curated 8/16/24/32/40/64/88 scale is reachable from classes. */
-  --spacing-22: 88px;
-
-  /* ========================================================================
-   * LeafyGreen-style grid system — content + page caps, columns, gutters,
-   * margins. Each token is the canonical value engineers use; the
-   * PageShell + PageGrid primitives consume these. See plan §G3.
-   * ======================================================================== */
-
-  /* Page-frame widths. PageShell renders content centred inside one of
-     these caps. The 1152 cap is the default; "wide" pages (master sheet
-     and other data-heavy spreadsheets) opt into the 1400 outer cap. */
-  --container-content: 1152px;
-  --container-page: 1400px;
-
-  /* Columns per breakpoint regime. Mobile-first; the PageGrid primitive
-     reads these implicitly via Tailwind's responsive prefixes. */
-  --grid-mobile-cols: 4;
-  --grid-tablet-cols: 8;
-  --grid-desktop-cols: 12;
-
-  /* Gutters (space between columns) per regime. */
-  --grid-mobile-gutter: 16px;
-  --grid-tablet-gutter: 16px;
-  --grid-desktop-gutter: 24px;
-
-  /* Outer margins (page edges) per regime. The PageShell padding tracks
-     these — keep them in sync if you change one. */
-  --grid-mobile-margin: 16px;
-  --grid-tablet-margin: 24px;
-  --grid-desktop-margin: 32px;
+  @keyframes skeleton {
+    to {
+      background-position: -200% 0;
+    }
+  }
+  @keyframes caret-blink {
+    0%,
+    70%,
+    to {
+      opacity: 1;
+    }
+    20%,
+    50% {
+      opacity: 0;
+    }
+  }
+  @keyframes toast-success-odd {
+    0% {
+      scale: 1;
+    }
+    30% {
+      scale: 1.025;
+    }
+    60% {
+      scale: 0.99;
+    }
+    100% {
+      scale: 1;
+    }
+  }
+  @keyframes toast-error-odd {
+    0% {
+      translate: 0 0;
+    }
+    25% {
+      translate: -3px 0;
+    }
+    50% {
+      translate: 3px 0;
+    }
+    75% {
+      translate: -3px 0;
+    }
+    100% {
+      translate: 0 0;
+    }
+  }
+  @keyframes toast-success-even {
+    0% {
+      scale: 1;
+    }
+    30% {
+      scale: 1.025;
+    }
+    60% {
+      scale: 0.99;
+    }
+    100% {
+      scale: 1;
+    }
+  }
+  @keyframes toast-error-even {
+    0% {
+      translate: 0 0;
+    }
+    25% {
+      translate: -3px 0;
+    }
+    50% {
+      translate: 3px 0;
+    }
+    75% {
+      translate: -3px 0;
+    }
+    100% {
+      translate: 0 0;
+    }
+  }
 }
 
-/* ============================================================================
- * Wide-page opt-out for the default PageShell.
- * The dashboard layout wraps every route's children in <PageShell> (default
- * 1152). If a page renders its own <PageShell wide> inside (data-page-shell
- * ="wide"), this rule neutralises the outer shell — drops its max-width,
- * padding, and centring — so the inner wide shell becomes the effective
- * wrapper. Without this rule the outer's 1152 cap would clip the inner's
- * 1400 target, defeating the opt-out.
- * ============================================================================ */
-[data-page-shell="default"]:has([data-page-shell="wide"]) {
-  max-width: none;
-  padding: 0;
-  margin: 0;
-}
-
-@theme inline {
-  /* ========================================================================
-   * Maybe design system — palette
-   * ======================================================================== */
-
-  --color-white: #ffffff;
-  --color-black: #0B0B0B;
-
-  --color-success: #10A861;     /* green-600 */
-  --color-warning: #DC6803;     /* yellow-600 */
-
-  /* Gray */
-  --color-gray-25: #FAFAFA;
-  --color-gray-50: #F7F7F7;
-  --color-gray-100: #F0F0F0;
-  --color-gray-200: #E7E7E7;
-  --color-gray-300: #CFCFCF;
-  --color-gray-400: #9E9E9E;
-  --color-gray-500: #737373;
-  --color-gray-600: #5C5C5C;
-  --color-gray-700: #363636;
-  --color-gray-800: #242424;
-  --color-gray-900: #171717;
-
-  /* Red */
-  --color-red-25: #FFFBFB;
-  --color-red-50: #FFF1F0;
-  --color-red-100: #FFDEDB;
-  --color-red-200: #FEB9B3;
-  --color-red-300: #F88C86;
-  --color-red-400: #ED4E4E;
-  --color-red-500: #F13636;
-  --color-red-600: #EC2222;
-  --color-red-700: #C91313;
-  --color-red-800: #A40E0E;
-  --color-red-900: #7E0707;
-
-  /* Green */
-  --color-green-25: #F6FEF9;
-  --color-green-50: #ECFDF3;
-  --color-green-100: #D1FADF;
-  --color-green-200: #A6F4C5;
-  --color-green-300: #6CE9A6;
-  --color-green-400: #32D583;
-  --color-green-500: #12B76A;
-  --color-green-600: #10A861;
-  --color-green-700: #078C52;
-  --color-green-800: #05603A;
-  --color-green-900: #054F31;
-
-  /* Yellow */
-  --color-yellow-25: #FFFCF5;
-  --color-yellow-50: #FFFAEB;
-  --color-yellow-100: #FEF0C7;
-  --color-yellow-200: #FEDF89;
-  --color-yellow-300: #FEC84B;
-  --color-yellow-400: #FDB022;
-  --color-yellow-500: #F79009;
-  --color-yellow-600: #DC6803;
-  --color-yellow-700: #B54708;
-  --color-yellow-800: #93370D;
-  --color-yellow-900: #7A2E0E;
-
-  /* Cyan */
-  --color-cyan-25: #F5FEFF;
-  --color-cyan-50: #ECFDFF;
-  --color-cyan-100: #CFF9FE;
-  --color-cyan-200: #A5F0FC;
-  --color-cyan-300: #67E3F9;
-  --color-cyan-400: #22CCEE;
-  --color-cyan-500: #06AED4;
-  --color-cyan-600: #088AB2;
-  --color-cyan-700: #0E7090;
-  --color-cyan-800: #155B75;
-  --color-cyan-900: #155B75;
-
-  /* Blue */
-  --color-blue-25: #F5FAFF;
-  --color-blue-50: #EFF8FF;
-  --color-blue-100: #D1E9FF;
-  --color-blue-200: #B2DDFF;
-  --color-blue-300: #84CAFF;
-  --color-blue-400: #53B1FD;
-  --color-blue-500: #2E90FA;
-  --color-blue-600: #1570EF;
-  --color-blue-700: #175CD3;
-  --color-blue-800: #1849A9;
-  --color-blue-900: #194185;
-
-  /* Indigo */
-  --color-indigo-25: #F5F8FF;
-  --color-indigo-50: #EFF4FF;
-  --color-indigo-100: #E0EAFF;
-  --color-indigo-200: #C7D7FE;
-  --color-indigo-300: #A4BCFD;
-  --color-indigo-400: #8098F9;
-  --color-indigo-500: #6172F3;
-  --color-indigo-600: #444CE7;
-  --color-indigo-700: #3538CD;
-  --color-indigo-800: #2D31A6;
-  --color-indigo-900: #2D3282;
-
-  /* Violet */
-  --color-violet-25: #FBFAFF;
-  --color-violet-50: #F5F3FF;
-  --color-violet-100: #ECE9FE;
-  --color-violet-200: #DDD6FE;
-  --color-violet-300: #C3B5FD;
-  --color-violet-400: #A48AFB;
-  --color-violet-500: #875BF7;
-  --color-violet-600: #7839EE;
-  --color-violet-700: #6927DA;
-
-  /* Fuchsia */
-  --color-fuchsia-25: #FEFAFF;
-  --color-fuchsia-50: #FDF4FF;
-  --color-fuchsia-100: #FBE8FF;
-  --color-fuchsia-200: #F6D0FE;
-  --color-fuchsia-300: #EEAAFD;
-  --color-fuchsia-400: #E478FA;
-  --color-fuchsia-500: #D444F1;
-  --color-fuchsia-600: #BA24D5;
-  --color-fuchsia-700: #9F1AB1;
-  --color-fuchsia-800: #821890;
-  --color-fuchsia-900: #6F1877;
-
-  /* Pink */
-  --color-pink-25: #FFFAFC;
-  --color-pink-50: #FEF0F7;
-  --color-pink-100: #FFD1E2;
-  --color-pink-200: #FFB1CE;
-  --color-pink-300: #FD8FBA;
-  --color-pink-400: #F86BA7;
-  --color-pink-500: #F23E94;
-  --color-pink-600: #D5327F;
-  --color-pink-700: #BA256B;
-  --color-pink-800: #9E1958;
-  --color-pink-900: #840B45;
-
-  /* Orange */
-  --color-orange-25: #FFF9F5;
-  --color-orange-50: #FFF4ED;
-  --color-orange-100: #FFE6D5;
-  --color-orange-200: #FFD6AE;
-  --color-orange-300: #FF9C66;
-  --color-orange-400: #FF692E;
-  --color-orange-500: #FF4405;
-  --color-orange-600: #E62E05;
-  --color-orange-700: #BC1B06;
-  --color-orange-800: #97180C;
-  --color-orange-900: #771A0D;
-
-  /* Soft shadows aligned with maybe (6% black light, 8% white dark via :root override) */
-  --shadow-xs: 0px 1px 2px 0px rgba(11, 11, 11, 0.06);
-  --shadow-sm: 0px 1px 6px 0px rgba(11, 11, 11, 0.06);
-  --shadow-md: 0px 4px 8px -2px rgba(11, 11, 11, 0.06);
-  --shadow-lg: 0px 12px 16px -4px rgba(11, 11, 11, 0.06);
-  --shadow-xl: 0px 20px 24px -4px rgba(11, 11, 11, 0.06);
-
-  /* ========================================================================
-   * fluidfunctionalism `surfaces` — 8-level elevation ladder.
-   * Used by <Elevated> + surfaceClasses() — see src/lib/elevated.tsx.
-   * Values resolved from :root / .dark below.
-   * ======================================================================== */
-  --color-surface-1: var(--surface-1);
-  --color-surface-2: var(--surface-2);
-  --color-surface-3: var(--surface-3);
-  --color-surface-4: var(--surface-4);
-  --color-surface-5: var(--surface-5);
-  --color-surface-6: var(--surface-6);
-  --color-surface-7: var(--surface-7);
-  --color-surface-8: var(--surface-8);
-  --shadow-surface-1: var(--shadow-1);
-  --shadow-surface-2: var(--shadow-2);
-  --shadow-surface-3: var(--shadow-3);
-  --shadow-surface-4: var(--shadow-4);
-  --shadow-surface-5: var(--shadow-5);
-  --shadow-surface-6: var(--shadow-6);
-  --shadow-surface-7: var(--shadow-7);
-  --shadow-surface-8: var(--shadow-8);
+@media (prefers-reduced-motion: reduce) {
+  :where(
+      .animate-toast-success-odd,
+      .animate-toast-success-even,
+      .animate-toast-error-odd,
+      .animate-toast-error-even
+    ) {
+    animation: none;
+  }
 }
 
 :root {
-  --radius: 4px;
-
-  /* shadcn semantic tokens — wired to maybe palette (light) */
-  --background: #ffffff;
-  --foreground: #171717;            /* gray-900 */
-  --card: #ffffff;
-  --card-foreground: #171717;
-  --popover: #ffffff;
-  --popover-foreground: #171717;
-  --primary: #171717;               /* gray-900 */
-  --primary-foreground: #ffffff;
-  --secondary: #F7F7F7;             /* gray-50 */
-  --secondary-foreground: #171717;
-  --muted: #F7F7F7;                 /* gray-50 */
-  --muted-foreground: #737373;      /* gray-500 */
-  --accent: #F0F0F0;                /* gray-100 */
-  --accent-foreground: #171717;
-  --destructive: #EC2222;           /* red-600 */
-  --border: rgba(11, 11, 11, 0.10); /* alpha-black-200 */
-  --input: rgba(11, 11, 11, 0.10);
-  --ring: rgba(11, 11, 11, 0.20);   /* alpha-black-400 */
-
-  /* Charts — maybe palette */
-  --chart-1: #1570EF;               /* blue-600 */
-  --chart-2: #10A861;               /* green-600 */
-  --chart-3: #DC6803;               /* yellow-600 */
-  --chart-4: #7839EE;               /* violet-600 */
-  --chart-5: #088AB2;               /* cyan-600 */
-
-  /* Sidebar */
-  --sidebar: #FAFAFA;               /* gray-25 */
-  --sidebar-foreground: #171717;
-  --sidebar-primary: #171717;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #F0F0F0;
-  --sidebar-accent-foreground: #171717;
-  --sidebar-border: rgba(11, 11, 11, 0.10);
-  --sidebar-ring: rgba(11, 11, 11, 0.20);
-
-  /* Layout spacing scale — matches the reference design annotations
-     (4 / 8 / 12 / 16 / 20 / 24 / 32) and Tailwind's default spacing
-     scale (1 = 4px, 2 = 8px, 3 = 12px, 4 = 16px, 5 = 20px, 6 = 24px,
-     8 = 32px). Use these for layout chrome only — page-level utilities
-     can keep using plain Tailwind. */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-
-  /* Dashboard shell dimensions (Phase 2 — 2x2 grid). */
-  --shell-sidebar-w: 260px;
-  --shell-sidebar-collapsed-w: 64px;
-  --shell-header-h: 56px;
-
-  /* fluidfunctionalism surfaces — light mode. Every level is pure white so
-     Cards on every page match the KPI tiles' `bg-card` fill. Depth is
-     conveyed purely via shadow ramps (--shadow-1..8 below); nested cards
-     are differentiated by their progressively heavier shadow stack, not
-     by any subtle off-white tint. */
-  --surface-1: #FFFFFF;
-  --surface-2: #FFFFFF;
-  --surface-3: #FFFFFF;
-  --surface-4: #FFFFFF;
-  --surface-5: #FFFFFF;
-  --surface-6: #FFFFFF;
-  --surface-7: #FFFFFF;
-  --surface-8: #FFFFFF;
-  --shadow-color: rgb(0 0 0 / 0.06);
-  --shadow-1: 0 0 0 1px var(--shadow-color);
-  --shadow-2: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color);
-  --shadow-3: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color);
-  --shadow-4: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color);
-  --shadow-5: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color);
-  --shadow-6: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color);
-  --shadow-7: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color);
-  --shadow-8: 0 0 0 1px var(--shadow-color), 0 1px 1px -0.5px var(--shadow-color), 0 3px 3px -1.5px var(--shadow-color), 0 6px 6px -3px var(--shadow-color), 0 12px 12px -6px var(--shadow-color), 0 24px 24px -12px var(--shadow-color), 0 48px 48px -24px var(--shadow-color), 0 96px 96px -48px var(--shadow-color);
-
-  /* ==========================================================================
-   * Calendar tones — token-driven, dark-mode-aware. Each tone's base colour
-   * references a chart token (or destructive / muted-foreground); `surface`
-   * and `text` are `color-mix` recipes whose inner var()s re-resolve per mode,
-   * so a single :root definition adapts to `.dark` automatically. Consumed via
-   * src/components/shared/calendar/tone.ts (TONE_CLASSES).
-   * ========================================================================== */
-  --cal-blue-bar: var(--chart-1);
-  --cal-blue-surface: color-mix(in oklab, var(--chart-1) 14%, var(--background));
-  --cal-blue-text: color-mix(in oklab, var(--chart-1) 66%, var(--foreground));
-
-  --cal-emerald-bar: var(--chart-2);
-  --cal-emerald-surface: color-mix(in oklab, var(--chart-2) 14%, var(--background));
-  --cal-emerald-text: color-mix(in oklab, var(--chart-2) 66%, var(--foreground));
-
-  --cal-amber-bar: var(--chart-3);
-  --cal-amber-surface: color-mix(in oklab, var(--chart-3) 16%, var(--background));
-  --cal-amber-text: color-mix(in oklab, var(--chart-3) 70%, var(--foreground));
-
-  --cal-purple-bar: var(--chart-4);
-  --cal-purple-surface: color-mix(in oklab, var(--chart-4) 14%, var(--background));
-  --cal-purple-text: color-mix(in oklab, var(--chart-4) 66%, var(--foreground));
-
-  --cal-rose-bar: var(--destructive);
-  --cal-rose-surface: color-mix(in oklab, var(--destructive) 14%, var(--background));
-  --cal-rose-text: color-mix(in oklab, var(--destructive) 70%, var(--foreground));
-
-  --cal-slate-bar: var(--muted-foreground);
-  --cal-slate-surface: color-mix(in oklab, var(--muted-foreground) 12%, var(--background));
-  --cal-slate-text: color-mix(in oklab, var(--muted-foreground) 82%, var(--foreground));
-
-  /* Today-column tint + current-time ("now") indicator colour. */
-  --cal-today-surface: color-mix(in oklab, var(--chart-1) 7%, var(--background));
-  --cal-now: var(--destructive);
+  --radius: 0.625rem;
+  --background: var(--color-white);
+  --foreground: var(--color-neutral-800);
+  --card: var(--color-white);
+  --card-foreground: var(--color-neutral-800);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-neutral-800);
+  --primary: var(--color-neutral-800);
+  --primary-foreground: var(--color-neutral-50);
+  --secondary: --alpha(var(--color-black) / 4%);
+  --secondary-foreground: var(--color-neutral-800);
+  --muted: --alpha(var(--color-black) / 4%);
+  --muted-foreground: color-mix(
+    in srgb,
+    var(--color-neutral-500) 90%,
+    var(--color-black)
+  );
+  --accent: --alpha(var(--color-black) / 4%);
+  --accent-foreground: var(--color-neutral-800);
+  --destructive: var(--color-red-500);
+  --destructive-foreground: var(--color-red-700);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-700);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-700);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-700);
+  --border: --alpha(var(--color-black) / 8%);
+  --input: --alpha(var(--color-black) / 10%);
+  --ring: var(--color-neutral-400);
+  --chart-1: var(--color-orange-600);
+  --chart-2: var(--color-teal-600);
+  --chart-3: var(--color-cyan-900);
+  --chart-4: var(--color-amber-400);
+  --chart-5: var(--color-amber-500);
+  --sidebar: var(--color-neutral-50);
+  --sidebar-foreground: color-mix(
+    in srgb,
+    var(--color-neutral-800) 64%,
+    var(--sidebar)
+  );
+  --sidebar-primary: var(--color-neutral-800);
+  --sidebar-primary-foreground: var(--color-neutral-50);
+  --sidebar-accent: --alpha(var(--color-black) / 4%);
+  --sidebar-accent-foreground: var(--color-neutral-800);
+  --sidebar-border: --alpha(var(--color-black) / 6%);
+  --sidebar-ring: var(--color-neutral-400);
 }
 
 .dark {
-  --background: #0B0B0B;            /* black */
-  --foreground: #ffffff;
-  --card: #171717;                  /* gray-900 */
-  --card-foreground: #ffffff;
-  --popover: #171717;
-  --popover-foreground: #ffffff;
-  --primary: #ffffff;
-  --primary-foreground: #171717;
-  --secondary: #242424;             /* gray-800 */
-  --secondary-foreground: #ffffff;
-  --muted: #242424;                 /* gray-800 */
-  --muted-foreground: #9E9E9E;      /* gray-400 */
-  --accent: #363636;                /* gray-700 */
-  --accent-foreground: #ffffff;
-  --destructive: #ED4E4E;           /* red-400 */
-  --border: rgba(255, 255, 255, 0.10);
-  --input: rgba(255, 255, 255, 0.15);
-  --ring: rgba(255, 255, 255, 0.20);
-
-  /* Charts adapted for dark — bumped one stop lighter */
-  --chart-1: #2E90FA;               /* blue-500 */
-  --chart-2: #12B76A;               /* green-500 */
-  --chart-3: #F79009;               /* yellow-500 */
-  --chart-4: #875BF7;               /* violet-500 */
-  --chart-5: #06AED4;               /* cyan-500 */
-
-  /* Sidebar */
-  --sidebar: #0B0B0B;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #ffffff;
-  --sidebar-primary-foreground: #171717;
-  --sidebar-accent: #242424;
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.10);
-  --sidebar-ring: rgba(255, 255, 255, 0.20);
-
-  /* Soft white shadows in dark mode (matches maybe) */
-  --shadow-xs: 0px 1px 2px 0px rgba(255, 255, 255, 0.08);
-  --shadow-sm: 0px 1px 6px 0px rgba(255, 255, 255, 0.08);
-  --shadow-md: 0px 4px 8px -2px rgba(255, 255, 255, 0.08);
-  --shadow-lg: 0px 12px 16px -4px rgba(255, 255, 255, 0.08);
-  --shadow-xl: 0px 20px 24px -4px rgba(255, 255, 255, 0.08);
-
-  /* fluidfunctionalism surfaces — dark mode (additive white-opacity ladder
-     with layered inset highlights and drop shadows). */
-  --surface-1: #171717;
-  --surface-2: #1E1E1E;
-  --surface-3: #252525;
-  --surface-4: #2C2C2C;
-  --surface-5: #333333;
-  --surface-6: #3A3A3A;
-  --surface-7: #414141;
-  --surface-8: #484848;
-  --dm-hi-base: rgba(255,255,255,0.01);
-  --dm-hi-mid: rgba(255,255,255,0.02);
-  --dm-hi-high: rgba(255,255,255,0.04);
-  --dm-hi-peak: rgba(255,255,255,0.06);
-  --dm-ring-base: rgba(255,255,255,0.02);
-  --dm-ring-mid: rgba(255,255,255,0.04);
-  --dm-ring-high: rgba(255,255,255,0.06);
-  --dm-drop: rgba(0,0,0,0.18);
-  --shadow-1: inset 0 0 0 1px var(--dm-ring-base);
-  --shadow-2: inset 0 1px 0 0 var(--dm-hi-base), inset 0 0 0 1px var(--dm-ring-base), 0 1px 1px -0.5px var(--dm-drop);
-  --shadow-3: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-base), 0 0 0 1px rgba(0,0,0,0.12), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop);
-  --shadow-4: inset 0 1px 0 0 var(--dm-hi-mid), inset 0 0 0 1px var(--dm-ring-mid), 0 0 0 1px rgba(0,0,0,0.14), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop);
-  --shadow-5: inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-mid), 0 0 0 1px rgba(0,0,0,0.16), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop);
-  --shadow-6: inset 0 1px 0 0 var(--dm-hi-high), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.18), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop);
-  --shadow-7: inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.20), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop), 0 48px 48px -24px var(--dm-drop);
-  --shadow-8: inset 0 1px 0 0 var(--dm-hi-peak), inset 0 0 0 1px var(--dm-ring-high), 0 0 0 1px rgba(0,0,0,0.22), 0 1px 1px -0.5px var(--dm-drop), 0 3px 3px -1.5px var(--dm-drop), 0 6px 6px -3px var(--dm-drop), 0 12px 12px -6px var(--dm-drop), 0 24px 24px -12px var(--dm-drop), 0 48px 48px -24px var(--dm-drop), 0 96px 96px -48px var(--dm-drop);
+  --background: color-mix(
+    in srgb,
+    var(--color-neutral-950) 96%,
+    var(--color-white)
+  );
+  --foreground: var(--color-neutral-100);
+  --card: color-mix(in srgb, var(--background) 98%, var(--color-white));
+  --card-foreground: var(--color-neutral-100);
+  --popover: color-mix(in srgb, var(--background) 96%, var(--color-white));
+  --popover-foreground: var(--color-neutral-100);
+  --primary: var(--color-neutral-100);
+  --primary-foreground: var(--color-neutral-800);
+  --secondary: --alpha(var(--color-white) / 4%);
+  --secondary-foreground: var(--color-neutral-100);
+  --muted: --alpha(var(--color-white) / 4%);
+  --muted-foreground: color-mix(
+    in srgb,
+    var(--color-neutral-500) 90%,
+    var(--color-white)
+  );
+  --accent: --alpha(var(--color-white) / 4%);
+  --accent-foreground: var(--color-neutral-100);
+  --destructive: color-mix(
+    in srgb,
+    var(--color-red-500) 90%,
+    var(--color-white)
+  );
+  --destructive-foreground: var(--color-red-400);
+  --info: var(--color-blue-500);
+  --info-foreground: var(--color-blue-400);
+  --success: var(--color-emerald-500);
+  --success-foreground: var(--color-emerald-400);
+  --warning: var(--color-amber-500);
+  --warning-foreground: var(--color-amber-400);
+  --border: --alpha(var(--color-white) / 6%);
+  --input: --alpha(var(--color-white) / 8%);
+  --ring: var(--color-neutral-500);
+  --chart-1: var(--color-blue-700);
+  --chart-2: var(--color-emerald-500);
+  --chart-3: var(--color-amber-500);
+  --chart-4: var(--color-purple-500);
+  --chart-5: var(--color-rose-500);
+  --sidebar: color-mix(
+    in srgb,
+    var(--color-neutral-950) 97%,
+    var(--color-white)
+  );
+  --sidebar-foreground: color-mix(
+    in srgb,
+    var(--color-neutral-100) 64%,
+    var(--sidebar)
+  );
+  --sidebar-primary: var(--color-neutral-100);
+  --sidebar-primary-foreground: var(--color-neutral-800);
+  --sidebar-accent: --alpha(var(--color-white) / 4%);
+  --sidebar-accent-foreground: var(--color-neutral-100);
+  --sidebar-border: --alpha(var(--color-white) / 5%);
+  --sidebar-ring: var(--color-neutral-400);
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-    font-size: var(--text-body);
-    line-height: var(--text-body--line-height);
-    letter-spacing: var(--text-body--letter-spacing);
-  }
-  html {
-    @apply font-sans;
-  }
 
-  /* ────────────────────────────────────────────────────────────────────────
-   * Scrollbars — thin + subtle, everywhere. Standard properties (Firefox,
-   * Chrome 121+, Safari 18.4+) plus a WebKit fallback for older Chromium /
-   * Safari. Uses the theme `--border` token (not a literal grey) so it
-   * adapts to light/dark mode; thumb darkens to `--muted-foreground` on
-   * hover so it's discoverable without being loud.
-   * ──────────────────────────────────────────────────────────────────────── */
-  * {
-    scrollbar-width: thin;
-    scrollbar-color: var(--border) transparent;
-  }
-  *::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  *::-webkit-scrollbar-thumb {
-    background-color: var(--border);
-    border-radius: 9999px;
-    border: 2px solid transparent;
-    background-clip: padding-box;
-  }
-  *::-webkit-scrollbar-thumb:hover {
-    background-color: var(--muted-foreground);
-  }
-  *::-webkit-scrollbar-corner {
-    background: transparent;
-  }
-
-  /* ────────────────────────────────────────────────────────────────────────
-   * Bare element defaults — apply the type scale to raw HTML so unstyled
-   * markup looks intentional. Tailwind utility classes win specificity, so
-   * existing `<h1 className="text-xl …">` etc. across the dashboard are
-   * unaffected. These only kick in for bare elements (mostly inside content
-   * pages and `.prose` containers).
-   * ──────────────────────────────────────────────────────────────────────── */
-
-  h1 {
-    font-size: var(--text-h1);
-    line-height: var(--text-h1--line-height);
-    letter-spacing: var(--text-h1--letter-spacing);
-    font-weight: var(--text-h1--font-weight);
-  }
-  h2 {
-    font-size: var(--text-h2);
-    line-height: var(--text-h2--line-height);
-    letter-spacing: var(--text-h2--letter-spacing);
-    font-weight: var(--text-h2--font-weight);
-  }
-  h3 {
-    font-size: var(--text-h3);
-    line-height: var(--text-h3--line-height);
-    letter-spacing: var(--text-h3--letter-spacing);
-    font-weight: var(--text-h3--font-weight);
-  }
-  h4 {
-    font-size: var(--text-h4);
-    line-height: var(--text-h4--line-height);
-    letter-spacing: var(--text-h4--letter-spacing);
-    font-weight: var(--text-h4--font-weight);
-  }
-  h5 {
-    font-size: var(--text-h5);
-    line-height: var(--text-h5--line-height);
-    letter-spacing: var(--text-h5--letter-spacing);
-    font-weight: var(--text-h5--font-weight);
-  }
-  h6 {
-    font-size: var(--text-h6);
-    line-height: var(--text-h6--line-height);
-    letter-spacing: var(--text-h6--letter-spacing);
-    font-weight: var(--text-h6--font-weight);
-    text-transform: uppercase;
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
   }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────
- * .prose — opt-in long-form document container with the full vertical
- * rhythm. Wrap article-style content in <article className="prose"> (or
- * any element with the class) to get context-aware adjacent-sibling
- * margins between headings, paragraphs, lists, blockquotes, and code.
- *
- * The rule of two margins: a heading gets a generous top margin when it
- * starts a new section, and a tight top margin when it nests directly
- * under a parent heading.
- * ──────────────────────────────────────────────────────────────────────── */
-
-.prose {
-  font-size: var(--text-body);
-  line-height: var(--text-body--line-height);
-  letter-spacing: var(--text-body--letter-spacing);
-  color: var(--foreground);
-  max-width: 72ch;
-}
-
-.prose > :first-child {
-  margin-top: 0;
-}
-.prose > :last-child {
-  margin-bottom: 0;
-}
-
-/* Display utility for marketing-grade hero headings */
-.prose .display {
-  font-size: var(--text-display);
-  line-height: var(--text-display--line-height);
-  letter-spacing: var(--text-display--letter-spacing);
-  font-weight: var(--text-display--font-weight);
-  margin-top: 0;
-  margin-bottom: var(--space-3);
-}
-
-/* ── Headings ── */
-.prose h1 {
-  margin-top: var(--space-8);
-  margin-bottom: var(--space-3);
-}
-.prose h2 {
-  margin-top: var(--space-6);
-  margin-bottom: var(--space-2);
-}
-.prose h3 {
-  margin-top: var(--space-4-5);
-  margin-bottom: var(--space-1-5);
-}
-.prose h4 {
-  margin-top: var(--space-3-5);
-  margin-bottom: var(--space-1);
-}
-.prose h5 {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-1);
-}
-.prose h6 {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-1);
-}
-
-/* ── Rule of two margins: nested headings tighten their top margin ── */
-.prose h1 + h2 {
-  margin-top: var(--space-3);
-}
-.prose h2 + h3 {
-  margin-top: var(--space-2-5);
-}
-.prose h3 + h4 {
-  margin-top: var(--space-2);
-}
-.prose h4 + h5 {
-  margin-top: var(--space-1-5);
-}
-.prose h5 + h6 {
-  margin-top: var(--space-1);
-}
-
-/* First heading in the document has no top margin */
-.prose > h1:first-child,
-.prose > h2:first-child,
-.prose > h3:first-child {
-  margin-top: 0;
-}
-
-/* ── Body text ── */
-.prose p {
-  margin-top: 0;
-  margin-bottom: var(--space-2);
-}
-.prose p + p {
-  margin-top: var(--space-2);
-  margin-bottom: 0;
-}
-
-/* Lede — first paragraph immediately after H1 gets the larger body size */
-.prose h1 + p {
-  font-size: var(--text-body-lg);
-  line-height: var(--text-body-lg--line-height);
-}
-
-/* ── Lists ── */
-.prose ul,
-.prose ol {
-  margin-top: 0;
-  margin-bottom: var(--space-2);
-  padding-left: var(--space-3);
-}
-.prose ul {
-  list-style: disc;
-}
-.prose ol {
-  list-style: decimal;
-}
-.prose p + ul,
-.prose p + ol {
-  margin-top: var(--space-2);
-}
-.prose li + li {
-  margin-top: var(--space-1);
-}
-.prose li > ul,
-.prose li > ol {
-  margin-top: var(--space-1);
-  margin-bottom: 0;
-}
-
-/* ── Blockquote ── */
-.prose blockquote {
-  margin-top: var(--space-3);
-  margin-bottom: var(--space-3);
-  padding-left: var(--space-2);
-  border-left: 3px solid var(--border);
-  color: var(--muted-foreground);
-  font-style: italic;
-}
-
-/* ── Code ── */
-.prose pre {
-  margin-top: var(--space-2-5);
-  margin-bottom: var(--space-2-5);
-  padding: var(--space-2);
-  background: var(--muted);
-  border-radius: var(--radius);
-  overflow-x: auto;
-  font-family: var(--font-mono);
-  font-size: 13px;
-  line-height: 1.55;
-}
-.prose code {
-  font-family: var(--font-mono);
-  font-size: 0.9em;
-  background: var(--muted);
-  padding: 0.1em 0.35em;
-  border-radius: 3px;
-}
-.prose pre code {
-  background: transparent;
-  padding: 0;
-  font-size: inherit;
-}
-
-/* ── Horizontal rule ── */
-.prose hr {
-  margin-top: var(--space-4);
-  margin-bottom: var(--space-4);
-  border: 0;
-  border-top: 1px solid var(--border);
-}
-
-/* ── Inline ── */
-.prose strong {
-  font-weight: 600;
-  color: var(--foreground);
-}
-.prose em {
-  font-style: italic;
-}
-.prose a {
-  color: var(--primary);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-.prose a:hover {
-  text-decoration: none;
-}
-
-/* ── Caption / system label utility ── */
-.caption {
-  font-size: var(--text-caption);
-  line-height: var(--text-caption--line-height);
-  letter-spacing: var(--text-caption--letter-spacing);
-  font-weight: var(--text-caption--font-weight);
-  text-transform: uppercase;
-  color: var(--muted-foreground);
+@utility container {
+  @apply mx-auto max-w-[1416px] px-4 lg:px-6;
 }

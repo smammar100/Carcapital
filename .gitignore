@@ -42,6 +42,9 @@ yarn-error.log*
 /scripts/seeds.generated.txt
 /scripts/seeds.stats.txt
 
+# CCD / Claude Code session state
+.claude/worktrees/
+
 # vercel
 .vercel
 

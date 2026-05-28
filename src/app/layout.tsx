@@ -46,7 +46,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <AuthProvider>
           <NotificationsProvider>
-            <TooltipProvider delayDuration={150}>{children}</TooltipProvider>
+            <TooltipProvider delay={150}>{children}</TooltipProvider>
           </NotificationsProvider>
         </AuthProvider>
         <Toaster richColors closeButton position="bottom-right" />

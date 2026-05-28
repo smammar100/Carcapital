@@ -483,6 +483,17 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     // Spec v3.0 — Decision F-3 / Chunk 1.5: every seed row is wiped on
     // launch day. Real arrivals from the arrival form default to false.
     isDemo: true,
+    // Module-F (migration 0017) DVLA + DVSA compliance fields — null
+    // for seed rows since they were never looked up. Real arrivals get
+    // these from /api/vehicle/lookup.
+    co2Emissions: null,
+    euroStatus: null,
+    taxStatus: null,
+    taxDueDate: null,
+    motStatus: null,
+    wheelplan: null,
+    automatedVehicle: null,
+    dateOfLastV5CIssued: null,
     localOrImport: s.localOrImport ?? "local",
     auctionHouse: isAuction ? s.source : null,
     ownedBy: "Car Capital UK",

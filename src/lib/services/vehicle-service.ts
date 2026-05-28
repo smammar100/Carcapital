@@ -75,6 +75,14 @@ const SELECT = `
   locationSince:location_since,
   outForTestDrive:out_for_test_drive,
   testDriveExpectedBackAt:test_drive_expected_back_at,
+  co2Emissions:co2_emissions,
+  euroStatus:euro_status,
+  taxStatus:tax_status,
+  taxDueDate:tax_due_date,
+  motStatus:mot_status,
+  wheelplan,
+  automatedVehicle:automated_vehicle,
+  dateOfLastV5CIssued:date_of_last_v5c_issued,
   createdAt:created_at,
   updatedAt:updated_at
 `;
@@ -149,6 +157,15 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   locationSince: "location_since",
   outForTestDrive: "out_for_test_drive",
   testDriveExpectedBackAt: "test_drive_expected_back_at",
+  // Migration 0017 — DVLA + DVSA compliance fields
+  co2Emissions: "co2_emissions",
+  euroStatus: "euro_status",
+  taxStatus: "tax_status",
+  taxDueDate: "tax_due_date",
+  motStatus: "mot_status",
+  wheelplan: "wheelplan",
+  automatedVehicle: "automated_vehicle",
+  dateOfLastV5CIssued: "date_of_last_v5c_issued",
 };
 
 function vehicleToRow(

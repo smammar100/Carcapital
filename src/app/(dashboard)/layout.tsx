@@ -14,7 +14,6 @@ import { GridOverlay } from "@/components/layout/grid-overlay";
 import { PageShell } from "@/components/layout/page-shell";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { SurfaceProvider } from "@/lib/surface-context";
 
 export default function DashboardLayout({
   children,
@@ -91,11 +90,9 @@ export default function DashboardLayout({
   }
 
   return (
-    <SurfaceProvider value={0}>
-      <SidebarStateProvider>
-        <Shell>{children}</Shell>
-      </SidebarStateProvider>
-    </SurfaceProvider>
+    <SidebarStateProvider>
+      <Shell>{children}</Shell>
+    </SidebarStateProvider>
   );
 }
 

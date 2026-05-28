@@ -1,73 +1,39 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import { CalendarCheck, Plus } from "lucide-react";
+import { CalendarCheck, CalendarDays, List, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import type { Appointment, AppointmentOutcome, Vehicle } from "@/lib/types";
+import type { Appointment, Vehicle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  Calendar,
-  CalendarFilterChip,
-  CalendarToolbar,
-  TONE_CLASSES,
-  type CalendarTone,
-  type CalendarViewMode,
-  type EventDraft,
-  type WeekCalendarEvent,
-} from "@/components/shared/week-calendar";
+import { EventCalendar, type CalendarEvent } from "@/components/event-calendar";
 import { AddEventSheet } from "@/components/shared/add-event-sheet";
 import {
-  EventPreviewDialog,
-  type EventPreviewRow,
-} from "@/components/shared/event-preview-dialog";
-import { EventEditDialog } from "@/components/shared/event-edit-dialog";
-import {
   type ColumnDef,
-  DataGridColumnsButton,
-  DataGridDensityToggle,
   DataGridHeaderRow,
   DataGridRow,
   DataGridShell,
   DataGridSkeletonRows,
   DataGridTable,
   VehicleCell,
-  useColumnVisibility,
   useDensity,
 } from "@/components/data-grid";
-import { cn, formatDate, formatTime12 } from "@/lib/utils";
+import { formatTime12 } from "@/lib/utils";
 import { notify } from "@/lib/toast";
 
 interface ApptRow extends Appointment {
   vehicle: Vehicle | null;
 }
 
-const STATUS_TONE: Record<string, CalendarTone> = {
-  upcoming: "blue",
+const STATUS_COLOR: Record<string, CalendarEvent["color"]> = {
+  upcoming: "sky",
   completed: "emerald",
-  cancelled: "slate",
+  cancelled: "violet",
   no_show: "rose",
 };
-
-const STATUS_LABEL: Record<string, string> = {
-  upcoming: "Upcoming",
-  completed: "Completed",
-  cancelled: "Cancelled",
-  no_show: "No-show",
-};
-
-const OUTCOMES: AppointmentOutcome[] = [
-  "pending",
-  "test_drive",
-  "offer_made",
-  "deposit_taken",
-  "sold",
-  "lost",
-];
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const isoDate = (d: Date) =>
@@ -76,25 +42,9 @@ const hhmm = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
 export default function AppointmentsPage() {
   const { user, company } = useAuth();
-  const router = useRouter();
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [view, setView] = useState<CalendarViewMode>("weekly");
-  const [statusFilters, setStatusFilters] = useState<Record<string, boolean>>({
-    upcoming: true,
-    completed: true,
-    cancelled: true,
-    no_show: true,
-  });
-  const [currentDate, setCurrentDate] = useState(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
   const [addOpen, setAddOpen] = useState(false);
-  const [sheetDraft, setSheetDraft] = useState<EventDraft | null>(null);
-  const [preview, setPreview] = useState<Appointment | null>(null);
-  const [editing, setEditing] = useState<Appointment | null>(null);
 
   useEffect(() => {
     if (!company) return;
@@ -157,275 +107,132 @@ export default function AppointmentsPage() {
     [],
   );
 
-  const { density, setDensity } = useDensity();
-  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
-  const lockedKeys = useMemo(() => new Set(["customerName"]), []);
+  const { density } = useDensity();
 
-  const events: WeekCalendarEvent[] = useMemo(() => {
+  const events: CalendarEvent[] = useMemo(() => {
     if (!appts) return [];
-    return appts
-      .filter((a) => statusFilters[a.status])
-      .map((a) => {
-        const start = new Date(`${a.date}T${a.time}:00`);
-        const end = new Date(start);
-        end.setMinutes(end.getMinutes() + 60);
-        const v = vehicles.find((x) => x.id === a.vehicleId);
-        return {
-          id: a.id,
-          title: a.customerName,
-          start,
-          end,
-          tone: STATUS_TONE[a.status] ?? "slate",
-          meta: v?.registration,
-          icon: "📅",
-          vehicleId: v?.id,
-          vehicleRegistration: v?.registration,
-        } satisfies WeekCalendarEvent;
-      });
-  }, [appts, vehicles, statusFilters]);
-
-  const handleSlotSelect = (start: Date, end: Date, allDay: boolean) => {
-    setSheetDraft({
-      kind: "appointment",
-      title: "",
-      date: isoDate(start),
-      fromTime: hhmm(start),
-      toTime: hhmm(end),
-      allDay,
+    return appts.map((a) => {
+      const start = new Date(`${a.date}T${a.time}:00`);
+      const end = new Date(start);
+      end.setMinutes(end.getMinutes() + 60);
+      const v = vehicles.find((x) => x.id === a.vehicleId);
+      return {
+        id: a.id,
+        title: a.customerName,
+        description: a.specialRequirements ?? undefined,
+        start,
+        end,
+        color: STATUS_COLOR[a.status] ?? "sky",
+        location: v ? `${v.registration} — ${v.make} ${v.model}` : undefined,
+      };
     });
-    setAddOpen(true);
-  };
+  }, [appts, vehicles]);
 
-  // Drag-to-move → reschedule. Optimistic, persist, refetch to reconcile.
-  const handleEventMove = async (event: WeekCalendarEvent, newStart: Date) => {
+  async function handleEventUpdate(updated: CalendarEvent) {
     if (!user) return;
-    setAppts((prev) =>
-      prev
-        ? prev.map((a) =>
-            a.id === event.id
-              ? { ...a, date: isoDate(newStart), time: hhmm(newStart) }
-              : a,
-          )
-        : prev,
-    );
     try {
       await appointmentService.update(
-        event.id,
-        { date: isoDate(newStart), time: hhmm(newStart) },
+        updated.id,
+        {
+          date: isoDate(updated.start),
+          time: hhmm(updated.start),
+        },
         user.id,
       );
-      notify.success("Rescheduled");
+      notify.success("Appointment rescheduled");
+      await reload();
     } catch (e) {
       notify.error(e instanceof Error ? e.message : "Could not reschedule");
-    } finally {
-      void reload();
-    }
-  };
-
-  async function handleOutcome(id: string, outcome: AppointmentOutcome) {
-    if (!user) return;
-    try {
-      await appointmentService.setOutcome(id, outcome, user.id);
-      await reload();
-      setPreview(null);
-      notify.success(`Outcome: ${outcome.replace("_", " ")}`);
-    } catch (e) {
-      notify.error(e instanceof Error ? e.message : "Could not set outcome");
     }
   }
 
-  const previewVehicle = preview
-    ? vehicles.find((v) => v.id === preview.vehicleId)
-    : undefined;
+  async function handleEventDelete(_id: string) {
+    notify.info("Delete appointments from the list view");
+  }
 
-  const previewRows: EventPreviewRow[] = preview
-    ? [
-        {
-          label: "When",
-          value: `${formatDate(preview.date)} · ${formatTime12(preview.time)}`,
-        },
-        {
-          label: "Vehicle",
-          value: previewVehicle
-            ? `${previewVehicle.registration} — ${previewVehicle.make} ${previewVehicle.model}`
-            : "—",
-        },
-        { label: "Phone", value: preview.customerPhone || "—" },
-        { label: "Email", value: preview.customerEmail || "—" },
-        ...(preview.specialRequirements
-          ? [{ label: "Notes", value: preview.specialRequirements }]
-          : []),
-      ]
-    : [];
+  const hasData = appts != null && appts.length > 0;
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">Appointments</h1>
-          <p className="text-sm text-muted-foreground">
-            Customer test drives and viewings.
-          </p>
-        </div>
-        <Button
-          onClick={() => {
-            setSheetDraft(null);
-            setAddOpen(true);
-          }}
-        >
-          <Plus className="mr-1.5 h-4 w-4" />
-          Book Appointment
-        </Button>
-      </div>
-
-      {!appts ? (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
-            <tbody>
-              <DataGridSkeletonRows columns={visibleCols} rows={6} />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
-      ) : appts.length === 0 ? (
-        <EmptyState
-          icon={CalendarCheck}
-          title="No appointments yet"
-          description="Book one from a lead or directly here."
-        />
-      ) : (
-        <Tabs defaultValue="calendar">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <TabsList>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-              <TabsTrigger value="list">List</TabsTrigger>
-            </TabsList>
-            <div className="flex items-center gap-2">
-              <DataGridColumnsButton
-                columns={cols}
-                hiddenKeys={hiddenKeys}
-                onChange={setHiddenKeys}
-                lockedKeys={lockedKeys}
-              />
-              <DataGridDensityToggle density={density} onChange={setDensity} />
-            </div>
+      <Tabs defaultValue="calendar">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">
+              Appointments
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Customer test drives and viewings.
+            </p>
           </div>
-          <TabsContent value="calendar" className="mt-3">
-            <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
-              <CalendarToolbar
-                view={view}
-                onViewChange={setView}
-                currentDate={currentDate}
-                onCurrentDateChange={setCurrentDate}
-                rightSlot={(
-                  Object.keys(STATUS_LABEL) as Array<keyof typeof STATUS_LABEL>
-                ).map((s) => (
-                  <CalendarFilterChip
-                    key={s}
-                    checked={!!statusFilters[s]}
-                    onChange={(c) =>
-                      setStatusFilters((f) => ({ ...f, [s]: c }))
-                    }
-                    label={STATUS_LABEL[s]}
-                    tone={STATUS_TONE[s]}
-                  />
-                ))}
-              />
-              <Calendar
-                view={view}
+          <div className="flex items-center gap-2">
+            {hasData && (
+              <TabsList>
+                <TabsTrigger value="calendar" aria-label="Calendar view">
+                  <CalendarDays className="size-4" />
+                </TabsTrigger>
+                <TabsTrigger value="list" aria-label="List view">
+                  <List className="size-4" />
+                </TabsTrigger>
+              </TabsList>
+            )}
+            <Button onClick={() => setAddOpen(true)}>
+              <Plus className="mr-1.5 h-4 w-4" />
+              Book Appointment
+            </Button>
+          </div>
+        </div>
+
+        {!appts ? (
+          <DataGridShell>
+            <DataGridTable cols={cols} density={density}>
+              <DataGridHeaderRow cols={cols} />
+              <tbody>
+                <DataGridSkeletonRows columns={cols} rows={6} />
+              </tbody>
+            </DataGridTable>
+          </DataGridShell>
+        ) : appts.length === 0 ? (
+          <EmptyState
+            icon={CalendarCheck}
+            title="No appointments yet"
+            description="Book one from a lead or directly here."
+          />
+        ) : (
+          <>
+            <TabsContent value="calendar" className="mt-0">
+              <EventCalendar
                 events={events}
-                currentDate={currentDate}
-                onCurrentDateChange={setCurrentDate}
-                onSelectEvent={(e) => {
-                  const a = appts.find((x) => x.id === e.id);
-                  if (a) setPreview(a);
-                }}
-                onSlotSelect={handleSlotSelect}
-                onEventMove={handleEventMove}
+                onEventUpdate={handleEventUpdate}
+                onEventDelete={handleEventDelete}
+                initialView="week"
+                hideNewEventButton
               />
-            </div>
-          </TabsContent>
-          <TabsContent value="list" className="mt-3">
-            <DataGridShell>
-              <DataGridTable cols={visibleCols} density={density}>
-                <DataGridHeaderRow cols={visibleCols} />
-                <tbody>
-                  {(apptRows ?? []).map((a, i) => (
-                    <DataGridRow
-                      key={a.id}
-                      row={a}
-                      cols={visibleCols}
-                      index={i}
-                      onClick={(row) => setPreview(row)}
-                    />
-                  ))}
-                </tbody>
-              </DataGridTable>
-            </DataGridShell>
-          </TabsContent>
-        </Tabs>
-      )}
-
-      {preview ? (
-        <EventPreviewDialog
-          open={preview !== null}
-          onOpenChange={(o) => !o && setPreview(null)}
-          title={preview.customerName}
-          toneLabel={STATUS_LABEL[preview.status]}
-          toneClass={cn(
-            TONE_CLASSES[STATUS_TONE[preview.status] ?? "slate"].surface,
-            TONE_CLASSES[STATUS_TONE[preview.status] ?? "slate"].text,
-          )}
-          rows={previewRows}
-          bodySlot={
-            <div>
-              <p className="text-sm font-medium text-foreground">
-                Set outcome
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {OUTCOMES.map((o) => (
-                  <Button
-                    key={o}
-                    type="button"
-                    size="sm"
-                    variant={o === preview.outcome ? "default" : "outline"}
-                    onClick={() => void handleOutcome(preview.id, o)}
-                  >
-                    {o.replace("_", " ")}
-                  </Button>
-                ))}
-              </div>
-            </div>
-          }
-          onEdit={() => {
-            setEditing(preview);
-            setPreview(null);
-          }}
-          ctaLabel="View Vehicle"
-          onCta={() => {
-            const id = preview.vehicleId;
-            setPreview(null);
-            router.push(`/vehicles/${id}`);
-          }}
-        />
-      ) : null}
-
-      {editing && user ? (
-        <EventEditDialog
-          kind="appointment"
-          entity={editing}
-          open={editing !== null}
-          onOpenChange={(o) => !o && setEditing(null)}
-          vehicles={vehicles}
-          userId={user.id}
-          onSaved={() => void reload()}
-        />
-      ) : null}
+            </TabsContent>
+            <TabsContent value="list" className="mt-0">
+              <DataGridShell>
+                <DataGridTable cols={cols} density={density}>
+                  <DataGridHeaderRow cols={cols} />
+                  <tbody>
+                    {(apptRows ?? []).map((a, i) => (
+                      <DataGridRow
+                        key={a.id}
+                        row={a}
+                        cols={cols}
+                        index={i}
+                      />
+                    ))}
+                  </tbody>
+                </DataGridTable>
+              </DataGridShell>
+            </TabsContent>
+          </>
+        )}
+      </Tabs>
 
       <AddEventSheet
         open={addOpen}
         onOpenChange={setAddOpen}
-        defaultDraft={sheetDraft}
+        defaultDraft={null}
         lockKind="appointment"
         onCreated={() => void reload()}
       />

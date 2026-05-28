@@ -1,6 +1,5 @@
 import {
   LayoutDashboard,
-  Settings,
   Car,
   Wrench,
   ClipboardCheck,
@@ -57,7 +56,6 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
       { label: "Invoicing", href: "/admin/invoicing", icon: Receipt },
       { label: "Vendors", href: "/admin/vendors", icon: Store },
       { label: "Activity Log", href: "/admin/activity", icon: History },
-      { label: "Settings", href: "/admin/settings", icon: Settings },
     ],
   },
   {

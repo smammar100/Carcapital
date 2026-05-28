@@ -529,6 +529,17 @@ export default function MasterSheetPage() {
           daysInStock: 0,
           imagesCount: 0,
           heroImageUrl: null,
+          // Module-F (migration 0017) — quick-add doesn't run the DVLA lookup,
+          // so compliance fields land as null. Edit later via the vehicle
+          // detail page to populate them.
+          co2Emissions: null,
+          euroStatus: null,
+          taxStatus: null,
+          taxDueDate: null,
+          motStatus: null,
+          wheelplan: null,
+          automatedVehicle: null,
+          dateOfLastV5CIssued: null,
         },
         user.id,
       );
