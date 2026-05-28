@@ -36,6 +36,11 @@ export const metadata: Metadata = {
   description: "Used-car dealership management platform",
 };
 
+// Root layout reads cookies via getInitialAuth() — every route is dynamic.
+// Force this explicitly so Next.js doesn't try to prerender child routes
+// (which would trip the CSR-bailout error on pages using useSearchParams).
+export const dynamic = "force-dynamic";
+
 const SUPABASE_HOSTNAME = (() => {
   try {
     const u = process.env.NEXT_PUBLIC_SUPABASE_URL;

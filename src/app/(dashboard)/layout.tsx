@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -28,16 +28,14 @@ export default function DashboardLayout({
     void revalidate();
   }, [pathname, revalidate]);
 
-  // Post-mount belt-and-suspenders: if the client-side auth becomes null
-  // (sign-out from another tab, banned account) bounce to /login. Server
-  // middleware already handles the cold-start unauthenticated case.
+  // Force users with a temp password through /set-password before any
+  // dashboard route. Middleware can't see passwordResetRequired (it's a
+  // public.users column, not in the session JWT), so this stays client-side.
   useEffect(() => {
-    if (!user) {
-      router.replace("/login");
-    } else if (user.passwordResetRequired) {
+    if (user?.passwordResetRequired) {
       router.replace("/set-password");
     }
-  }, [user, router]);
+  }, [user?.passwordResetRequired, router]);
 
   if (error) {
     return (
@@ -66,8 +64,6 @@ export default function DashboardLayout({
       </div>
     );
   }
-
-  if (!user) return null;
 
   return (
     <SidebarStateProvider>
@@ -128,8 +124,12 @@ function Shell({ children }: { children: React.ReactNode }) {
             wins because its max-w is higher. See plan §G4. */}
         <PageShell>{children}</PageShell>
         {/* Dev-only column + 4px baseline overlay; appears when the URL
-            contains `?grid=1`, otherwise renders nothing. */}
-        <GridOverlay />
+            contains `?grid=1`, otherwise renders nothing. Suspense wrap is
+            required because useSearchParams() trips the CSR-bailout build
+            error inside a dynamic layout. */}
+        <Suspense fallback={null}>
+          <GridOverlay />
+        </Suspense>
       </main>
     </div>
   );

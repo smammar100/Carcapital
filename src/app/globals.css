@@ -290,8 +290,34 @@
 }
 
 @layer base {
-  * {
+  *,
+  *::before,
+  *::after {
     @apply border-border outline-ring/50;
+    /* Flex/grid items default to min-content for their min-* size,
+       which is what causes the classic "child overflows its flex
+       parent" bug. Resetting to 0 lets children shrink properly. */
+    min-width: 0;
+    min-height: 0;
+  }
+
+  html {
+    /* Thin, theme-aware scrollbars on Firefox + Chromium. */
+    scrollbar-width: thin;
+    scrollbar-color: var(--muted-foreground) transparent;
+  }
+
+  body {
+    line-height: 1.5;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    line-height: 1.1;
   }
 
   code,
