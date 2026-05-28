@@ -209,13 +209,24 @@ function ProfileDropdown({
         render={
           <Button variant="ghost" className="gap-2 px-2">
             <Avatar className="h-7 w-7">
-              <AvatarFallback className="text-[11px]">
+              <AvatarFallback
+                className="text-[11px]"
+                suppressHydrationWarning
+              >
                 {user ? getInitials(user.name) : "—"}
               </AvatarFallback>
             </Avatar>
             <div className="hidden flex-col items-start leading-tight sm:flex">
-              <span className="text-xs font-medium">{user?.name ?? ""}</span>
-              <span className="text-[10px] capitalize text-muted-foreground">
+              <span
+                className="text-xs font-medium"
+                suppressHydrationWarning
+              >
+                {user?.name ?? ""}
+              </span>
+              <span
+                className="text-[10px] capitalize text-muted-foreground"
+                suppressHydrationWarning
+              >
                 {user?.role.replace("_", " ")}
               </span>
             </div>

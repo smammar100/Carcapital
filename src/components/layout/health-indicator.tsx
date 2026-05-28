@@ -80,6 +80,7 @@ export function HealthIndicator() {
       title={label}
       aria-label={label}
       role="status"
+      suppressHydrationWarning
     >
       <span
         className={cn(
@@ -88,6 +89,7 @@ export function HealthIndicator() {
           state === "amber" && "animate-pulse bg-amber-500",
           state === "red" && "bg-rose-500",
         )}
+        suppressHydrationWarning
       />
     </span>
   );
