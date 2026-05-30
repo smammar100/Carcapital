@@ -85,6 +85,8 @@ export const ROLE_DEFS: RoleDef[] = [
       "external_invoice:create",
       "external_invoice:edit_any",
       "external_invoice:delete",
+      // AutoTrader Connect — authority to publish a listing to AutoTrader.
+      "listing:publish_autotrader",
     ],
   },
   {

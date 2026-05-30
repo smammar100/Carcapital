@@ -34,6 +34,12 @@
  */
 
 import "server-only";
+import {
+  deriveExpiryDate,
+  deriveMotStatus,
+  NO_MOT_HISTORY,
+  type MotStatus,
+} from "./mot-derivation";
 
 const DVSA_DATA_BASE =
   "https://history.mot.api.gov.uk/v1/trade/vehicles/registration";
@@ -75,7 +81,10 @@ interface DvsaVehicleResponse {
 // ---------------------------------------------------------------------------
 // Derived public shape — what the route consumes
 // ---------------------------------------------------------------------------
-export type MotStatus = "Valid" | "Not valid" | "No details held by DVLA";
+// MotStatus + the derivation helpers now live in ./mot-derivation (shared
+// with the AutoTrader MOT fallback). Re-export the type for existing
+// importers.
+export type { MotStatus };
 
 export interface DvsaLookupResult {
   motStatus: MotStatus;
@@ -181,30 +190,6 @@ function dropTokenCache() {
 }
 
 // ---------------------------------------------------------------------------
-// Status derivation
-// ---------------------------------------------------------------------------
-function deriveMotStatus(tests: DvsaMotTest[]): MotStatus {
-  if (!tests.length) return "No details held by DVLA";
-  const today = new Date().toISOString().slice(0, 10);
-  // "Valid" if any PASSED test has an expiryDate today or later.
-  const latestPassed = tests
-    .filter((t) => t.testResult === "PASSED" && t.expiryDate)
-    .map((t) => t.expiryDate as string)
-    .sort()
-    .pop();
-  if (latestPassed && latestPassed >= today) return "Valid";
-  return "Not valid";
-}
-
-function deriveExpiryDate(tests: DvsaMotTest[]): string | null {
-  const passedExpiries = tests
-    .filter((t) => t.testResult === "PASSED" && t.expiryDate)
-    .map((t) => t.expiryDate as string)
-    .sort();
-  return passedExpiries.at(-1) ?? null;
-}
-
-// ---------------------------------------------------------------------------
 // History fetch
 // ---------------------------------------------------------------------------
 async function fetchHistory(
@@ -258,7 +243,7 @@ export async function lookupMotHistory(
     }
 
     if (res.status === 404) {
-      return { motStatus: "No details held by DVLA", motExpiryDate: null };
+      return { motStatus: NO_MOT_HISTORY, motExpiryDate: null };
     }
     if (res.status === 429) {
       throw new DvsaError(

@@ -24,6 +24,10 @@ const SELECT = `
   status,
   publishedAt:published_at,
   enquiriesCount:enquiries_count,
+  atStockId:at_stock_id,
+  atAdvertisingStatus:at_advertising_status,
+  atLastSyncedAt:at_last_synced_at,
+  atLastError:at_last_error,
   createdAt:created_at
 `;
 

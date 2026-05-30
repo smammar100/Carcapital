@@ -1,17 +1,20 @@
 /**
- * Combined DVLA + DVSA vehicle lookup.
+ * Combined DVLA + DVSA + AutoTrader vehicle lookup.
  *
- * Fans out to DVLA VES and the DVSA MOT History API in parallel, merges
- * per Module-F spec §2:
+ * Fans out to DVLA VES, the DVSA MOT History API, and AutoTrader Connect
+ * in parallel, then merges:
  *   - DVLA is authoritative for vehicle identity, tax, V5C, CO₂, Euro,
  *     wheelplan, automation flag, registration date, vehicle type.
  *   - DVSA is authoritative for `motStatus` + `motExpiryDate`. If DVSA
  *     succeeds, we discard DVLA's MOT fields.
+ *   - AutoTrader fills `model` / `derivative` / `generation` / `trim`
+ *     (DVLA returns model=null) and adds retail/trade/part-ex valuations.
  *   - If only DVLA succeeds → fall back to DVLA's MOT fields.
  *   - If DVLA fails (404 or error) → return `null` (vehicle not found).
  *
- * Cache: 60-minute in-memory LRU (max 200 entries). Separate from the
- * /api/dvla/lookup cache so behaviour-by-route is clear.
+ * Valuations need a mileage, so the request body may carry `mileage`; the
+ * cache key includes it (taxonomy is mileage-independent, valuations are
+ * not). Cache: 60-minute in-memory LRU (max 200 entries).
  */
 
 import { NextResponse } from "next/server";
@@ -26,6 +29,11 @@ import {
   lookupMotHistory,
   type DvsaLookupResult,
 } from "@/lib/services/dvsa-service";
+import {
+  AutotraderError,
+  lookupAutotraderVehicle,
+  type AutotraderLookupResult,
+} from "@/lib/services/autotrader-service";
 
 export const runtime = "nodejs";
 
@@ -80,10 +88,71 @@ export interface VehicleLookupPayload {
   motStatus: string | null;
   motExpiryDate: string | null;
   dateOfLastV5CIssued: string | null;
+  // --- AutoTrader taxonomy + valuation (whole GBP) ---
+  derivative: string | null;
+  derivativeId: string | null;
+  generation: string | null;
+  trim: string | null;
+  retailValuation: number | null;
+  tradeValuation: number | null;
+  partExchangeValuation: number | null;
+  privateValuation: number | null;
+  /** Which upstream supplied motStatus/motExpiryDate (F-AT4 tiering). */
+  motSource: "dvsa" | "autotrader" | "dvla" | null;
   /** Provenance — useful for the UI to badge "verified" or warn. */
   sources: {
     dvla: "ok" | "error";
     dvsa: "ok" | "error" | "missing_credentials";
+    autotrader: "ok" | "error" | "missing_credentials";
+  };
+}
+
+// ---- MOT tiering (F-AT4) -------------------------------------------------
+// DVSA is authoritative when it succeeded AND actually returned tests.
+// AutoTrader's motTests-derived status is tier 2 (works while the DVSA WAF
+// blocks us). DVLA's coarse motStatus/motExpiryDate is the last resort.
+// "No MOT history" is treated as empty so a populated lower tier wins.
+function pickMot(
+  dvla: DvlaLookupResult,
+  dvsa: DvsaLookupResult | null,
+  dvsaSource: VehicleLookupPayload["sources"]["dvsa"],
+  at: AutotraderLookupResult | null,
+): {
+  status: string | null;
+  expiryDate: string | null;
+  source: VehicleLookupPayload["motSource"];
+} {
+  const populated = (s: string | null | undefined) =>
+    !!s && s !== "No MOT history";
+
+  if (dvsaSource === "ok" && dvsa && populated(dvsa.motStatus)) {
+    return {
+      status: dvsa.motStatus,
+      expiryDate: dvsa.motExpiryDate,
+      source: "dvsa",
+    };
+  }
+  if (at && populated(at.motStatus)) {
+    return {
+      status: at.motStatus,
+      expiryDate: at.motExpiryDate,
+      source: "autotrader",
+    };
+  }
+  if (populated(dvla.motStatus)) {
+    return {
+      status: dvla.motStatus,
+      expiryDate: dvla.motExpiryDate,
+      source: "dvla",
+    };
+  }
+  // Nothing populated anywhere — surface DVSA's empty result if we have it,
+  // else null. Keeps the "No MOT history" wording when that's genuinely true.
+  const fallback = dvsa?.motStatus ?? at?.motStatus ?? dvla.motStatus ?? null;
+  return {
+    status: fallback,
+    expiryDate: dvla.motExpiryDate ?? null,
+    source: fallback ? "dvla" : null,
   };
 }
 
@@ -92,37 +161,59 @@ function mergePayload(
   dvla: DvlaLookupResult,
   dvsa: DvsaLookupResult | null,
   dvsaSource: VehicleLookupPayload["sources"]["dvsa"],
+  at: AutotraderLookupResult | null,
+  atSource: VehicleLookupPayload["sources"]["autotrader"],
 ): VehicleLookupPayload {
+  const mot = pickMot(dvla, dvsa, dvsaSource, at);
   return {
     registration: dvla.registration,
     make: dvla.make,
-    model: dvla.model,
+    // DVLA never returns model → fall back to AutoTrader's taxonomy.
+    model: dvla.model ?? at?.model ?? null,
     colour: dvla.colour,
     registrationDate: dvla.registrationDate,
     yearOfManufacture: dvla.yearOfManufacture,
     fuelType: dvla.fuelType,
-    engineCapacityCC: dvla.engineCapacityCC,
-    co2Emissions: dvla.co2Emissions,
+    // AutoTrader can fill engine size / CO₂ when DVLA omits them.
+    engineCapacityCC: dvla.engineCapacityCC ?? at?.engineCapacityCC ?? null,
+    co2Emissions: dvla.co2Emissions ?? at?.co2Emissions ?? null,
     euroStatus: dvla.euroStatus,
     vehicleType: dvla.vehicleType,
     wheelplan: dvla.wheelplan,
     automatedVehicle: dvla.automatedVehicle,
     taxStatus: dvla.taxStatus,
     taxDueDate: dvla.taxDueDate,
-    // DVSA wins for MOT when available; fall back to DVLA's MOT fields.
-    motStatus: dvsa?.motStatus ?? dvla.motStatus,
-    motExpiryDate: dvsa?.motExpiryDate ?? dvla.motExpiryDate,
+    // F-AT4 — three-tier MOT: DVSA (authoritative, when it works and has
+    // data) → AutoTrader motTests (works while DVSA is WAF-blocked) → DVLA
+    // coarse fields (last resort). `mot` is computed below.
+    motStatus: mot.status,
+    motExpiryDate: mot.expiryDate,
+    motSource: mot.source,
     dateOfLastV5CIssued: dvla.dateOfLastV5CIssued,
+    // AutoTrader taxonomy + valuations
+    derivative: at?.derivative ?? null,
+    derivativeId: at?.derivativeId ?? null,
+    generation: at?.generation ?? null,
+    trim: at?.trim ?? null,
+    retailValuation: at?.retailValuation ?? null,
+    tradeValuation: at?.tradeValuation ?? null,
+    partExchangeValuation: at?.partExchangeValuation ?? null,
+    privateValuation: at?.privateValuation ?? null,
     sources: {
       dvla: "ok",
       dvsa: dvsaSource,
+      autotrader: atSource,
     },
   };
 }
 
 // ---- POST /api/vehicle/lookup -------------------------------------------
 export async function POST(request: Request) {
-  let payload: { registrationNumber?: string; force?: boolean };
+  let payload: {
+    registrationNumber?: string;
+    force?: boolean;
+    mileage?: number;
+  };
   try {
     payload = await request.json();
   } catch {
@@ -148,15 +239,23 @@ export async function POST(request: Request) {
     );
   }
 
+  // Valuations depend on mileage, so the cache key buckets by it. Taxonomy
+  // is mileage-independent but caching the whole merged payload per
+  // (reg, mileage) is simplest and correct.
+  const mileage =
+    typeof payload.mileage === "number" && payload.mileage > 0
+      ? Math.round(payload.mileage)
+      : null;
+  const cacheKey = mileage === null ? reg : `${reg}:${mileage}`;
+
   // Cache short-circuit unless the caller explicitly bypassed via
   // { force: true } — that path powers the ComplianceCard's "Re-fetch"
-  // button so Ali can re-pull DVLA + DVSA on demand without waiting an
-  // hour for the LRU to expire.
+  // button so Ali can re-pull on demand without waiting an hour.
   const url = new URL(request.url);
   const forceFromQs = url.searchParams.get("force") === "1";
   const force = payload.force === true || forceFromQs;
   if (!force) {
-    const cached = cacheGet(reg);
+    const cached = cacheGet(cacheKey);
     if (cached !== undefined) {
       return NextResponse.json(cached.body, {
         headers: { "x-cache": "hit" },
@@ -164,10 +263,11 @@ export async function POST(request: Request) {
     }
   }
 
-  // Fan-out: DVLA + DVSA in parallel.
-  const [dvlaResult, dvsaResult] = await Promise.allSettled([
+  // Fan-out: DVLA + DVSA + AutoTrader in parallel.
+  const [dvlaResult, dvsaResult, atResult] = await Promise.allSettled([
     lookupDvlaVehicle(reg),
     lookupMotHistory(reg),
+    lookupAutotraderVehicle(reg, mileage ? { mileage } : {}),
   ]);
 
   // --- DVLA handling ---
@@ -202,7 +302,7 @@ export async function POST(request: Request) {
 
   // DVLA succeeded but returned null → registration not found.
   if (dvlaResult.value === null) {
-    cacheSet(reg, null);
+    cacheSet(cacheKey, null);
     return NextResponse.json(null);
   }
 
@@ -223,8 +323,25 @@ export async function POST(request: Request) {
     }
   }
 
-  const merged = mergePayload(dvlaResult.value, dvsa, dvsaSource);
-  cacheSet(reg, merged);
+  // --- AutoTrader handling (best-effort — never blocks the response) ---
+  let at: AutotraderLookupResult | null = null;
+  let atSource: VehicleLookupPayload["sources"]["autotrader"] = "ok";
+  if (atResult.status === "fulfilled") {
+    at = atResult.value;
+  } else {
+    const err = atResult.reason;
+    if (err instanceof AutotraderError && err.code === "missing_credentials") {
+      atSource = "missing_credentials";
+      console.warn("[vehicle-lookup] AutoTrader credentials missing — taxonomy/valuation omitted");
+    } else {
+      atSource = "error";
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`[vehicle-lookup] AutoTrader failed: ${msg}`);
+    }
+  }
+
+  const merged = mergePayload(dvlaResult.value, dvsa, dvsaSource, at, atSource);
+  cacheSet(cacheKey, merged);
   return NextResponse.json(merged, {
     headers: { "x-cache": "miss" },
   });

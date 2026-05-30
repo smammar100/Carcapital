@@ -46,8 +46,20 @@ interface Props {
   /** When did the data last arrive from the upstream APIs? */
   verifiedAt?: Date | null;
   /** Provenance markers from the route. */
-  sources?: { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" };
+  sources?: {
+    dvla: "ok" | "error";
+    dvsa: "ok" | "error" | "missing_credentials";
+    autotrader: "ok" | "error" | "missing_credentials";
+  };
+  /** Which upstream supplied the MOT fields (F-AT4). */
+  motSource?: "dvsa" | "autotrader" | "dvla" | null;
 }
+
+const MOT_SOURCE_LABEL: Record<string, string> = {
+  dvsa: "via DVSA",
+  autotrader: "via AutoTrader",
+  dvla: "via DVLA",
+};
 
 export function ComplianceCard({
   value,
@@ -56,6 +68,7 @@ export function ComplianceCard({
   refetching,
   verifiedAt,
   sources,
+  motSource,
 }: Props) {
   return (
     <Card className="flex flex-col gap-3 p-5">
@@ -68,7 +81,13 @@ export function ComplianceCard({
           {sources ? (
             <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
               DVLA {sources.dvla === "ok" ? "✓" : "✗"} · DVSA{" "}
-              {sources.dvsa === "ok" ? "✓" : sources.dvsa === "missing_credentials" ? "—" : "✗"}
+              {sources.dvsa === "ok" ? "✓" : sources.dvsa === "missing_credentials" ? "—" : "✗"}{" "}
+              · AT{" "}
+              {sources.autotrader === "ok"
+                ? "✓"
+                : sources.autotrader === "missing_credentials"
+                  ? "—"
+                  : "✗"}
             </span>
           ) : null}
           {onRefetch ? (
@@ -103,9 +122,14 @@ export function ComplianceCard({
           status={value.motStatus}
           tone={motTone(value.motStatus)}
           subtitle={
-            value.motExpiryDate
-              ? `Expires ${formatDate(value.motExpiryDate)}`
-              : "No expiry on file"
+            [
+              value.motExpiryDate
+                ? `Expires ${formatDate(value.motExpiryDate)}`
+                : "No expiry on file",
+              motSource ? MOT_SOURCE_LABEL[motSource] : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")
           }
         />
       </div>

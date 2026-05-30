@@ -45,8 +45,23 @@ function mockFallback(reg: string): DvlaLookupReturn | null {
     wheelplan: null,
     automatedVehicle: null,
     dateOfLastV5CIssued: null,
+    // AutoTrader enrichment is absent in mock fallback.
+    derivative: null,
+    generation: null,
+    trim: null,
+    atDerivativeId: null,
+    atRetailValuation: null,
+    atTradeValuation: null,
+    atPartExchangeValuation: null,
   } as DvlaLookupReturn;
 }
+
+/** Provenance markers returned by the combined lookup route. */
+export type LookupSources = {
+  dvla: "ok" | "error";
+  dvsa: "ok" | "error" | "missing_credentials";
+  autotrader: "ok" | "error" | "missing_credentials";
+};
 
 // Hard timeout so the form never hangs on a stuck serverless cold-start,
 // a missing DVLA_API_KEY env var, or any other production weirdness. 12s
@@ -77,8 +92,18 @@ export interface VehicleLookupResponse {
   taxDueDate: string | null;
   motStatus: string | null;
   motExpiryDate: string | null;
+  motSource?: "dvsa" | "autotrader" | "dvla" | null;
   dateOfLastV5CIssued: string | null;
-  sources?: { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" };
+  // AutoTrader taxonomy + valuation (whole GBP)
+  derivative: string | null;
+  derivativeId: string | null;
+  generation: string | null;
+  trim: string | null;
+  retailValuation: number | null;
+  tradeValuation: number | null;
+  partExchangeValuation: number | null;
+  privateValuation: number | null;
+  sources?: LookupSources;
 }
 
 /** Looser return shape: a Partial<Vehicle> for the fields the existing form
@@ -86,7 +111,14 @@ export interface VehicleLookupResponse {
  * derived registrationDate (ISO date) for the Compliance card. */
 export type DvlaLookupReturn = Partial<Vehicle> & {
   registrationDate: string | null;
-  sources?: { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" };
+  /** AutoTrader valuations (whole GBP) — surfaced on the form + Financials. */
+  retailValuation: number | null;
+  tradeValuation: number | null;
+  partExchangeValuation: number | null;
+  privateValuation: number | null;
+  /** Which upstream supplied the MOT fields (F-AT4). */
+  motSource?: "dvsa" | "autotrader" | "dvla" | null;
+  sources?: LookupSources;
 };
 
 /** Map the combined route's payload onto the existing form-state shape so
@@ -113,12 +145,31 @@ function toFormPartial(p: VehicleLookupResponse): DvlaLookupReturn {
     automatedVehicle: p.automatedVehicle,
     dateOfLastV5CIssued: p.dateOfLastV5CIssued,
     registrationDate: p.registrationDate,
+    // AutoTrader taxonomy → Vehicle fields (derivative/generation/trim live
+    // on Vehicle now); valuations surfaced separately on the return.
+    derivative: p.derivative,
+    generation: p.generation,
+    trim: p.trim,
+    atDerivativeId: p.derivativeId,
+    retailValuation: p.retailValuation,
+    tradeValuation: p.tradeValuation,
+    partExchangeValuation: p.partExchangeValuation,
+    privateValuation: p.privateValuation,
+    motSource: p.motSource ?? null,
     sources: p.sources,
   };
 }
 
 export const dvlaService = {
-  async lookup(reg: string): Promise<DvlaLookupReturn | null> {
+  /**
+   * Look up a registration via the combined DVLA + DVSA + AutoTrader route.
+   * Pass `opts.mileage` to unlock AutoTrader valuations (they can't value a
+   * car without it). `opts.force` bypasses the route's 60-min cache.
+   */
+  async lookup(
+    reg: string,
+    opts: { mileage?: number; force?: boolean } = {},
+  ): Promise<DvlaLookupReturn | null> {
     // This service is deliberately non-throwing. Every failure mode collapses
     // to `null` + a console.warn so consumers (arrival-form, find-vehicle-card)
     // can show a "not found / manual entry" state without try/catch. Throwing
@@ -130,7 +181,11 @@ export const dvlaService = {
       const res = await fetch("/api/vehicle/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ registrationNumber: reg }),
+        body: JSON.stringify({
+          registrationNumber: reg,
+          mileage: opts.mileage,
+          force: opts.force,
+        }),
         signal: controller.signal,
       });
 

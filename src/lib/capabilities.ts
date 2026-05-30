@@ -67,7 +67,9 @@ export type Capability =
   // Spec v3.0 · Module D
   | "external_invoice:create"
   | "external_invoice:edit_any"
-  | "external_invoice:delete";
+  | "external_invoice:delete"
+  // AutoTrader Connect — publish a listing to AutoTrader (live API write)
+  | "listing:publish_autotrader";
 
 export const ALL_CAPABILITIES: Capability[] = [
   "inventory:add",
@@ -115,6 +117,7 @@ export const ALL_CAPABILITIES: Capability[] = [
   "external_invoice:create",
   "external_invoice:edit_any",
   "external_invoice:delete",
+  "listing:publish_autotrader",
 ];
 
 export const CAPABILITY_LABELS: Record<Capability, string> = {
@@ -161,6 +164,7 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "locations:edit_history": "Edit Movement History",
   "locations:delete": "Delete Movement",
   "external_invoice:create": "Create External Invoice",
+  "listing:publish_autotrader": "Publish to AutoTrader",
   "external_invoice:edit_any": "Edit Any External Invoice",
   "external_invoice:delete": "Delete External Invoice",
 };
@@ -245,6 +249,10 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
       "external_invoice:edit_any",
       "external_invoice:delete",
     ],
+  },
+  {
+    label: "Advert",
+    capabilities: ["listing:publish_autotrader"],
   },
   {
     label: "Admin",

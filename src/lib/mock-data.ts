@@ -494,6 +494,16 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     wheelplan: null,
     automatedVehicle: null,
     dateOfLastV5CIssued: null,
+    // AutoTrader (migration 0018) taxonomy + valuation — null for seeds.
+    derivative: null,
+    generation: null,
+    trim: null,
+    atDerivativeId: null,
+    atRetailValuation: null,
+    atTradeValuation: null,
+    atPartExchangeValuation: null,
+    atPriceIndicator: null,
+    atValuationAt: null,
     localOrImport: s.localOrImport ?? "local",
     auctionHouse: isAuction ? s.source : null,
     ownedBy: "Car Capital UK",
@@ -655,6 +665,11 @@ export const mockListings: Listing[] = LISTED_IDS.map((vid, idx) => {
     status: "live",
     publishedAt: `${daysAgo(v.daysInStock - 5)}T10:00:00.000Z`,
     enquiriesCount: idx === 0 ? 8 : idx === 5 ? 11 : Math.max(0, 6 - idx),
+    // AutoTrader stock publish (migration 0019) — seeds are local-only.
+    atStockId: null,
+    atAdvertisingStatus: null,
+    atLastSyncedAt: null,
+    atLastError: null,
     createdAt: `${daysAgo(v.daysInStock - 5)}T09:30:00.000Z`,
   };
 });

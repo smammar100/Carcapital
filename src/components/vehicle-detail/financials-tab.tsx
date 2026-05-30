@@ -115,6 +115,58 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
         </CardContent>
       </Card>
 
+      {/* AutoTrader market value — reference row (migration 0018). Only shows
+          when a valuation was captured at intake. Compares our retail price
+          to AutoTrader's retail valuation so the operator can sanity-check. */}
+      {vehicle.atRetailValuation != null && (
+        <Panel
+          title="AutoTrader market value"
+          subtitle={
+            vehicle.atValuationAt
+              ? `Valued ${formatDate(vehicle.atValuationAt)} · ${vehicle.mileage.toLocaleString()} mi`
+              : "Captured at intake"
+          }
+          action={
+            retail > 0 ? (
+              <Pill
+                tone={
+                  retail <= vehicle.atRetailValuation * 0.97
+                    ? "good"
+                    : retail <= vehicle.atRetailValuation * 1.03
+                      ? "info"
+                      : "warn"
+                }
+              >
+                {retail <= vehicle.atRetailValuation * 0.97
+                  ? "Priced to sell"
+                  : retail <= vehicle.atRetailValuation * 1.03
+                    ? "At market"
+                    : "Above market"}
+              </Pill>
+            ) : null
+          }
+        >
+          <FieldGrid cols={4}>
+            <Field label="Retail" numeric>
+              {formatCurrency(vehicle.atRetailValuation)}
+            </Field>
+            <Field label="Trade" numeric>
+              {vehicle.atTradeValuation != null
+                ? formatCurrency(vehicle.atTradeValuation)
+                : "—"}
+            </Field>
+            <Field label="Part-exchange" numeric>
+              {vehicle.atPartExchangeValuation != null
+                ? formatCurrency(vehicle.atPartExchangeValuation)
+                : "—"}
+            </Field>
+            <Field label="Our retail price" numeric>
+              {retail > 0 ? formatCurrency(retail) : "Not listed"}
+            </Field>
+          </FieldGrid>
+        </Panel>
+      )}
+
       {/* Purchase information */}
       <Panel
         title="Purchase Information"

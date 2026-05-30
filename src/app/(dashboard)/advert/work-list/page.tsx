@@ -2,11 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Megaphone, Plus } from "lucide-react";
+import { Megaphone, Plus, Send } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { listingService } from "@/lib/services/listing-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import type {
@@ -77,12 +78,17 @@ type FormOutput = z.output<typeof schema>;
 
 export default function ListingsPage() {
   const { user, company } = useAuth();
+  const { can, isSuperUser } = usePermissions();
+  const canPublishAT = isSuperUser || can("listing:publish_autotrader");
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [statusFilter, setStatusFilter] = useState<ListingStatus | "all">("all");
   const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  // AutoTrader publish confirm — set to the row pending live publish.
+  const [atConfirm, setAtConfirm] = useState<ListingRow | null>(null);
+  const [atBusy, setAtBusy] = useState(false);
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -203,6 +209,39 @@ export default function ListingsPage() {
       { key: "enquiriesCount", label: "Enq.", type: "number", width: 80 },
       { key: "status", label: "Status", type: "select", width: 110 },
       {
+        key: "atSync",
+        label: "AutoTrader",
+        type: "custom",
+        width: 140,
+        render: (l) =>
+          l.atStockId ? (
+            <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
+              Synced #{l.atStockId.slice(0, 8)}
+            </span>
+          ) : l.atLastError ? (
+            <span
+              className="inline-flex items-center rounded-md bg-rose-100 px-1.5 py-0.5 text-[11px] font-medium text-rose-800"
+              title={l.atLastError}
+            >
+              Error
+            </span>
+          ) : l.channels.autotrader && canPublishAT ? (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAtConfirm(l);
+              }}
+            >
+              <Send className="mr-1 size-3" />
+              Publish to AT
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          ),
+      },
+      {
         key: "action",
         label: " ",
         type: "custom",
@@ -226,7 +265,7 @@ export default function ListingsPage() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [canPublishAT],
   );
 
   const { density, setDensity } = useDensity();
@@ -234,6 +273,10 @@ export default function ListingsPage() {
   const lockedKeys = useMemo(() => new Set(["stockId"]), []);
 
   const watchedVehicle = form.watch("vehicleId");
+  const selectedVehicle = useMemo(
+    () => vehicles.find((x) => x.id === watchedVehicle) ?? null,
+    [vehicles, watchedVehicle],
+  );
   useEffect(() => {
     const v = vehicles.find((x) => x.id === watchedVehicle);
     if (!v) return;
@@ -246,6 +289,14 @@ export default function ListingsPage() {
       `Stunning ${v.colour.toLowerCase()} ${v.make} ${v.model} with ${v.mileage.toLocaleString()} miles. ${v.serviceHistory === "full" ? "Full service history. " : ""}Drives superb.`,
     );
     if (v.listingPrice) form.setValue("price", v.listingPrice);
+    // Seed the AutoTrader price indicator from the captured valuation.
+    if (v.atRetailValuation && v.listingPrice) {
+      const ratio = v.listingPrice / v.atRetailValuation;
+      form.setValue(
+        "atPriceIndicator",
+        ratio <= 0.96 ? "great" : ratio <= 1.0 ? "good" : ratio <= 1.05 ? "above_average" : "unrated",
+      );
+    }
   }, [watchedVehicle, vehicles, form]);
 
   async function onSubmit(values: FormOutput) {
@@ -288,6 +339,45 @@ export default function ListingsPage() {
     if (!company) return;
     await listingService.toggleChannel(id, ch);
     setListings(await listingService.getAll(company.id));
+  }
+
+  async function confirmPublishAutoTrader() {
+    if (!atConfirm || !company) return;
+    setAtBusy(true);
+    try {
+      const res = await fetch("/api/autotrader/stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vehicleId: atConfirm.vehicleId,
+          listingId: atConfirm.id,
+        }),
+      });
+      const body = (await res.json().catch(() => ({}))) as {
+        stockId?: string;
+        warnings?: string[];
+        error?: string;
+        detail?: string;
+      };
+      if (res.ok && body.stockId) {
+        toast.success(`Published to AutoTrader — Stock ID ${body.stockId}`);
+        if (body.warnings?.length) {
+          for (const w of body.warnings) toast.warning(w);
+        }
+      } else {
+        toast.error(
+          body.detail
+            ? `AutoTrader publish failed: ${body.detail}`
+            : `AutoTrader publish failed (${body.error ?? res.status})`,
+        );
+      }
+      setListings(await listingService.getAll(company.id));
+    } catch (e) {
+      toast.error(`AutoTrader publish failed: ${String(e)}`);
+    } finally {
+      setAtBusy(false);
+      setAtConfirm(null);
+    }
   }
 
   return (
@@ -353,6 +443,21 @@ export default function ListingsPage() {
                     step="0.01"
                     {...form.register("price")}
                   />
+                  {selectedVehicle?.atRetailValuation != null && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        form.setValue(
+                          "price",
+                          selectedVehicle.atRetailValuation as number,
+                        )
+                      }
+                      className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                    >
+                      AutoTrader retail: £
+                      {selectedVehicle.atRetailValuation.toLocaleString()} — use
+                    </button>
+                  )}
                 </div>
                 <div>
                   <Label>AT indicator</Label>
@@ -491,6 +596,61 @@ export default function ListingsPage() {
           </DataGridTable>
         </DataGridShell>
       )}
+
+      {/* AutoTrader publish confirm — gated live write to the sandbox. */}
+      <Dialog
+        open={atConfirm !== null}
+        onOpenChange={(o) => {
+          if (!o && !atBusy) setAtConfirm(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Publish to AutoTrader (sandbox)</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 text-sm">
+            <p>
+              This creates a <strong>real advert</strong> on your AutoTrader
+              Connect <strong>sandbox</strong> account for{" "}
+              <strong>
+                {atConfirm?.vehicle?.registration ?? atConfirm?.title}
+              </strong>
+              .
+            </p>
+            <p className="text-muted-foreground">
+              The advert is created with all advertising locations{" "}
+              <strong>NOT_PUBLISHED</strong> (it won&apos;t go live on the
+              AutoTrader marketplace until a separate go-live step). The
+              returned Stock ID is stored against this listing.
+            </p>
+            {atConfirm &&
+            (atConfirm.vehicle?.imagesCount === 0 ||
+              !atConfirm.vehicle?.heroImageUrl) ? (
+              <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Note: this advert will be created without images (photo upload
+                pending).
+              </p>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setAtConfirm(null)}
+              disabled={atBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void confirmPublishAutoTrader()}
+              disabled={atBusy}
+            >
+              {atBusy ? "Publishing…" : "Publish to AutoTrader"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

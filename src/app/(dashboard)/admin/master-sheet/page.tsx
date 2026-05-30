@@ -540,6 +540,16 @@ export default function MasterSheetPage() {
           wheelplan: null,
           automatedVehicle: null,
           dateOfLastV5CIssued: null,
+          // AutoTrader (migration 0018) — quick-add skips the lookup.
+          derivative: null,
+          generation: null,
+          trim: null,
+          atDerivativeId: null,
+          atRetailValuation: null,
+          atTradeValuation: null,
+          atPartExchangeValuation: null,
+          atPriceIndicator: null,
+          atValuationAt: null,
         },
         user.id,
       );

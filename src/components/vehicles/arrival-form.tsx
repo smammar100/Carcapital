@@ -136,6 +136,24 @@ const schema = z.object({
 
 type FormInput = z.input<typeof schema>;
 
+/**
+ * Derive a Great/Good/Fair/High price indicator by comparing the intended
+ * listing price to AutoTrader's retail valuation. Mirrors AutoTrader's own
+ * banding loosely (their exact thresholds are advert-side and not exposed
+ * on the vehicle lookup). Returns null when either input is missing.
+ */
+function deriveAtPriceIndicator(
+  listingPrice: number | null,
+  retailValuation: number | null,
+): string | null {
+  if (!listingPrice || !retailValuation || retailValuation <= 0) return null;
+  const ratio = listingPrice / retailValuation;
+  if (ratio <= 0.96) return "great";
+  if (ratio <= 1.0) return "good";
+  if (ratio <= 1.05) return "fair";
+  return "high";
+}
+
 export function ArrivalForm() {
   const { user, company } = useAuth();
   const router = useRouter();
@@ -175,9 +193,37 @@ export function ArrivalForm() {
     dateOfLastV5CIssued: null,
   });
   const [complianceSources, setComplianceSources] = useState<
-    { dvla: "ok" | "error"; dvsa: "ok" | "error" | "missing_credentials" } | undefined
+    | {
+        dvla: "ok" | "error";
+        dvsa: "ok" | "error" | "missing_credentials";
+        autotrader: "ok" | "error" | "missing_credentials";
+      }
+    | undefined
   >(undefined);
+  const [motSource, setMotSource] = useState<
+    "dvsa" | "autotrader" | "dvla" | null
+  >(null);
   const [verifiedAt, setVerifiedAt] = useState<Date | null>(null);
+
+  // AutoTrader taxonomy + valuation captured from the lookup. Persisted on
+  // create; the retail valuation also powers the "Use as listing price" hint.
+  const [atData, setAtData] = useState<{
+    derivative: string | null;
+    generation: string | null;
+    trim: string | null;
+    atDerivativeId: string | null;
+    retailValuation: number | null;
+    tradeValuation: number | null;
+    partExchangeValuation: number | null;
+  }>({
+    derivative: null,
+    generation: null,
+    trim: null,
+    atDerivativeId: null,
+    retailValuation: null,
+    tradeValuation: null,
+    partExchangeValuation: null,
+  });
   // SPEC Points 6/7 — dealer partner picker (shown when source = Dealer).
   const searchParams = useSearchParams();
   const [partners, setPartners] = useState<DealerPartner[]>([]);
@@ -313,10 +359,16 @@ export function ArrivalForm() {
         }),
         new Promise<null>((r) => setTimeout(() => r(null), 5_000)),
       ]);
-      const dvlaPromise = dvlaService.lookup(formatted).catch((e) => {
-        console.warn("[arrival-form] dvla lookup failed", e);
-        return null;
-      });
+      // Pass the entered mileage so AutoTrader can return valuations (it
+      // can't value a car without one). Mileage of 0 / blank → no valuation,
+      // but taxonomy (model/derivative) still comes back.
+      const mileageNow = Number(form.getValues("mileage")) || undefined;
+      const dvlaPromise = dvlaService
+        .lookup(formatted, { mileage: mileageNow })
+        .catch((e) => {
+          console.warn("[arrival-form] vehicle lookup failed", e);
+          return null;
+        });
 
       // 1. Settle the DB check first (or its 5s deadline).
       const existing = await dbPromise;
@@ -378,7 +430,23 @@ export function ArrivalForm() {
         dateOfLastV5CIssued: dvla.dateOfLastV5CIssued ?? null,
       });
       setComplianceSources(dvla.sources);
+      setMotSource(dvla.motSource ?? null);
       setVerifiedAt(new Date());
+
+      // AutoTrader taxonomy + valuation. Fill the model from AutoTrader when
+      // the user hasn't typed one (DVLA returns model=null). Derivative /
+      // generation / trim are captured for persistence + display.
+      setAtData({
+        derivative: dvla.derivative ?? null,
+        generation: dvla.generation ?? null,
+        trim: dvla.trim ?? null,
+        atDerivativeId: dvla.atDerivativeId ?? null,
+        retailValuation: dvla.retailValuation ?? null,
+        tradeValuation: dvla.tradeValuation ?? null,
+        partExchangeValuation: dvla.partExchangeValuation ?? null,
+      });
+      // dvla.model already carries AutoTrader's model after the route merge;
+      // the guard above only writes it when the model field is empty.
     } catch (e) {
       console.warn("[arrival-form] handleDvlaLookup unexpected", e);
       if (!signal.aborted) {
@@ -486,6 +554,19 @@ export function ArrivalForm() {
           wheelplan: compliance.wheelplan,
           automatedVehicle: compliance.automatedVehicle,
           dateOfLastV5CIssued: compliance.dateOfLastV5CIssued,
+          // AutoTrader taxonomy + valuation (migration 0018)
+          derivative: atData.derivative,
+          generation: atData.generation,
+          trim: atData.trim,
+          atDerivativeId: atData.atDerivativeId,
+          atRetailValuation: atData.retailValuation,
+          atTradeValuation: atData.tradeValuation,
+          atPartExchangeValuation: atData.partExchangeValuation,
+          atPriceIndicator: deriveAtPriceIndicator(
+            values.listingPrice ? Number(values.listingPrice) : null,
+            atData.retailValuation,
+          ),
+          atValuationAt: atData.retailValuation ? new Date().toISOString() : null,
           buyingPrice: Number(values.buyingPrice),
           vatOnBuyingPrice: Math.round(Number(values.buyingPrice) * VAT_RATE * 100) / 100,
           buyersFee: values.buyersFee ? Number(values.buyersFee) : null,
@@ -949,7 +1030,46 @@ export function ArrivalForm() {
           refetching={dvlaState === "loading"}
           verifiedAt={verifiedAt}
           sources={complianceSources}
+          motSource={motSource}
         />
+
+        {/* AutoTrader valuation strip — shows when a retail valuation came
+            back. "Use as listing price" sets the section-7 listing price. */}
+        {atData.retailValuation != null && (
+          <Card className="flex flex-col gap-3 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                AutoTrader valuation
+              </h2>
+              <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                Based on {Number(form.getValues("mileage")).toLocaleString()} mi
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <ValuationCell label="Retail" value={atData.retailValuation} highlight />
+              <ValuationCell label="Trade" value={atData.tradeValuation} />
+              <ValuationCell label="Part-ex" value={atData.partExchangeValuation} />
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    if (atData.retailValuation != null) {
+                      form.setValue("listingPrice", atData.retailValuation);
+                      toast.success(
+                        `Listing price set to ${formatCurrency(atData.retailValuation)}`,
+                      );
+                    }
+                  }}
+                >
+                  Use as listing price
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
         {/* Section 4 — Purchase Cost Breakdown */}
         <Card className="flex flex-col gap-3 p-5">
@@ -1112,6 +1232,32 @@ export function ArrivalForm() {
           warranty={warrantyCost}
           listingPrice={Number(watchAll.listingPrice) || null}
         />
+      </div>
+    </div>
+  );
+}
+
+function ValuationCell({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number | null;
+  highlight?: boolean;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-card px-3 py-2",
+        highlight && "border-emerald-300/60 bg-emerald-50/60 dark:bg-emerald-500/5",
+      )}
+    >
+      <div className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 text-base font-semibold tabular-nums">
+        {value != null ? formatCurrency(value) : "—"}
       </div>
     </div>
   );

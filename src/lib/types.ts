@@ -341,6 +341,20 @@ export interface Vehicle {
   automatedVehicle: boolean | null;
   dateOfLastV5CIssued: ISODate | null;
 
+  // ─── AutoTrader taxonomy + valuation (migration 0018) ────────────────
+  // Populated by /api/vehicle/lookup from AutoTrader Connect. DVLA leaves
+  // model/derivative/generation/trim blank; AutoTrader fills them.
+  // Valuations are WHOLE GBP (matching listingPrice), not pence.
+  derivative: string | null;
+  generation: string | null;
+  trim: string | null;
+  atDerivativeId: string | null;
+  atRetailValuation: number | null;
+  atTradeValuation: number | null;
+  atPartExchangeValuation: number | null;
+  atPriceIndicator: string | null;
+  atValuationAt: ISODateTime | null;
+
   createdAt: ISODateTime;
   updatedAt: ISODateTime;
 }
@@ -555,6 +569,13 @@ export interface Listing {
   status: ListingStatus;
   publishedAt: ISODateTime | null;
   enquiriesCount: number;
+  // ─── AutoTrader stock publish (migration 0019) ───────────────────────
+  /** AutoTrader Stock ID once published via POST /stock; null until then. */
+  atStockId: string | null;
+  /** AutoTrader advertising lifecycle: not_published | published. */
+  atAdvertisingStatus: "not_published" | "published" | null;
+  atLastSyncedAt: ISODateTime | null;
+  atLastError: string | null;
   createdAt: ISODateTime;
 }
 
