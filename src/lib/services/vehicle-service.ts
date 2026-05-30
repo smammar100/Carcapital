@@ -406,6 +406,20 @@ export const vehicleService = {
     return vehicle;
   },
 
+  /**
+   * Persist AutoTrader valuation + taxonomy fields after a live refresh on
+   * the Vehicle Detail Overview. No activity-log entry (valuations refresh
+   * often — keeps the audit trail clean) and no actor needed. RLS-scoped
+   * via the user's session, so no service-role key required.
+   */
+  async updateValuation(id: UUID, patch: Partial<Vehicle>): Promise<void> {
+    const supabase = createClient();
+    const updates = vehicleToRow(patch as unknown as Record<string, unknown>);
+    const { error } = await supabase.from("vehicles").update(updates).eq("id", id);
+    if (error) throw error;
+    invalidate(NS);
+  },
+
   async changeStatus(
     id: UUID,
     newStatus: VehicleStatus,

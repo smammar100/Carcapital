@@ -24,6 +24,8 @@ import { ActivityTab } from "./activity-tab";
 interface VehicleDetailShellProps {
   vehicle: Vehicle;
   onOpenInspection?: () => void;
+  /** Merge fresh fields into the page's Vehicle state (Overview valuation refresh). */
+  onVehiclePatch?: (patch: Partial<Vehicle>) => void;
 }
 
 /**
@@ -35,6 +37,7 @@ interface VehicleDetailShellProps {
 export function VehicleDetailShell({
   vehicle,
   onOpenInspection,
+  onVehiclePatch,
 }: VehicleDetailShellProps) {
   const [todoCount, setTodoCount] = useState<number | null>(null);
   const [enquiryCount, setEnquiryCount] = useState<number | null>(null);
@@ -80,7 +83,7 @@ export function VehicleDetailShell({
       </TabsList>
 
       <TabsContent value="overview">
-        <OverviewTab vehicle={vehicle} />
+        <OverviewTab vehicle={vehicle} onVehiclePatch={onVehiclePatch} />
       </TabsContent>
       <TabsContent value="details">
         <DetailsTab vehicle={vehicle} />

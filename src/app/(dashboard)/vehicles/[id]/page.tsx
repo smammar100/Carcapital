@@ -41,6 +41,13 @@ export default function VehicleDetailPage({
     setVehicle(v);
   }
 
+  /** Merge fresh fields into the displayed vehicle without a re-fetch — used
+   *  by the Overview AutoTrader valuation refresh (the server already
+   *  persisted the new values). */
+  function patchVehicle(patch: Partial<Vehicle>) {
+    setVehicle((v) => (v ? { ...v, ...patch } : v));
+  }
+
   async function handleStatusChange(s: VehicleStatus) {
     if (!user || !vehicle) return;
     const updated = await vehicleService.changeStatus(vehicle.id, s, user.id);
@@ -120,6 +127,7 @@ export default function VehicleDetailPage({
       <VehicleDetailShell
         vehicle={vehicle}
         onOpenInspection={() => setInspectionOpen(true)}
+        onVehiclePatch={patchVehicle}
       />
 
       <InspectionSidePanel

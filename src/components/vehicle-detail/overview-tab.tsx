@@ -4,20 +4,22 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
-  Calendar,
   Check,
   Clock,
   Coins,
   Globe,
   Pencil,
   PoundSterling,
+  RefreshCw,
   TrendingUp,
   X,
 } from "lucide-react";
+import { toast } from "sonner";
 import type { Listing, Vehicle } from "@/lib/types";
 import { listingService } from "@/lib/services/listing-service";
+import { dvlaService } from "@/lib/services/dvla-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { KpiCard, Panel, Pill } from "./primitives";
 import { cn } from "@/lib/utils";
@@ -25,6 +27,9 @@ import { VehicleLocationSection } from "@/components/locations/vehicle-location-
 
 interface OverviewTabProps {
   vehicle: Vehicle;
+  /** Merge fresh fields into the page's Vehicle state (e.g. after a
+   *  live AutoTrader valuation refresh). */
+  onVehiclePatch?: (patch: Partial<Vehicle>) => void;
 }
 
 /**
@@ -32,7 +37,7 @@ interface OverviewTabProps {
  * Four KPIs up top, advert completeness on the left, valuation + marketplace
  * on the right, then a full field grid of vehicle details underneath.
  */
-export function OverviewTab({ vehicle }: OverviewTabProps) {
+export function OverviewTab({ vehicle, onVehiclePatch }: OverviewTabProps) {
   const [listing, setListing] = useState<Listing | null | undefined>(undefined);
 
   useEffect(() => {
@@ -80,8 +85,12 @@ export function OverviewTab({ vehicle }: OverviewTabProps) {
         <KpiCard
           icon={TrendingUp}
           label="AT Retail Avg"
-          value={webPrice ? formatCurrency(Math.round(webPrice * 0.99)) : "—"}
-          hint={webPrice ? "Within market range" : undefined}
+          value={
+            vehicle.atRetailValuation != null
+              ? formatCurrency(vehicle.atRetailValuation)
+              : "—"
+          }
+          hint={atRetailHint(webPrice, vehicle.atRetailValuation)}
         />
         <KpiCard
           icon={Coins}
@@ -103,7 +112,10 @@ export function OverviewTab({ vehicle }: OverviewTabProps) {
               glance value than the Location card per user feedback);
               Module A's LocationCard sits beneath it and the
               MarketplacePanel anchors the bottom. */}
-          <ValuationPanel webPrice={webPrice} />
+          <ValuationPanel
+            vehicle={vehicle}
+            onVehiclePatch={onVehiclePatch}
+          />
           <VehicleLocationSection vehicle={vehicle} />
           <MarketplacePanel listing={listing ?? null} />
         </div>
@@ -273,17 +285,132 @@ function AdvertCheckRow({ check }: { check: AdvertCheck }) {
 // Valuation panel
 // ============================================================
 
-function ValuationPanel({ webPrice }: { webPrice: number }) {
-  const trade = webPrice ? Math.round(webPrice * 0.78) : 0;
-  const partEx = webPrice ? Math.round(webPrice * 0.76) : 0;
-  const retail = webPrice ? Math.round(webPrice * 0.99) : 0;
+/** Hint under the AT Retail Avg KPI: how our web price sits vs market. */
+function atRetailHint(
+  webPrice: number,
+  retail: number | null | undefined,
+): string | undefined {
+  if (retail == null) return undefined;
+  if (!webPrice) return "Live market retail";
+  const ratio = webPrice / retail;
+  if (ratio <= 0.97) return "Priced below market";
+  if (ratio <= 1.03) return "Within market range";
+  return "Above market";
+}
+
+/** Relative "Updated …" label from an ISO timestamp. */
+function updatedLabel(iso: string | null | undefined): string {
+  if (!iso) return "Not yet valued";
+  const then = new Date(iso).getTime();
+  const mins = Math.round((Date.now() - then) / 60000);
+  if (mins < 1) return "Updated just now";
+  if (mins < 60) return `Updated ${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `Updated ${hrs}h ago`;
+  return `Updated ${formatDate(iso)}`;
+}
+
+function ValuationPanel({
+  vehicle,
+  onVehiclePatch,
+}: {
+  vehicle: Vehicle;
+  onVehiclePatch?: (patch: Partial<Vehicle>) => void;
+}) {
+  const [refreshing, setRefreshing] = useState(false);
+  const hasValuation = vehicle.atRetailValuation != null;
+
+  /**
+   * Pull a live AutoTrader valuation for this vehicle and persist it.
+   * Client-orchestrated: /api/vehicle/lookup returns valuations server-side
+   * (creds stay there), then we persist via the RLS-scoped vehicle service
+   * — no admin/service-role key needed.
+   */
+  async function refresh() {
+    setRefreshing(true);
+    try {
+      const data = await dvlaService.lookup(vehicle.registration, {
+        mileage: vehicle.mileage,
+        force: true,
+      });
+      if (!data || data.retailValuation == null) {
+        toast.error(
+          "AutoTrader returned no valuation for this registration.",
+        );
+        return;
+      }
+      const ratio =
+        vehicle.listingPrice && data.retailValuation
+          ? vehicle.listingPrice / data.retailValuation
+          : null;
+      const atPriceIndicator =
+        ratio == null
+          ? null
+          : ratio <= 0.96
+            ? "great"
+            : ratio <= 1.0
+              ? "good"
+              : ratio <= 1.05
+                ? "fair"
+                : "high";
+      const patch: Partial<Vehicle> = {
+        atRetailValuation: data.retailValuation ?? null,
+        atTradeValuation: data.tradeValuation ?? null,
+        atPartExchangeValuation: data.partExchangeValuation ?? null,
+        atValuationAt: new Date().toISOString(),
+        atPriceIndicator,
+        derivative: data.derivative ?? null,
+        generation: data.generation ?? null,
+        trim: data.trim ?? null,
+        atDerivativeId: data.atDerivativeId ?? null,
+      };
+      await vehicleService.updateValuation(vehicle.id, patch);
+      onVehiclePatch?.(patch);
+      toast.success(
+        `AutoTrader valuation updated — retail ${formatCurrency(data.retailValuation)}`,
+      );
+    } catch (e) {
+      toast.error(`Valuation refresh failed: ${String(e)}`);
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
-    <Panel title="AutoTrader Valuation" subtitle="Updated just now · live feed" flush>
+    <Panel
+      title="AutoTrader Valuation"
+      subtitle={
+        hasValuation
+          ? `${updatedLabel(vehicle.atValuationAt)} · live feed`
+          : "Not yet valued — refresh to pull live"
+      }
+      action={
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => void refresh()}
+          disabled={refreshing}
+        >
+          <RefreshCw
+            className={cn("mr-1 size-3.5", refreshing && "animate-spin")}
+          />
+          {refreshing ? "Refreshing…" : "Refresh"}
+        </Button>
+      }
+      flush
+    >
       <div className="grid grid-cols-3 divide-x">
-        <ValuationCell label="Trade" value={trade} />
-        <ValuationCell label="Part Ex" value={partEx} />
-        <ValuationCell label="Retail" value={retail} highlight />
+        <ValuationCell label="Trade" value={vehicle.atTradeValuation ?? 0} />
+        <ValuationCell
+          label="Part Ex"
+          value={vehicle.atPartExchangeValuation ?? 0}
+        />
+        <ValuationCell
+          label="Retail"
+          value={vehicle.atRetailValuation ?? 0}
+          highlight
+        />
       </div>
     </Panel>
   );
