@@ -330,12 +330,12 @@ function LedgerCard({
           <LedgerRow key={r.name} entry={r} />
         ))}
         {overflow > 0 && (
-          <div className="px-6 py-3 text-center text-xs italic text-muted-foreground">
+          <div className="px-4 py-3 text-center text-xs italic text-muted-foreground">
             + {overflow} more categories
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between border-t bg-muted/40 px-6 py-3">
+      <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-3">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {variant === "expense" ? "Total expenses" : "Total additional"}
         </span>
@@ -350,7 +350,7 @@ function LedgerCard({
 function LedgerRow({ entry }: { entry: LedgerEntry }) {
   const has = entry.amount > 0;
   return (
-    <div className="flex items-center justify-between gap-3 px-6 py-2.5 text-sm">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
       <div className="flex items-center gap-2.5">
         <span
           className={cn(

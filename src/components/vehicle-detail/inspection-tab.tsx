@@ -87,6 +87,21 @@ export function InspectionTab({ vehicle, onOpenInspection }: InspectionTabProps)
       }
       flush
     >
+      <div className="px-4 pb-3 pt-1">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className={cn(
+              "h-full rounded-full transition-[width] duration-500",
+              passed / checks.length >= 0.9
+                ? "bg-emerald-500"
+                : passed / checks.length >= 0.7
+                  ? "bg-amber-500"
+                  : "bg-rose-500",
+            )}
+            style={{ width: `${(passed / checks.length) * 100}%` }}
+          />
+        </div>
+      </div>
       <Table>
         <TableHeader>
           <TableRow>

@@ -238,7 +238,7 @@ function EnquiriesTable({
 }) {
   if (enquiries === null || appts === null) {
     return (
-      <div className="px-6 py-5">
+      <div className="px-4 py-5">
         <Skeleton className="h-24 w-full" />
       </div>
     );
@@ -246,7 +246,7 @@ function EnquiriesTable({
 
   if (enquiries.length === 0 && appts.length === 0) {
     return (
-      <div className="px-6 py-10 text-center">
+      <div className="px-4 py-10 text-center">
         <Users className="mx-auto h-8 w-8 text-muted-foreground/50" />
         <div className="mt-3 text-base font-semibold">
           No enquiries on this vehicle yet
@@ -381,7 +381,7 @@ function LostReasonBreakdown() {
           <div
             key={r.label}
             className={cn(
-              "p-5",
+              "p-4",
               // restore vertical dividers between rows at md+
               i >= 3 && "lg:border-t",
             )}
@@ -442,7 +442,7 @@ function RecommendedActions() {
         {actions.map((a, i) => (
           <div
             key={a.title}
-            className="grid grid-cols-[28px_1fr_auto] items-start gap-3 px-6 py-4"
+            className="grid grid-cols-[28px_1fr_auto] items-start gap-3 px-4 py-4"
           >
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-foreground text-xs font-semibold text-background tabular-nums">
               {i + 1}

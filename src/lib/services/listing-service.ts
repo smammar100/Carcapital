@@ -1,10 +1,12 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type {
+  AdvertData,
   Listing,
   ListingChannel,
   ListingStatus,
   UUID,
+  Vehicle,
 } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
@@ -28,6 +30,7 @@ const SELECT = `
   atAdvertisingStatus:at_advertising_status,
   atLastSyncedAt:at_last_synced_at,
   atLastError:at_last_error,
+  advertData:advert_data,
   createdAt:created_at
 `;
 
@@ -105,6 +108,73 @@ export const listingService = {
       }
     }
     return listing;
+  },
+
+  /**
+   * Ensure a listing row exists for a vehicle — create a draft if none yet,
+   * so the Advert tool's Save works on the first open.
+   */
+  async ensureForVehicle(
+    vehicle: Vehicle,
+    companyId: UUID,
+    actorId: UUID,
+  ): Promise<Listing> {
+    const existing = await this.getForVehicle(vehicle.id);
+    if (existing) return existing;
+    return this.create(
+      {
+        companyId,
+        vehicleId: vehicle.id,
+        title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(),
+        description: "",
+        price: vehicle.listingPrice ?? 0,
+        specialFeatures: "",
+        channels: {
+          website: false,
+          autotrader: false,
+          ebay: false,
+          facebook: false,
+        },
+        atPriceIndicator: "unrated",
+      },
+      actorId,
+    );
+  },
+
+  /**
+   * Patch the editable advert fields from the Advert tool: the existing
+   * listing columns plus the rich `advert_data` jsonb (attention grabber, key
+   * selling point, strapline, subtitle, highlights, equipment, taxonomy).
+   */
+  async update(
+    id: UUID,
+    patch: {
+      title?: string;
+      description?: string;
+      price?: number;
+      specialFeatures?: string;
+      channels?: Record<ListingChannel, boolean>;
+      advertData?: AdvertData;
+    },
+  ): Promise<Listing> {
+    const supabase = createClient();
+    const row: Record<string, unknown> = {};
+    if (patch.title !== undefined) row.title = patch.title;
+    if (patch.description !== undefined) row.description = patch.description;
+    if (patch.price !== undefined) row.price = patch.price;
+    if (patch.specialFeatures !== undefined)
+      row.special_features = patch.specialFeatures;
+    if (patch.channels !== undefined) row.channels = patch.channels;
+    if (patch.advertData !== undefined) row.advert_data = patch.advertData;
+    const { data, error } = await supabase
+      .from("listings")
+      .update(row as TableUpdate<"listings">)
+      .eq("id", id)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    invalidate(NS);
+    return data as unknown as Listing;
   },
 
   async publish(id: UUID, actorId: UUID): Promise<Listing> {

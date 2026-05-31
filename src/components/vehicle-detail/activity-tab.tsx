@@ -191,11 +191,11 @@ export function ActivityTab({ vehicleId }: ActivityTabProps) {
       flush
     >
       {filtered.length === 0 ? (
-        <div className="px-6 py-10 text-center text-sm text-muted-foreground">
+        <div className="px-4 py-10 text-center text-sm text-muted-foreground">
           No events match this filter.
         </div>
       ) : (
-        <div className="px-6 py-5">
+        <div className="px-4 py-5">
           <Timeline>
             {grouped.flatMap(([day, dayEntries]) => [
               <TimelineDayHeader key={`day-${day}`}>{day}</TimelineDayHeader>,

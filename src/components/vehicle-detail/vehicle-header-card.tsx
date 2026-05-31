@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Calendar,
@@ -11,6 +12,7 @@ import {
 } from "lucide-react";
 import type { Vehicle, VehicleStatus } from "@/lib/types";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import { vehiclePhotoService } from "@/lib/services/vehicle-photo-service";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleStatusBadge } from "@/components/shared/status-badge";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
@@ -52,15 +54,38 @@ export function VehicleHeaderCard({
   onRemoveFromWebsite,
   onExportPdf,
 }: VehicleHeaderCardProps) {
+  // Prefer the first real uploaded photo for the hero; fall back to the
+  // AI/placeholder VehicleImage when none has been uploaded yet.
+  const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let active = true;
+    vehiclePhotoService
+      .list(vehicle.id)
+      .then((p) => active && setHeroUrl(p[0]?.url ?? null))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [vehicle.id]);
+
   return (
     <Card size="sm">
-      <CardContent className="flex flex-wrap items-start justify-between gap-4">
+      <CardContent className="flex flex-wrap items-start justify-between gap-4 p-0">
         <div className="flex flex-wrap items-start gap-4">
-          <VehicleImage
-            vehicle={vehicle}
-            variant="card"
-            className="h-28 w-44 shrink-0 rounded-md"
-          />
+          {heroUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={heroUrl}
+              alt={`${vehicle.make} ${vehicle.model}`}
+              className="h-28 w-44 shrink-0 rounded-md border object-cover"
+            />
+          ) : (
+            <VehicleImage
+              vehicle={vehicle}
+              variant="card"
+              className="h-28 w-44 shrink-0 rounded-md"
+            />
+          )}
           <div className="flex flex-col items-start gap-1">
             <RegPlate registration={vehicle.registration} size="lg" />
             <h1 className="text-xl font-semibold leading-tight">
@@ -108,9 +133,9 @@ export function VehicleHeaderCard({
             Open Inspection
           </Button>
           <Button asChild size="sm" variant="outline">
-            <Link href="/advert/work-list">
+            <Link href={`/vehicles/${vehicle.id}/advert`}>
               <Megaphone className="mr-1.5 h-4 w-4" />
-              Listing
+              Advert
             </Link>
           </Button>
           <Button asChild size="sm" variant="outline">

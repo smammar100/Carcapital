@@ -42,6 +42,7 @@ import type {
   WarrantyClaim,
   WorkshopJob,
 } from "./types";
+import { EMPTY_ADVERT_DATA } from "./types";
 import type { Capability } from "./capabilities";
 
 // ---- Date helpers (file-local) ----
@@ -671,6 +672,7 @@ export const mockListings: Listing[] = LISTED_IDS.map((vid, idx) => {
     atAdvertisingStatus: null,
     atLastSyncedAt: null,
     atLastError: null,
+    advertData: EMPTY_ADVERT_DATA,
     createdAt: `${daysAgo(v.daysInStock - 5)}T09:30:00.000Z`,
   };
 });

@@ -557,6 +557,48 @@ export interface WorkshopJob {
 export type ListingStatus = "draft" | "live" | "reserved" | "sold" | "archived";
 export type ListingChannel = "website" | "autotrader" | "ebay" | "facebook";
 
+/**
+ * Rich AutoTrader/website advert fields composed in the Advert tool. Stored as
+ * a single `advert_data` jsonb column (migration 0021) so the model can grow
+ * without a migration per field. Everything is optional / defaulted — an empty
+ * `{}` is a valid, unfilled advert.
+ */
+export interface AdvertData {
+  /** AutoTrader "Attention Grabber" (max 30 chars). */
+  attentionGrabber: string;
+  /** AutoTrader "Key Selling Point" (max 35 chars). */
+  keySellingPoint: string;
+  /** Dealer strapline shown beneath the description (max 999). */
+  strapline: string;
+  /** Website vehicle subtitle (max 500). */
+  subtitle: string;
+  /** Up to 5 short website highlight bullets (max 40 chars each). */
+  highlights: string[];
+  /** Selected equipment/feature names (from the feature catalogue). */
+  features: string[];
+  /** AutoTrader taxonomy overrides; blank fields fall back to the vehicle. */
+  taxonomy: {
+    make?: string;
+    model?: string;
+    generation?: string;
+    trim?: string;
+    derivative?: string;
+    fuelType?: string;
+    engineSize?: string;
+    transmission?: string;
+  };
+}
+
+export const EMPTY_ADVERT_DATA: AdvertData = {
+  attentionGrabber: "",
+  keySellingPoint: "",
+  strapline: "",
+  subtitle: "",
+  highlights: [],
+  features: [],
+  taxonomy: {},
+};
+
 export interface Listing {
   id: UUID;
   companyId: UUID;
@@ -577,6 +619,9 @@ export interface Listing {
   atAdvertisingStatus: "not_published" | "published" | null;
   atLastSyncedAt: ISODateTime | null;
   atLastError: string | null;
+  // ─── Rich advert composer (migration 0021) ──────────────────────────
+  /** AutoTrader/website advert fields composed in the Advert tool. */
+  advertData: AdvertData;
   createdAt: ISODateTime;
 }
 

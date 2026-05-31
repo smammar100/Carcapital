@@ -1,0 +1,113 @@
+import type { Listing, Vehicle } from "@/lib/types";
+import { formatCurrency, formatDate } from "@/lib/utils";
+
+/**
+ * Advert-readiness checklist shared by the Overview "Advert Completeness" card
+ * and the Advert tool's completeness rail, so the two never drift. Accepts a
+ * light `listing`-shaped object so the editor can feed live form state (not yet
+ * a saved Listing) through the same checks.
+ */
+
+export type AdvertCheckState = "done" | "warn" | "miss";
+
+export interface AdvertCheck {
+  /** Stable id — also the Advert tool section anchor for deep-linked "Edit". */
+  key: string;
+  name: string;
+  meta: string;
+  state: AdvertCheckState;
+}
+
+type ListingLike = Pick<Listing, "description" | "price" | "channels">;
+
+export function computeAdvertChecks(
+  vehicle: Vehicle,
+  listing: ListingLike | null,
+  photoCount: number,
+): AdvertCheck[] {
+  const hasDescription =
+    !!listing?.description && listing.description.trim().length > 30;
+
+  return [
+    {
+      key: "taxonomy",
+      name: "Make / Model / Derivative",
+      meta: `${vehicle.make} ${vehicle.model} · ${
+        vehicle.derivative ?? vehicle.variantCode ?? "no derivative"
+      }`,
+      state: vehicle.derivative ?? vehicle.variantCode ? "done" : "warn",
+    },
+    {
+      key: "photos",
+      name: "Photos",
+      meta:
+        photoCount > 0
+          ? `${photoCount} image${photoCount === 1 ? "" : "s"}`
+          : "No photos uploaded",
+      state: photoCount >= 8 ? "done" : photoCount > 0 ? "warn" : "miss",
+    },
+    {
+      key: "description",
+      name: "Vehicle Description",
+      meta: hasDescription
+        ? `${listing!.description.length.toLocaleString()} chars`
+        : "Empty — generate with AI",
+      state: hasDescription ? "done" : "warn",
+    },
+    {
+      key: "pricing",
+      name: "Pricing & Floor",
+      meta:
+        listing?.price && vehicle.minimumSalePrice
+          ? `${formatCurrency(listing.price)} · Floor ${formatCurrency(
+              vehicle.minimumSalePrice,
+            )}`
+          : listing?.price
+            ? formatCurrency(listing.price)
+            : "Price not set",
+      state: listing?.price ? "done" : "miss",
+    },
+    {
+      key: "mot",
+      name: "MOT Status",
+      meta: vehicle.motExpiry
+        ? `Valid until ${formatDate(vehicle.motExpiry)}`
+        : "No expiry on file",
+      state: vehicle.motExpiry ? "done" : "warn",
+    },
+    {
+      key: "service",
+      name: "Service History",
+      meta: vehicle.serviceHistory.replace(/_/g, " "),
+      state: vehicle.serviceHistory !== "none" ? "done" : "warn",
+    },
+    {
+      key: "channels",
+      name: "Channels",
+      meta: listing
+        ? Object.entries(listing.channels)
+            .filter(([, on]) => on)
+            .map(([k]) => k)
+            .join(", ") || "None enabled"
+        : "Listing not created",
+      state: listing
+        ? Object.values(listing.channels).some(Boolean)
+          ? "done"
+          : "warn"
+        : "miss",
+    },
+  ];
+}
+
+export function advertCompleteness(checks: AdvertCheck[]): {
+  done: number;
+  total: number;
+  pct: number;
+} {
+  const done = checks.filter((c) => c.state === "done").length;
+  return {
+    done,
+    total: checks.length,
+    pct: Math.round((done / checks.length) * 100),
+  };
+}

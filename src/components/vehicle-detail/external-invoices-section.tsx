@@ -131,7 +131,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
           total={totalsByKind.external_job}
           count={(rows ?? []).filter((r) => r.invoiceKind === "external_job").length}
         />
-        <div className="flex items-center justify-end gap-2 px-6 py-3">
+        <div className="flex items-center justify-end gap-2 px-4 py-3">
           {canCreate ? (
             <>
               <Button
@@ -165,7 +165,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
         {rows === null ? (
           <>
             {Array.from({ length: 2 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-6 py-3">
+              <div key={i} className="flex items-center gap-3 px-4 py-3">
                 <Skeleton className="h-9 w-9 rounded-md" />
                 <div className="flex-1 space-y-1.5">
                   <Skeleton className="h-3 w-40" />
@@ -176,7 +176,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
             ))}
           </>
         ) : rows.length === 0 ? (
-          <div className="px-6 py-8 text-center text-sm italic text-muted-foreground">
+          <div className="px-4 py-8 text-center text-sm italic text-muted-foreground">
             No external invoices logged for this vehicle yet.
           </div>
         ) : (
@@ -186,7 +186,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
             return (
               <div
                 key={r.id}
-                className="flex flex-wrap items-center gap-3 px-6 py-3"
+                className="flex flex-wrap items-center gap-3 px-4 py-3"
               >
                 {/* Kind chip */}
                 <span
@@ -310,7 +310,7 @@ function KindCell({
   count: number;
 }) {
   return (
-    <div className="px-6 py-3">
+    <div className="px-4 py-3">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
