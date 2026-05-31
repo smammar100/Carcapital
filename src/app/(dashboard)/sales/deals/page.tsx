@@ -42,7 +42,7 @@ export default function DealsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Closed Deals</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Closed Deals</h1>
         <p className="text-sm text-muted-foreground">
           Completed sales — for active deals see{" "}
           <Link href="/sales/pipeline" className="text-primary hover:underline">
@@ -71,7 +71,7 @@ export default function DealsPage() {
               <Card key={d.id} className="flex flex-col gap-2 p-4">
                 <div className="flex items-center justify-between">
                   {v && <RegPlate registration={v.registration} size="sm" />}
-                  <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     {stageLabel}
                   </span>
                 </div>
@@ -87,7 +87,7 @@ export default function DealsPage() {
                     {agent?.name ?? "—"}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Updated {formatRelativeTime(d.updatedAt)}
                 </p>
               </Card>

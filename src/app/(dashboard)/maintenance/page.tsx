@@ -103,7 +103,7 @@ export default function MaintenancePage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Maintenance Pipeline
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -167,7 +167,7 @@ export default function MaintenancePage() {
                     <Plus className="h-3.5 w-3.5" />
                   </AddVehicleButton>
                 </div>
-                <div className="flex items-center justify-between border-b border-border/60 pb-2 text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between border-b border-border/60 pb-2 text-xs text-muted-foreground">
                   <span>Lane total</span>
                   <span className="font-medium text-foreground">
                     {formatCurrency(laneTotal)}
@@ -197,7 +197,7 @@ export default function MaintenancePage() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-[11px] text-muted-foreground">
+                              <p className="text-xs text-muted-foreground">
                                 Job:
                               </p>
                               <Link
@@ -209,10 +209,10 @@ export default function MaintenancePage() {
                             </div>
                             <div className="flex items-start gap-1">
                               <div className="text-right">
-                                <p className="text-[11px] text-muted-foreground">
+                                <p className="text-xs text-muted-foreground">
                                   Total
                                 </p>
-                                <p className="text-base font-bold leading-tight">
+                                <p className="text-base font-semibold leading-tight">
                                   {formatCurrency(cardTotal)}
                                 </p>
                               </div>
@@ -248,7 +248,7 @@ export default function MaintenancePage() {
                           </div>
 
                           <div>
-                            <p className="text-[11px] text-muted-foreground">
+                            <p className="text-xs text-muted-foreground">
                               Work:
                             </p>
                             <p className="line-clamp-2 text-sm font-medium leading-snug">
@@ -261,7 +261,7 @@ export default function MaintenancePage() {
                               {vendor && (
                                 <Badge
                                   variant="secondary"
-                                  className="rounded-full px-2 py-0.5 text-[10px] font-normal"
+                                  className="rounded-full px-2 py-0.5 text-xs font-normal"
                                 >
                                   {vendor.name}
                                 </Badge>
@@ -269,7 +269,7 @@ export default function MaintenancePage() {
                               {v && (
                                 <Badge
                                   variant="secondary"
-                                  className="rounded-full px-2 py-0.5 text-[10px] font-normal"
+                                  className="rounded-full px-2 py-0.5 text-xs font-normal"
                                 >
                                   {v.make} {v.model}
                                 </Badge>
@@ -291,7 +291,7 @@ export default function MaintenancePage() {
                             </Link>
                           )}
 
-                          <div className="mt-1 flex items-center justify-between border-t pt-2 text-[11px] text-muted-foreground">
+                          <div className="mt-1 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
                             <span>{cardDate ? formatDate(cardDate) : "—"}</span>
                             {assignee ? (
                               <Avatar

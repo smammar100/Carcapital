@@ -135,7 +135,7 @@ export default function ClaimsPage() {
     <div className="flex flex-col gap-4">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Claims</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Claims</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
             Customer claims against active warranties. Track status and
             resolution.

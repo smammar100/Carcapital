@@ -229,7 +229,7 @@ export function AddEventSheet({
         className="flex flex-col gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[440px]"
       >
         <div className="flex items-center justify-between border-b px-5 py-4">
-          <SheetTitle className="text-h4">New event</SheetTitle>
+          <SheetTitle className="text-base">New event</SheetTitle>
           <button
             type="button"
             aria-label="Close"

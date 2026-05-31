@@ -95,7 +95,7 @@ export function DataGridGroupHeaderRow({
         >
           <Chevron className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <span className="uppercase tracking-wide">{label}</span>
-          <span className="rounded bg-background px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground">
+          <span className="rounded bg-background px-1.5 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
             {count}
           </span>
         </button>
@@ -137,7 +137,7 @@ export function DataGridTotalsRow<T>({
           <td
             key={c.key}
             className={cn(
-              "border-t border-r bg-muted px-3 text-[11px] font-semibold tabular-nums",
+              "border-t border-r bg-muted px-3 text-xs font-semibold tabular-nums",
               c.sticky &&
                 "sticky z-10 shadow-[2px_0_4px_-2px_var(--shadow-color)]",
             )}

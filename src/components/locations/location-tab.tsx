@@ -281,11 +281,11 @@ export function LocationTab({
                     </Link>
                     {/* Secondary line: workshop / staff name (Garage / Staff tabs) */}
                     {r.externalVendorId ? (
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {vendorById[r.externalVendorId]?.name ?? "Unknown vendor"}
                       </div>
                     ) : r.staffUserId ? (
-                      <div className="text-[11px] text-muted-foreground">
+                      <div className="text-xs text-muted-foreground">
                         {userById[r.staffUserId]?.name ?? "Unknown staff"}
                       </div>
                     ) : null}

@@ -128,7 +128,7 @@ export function BooleanCell({ value }: { value: boolean | null | undefined }) {
 export function SelectCell({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === "") return <EmptyCell />;
   return (
-    <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
+    <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-foreground/80">
       <span className="truncate">{String(value).replace(/_/g, " ")}</span>
     </span>
   );
@@ -149,7 +149,7 @@ export function VehicleCell({ vehicle }: { vehicle: Vehicle | null | undefined }
       />
       <div className="flex min-w-0 flex-col gap-0.5 leading-tight">
         <RegPlate registration={vehicle.registration} size="sm" />
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="font-mono text-xs text-muted-foreground">
           {vehicle.stockId}
         </span>
       </div>
@@ -168,14 +168,14 @@ export function UserCell({
   return (
     <div className="flex items-center gap-2">
       <Avatar size="sm">
-        <AvatarFallback className="text-[10px]">
+        <AvatarFallback className="text-2xs">
           {getInitials(name)}
         </AvatarFallback>
       </Avatar>
       <div className="flex min-w-0 flex-col leading-tight">
         <span className="truncate text-xs font-medium">{name}</span>
         {email ? (
-          <span className="truncate text-[10px] text-muted-foreground">
+          <span className="truncate text-xs text-muted-foreground">
             {email}
           </span>
         ) : null}
@@ -196,7 +196,7 @@ export function ChannelsCell({
     <div className="flex flex-wrap gap-1">
       {entries.map(([channel, enabled]) => {
         const cls = cn(
-          "rounded-md px-1.5 py-0.5 text-[10px] font-medium capitalize",
+          "rounded-md px-1.5 py-0.5 text-2xs font-medium capitalize",
           enabled
             ? "bg-foreground text-background"
             : "bg-muted text-muted-foreground",

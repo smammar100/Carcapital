@@ -129,7 +129,7 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
                       />
                       <div className="flex flex-col">
                         <span className="font-medium">{r.label}</span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {r.description}
                         </span>
                       </div>

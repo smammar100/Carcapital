@@ -392,7 +392,7 @@ function VatStat({
       </div>
       <div
         className={cn(
-          "mt-1 text-lg font-semibold tabular-nums",
+          "mt-1 text-base font-semibold tabular-nums",
           tone === "good" && "text-emerald-700 dark:text-emerald-400",
         )}
       >

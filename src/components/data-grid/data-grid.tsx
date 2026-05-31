@@ -300,7 +300,7 @@ export function DataGridHeaderRow<T>({
                   onClick={() => onSort?.(sortId)}
                   title={`Click to sort by ${c.label}`}
                   className={cn(
-                    "-mx-1 flex h-8 w-full cursor-pointer items-center gap-1.5 rounded px-1 text-[11px] text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground",
+                    "-mx-1 flex h-8 w-full cursor-pointer items-center gap-1.5 rounded px-1 text-xs text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground",
                     align === "right" && "justify-end",
                     align === "center" && "justify-center",
                   )}
@@ -310,7 +310,7 @@ export function DataGridHeaderRow<T>({
               ) : (
                 <div
                   className={cn(
-                    "flex h-8 items-center gap-1.5 text-[11px] text-muted-foreground",
+                    "flex h-8 items-center gap-1.5 text-xs text-muted-foreground",
                     align === "right" && "justify-end",
                     align === "center" && "justify-center",
                   )}
@@ -398,7 +398,7 @@ export function DataGridRow<T>({
             className="flex items-center justify-center"
             style={{ height: ROW_H }}
           >
-            <span className="text-[11px] tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
+            <span className="text-xs tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
               {index + 1}
             </span>
             <Checkbox

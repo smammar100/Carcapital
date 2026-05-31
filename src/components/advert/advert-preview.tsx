@@ -65,7 +65,7 @@ export function AdvertPreview({
           />
         )}
         {advert.attentionGrabber.trim() && (
-          <span className="absolute left-2 top-2 rounded-md bg-rose-600 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white shadow">
+          <span className="absolute left-2 top-2 rounded-md bg-rose-600 px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-white shadow">
             {advert.attentionGrabber}
           </span>
         )}
@@ -83,12 +83,12 @@ export function AdvertPreview({
         </div>
 
         {advert.keySellingPoint.trim() && (
-          <div className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
+          <div className="inline-flex w-fit items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-200">
             <Sparkles className="h-3 w-3" /> {advert.keySellingPoint}
           </div>
         )}
 
-        <div className="text-[11px] capitalize text-muted-foreground">
+        <div className="text-xs capitalize text-muted-foreground">
           {specLine}
         </div>
 
@@ -110,7 +110,7 @@ export function AdvertPreview({
         )}
 
         {advert.features.length > 0 && (
-          <div className="mt-1 text-[11px] text-muted-foreground">
+          <div className="mt-1 text-xs text-muted-foreground">
             + {advert.features.length} equipment feature
             {advert.features.length === 1 ? "" : "s"}
           </div>

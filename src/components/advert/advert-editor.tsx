@@ -378,7 +378,7 @@ export function AdvertEditor({
                 </button>
                 <span
                   className={cn(
-                    "text-[11px] tabular-nums",
+                    "text-xs tabular-nums",
                     description.length > LIMITS.description
                       ? "text-destructive"
                       : "text-muted-foreground",
@@ -416,7 +416,7 @@ export function AdvertEditor({
                 placeholder="Enter dealer strapline here…"
                 className="min-h-24"
               />
-              <div className="mt-2 text-right text-[11px] tabular-nums text-muted-foreground">
+              <div className="mt-2 text-right text-xs tabular-nums text-muted-foreground">
                 {advert.strapline.length} / {LIMITS.strapline}
               </div>
             </Panel>
@@ -451,7 +451,7 @@ export function AdvertEditor({
                           placeholder={`Highlight ${i + 1}…`}
                           className="h-9"
                         />
-                        <span className="w-12 text-right text-[11px] tabular-nums text-muted-foreground">
+                        <span className="w-12 text-right text-xs tabular-nums text-muted-foreground">
                           {val.length}/{LIMITS.highlight}
                         </span>
                       </div>
@@ -622,7 +622,7 @@ function CharField({
         />
         <div
           className={cn(
-            "mt-1 text-right text-[11px] tabular-nums",
+            "mt-1 text-right text-xs tabular-nums",
             over ? "text-destructive" : "text-muted-foreground",
           )}
         >
@@ -681,7 +681,7 @@ function CheckRow({ check }: { check: AdvertCheck }) {
       </span>
       <div className="min-w-0 flex-1">
         <div className="text-xs font-medium leading-snug">{check.name}</div>
-        <div className="truncate text-[11px] text-muted-foreground">
+        <div className="truncate text-xs text-muted-foreground">
           {check.meta}
         </div>
       </div>

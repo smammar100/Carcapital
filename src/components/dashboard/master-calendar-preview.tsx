@@ -182,12 +182,12 @@ export function MasterCalendarPreview() {
                   isToday && "border-primary bg-primary/5",
                 )}
               >
-                <div className="text-[10px] font-medium uppercase text-muted-foreground">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {dayLabel(d)}
                 </div>
                 <div
                   className={cn(
-                    "text-lg font-semibold tabular-nums",
+                    "text-base font-semibold tabular-nums",
                     isToday && "text-primary",
                   )}
                 >
@@ -251,7 +251,7 @@ export function MasterCalendarPreview() {
                           KIND_STYLES[e.kind].dot,
                         )}
                       />
-                      <span className="w-12 shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                      <span className="w-12 shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
                         {e.time ? formatTime12(e.time) : "—"}
                       </span>
                       <Icon className="h-3 w-3 shrink-0 text-muted-foreground" />

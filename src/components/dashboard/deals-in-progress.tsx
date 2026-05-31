@@ -51,7 +51,7 @@ export function DealsInProgress() {
           <TrendingUp className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold">Deals in Progress</h2>
         </div>
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge variant="secondary" className="text-2xs">
           {active?.length ?? 0}
         </Badge>
       </div>
@@ -71,12 +71,12 @@ export function DealsInProgress() {
                 >
                   <div className="flex flex-col">
                     <span className="font-medium">{d.customerName}</span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {v ? `${v.make} ${v.model} · ${v.stockId}` : "—"}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase text-muted-foreground">
+                    <span className="text-xs uppercase text-muted-foreground">
                       {d.stage.replace("_", " ")}
                     </span>
                     <span className="font-semibold tabular-nums">

@@ -117,7 +117,7 @@ export function FeaturePicker({ selected, onChange }: FeaturePickerProps) {
             className="h-9 pl-8"
           />
         </div>
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
           {FEATURE_CATEGORIES.map((cat) => (
             <span key={cat} className="inline-flex items-center gap-1.5">
               <span

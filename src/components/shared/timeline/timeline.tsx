@@ -97,7 +97,7 @@ export function TimelineDayHeader({
         )}
         style={{ left: RAIL_LEFT_PX - 3 }}
       />
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {children}
       </div>
     </li>

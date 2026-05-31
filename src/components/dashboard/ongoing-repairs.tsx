@@ -46,7 +46,7 @@ export function OngoingRepairs() {
           <Wrench className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold">Ongoing Repairs</h2>
         </div>
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge variant="secondary" className="text-2xs">
           {active?.length ?? 0}
         </Badge>
       </div>
@@ -70,11 +70,11 @@ export function OngoingRepairs() {
                     <span className="line-clamp-1 font-medium">
                       {j.description}
                     </span>
-                    <span className="text-[10px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {v ? `${v.make} ${v.model} · ${v.stockId}` : "—"}
                     </span>
                   </div>
-                  <span className="text-[10px] uppercase text-muted-foreground">
+                  <span className="text-xs uppercase text-muted-foreground">
                     {j.status.replace("_", " ")}
                   </span>
                 </Link>

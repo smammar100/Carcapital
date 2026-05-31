@@ -301,7 +301,7 @@ export default function ReturnsPage() {
         align: "right",
         render: (r) =>
           r.status === "resolved" || r.status === "rejected" ? (
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {r.status === "resolved" ? "Refunded" : "—"}
             </span>
           ) : (
@@ -456,7 +456,7 @@ export default function ReturnsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Vehicle Returns
           </h1>
           <p className="text-sm text-muted-foreground">

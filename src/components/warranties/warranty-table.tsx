@@ -284,7 +284,7 @@ export function ClaimsTable({
               <TableCell>
                 <div className="text-sm">{row.customerName}</div>
                 {row.isComplaint && (
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-destructive">
+                  <div className="text-xs font-medium uppercase tracking-wide text-destructive">
                     Complaint
                   </div>
                 )}

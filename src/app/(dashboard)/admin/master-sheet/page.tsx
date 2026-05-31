@@ -314,7 +314,7 @@ function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
       );
     case "select":
       return (
-        <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
+        <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-foreground/80">
           <span className="truncate">{String(raw)}</span>
         </span>
       );
@@ -324,7 +324,7 @@ function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
       return (
         <span
           className={cn(
-            "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium",
+            "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium",
             STATUS_TONE[status],
           )}
         >
@@ -638,7 +638,7 @@ export default function MasterSheetPage() {
       <div className="flex h-full flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Master Sheet</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Master Sheet</h1>
           <p className="text-sm text-muted-foreground">
             All vehicle fields in one wide grid. {filtered?.length ?? "—"}{" "}
             row{filtered?.length === 1 ? "" : "s"}
@@ -733,7 +733,7 @@ export default function MasterSheetPage() {
                         )}
                         style={c.sticky ? { left: 40 } : undefined}
                       >
-                        <div className="flex h-8 items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <div className="flex h-8 items-center gap-1.5 text-xs text-muted-foreground">
                           <Icon className="h-3 w-3 shrink-0" />
                           <span className="truncate text-foreground">
                             {c.label}
@@ -778,7 +778,7 @@ export default function MasterSheetPage() {
                         )}
                       >
                         <div className="flex h-11 items-center justify-center">
-                          <span className="text-[11px] tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
+                          <span className="text-xs tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
                             {idx + 1}
                           </span>
                           <Checkbox

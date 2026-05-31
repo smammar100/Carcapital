@@ -195,7 +195,7 @@ export function ThingsToDoList({ vehicleId, readonly }: Props) {
                     {formatCurrency(t.cost)}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary" className="text-[9px] capitalize">
+                    <Badge variant="secondary" className="text-xs capitalize">
                       {t.source}
                     </Badge>
                   </TableCell>

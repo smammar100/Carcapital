@@ -79,7 +79,7 @@ export function ComplianceCard({
         </h2>
         <div className="flex items-center gap-2">
           {sources ? (
-            <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               DVLA {sources.dvla === "ok" ? "✓" : "✗"} · DVSA{" "}
               {sources.dvsa === "ok" ? "✓" : sources.dvsa === "missing_credentials" ? "—" : "✗"}{" "}
               · AT{" "}
@@ -187,11 +187,11 @@ export function ComplianceCard({
       </div>
 
       {verifiedAt ? (
-        <p className="text-[10.5px] text-muted-foreground">
+        <p className="text-xs text-muted-foreground">
           Verified by DVLA + DVSA at {verifiedAt.toLocaleTimeString()}.
         </p>
       ) : (
-        <p className="text-[10.5px] italic text-muted-foreground">
+        <p className="text-xs italic text-muted-foreground">
           Enter a registration above and click DVLA to populate.
         </p>
       )}
@@ -241,7 +241,7 @@ function StatusTile({
   return (
     <div className="flex items-center justify-between gap-3 rounded-md border bg-card px-3 py-2">
       <div>
-        <div className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </div>
         <div className="mt-0.5 text-xs text-muted-foreground">{subtitle}</div>
@@ -284,7 +284,7 @@ function EditableField({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <label className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+        <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {label}
         </label>
         {!readOnly && !editing ? (

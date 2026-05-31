@@ -13,7 +13,7 @@ export function ComingSoon({
         <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-full bg-muted text-muted-foreground">
           <Construction className="h-5 w-5" />
         </div>
-        <h2 className="text-lg font-semibold">{title}</h2>
+        <h2 className="text-base font-semibold">{title}</h2>
         <p className="mt-1 text-sm text-muted-foreground">
           {description ??
             "This module is part of the build plan and is on the way."}

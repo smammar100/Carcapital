@@ -44,7 +44,7 @@ export function FilterChips<T extends string>({
             {typeof opt.count === "number" && (
               <span
                 className={cn(
-                  "text-[11px]",
+                  "text-xs",
                   active ? "opacity-80" : "text-muted-foreground",
                 )}
               >

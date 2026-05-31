@@ -119,7 +119,7 @@ export function VehicleDetailShell({
 function CountBadge({ value }: { value: number | null }) {
   if (value == null || value <= 0) return null;
   return (
-    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-[10.5px] font-medium tabular-nums text-muted-foreground">
+    <span className="ml-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-2xs font-medium tabular-nums text-muted-foreground">
       {value}
     </span>
   );

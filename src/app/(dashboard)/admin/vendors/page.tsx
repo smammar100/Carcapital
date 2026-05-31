@@ -85,7 +85,7 @@ export default function VendorsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Vendors</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
         <p className="text-sm text-muted-foreground">
           Service garages you use, and the trade partners who supply your
           stock.

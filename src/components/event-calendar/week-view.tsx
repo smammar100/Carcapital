@@ -245,7 +245,7 @@ export function WeekView({
         <div className="border-border/70 border-b bg-muted/50">
           <div className="grid grid-cols-8">
             <div className="relative border-border/70 border-r">
-              <span className="absolute bottom-0 left-0 h-6 w-16 max-w-full pe-2 text-right text-[10px] text-muted-foreground/70 sm:pe-4 sm:text-xs">
+              <span className="absolute bottom-0 left-0 h-6 w-16 max-w-full pe-2 text-right text-xs text-muted-foreground/70 sm:pe-4 sm:text-xs">
                 All day
               </span>
             </div>
@@ -314,7 +314,7 @@ export function WeekView({
               key={hour.toString()}
             >
               {index > 0 && (
-                <span className="absolute -top-3 left-0 flex h-6 w-16 max-w-full items-center justify-end bg-background pe-2 text-[10px] text-muted-foreground/70 sm:pe-4 sm:text-xs">
+                <span className="absolute -top-3 left-0 flex h-6 w-16 max-w-full items-center justify-end bg-background pe-2 text-xs text-muted-foreground/70 sm:pe-4 sm:text-xs">
                   {format(hour, "h a")}
                 </span>
               )}

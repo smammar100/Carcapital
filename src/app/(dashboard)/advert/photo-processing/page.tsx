@@ -129,7 +129,7 @@ export default function PhotoProcessingPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">
+        <h1 className="text-2xl font-semibold tracking-tight">
           Photo Processing
         </h1>
         <p className="text-sm text-muted-foreground">
@@ -166,7 +166,7 @@ export default function PhotoProcessingPage() {
                   <div className="truncate text-xs font-medium">
                     {v.make} {v.model}
                   </div>
-                  <div className="text-[10px] text-muted-foreground">
+                  <div className="text-xs text-muted-foreground">
                     {v.imagesCount} photos
                   </div>
                 </div>
@@ -235,7 +235,7 @@ export default function PhotoProcessingPage() {
                         />
                         <div className="flex items-center justify-between border-t bg-background px-2 py-1.5 text-xs">
                           <span className="font-medium">Original</span>
-                          <Badge variant="secondary" className="text-[10px]">
+                          <Badge variant="secondary" className="text-xs">
                             AI hero
                           </Badge>
                         </div>
@@ -286,7 +286,7 @@ export default function PhotoProcessingPage() {
                             type="button"
                             onClick={() => setBg(b.id)}
                             className={cn(
-                              "flex flex-col items-center gap-1 rounded-md p-1 text-[10px] transition",
+                              "flex flex-col items-center gap-1 rounded-md p-1 text-xs transition",
                               bg === b.id
                                 ? "ring-2 ring-primary"
                                 : "ring-1 ring-border hover:ring-primary/50",
@@ -353,7 +353,7 @@ function ImageTile({
           </div>
         )}
         {loading && (
-          <span className="absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground backdrop-blur">
+          <span className="absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground backdrop-blur">
             <Loader2 className="h-2.5 w-2.5 animate-spin" />
             Generating
           </span>
@@ -361,7 +361,7 @@ function ImageTile({
       </div>
       <div className="flex items-center justify-between border-t bg-background px-2 py-1.5 text-xs">
         <span className="font-medium">{label}</span>
-        <Badge variant="secondary" className="text-[10px]">
+        <Badge variant="secondary" className="text-xs">
           {badge}
         </Badge>
       </div>

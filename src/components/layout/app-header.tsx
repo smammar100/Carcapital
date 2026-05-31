@@ -124,7 +124,7 @@ function NotificationsDropdown({
           >
             <Bell className="h-5 w-5" />
             {unreadCount > 0 && (
-              <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-[10px] font-semibold text-primary-foreground">
+              <span className="absolute right-1 top-1 grid h-4 min-w-4 place-items-center rounded-full bg-primary px-1 text-2xs font-semibold text-primary-foreground">
                 {unreadCount}
               </span>
             )}
@@ -170,13 +170,13 @@ function NotificationsDropdown({
                     )}
                   />
                   <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium leading-tight">
+                    <div className="text-sm font-medium leading-tight">
                       {n.title}
                     </div>
                     <p className="mt-0.5 line-clamp-2 text-xs text-muted-foreground">
                       {n.body}
                     </p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
+                    <p className="mt-1 text-xs text-muted-foreground">
                       {formatRelativeTime(n.createdAt)}
                     </p>
                   </div>
@@ -210,7 +210,7 @@ function ProfileDropdown({
           <Button variant="ghost" className="gap-2 px-2">
             <Avatar className="h-7 w-7">
               <AvatarFallback
-                className="text-[11px]"
+                className="text-2xs"
                 suppressHydrationWarning
               >
                 {user ? getInitials(user.name) : "—"}
@@ -224,7 +224,7 @@ function ProfileDropdown({
                 {user?.name ?? ""}
               </span>
               <span
-                className="text-[10px] capitalize text-muted-foreground"
+                className="text-xs capitalize text-muted-foreground"
                 suppressHydrationWarning
               >
                 {user?.role.replace("_", " ")}

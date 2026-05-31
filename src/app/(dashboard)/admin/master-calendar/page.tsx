@@ -152,10 +152,10 @@ export default function MasterCalendarPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-h2 font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Master Calendar
           </h1>
-          <p className="text-body-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Overlay of appointments (sky), workshop walk-ins (amber), and
             maintenance dues (violet).
           </p>

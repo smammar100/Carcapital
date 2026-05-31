@@ -195,7 +195,7 @@ function FlowStep({
     >
       <div
         className={cn(
-          "text-[10px] font-semibold uppercase tracking-wider",
+          "text-xs font-medium uppercase tracking-wide",
           tone === "default" && "text-muted-foreground",
           tone === "good" && "text-emerald-700 dark:text-emerald-300",
           tone === "bad" && "text-rose-700 dark:text-rose-300",

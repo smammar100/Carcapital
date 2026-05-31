@@ -400,7 +400,7 @@ function ValuationCell({
       </div>
       <div
         className={cn(
-          "mt-1 text-lg font-semibold tabular-nums",
+          "mt-1 text-base font-semibold tabular-nums",
           highlight && "text-foreground",
         )}
       >
@@ -478,7 +478,7 @@ function MarketplacePanel({ listing }: { listing: Listing | null }) {
             >
               <span
                 className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded font-mono text-[10px] font-bold tracking-wider",
+                  "flex h-7 w-7 items-center justify-center rounded font-mono text-2xs font-bold tracking-wider",
                   r.iconBg,
                 )}
               >

@@ -84,7 +84,7 @@ export function PermissionsGridTable({
                     i === 0 && "border-l",
                   )}
                 >
-                  <span className="block text-center text-[11px] leading-tight font-medium text-muted-foreground">
+                  <span className="block text-center text-xs leading-tight font-medium text-muted-foreground">
                     {CAPABILITY_LABELS[cap]}
                   </span>
                 </th>
@@ -106,7 +106,7 @@ export function PermissionsGridTable({
                 <td className={cn(STICKY_COL, "border-b px-4 py-2")}>
                   <div className="group/member flex items-center gap-2">
                     <Avatar className="h-7 w-7">
-                      <AvatarFallback className="text-[10px]">
+                      <AvatarFallback className="text-2xs">
                         {getInitials(u.name)}
                       </AvatarFallback>
                     </Avatar>
@@ -116,12 +116,12 @@ export function PermissionsGridTable({
                           {u.name}
                         </span>
                         {isYou && (
-                          <span className="rounded bg-blue-100 px-1.5 py-0.5 text-[10px] text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
+                          <span className="rounded bg-blue-100 px-1.5 py-0.5 text-xs text-blue-700 dark:bg-blue-950/30 dark:text-blue-300">
                             You
                           </span>
                         )}
                         {u.isSuperUser && (
-                          <span className="rounded bg-violet-100 px-1.5 py-0.5 text-[10px] text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
+                          <span className="rounded bg-violet-100 px-1.5 py-0.5 text-xs text-violet-700 dark:bg-violet-950/30 dark:text-violet-300">
                             Super
                           </span>
                         )}

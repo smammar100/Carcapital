@@ -191,7 +191,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
                 {/* Kind chip */}
                 <span
                   className={cn(
-                    "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide",
+                    "inline-flex shrink-0 items-center rounded-md px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide",
                     r.invoiceKind === "auction_purchase"
                       ? "bg-amber-100 text-amber-800"
                       : "bg-indigo-100 text-indigo-800",
@@ -246,7 +246,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
                     {formatCurrency(r.totalPence / 100)}
                   </div>
                   {r.vatPence > 0 ? (
-                    <div className="text-[10.5px] text-muted-foreground">
+                    <div className="text-xs text-muted-foreground">
                       incl. VAT {formatCurrency(r.vatPence / 100)}
                     </div>
                   ) : null}
@@ -317,7 +317,7 @@ function KindCell({
       <div className="mt-1 text-base font-semibold tabular-nums">
         {formatCurrency(total / 100)}
       </div>
-      <div className="text-[11px] text-muted-foreground">
+      <div className="text-xs text-muted-foreground">
         {count} invoice{count === 1 ? "" : "s"}
       </div>
     </div>

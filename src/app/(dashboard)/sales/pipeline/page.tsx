@@ -77,7 +77,7 @@ export default function SalesPipelinePage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Sales Pipeline
           </h1>
           <p className="text-sm text-muted-foreground">
@@ -141,13 +141,13 @@ export default function SalesPipelinePage() {
                   <h3 className="text-xs font-semibold capitalize">
                     {stage.label}
                   </h3>
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-xs">
                     {list.length}
                   </Badge>
                 </div>
                 <div className="flex flex-col gap-2">
                   {list.length === 0 ? (
-                    <div className="rounded border border-dashed p-2 text-center text-[10px] text-muted-foreground">
+                    <div className="rounded border border-dashed p-2 text-center text-xs text-muted-foreground">
                       —
                     </div>
                   ) : (
@@ -195,7 +195,7 @@ export default function SalesPipelinePage() {
                                 void handleMove(d.id, s as SalesStage)
                               }
                             >
-                              <SelectTrigger className="h-6 w-[6.5rem] text-[10px]">
+                              <SelectTrigger className="h-6 w-[6.5rem] text-xs">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -217,17 +217,17 @@ export default function SalesPipelinePage() {
                           >
                             {d.customerName}
                           </Link>
-                          <p className="line-clamp-1 text-[11px] text-muted-foreground">
+                          <p className="line-clamp-1 text-xs text-muted-foreground">
                             {v ? `${v.make} ${v.model}` : "—"}
                           </p>
-                          <div className="mt-1.5 flex items-center justify-between text-[10px] text-muted-foreground">
+                          <div className="mt-1.5 flex items-center justify-between text-xs text-muted-foreground">
                             <span>
                               {formatCurrency(d.agreedPrice ?? d.offerPrice ?? null)}
                             </span>
                             <span>{days}d</span>
                           </div>
                           {agent && (
-                            <div className="mt-1 text-[10px] text-muted-foreground">
+                            <div className="mt-1 text-xs text-muted-foreground">
                               {agent.name}
                             </div>
                           )}
@@ -236,7 +236,7 @@ export default function SalesPipelinePage() {
                               asChild
                               size="sm"
                               variant="outline"
-                              className="mt-2 h-6 w-full text-[10px]"
+                              className="mt-2 h-6 w-full text-xs"
                             >
                               <Link href={v ? `/sales/invoice-generation?vehicleId=${v.id}` : "/sales/invoice-generation"}>
                                 <Receipt className="mr-1 h-3 w-3" />
@@ -244,7 +244,7 @@ export default function SalesPipelinePage() {
                               </Link>
                             </Button>
                           )}
-                          <p className="mt-1 text-[9px] text-muted-foreground">
+                          <p className="mt-1 text-xs text-muted-foreground">
                             Updated {formatRelativeTime(d.updatedAt)}
                           </p>
                           </div>

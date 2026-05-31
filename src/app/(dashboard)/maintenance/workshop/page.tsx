@@ -132,7 +132,7 @@ export default function WorkshopPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Workshop</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Workshop</h1>
           <p className="text-sm text-muted-foreground">
             External walk-in service jobs (separate from internal stock prep).
           </p>
@@ -271,7 +271,7 @@ export default function WorkshopPage() {
                   <TableCell>
                     <div className="flex flex-col gap-1">
                       <RegPlate registration={j.vehicleReg} size="sm" />
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-xs text-muted-foreground">
                         {j.vehicleDescription}
                       </span>
                     </div>

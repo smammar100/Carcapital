@@ -171,7 +171,7 @@ export function AttachmentUploader({
             <>
               <Upload className="size-4" />
               <span>Drag a file here, or click to choose</span>
-              <span className="text-[10.5px]">JPG · PNG · PDF · ≤10MB</span>
+              <span className="text-xs">JPG · PNG · PDF · ≤10MB</span>
             </>
           )}
         </button>

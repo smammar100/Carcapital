@@ -328,13 +328,13 @@ function PhotosGrid({ vehicle }: { vehicle: Vehicle }) {
                 alt={`${vehicle.make} ${vehicle.model} ${tile.label}`}
               />
               <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="text-[10px]">
+                <Badge variant="secondary" className="text-xs">
                   {tile.label}
                 </Badge>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-7 text-[11px]"
+                  className="h-7 text-xs"
                   onClick={() => regenerate(tile.angle)}
                 >
                   <RefreshCw className="mr-1 h-3 w-3" />
@@ -572,7 +572,7 @@ function Field({
 }) {
   return (
     <div className={className}>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className="text-sm">{children}</div>
