@@ -60,6 +60,10 @@ export default async function RootLayout({
   return (
     <html
       lang="en"
+      // Browser extensions (e.g. Demoway, focus-visible polyfills) mutate the
+      // <html>/<body> attributes before React hydrates. Suppress only silences
+      // attribute mismatches on this element itself — children still warn.
+      suppressHydrationWarning
       className={cn(
         "h-full",
         "antialiased",
@@ -81,7 +85,7 @@ export default async function RootLayout({
           </>
         )}
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <AuthProvider initialUser={user} initialCompany={company}>
           <NotificationsProvider>
             <TooltipProvider delay={150}>{children}</TooltipProvider>
