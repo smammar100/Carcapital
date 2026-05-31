@@ -147,8 +147,8 @@ function AdvertCompletenessPanel({
   const checks: AdvertCheck[] = [
     {
       name: "Make / Model / Derivative",
-      meta: `${vehicle.make} ${vehicle.model} · ${vehicle.variantCode ?? "no derivative"}`,
-      state: vehicle.variantCode ? "done" : "warn",
+      meta: `${vehicle.make} ${vehicle.model} · ${vehicle.derivative ?? vehicle.variantCode ?? "no derivative"}`,
+      state: (vehicle.derivative ?? vehicle.variantCode) ? "done" : "warn",
     },
     {
       name: "Photos",
@@ -357,6 +357,7 @@ function ValuationPanel({
         atRetailValuation: data.retailValuation ?? null,
         atTradeValuation: data.tradeValuation ?? null,
         atPartExchangeValuation: data.partExchangeValuation ?? null,
+        atPrivateValuation: data.privateValuation ?? null,
         atValuationAt: new Date().toISOString(),
         atPriceIndicator,
         derivative: data.derivative ?? null,

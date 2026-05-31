@@ -83,6 +83,7 @@ const SELECT = `
   wheelplan,
   automatedVehicle:automated_vehicle,
   dateOfLastV5CIssued:date_of_last_v5c_issued,
+  firstRegisteredDate:first_registered_date,
   derivative,
   generation,
   trim,
@@ -90,6 +91,7 @@ const SELECT = `
   atRetailValuation:at_retail_valuation,
   atTradeValuation:at_trade_valuation,
   atPartExchangeValuation:at_part_exchange_valuation,
+  atPrivateValuation:at_private_valuation,
   atPriceIndicator:at_price_indicator,
   atValuationAt:at_valuation_at,
   createdAt:created_at,
@@ -175,6 +177,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   wheelplan: "wheelplan",
   automatedVehicle: "automated_vehicle",
   dateOfLastV5CIssued: "date_of_last_v5c_issued",
+  firstRegisteredDate: "first_registered_date",
   // Migration 0018 — AutoTrader taxonomy + valuation
   derivative: "derivative",
   generation: "generation",
@@ -183,6 +186,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   atRetailValuation: "at_retail_valuation",
   atTradeValuation: "at_trade_valuation",
   atPartExchangeValuation: "at_part_exchange_valuation",
+  atPrivateValuation: "at_private_valuation",
   atPriceIndicator: "at_price_indicator",
   atValuationAt: "at_valuation_at",
 };

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
 import { useSidebarState } from "@/contexts/sidebar-state-context";
+import { AddVehicleModal } from "@/components/vehicles/add-vehicle-modal";
 import { SIDEBAR_GROUPS, type SidebarItem } from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
 import { cn } from "@/lib/utils";
@@ -42,6 +43,7 @@ export function AppSidebar() {
   const [groupCollapsed, setGroupCollapsed] = React.useState<Set<string>>(
     () => new Set(),
   );
+  const [addOpen, setAddOpen] = React.useState(false);
 
   React.useEffect(() => {
     setGroupCollapsed(loadCollapsed());
@@ -126,8 +128,10 @@ export function AppSidebar() {
         <AddVehicleCta
           collapsed={railCollapsed}
           active={isActive("/inventory/add-vehicle")}
+          onClick={() => setAddOpen(true)}
         />
       </div>
+      <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} />
 
       <div className="h-6" />
 
@@ -251,9 +255,11 @@ function NavRow({ item, active, collapsed }: NavRowProps) {
 function AddVehicleCta({
   collapsed,
   active,
+  onClick,
 }: {
   collapsed: boolean;
   active: boolean;
+  onClick: () => void;
 }) {
   const expandedClass = cn(
     "group/cta flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
@@ -266,14 +272,15 @@ function AddVehicleCta({
 
   if (!collapsed) {
     return (
-      <Link
-        href="/inventory/add-vehicle"
+      <button
+        type="button"
+        onClick={onClick}
         className={expandedClass}
         aria-label="Add Vehicle"
       >
         <Plus className="h-4 w-4" />
         <span>Add Vehicle</span>
-      </Link>
+      </button>
     );
   }
 
@@ -281,13 +288,14 @@ function AddVehicleCta({
     <Tooltip>
       <TooltipTrigger
         render={
-          <Link
-            href="/inventory/add-vehicle"
+          <button
+            type="button"
+            onClick={onClick}
             className={railClass}
             aria-label="Add Vehicle"
           >
             <Plus className="h-4 w-4" />
-          </Link>
+          </button>
         }
       />
       <TooltipContent side="right" sideOffset={8}>

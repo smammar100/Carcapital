@@ -93,6 +93,10 @@ export interface VehicleLookupPayload {
   derivativeId: string | null;
   generation: string | null;
   trim: string | null;
+  /** Raw AutoTrader body/transmission (e.g. "SUV", "Manual") — the client
+   * normalises these onto the Vehicle enums when filling the form. */
+  bodyType: string | null;
+  transmission: string | null;
   retailValuation: number | null;
   tradeValuation: number | null;
   partExchangeValuation: number | null;
@@ -125,35 +129,62 @@ function pickMot(
   const populated = (s: string | null | undefined) =>
     !!s && s !== "No MOT history";
 
+  type MotCandidate = {
+    status: string | null;
+    expiryDate: string | null;
+    source: VehicleLookupPayload["motSource"];
+  };
+
+  // Collect every source that produced a real MOT signal, in priority order
+  // (DVSA detailed → AutoTrader detailed → DVLA coarse).
+  const candidates: MotCandidate[] = [];
   if (dvsaSource === "ok" && dvsa && populated(dvsa.motStatus)) {
-    return {
+    candidates.push({
       status: dvsa.motStatus,
       expiryDate: dvsa.motExpiryDate,
       source: "dvsa",
-    };
+    });
   }
   if (at && populated(at.motStatus)) {
-    return {
+    candidates.push({
       status: at.motStatus,
       expiryDate: at.motExpiryDate,
       source: "autotrader",
-    };
+    });
   }
   if (populated(dvla.motStatus)) {
-    return {
+    candidates.push({
       status: dvla.motStatus,
       expiryDate: dvla.motExpiryDate,
       source: "dvla",
+    });
+  }
+
+  if (!candidates.length) {
+    // Nothing populated anywhere — surface DVSA's empty result if we have it,
+    // else null. Keeps the "No MOT history" wording when that's genuinely true.
+    const fallback = dvsa?.motStatus ?? at?.motStatus ?? dvla.motStatus ?? null;
+    return {
+      status: fallback,
+      expiryDate: dvla.motExpiryDate ?? null,
+      source: fallback ? "dvla" : null,
     };
   }
-  // Nothing populated anywhere — surface DVSA's empty result if we have it,
-  // else null. Keeps the "No MOT history" wording when that's genuinely true.
-  const fallback = dvsa?.motStatus ?? at?.motStatus ?? dvla.motStatus ?? null;
-  return {
-    status: fallback,
-    expiryDate: dvla.motExpiryDate ?? null,
-    source: fallback ? "dvla" : null,
-  };
+
+  // An MOT renewal only ever pushes the expiry further out, so the source
+  // holding the furthest-future expiry is the most current record — prefer it
+  // (its status is consistent with that date: future ⇒ Valid, past ⇒ expired).
+  // This stops a stale AutoTrader/DVSA test-history snapshot from masking
+  // DVLA's live `motExpiryDate` — the EK18FUT case where AutoTrader's sandbox
+  // history ended 2026-03-01 but DVLA holds the real 2027-05-21 expiry. When no
+  // candidate carries an expiry, fall back to source priority (candidates[0]).
+  const withExpiry = candidates.filter((c) => c.expiryDate);
+  if (withExpiry.length) {
+    return withExpiry.reduce((best, c) =>
+      (c.expiryDate as string) > (best.expiryDate as string) ? c : best,
+    );
+  }
+  return candidates[0];
 }
 
 // ---- Merge ---------------------------------------------------------------
@@ -195,6 +226,9 @@ function mergePayload(
     derivativeId: at?.derivativeId ?? null,
     generation: at?.generation ?? null,
     trim: at?.trim ?? null,
+    // AutoTrader also supplies body + transmission (DVLA VES does not).
+    bodyType: at?.bodyType ?? null,
+    transmission: at?.transmission ?? null,
     retailValuation: at?.retailValuation ?? null,
     tradeValuation: at?.tradeValuation ?? null,
     partExchangeValuation: at?.partExchangeValuation ?? null,

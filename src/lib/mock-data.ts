@@ -502,6 +502,7 @@ function buildVehicle(s: VehicleSeed): Vehicle {
     atRetailValuation: null,
     atTradeValuation: null,
     atPartExchangeValuation: null,
+    atPrivateValuation: null,
     atPriceIndicator: null,
     atValuationAt: null,
     localOrImport: s.localOrImport ?? "local",

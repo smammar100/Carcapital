@@ -215,6 +215,7 @@ export function ArrivalForm() {
     retailValuation: number | null;
     tradeValuation: number | null;
     partExchangeValuation: number | null;
+    privateValuation: number | null;
   }>({
     derivative: null,
     generation: null,
@@ -223,6 +224,7 @@ export function ArrivalForm() {
     retailValuation: null,
     tradeValuation: null,
     partExchangeValuation: null,
+    privateValuation: null,
   });
   // SPEC Points 6/7 — dealer partner picker (shown when source = Dealer).
   const searchParams = useSearchParams();
@@ -243,14 +245,17 @@ export function ArrivalForm() {
   const form = useForm<FormInput>({
     resolver: zodResolver(schema),
     defaultValues: {
-      registration: "",
+      // Pre-fill reg + mileage when arriving from the "Add Vehicle" modal
+      // (`?reg=…&mileage=…`). With both present up front, the auto-lookup
+      // below runs once with mileage → AutoTrader valuations come back.
+      registration: (searchParams.get("reg") ?? "").toUpperCase(),
       make: "",
       model: "",
       variantName: "",
       variantCode: "",
       year: new Date().getFullYear() - 3,
       colour: "",
-      mileage: 0,
+      mileage: Number(searchParams.get("mileage")) || 0,
       vehicleType: "car",
       bodyType: "hatchback",
       fuelType: "petrol",
@@ -323,8 +328,15 @@ export function ArrivalForm() {
     // Coalesce double-fire: clicking the DVLA button also blurs the Input,
     // so onBlur AND onClick both call this for the same reg. Skip the
     // second invocation if we just kicked off the same lookup.
-    if (lastLookupRegRef.current === cleaned) return;
-    lastLookupRegRef.current = cleaned;
+    //
+    // The coalesce key includes mileage: the reg blur often fires first with
+    // mileage still 0 (taxonomy + MOT come back, but AutoTrader can't value a
+    // car without mileage). Once the user enters mileage and clicks DVLA, the
+    // key changes, so the valuation-aware lookup is NOT coalesced away.
+    const mileageKey = Number(form.getValues("mileage")) || 0;
+    const coalesceKey = `${cleaned}:${mileageKey}`;
+    if (lastLookupRegRef.current === coalesceKey) return;
+    lastLookupRegRef.current = coalesceKey;
 
     // Abort any previous in-flight lookup so its fetches free up. We treat
     // an aborted signal as "a newer lookup is in charge now" — its results
@@ -403,6 +415,14 @@ export function ArrivalForm() {
       setDvlaState("found");
       landedTerminal = true;
       if (dvla.make) form.setValue("make", dvla.make);
+      // AutoTrader taxonomy → the Variant fields + Body/Transmission selects.
+      // DVLA returns none of these; without them the form left Variant Name /
+      // Variant Code blank and Body/Transmission on their defaults.
+      if (dvla.derivative) form.setValue("variantName", dvla.derivative);
+      if (dvla.atDerivativeId) form.setValue("variantCode", dvla.atDerivativeId);
+      if (dvla.bodyType) form.setValue("bodyType", dvla.bodyType);
+      if (dvla.transmission) form.setValue("transmission", dvla.transmission);
+      if (dvla.vehicleType) form.setValue("vehicleType", dvla.vehicleType);
       // Don't overwrite a user-typed model with DVLA's null. DVLA VES
       // never returns model, but if a future version does we still respect
       // any value already in the field.
@@ -444,6 +464,7 @@ export function ArrivalForm() {
         retailValuation: dvla.retailValuation ?? null,
         tradeValuation: dvla.tradeValuation ?? null,
         partExchangeValuation: dvla.partExchangeValuation ?? null,
+        privateValuation: dvla.privateValuation ?? null,
       });
       // dvla.model already carries AutoTrader's model after the route merge;
       // the guard above only writes it when the model field is empty.
@@ -464,6 +485,20 @@ export function ArrivalForm() {
       setLoadingStartedAt(null);
     }
   }
+
+  // Auto-run the lookup once on mount when arriving from the Add Vehicle
+  // modal with a `?reg=` param. Reg + mileage are already in the form
+  // defaults, so this single call carries mileage → valuations populate.
+  const autoLookupDoneRef = useRef(false);
+  useEffect(() => {
+    if (autoLookupDoneRef.current) return;
+    const regParam = (searchParams.get("reg") ?? "").trim();
+    if (regParam) {
+      autoLookupDoneRef.current = true;
+      void handleDvlaLookup();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function addTodo() {
     if (!newTodo.description.trim()) return;
@@ -562,6 +597,7 @@ export function ArrivalForm() {
           atRetailValuation: atData.retailValuation,
           atTradeValuation: atData.tradeValuation,
           atPartExchangeValuation: atData.partExchangeValuation,
+          atPrivateValuation: atData.privateValuation,
           atPriceIndicator: deriveAtPriceIndicator(
             values.listingPrice ? Number(values.listingPrice) : null,
             atData.retailValuation,
@@ -654,32 +690,25 @@ export function ArrivalForm() {
           </div>
         )}
 
+        {/* ── Auto-filled group: identity + compliance + valuation ── */}
+        <div className="flex items-center gap-3 pt-1">
+          <h2 className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Auto-filled from DVLA + AutoTrader
+          </h2>
+          <span className="h-px flex-1 bg-border" aria-hidden />
+        </div>
+
         {/* Section 1 — Vehicle Identity */}
         <Card className="flex flex-col gap-3 p-5">
           <h2 className="text-sm font-semibold">1 · Vehicle Identity</h2>
           <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
             <div className="flex flex-col gap-2">
               <Label>Registration *</Label>
-              <div className="flex gap-2">
-                <Input
-                  {...form.register("registration")}
-                  onBlur={() => void handleDvlaLookup()}
-                  placeholder="GK66 6NX"
-                  className="flex-1"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => void handleDvlaLookup()}
-                  disabled={dvlaState === "loading"}
-                >
-                  {dvlaState === "loading" && (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  )}
-                  DVLA
-                </Button>
-              </div>
+              <Input
+                {...form.register("registration")}
+                onBlur={() => void handleDvlaLookup()}
+                placeholder="GK66 6NX"
+              />
               {dvlaState === "loading" && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -692,9 +721,9 @@ export function ArrivalForm() {
               )}
               {dvlaState === "found" && (
                 <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" /> DVLA matched — fields
-                  auto-filled. Please add the model manually (DVLA doesn&apos;t
-                  return it).
+                  <CheckCircle2 className="h-3 w-3" /> Matched — make / model /
+                  derivative, tax, MOT &amp; valuation auto-filled from DVLA +
+                  AutoTrader.
                 </p>
               )}
               {dvlaState === "not_found" && (
@@ -835,8 +864,76 @@ export function ArrivalForm() {
               <Label>Engine Size CC</Label>
               <Input type="number" {...form.register("engineSizeCC")} />
             </div>
+            <div className="flex flex-col gap-2">
+              <Label>MOT Expiry</Label>
+              <Input type="date" {...form.register("motExpiry")} />
+            </div>
           </div>
         </Card>
+
+        {/* Compliance & Verification (DVLA + DVSA) — auto-filled from lookup */}
+        <ComplianceCard
+          value={compliance}
+          onChange={(next) =>
+            setCompliance((curr) => ({ ...curr, ...next }))
+          }
+          onRefetch={() => {
+            // Allow the user to force a re-fetch even if the registration
+            // hasn't changed since the last lookup.
+            lastLookupRegRef.current = "";
+            void handleDvlaLookup();
+          }}
+          refetching={dvlaState === "loading"}
+          verifiedAt={verifiedAt}
+          sources={complianceSources}
+          motSource={motSource}
+        />
+
+        {/* AutoTrader valuation strip — auto-filled when a retail valuation came
+            back. "Use as listing price" sets the section-7 listing price. */}
+        {atData.retailValuation != null && (
+          <Card className="flex flex-col gap-3 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold">
+                AutoTrader valuation
+              </h2>
+              <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                Based on {Number(form.getValues("mileage")).toLocaleString()} mi
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              <ValuationCell label="Retail" value={atData.retailValuation} highlight />
+              <ValuationCell label="Trade" value={atData.tradeValuation} />
+              <ValuationCell label="Part-ex" value={atData.partExchangeValuation} />
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    if (atData.retailValuation != null) {
+                      form.setValue("listingPrice", atData.retailValuation);
+                      toast.success(
+                        `Listing price set to ${formatCurrency(atData.retailValuation)}`,
+                      );
+                    }
+                  }}
+                >
+                  Use as listing price
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* ── Manual-entry group: source, docs, costs, receiving, pricing ── */}
+        <div className="flex items-center gap-3 pt-3">
+          <h2 className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Your details — entered manually
+          </h2>
+          <span className="h-px flex-1 bg-border" aria-hidden />
+        </div>
 
         {/* Section 2 — Source / Seller */}
         <Card className="flex flex-col gap-3 p-5">
@@ -1008,68 +1105,8 @@ export function ArrivalForm() {
                 />
               </div>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>MOT Expiry</Label>
-              <Input type="date" {...form.register("motExpiry")} />
-            </div>
           </div>
         </Card>
-
-        {/* Section 3.5 — Compliance & Verification (DVLA + DVSA) */}
-        <ComplianceCard
-          value={compliance}
-          onChange={(next) =>
-            setCompliance((curr) => ({ ...curr, ...next }))
-          }
-          onRefetch={() => {
-            // Allow the user to force a re-fetch even if the registration
-            // hasn't changed since the last lookup.
-            lastLookupRegRef.current = "";
-            void handleDvlaLookup();
-          }}
-          refetching={dvlaState === "loading"}
-          verifiedAt={verifiedAt}
-          sources={complianceSources}
-          motSource={motSource}
-        />
-
-        {/* AutoTrader valuation strip — shows when a retail valuation came
-            back. "Use as listing price" sets the section-7 listing price. */}
-        {atData.retailValuation != null && (
-          <Card className="flex flex-col gap-3 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">
-                AutoTrader valuation
-              </h2>
-              <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
-                Based on {Number(form.getValues("mileage")).toLocaleString()} mi
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <ValuationCell label="Retail" value={atData.retailValuation} highlight />
-              <ValuationCell label="Trade" value={atData.tradeValuation} />
-              <ValuationCell label="Part-ex" value={atData.partExchangeValuation} />
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    if (atData.retailValuation != null) {
-                      form.setValue("listingPrice", atData.retailValuation);
-                      toast.success(
-                        `Listing price set to ${formatCurrency(atData.retailValuation)}`,
-                      );
-                    }
-                  }}
-                >
-                  Use as listing price
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
 
         {/* Section 4 — Purchase Cost Breakdown */}
         <Card className="flex flex-col gap-3 p-5">

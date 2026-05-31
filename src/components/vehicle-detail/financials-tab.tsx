@@ -121,11 +121,11 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
       {vehicle.atRetailValuation != null && (
         <Panel
           title="AutoTrader market value"
-          subtitle={
+          subtitle={`${retail > 0 ? `Your price ${formatCurrency(retail)} · ` : ""}${
             vehicle.atValuationAt
-              ? `Valued ${formatDate(vehicle.atValuationAt)} · ${vehicle.mileage.toLocaleString()} mi`
-              : "Captured at intake"
-          }
+              ? `valued ${formatDate(vehicle.atValuationAt)}`
+              : "captured at intake"
+          } · ${vehicle.mileage.toLocaleString()} mi`}
           action={
             retail > 0 ? (
               <Pill
@@ -160,8 +160,10 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
                 ? formatCurrency(vehicle.atPartExchangeValuation)
                 : "—"}
             </Field>
-            <Field label="Our retail price" numeric>
-              {retail > 0 ? formatCurrency(retail) : "Not listed"}
+            <Field label="Private" numeric>
+              {vehicle.atPrivateValuation != null
+                ? formatCurrency(vehicle.atPrivateValuation)
+                : "—"}
             </Field>
           </FieldGrid>
         </Panel>

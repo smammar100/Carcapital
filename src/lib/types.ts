@@ -352,6 +352,7 @@ export interface Vehicle {
   atRetailValuation: number | null;
   atTradeValuation: number | null;
   atPartExchangeValuation: number | null;
+  atPrivateValuation: number | null;
   atPriceIndicator: string | null;
   atValuationAt: ISODateTime | null;
 

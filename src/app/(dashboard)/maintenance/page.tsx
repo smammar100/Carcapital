@@ -38,6 +38,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import { AddVehicleButton } from "@/components/vehicles/add-vehicle-button";
 import { cn, formatCurrency, formatDate, getInitials } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -132,9 +133,7 @@ export default function MaintenancePage() {
           title="No maintenance jobs yet"
           description="Add a vehicle to auto-create a pending job."
           action={
-            <Button asChild size="sm">
-              <Link href="/inventory/add-vehicle">Add a vehicle</Link>
-            </Button>
+            <AddVehicleButton size="sm">Add a vehicle</AddVehicleButton>
           }
         />
       ) : (
@@ -159,16 +158,14 @@ export default function MaintenancePage() {
                       {list.length}
                     </span>
                   </div>
-                  <Button
-                    asChild
+                  <AddVehicleButton
                     size="icon"
                     variant="ghost"
                     className="h-6 w-6"
+                    aria-label="Add new job"
                   >
-                    <Link href="/inventory/add-vehicle" aria-label="Add new job">
-                      <Plus className="h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
+                    <Plus className="h-3.5 w-3.5" />
+                  </AddVehicleButton>
                 </div>
                 <div className="flex items-center justify-between border-b border-border/60 pb-2 text-[11px] text-muted-foreground">
                   <span>Lane total</span>
@@ -178,16 +175,13 @@ export default function MaintenancePage() {
                 </div>
                 <div className="flex flex-col gap-2.5">
                   {list.length === 0 ? (
-                    <Button
-                      asChild
+                    <AddVehicleButton
                       variant="ghost"
                       className="h-auto justify-start gap-1 px-2 py-2 text-xs text-muted-foreground hover:text-foreground"
                     >
-                      <Link href="/inventory/add-vehicle">
-                        <Plus className="h-3 w-3" />
-                        New
-                      </Link>
-                    </Button>
+                      <Plus className="h-3 w-3" />
+                      New
+                    </AddVehicleButton>
                   ) : (
                     list.map((j) => {
                       const v = vehicles.find((x) => x.id === j.vehicleId);

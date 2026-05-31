@@ -67,7 +67,8 @@ export function VehicleHeaderCard({
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
             <p className="text-xs text-muted-foreground">
-              {vehicle.variantCode ?? "—"} · {vehicle.stockId}
+              {vehicle.derivative ?? vehicle.variantCode ?? "—"} ·{" "}
+              {vehicle.stockId}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
               <DropdownMenu>

@@ -548,6 +548,7 @@ export default function MasterSheetPage() {
           atRetailValuation: null,
           atTradeValuation: null,
           atPartExchangeValuation: null,
+          atPrivateValuation: null,
           atPriceIndicator: null,
           atValuationAt: null,
         },
