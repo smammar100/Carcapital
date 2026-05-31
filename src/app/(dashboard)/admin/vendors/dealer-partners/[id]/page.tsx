@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
+import { AddVehicleButton } from "@/components/vehicles/add-vehicle-button";
 import {
   type ColumnDef,
   DataGridColumnsButton,
@@ -225,14 +226,13 @@ export default function DealerPartnerDetailPage({
                 >
                   Edit Partner
                 </Button>
-                <Button asChild size="sm">
-                  <Link
-                    href={`/inventory/add-vehicle?dealerPartner=${partner.id}`}
-                  >
-                    <Plus className="mr-1.5 h-4 w-4" /> Add Vehicle from this
-                    Partner
-                  </Link>
-                </Button>
+                <AddVehicleButton
+                  size="sm"
+                  extraParams={{ dealerPartner: partner.id }}
+                >
+                  <Plus className="mr-1.5 h-4 w-4" /> Add Vehicle from this
+                  Partner
+                </AddVehicleButton>
               </div>
             </div>
           </Card>

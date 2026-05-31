@@ -121,11 +121,11 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
       {vehicle.atRetailValuation != null && (
         <Panel
           title="AutoTrader market value"
-          subtitle={
+          subtitle={`${retail > 0 ? `Your price ${formatCurrency(retail)} · ` : ""}${
             vehicle.atValuationAt
-              ? `Valued ${formatDate(vehicle.atValuationAt)} · ${vehicle.mileage.toLocaleString()} mi`
-              : "Captured at intake"
-          }
+              ? `valued ${formatDate(vehicle.atValuationAt)}`
+              : "captured at intake"
+          } · ${vehicle.mileage.toLocaleString()} mi`}
           action={
             retail > 0 ? (
               <Pill
@@ -160,8 +160,10 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
                 ? formatCurrency(vehicle.atPartExchangeValuation)
                 : "—"}
             </Field>
-            <Field label="Our retail price" numeric>
-              {retail > 0 ? formatCurrency(retail) : "Not listed"}
+            <Field label="Private" numeric>
+              {vehicle.atPrivateValuation != null
+                ? formatCurrency(vehicle.atPrivateValuation)
+                : "—"}
             </Field>
           </FieldGrid>
         </Panel>
@@ -328,12 +330,12 @@ function LedgerCard({
           <LedgerRow key={r.name} entry={r} />
         ))}
         {overflow > 0 && (
-          <div className="px-6 py-3 text-center text-xs italic text-muted-foreground">
+          <div className="px-4 py-3 text-center text-xs italic text-muted-foreground">
             + {overflow} more categories
           </div>
         )}
       </div>
-      <div className="flex items-center justify-between border-t bg-muted/40 px-6 py-3">
+      <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-3">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           {variant === "expense" ? "Total expenses" : "Total additional"}
         </span>
@@ -348,7 +350,7 @@ function LedgerCard({
 function LedgerRow({ entry }: { entry: LedgerEntry }) {
   const has = entry.amount > 0;
   return (
-    <div className="flex items-center justify-between gap-3 px-6 py-2.5 text-sm">
+    <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
       <div className="flex items-center gap-2.5">
         <span
           className={cn(

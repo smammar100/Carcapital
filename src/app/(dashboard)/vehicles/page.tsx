@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Car,
@@ -23,6 +22,8 @@ import {
   cn,
 } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { AddVehicleButton } from "@/components/vehicles/add-vehicle-button";
+import { AddVehicleModal } from "@/components/vehicles/add-vehicle-modal";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import {
@@ -192,6 +193,8 @@ export default function VehiclesPage() {
     searchParams.get("dir") === "desc" ? "desc" : "asc";
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  // Add-vehicle pre-entry modal, shared by the grid "New vehicle" footer row.
+  const [addOpen, setAddOpen] = useState(false);
 
   // Reset to first page whenever filters/search/sort change
   useEffect(() => {
@@ -495,12 +498,10 @@ export default function VehiclesPage() {
             <Download className="mr-1.5 h-4 w-4" />
             Export CSV
           </Button>
-          <Button asChild>
-            <Link href="/inventory/add-vehicle">
-              <Plus className="mr-1.5 h-4 w-4" />
-              Add Vehicle
-            </Link>
-          </Button>
+          <AddVehicleButton>
+            <Plus className="mr-1.5 h-4 w-4" />
+            Add Vehicle
+          </AddVehicleButton>
         </div>
       </div>
 
@@ -625,12 +626,10 @@ export default function VehiclesPage() {
           title="No vehicles found"
           description="Try clearing filters or add a new vehicle to your stock."
           action={
-            <Button asChild size="sm">
-              <Link href="/inventory/add-vehicle">
-                <Plus className="mr-1.5 h-4 w-4" />
-                Add Vehicle
-              </Link>
-            </Button>
+            <AddVehicleButton size="sm">
+              <Plus className="mr-1.5 h-4 w-4" />
+              Add Vehicle
+            </AddVehicleButton>
           }
         />
       ) : view === "table" ? (
@@ -655,7 +654,7 @@ export default function VehiclesPage() {
               <DataGridFooterRow
                 label="New vehicle"
                 span={visibleCols.length}
-                href="/inventory/add-vehicle"
+                onClick={() => setAddOpen(true)}
               />
             </tbody>
           </DataGridTable>
@@ -735,6 +734,7 @@ export default function VehiclesPage() {
           />
         </Card>
       )}
+      <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }

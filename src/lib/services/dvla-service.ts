@@ -1,5 +1,32 @@
 import { DVLA_MOCK } from "@/lib/mock-data";
-import type { Vehicle } from "@/lib/types";
+import type { BodyType, Transmission, Vehicle } from "@/lib/types";
+
+const BODY_TYPES = new Set<BodyType>([
+  "hatchback",
+  "saloon",
+  "suv",
+  "mpv",
+  "estate",
+  "convertible",
+  "coupe",
+]);
+
+/** AutoTrader body strings ("SUV", "Hatchback", …) → our BodyType enum.
+ * Returns undefined for vans / unknown shapes so the form keeps its default. */
+function normaliseBodyType(raw: string | null): BodyType | undefined {
+  if (!raw) return undefined;
+  const k = raw.trim().toLowerCase();
+  return BODY_TYPES.has(k as BodyType) ? (k as BodyType) : undefined;
+}
+
+/** AutoTrader transmission ("Manual" / "Automatic" / "Semi-Automatic") → enum. */
+function normaliseTransmission(raw: string | null): Transmission | undefined {
+  if (!raw) return undefined;
+  const k = raw.trim().toLowerCase();
+  if (k === "manual") return "manual";
+  if (k.includes("auto")) return "automatic"; // Automatic / Semi-Automatic
+  return undefined;
+}
 
 /**
  * Vehicle lookup — calls the combined DVLA + DVSA proxy at
@@ -99,6 +126,8 @@ export interface VehicleLookupResponse {
   derivativeId: string | null;
   generation: string | null;
   trim: string | null;
+  bodyType: string | null;
+  transmission: string | null;
   retailValuation: number | null;
   tradeValuation: number | null;
   partExchangeValuation: number | null;
@@ -132,6 +161,7 @@ function toFormPartial(p: VehicleLookupResponse): DvlaLookupReturn {
     year: p.yearOfManufacture ?? undefined,
     colour: p.colour ?? undefined,
     fuelType: p.fuelType,
+    vehicleType: p.vehicleType ?? undefined,
     engineSizeCC: p.engineCapacityCC ?? undefined,
     motExpiry: p.motExpiryDate,
     firstRegisteredDate: p.registrationDate,
@@ -151,6 +181,10 @@ function toFormPartial(p: VehicleLookupResponse): DvlaLookupReturn {
     generation: p.generation,
     trim: p.trim,
     atDerivativeId: p.derivativeId,
+    // AutoTrader body/transmission, normalised onto the Vehicle enums so the
+    // form's Body Type + Transmission selects auto-fill (DVLA omits both).
+    bodyType: normaliseBodyType(p.bodyType),
+    transmission: normaliseTransmission(p.transmission),
     retailValuation: p.retailValuation,
     tradeValuation: p.tradeValuation,
     partExchangeValuation: p.partExchangeValuation,

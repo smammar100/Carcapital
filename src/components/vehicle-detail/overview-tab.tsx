@@ -24,6 +24,10 @@ import { formatCurrency, formatDate } from "@/lib/utils";
 import { KpiCard, Panel, Pill } from "./primitives";
 import { cn } from "@/lib/utils";
 import { VehicleLocationSection } from "@/components/locations/vehicle-location-section";
+import {
+  computeAdvertChecks,
+  type AdvertCheck,
+} from "@/lib/advert-completeness";
 
 interface OverviewTabProps {
   vehicle: Vehicle;
@@ -129,12 +133,6 @@ export function OverviewTab({ vehicle, onVehiclePatch }: OverviewTabProps) {
 // Advert Completeness — checklist driven from Listing + Vehicle
 // ============================================================
 
-interface AdvertCheck {
-  name: string;
-  meta: string;
-  state: "done" | "warn" | "miss";
-}
-
 function AdvertCompletenessPanel({
   vehicle,
   listing,
@@ -144,69 +142,7 @@ function AdvertCompletenessPanel({
   listing: Listing | null;
   photoCount: number;
 }) {
-  const checks: AdvertCheck[] = [
-    {
-      name: "Make / Model / Derivative",
-      meta: `${vehicle.make} ${vehicle.model} · ${vehicle.variantCode ?? "no derivative"}`,
-      state: vehicle.variantCode ? "done" : "warn",
-    },
-    {
-      name: "Photos",
-      meta:
-        photoCount > 0
-          ? `${photoCount} image${photoCount === 1 ? "" : "s"}`
-          : "No photos uploaded",
-      state: photoCount >= 8 ? "done" : photoCount > 0 ? "warn" : "miss",
-    },
-    {
-      name: "Vehicle Description",
-      meta:
-        listing?.description && listing.description.trim().length > 30
-          ? `${listing.description.length.toLocaleString()} chars`
-          : "Empty — generate with AI",
-      state:
-        listing?.description && listing.description.trim().length > 30
-          ? "done"
-          : "warn",
-    },
-    {
-      name: "Pricing & Floor",
-      meta:
-        listing?.price && vehicle.minimumSalePrice
-          ? `${formatCurrency(listing.price)} · Floor ${formatCurrency(vehicle.minimumSalePrice)}`
-          : listing?.price
-            ? formatCurrency(listing.price)
-            : "Price not set",
-      state: listing?.price ? "done" : "miss",
-    },
-    {
-      name: "MOT Status",
-      meta: vehicle.motExpiry
-        ? `Valid until ${formatDate(vehicle.motExpiry)}`
-        : "No expiry on file",
-      state: vehicle.motExpiry ? "done" : "warn",
-    },
-    {
-      name: "Service History",
-      meta: vehicle.serviceHistory.replace(/_/g, " "),
-      state: vehicle.serviceHistory !== "none" ? "done" : "warn",
-    },
-    {
-      name: "Channels",
-      meta: listing
-        ? Object.entries(listing.channels)
-            .filter(([, on]) => on)
-            .map(([k]) => k)
-            .join(", ") || "None enabled"
-        : "Listing not created",
-      state: listing
-        ? Object.values(listing.channels).some(Boolean)
-          ? "done"
-          : "warn"
-        : "miss",
-    },
-  ];
-
+  const checks = computeAdvertChecks(vehicle, listing, photoCount);
   const setCount = checks.filter((c) => c.state === "done").length;
 
   return (
@@ -215,14 +151,22 @@ function AdvertCompletenessPanel({
       subtitle={`${setCount} of ${checks.length} fields set · ${checks.length - setCount} to address`}
       action={
         <Button asChild variant="outline" size="sm">
-          <Link href="/advert/work-list">Open Advert →</Link>
+          <Link href={`/vehicles/${vehicle.id}/advert`}>Open Advert →</Link>
         </Button>
       }
       flush
     >
-      <div className="divide-y">
-        {checks.map((c, i) => (
-          <AdvertCheckRow key={i} check={c} />
+      <div className="px-4 pb-3">
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-emerald-500 transition-[width] duration-500"
+            style={{ width: `${(setCount / checks.length) * 100}%` }}
+          />
+        </div>
+      </div>
+      <div className="divide-y border-t">
+        {checks.map((c) => (
+          <AdvertCheckRow key={c.key} check={c} vehicleId={vehicle.id} />
         ))}
       </div>
     </Panel>
@@ -247,9 +191,30 @@ const STATE_PILL_LABEL: Record<AdvertCheck["state"], string> = {
   miss: "Missing",
 };
 
-function AdvertCheckRow({ check }: { check: AdvertCheck }) {
+const EDIT_ANCHOR: Record<string, string> = {
+  taxonomy: "taxonomy",
+  description: "description",
+  pricing: "channels",
+  channels: "channels",
+  photos: "website",
+};
+
+function editHref(vehicleId: string, key: string): string {
+  const anchor = EDIT_ANCHOR[key];
+  return anchor
+    ? `/vehicles/${vehicleId}/advert#${anchor}`
+    : `/vehicles/${vehicleId}/advert`;
+}
+
+function AdvertCheckRow({
+  check,
+  vehicleId,
+}: {
+  check: AdvertCheck;
+  vehicleId: string;
+}) {
   return (
-    <div className="grid grid-cols-[24px_1fr_auto_auto] items-center gap-3 px-6 py-3">
+    <div className="grid grid-cols-[24px_1fr_auto_auto] items-center gap-3 px-4 py-3">
       <span
         className={cn(
           "flex h-5 w-5 items-center justify-center rounded-full",
@@ -273,9 +238,11 @@ function AdvertCheckRow({ check }: { check: AdvertCheck }) {
       <Pill tone={STATE_PILL_TONE[check.state]}>
         {STATE_PILL_LABEL[check.state]}
       </Pill>
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-xs">
-        <Pencil className="mr-1 h-3 w-3" />
-        Edit
+      <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-xs">
+        <Link href={editHref(vehicleId, check.key)}>
+          <Pencil className="mr-1 h-3 w-3" />
+          Edit
+        </Link>
       </Button>
     </div>
   );
@@ -357,6 +324,7 @@ function ValuationPanel({
         atRetailValuation: data.retailValuation ?? null,
         atTradeValuation: data.tradeValuation ?? null,
         atPartExchangeValuation: data.partExchangeValuation ?? null,
+        atPrivateValuation: data.privateValuation ?? null,
         atValuationAt: new Date().toISOString(),
         atPriceIndicator,
         derivative: data.derivative ?? null,
@@ -426,7 +394,7 @@ function ValuationCell({
   highlight?: boolean;
 }) {
   return (
-    <div className="px-5 py-3">
+    <div className="px-4 py-3">
       <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
@@ -506,7 +474,7 @@ function MarketplacePanel({ listing }: { listing: Listing | null }) {
           return (
             <div
               key={r.key}
-              className="grid grid-cols-[28px_1fr_auto] items-center gap-3 px-6 py-3"
+              className="grid grid-cols-[28px_1fr_auto] items-center gap-3 px-4 py-3"
             >
               <span
                 className={cn(

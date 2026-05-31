@@ -30,11 +30,17 @@ export interface MotTest {
  * if there are tests but none currently valid; "No MOT history" when empty
  * (e.g. a brand-new car or an upstream that returned no tests).
  */
+// DVSA returns "PASSED" (upper); AutoTrader returns "Passed" (title). Compare
+// case-insensitively so AutoTrader's passes aren't silently discarded.
+function isPass(t: MotTest): boolean {
+  return (t.testResult ?? "").toUpperCase() === "PASSED";
+}
+
 export function deriveMotStatus(tests: MotTest[]): MotStatus {
   if (!tests.length) return NO_MOT_HISTORY;
   const today = new Date().toISOString().slice(0, 10);
   const latestPassed = tests
-    .filter((t) => t.testResult === "PASSED" && t.expiryDate)
+    .filter((t) => isPass(t) && t.expiryDate)
     .map((t) => t.expiryDate as string)
     .sort()
     .pop();
@@ -45,7 +51,7 @@ export function deriveMotStatus(tests: MotTest[]): MotStatus {
 /** Latest PASSED test's expiry date (ISO YYYY-MM-DD), or null when none. */
 export function deriveExpiryDate(tests: MotTest[]): string | null {
   const passedExpiries = tests
-    .filter((t) => t.testResult === "PASSED" && t.expiryDate)
+    .filter((t) => isPass(t) && t.expiryDate)
     .map((t) => t.expiryDate as string)
     .sort();
   return passedExpiries.at(-1) ?? null;

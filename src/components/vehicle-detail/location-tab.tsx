@@ -22,6 +22,7 @@ import { vendorService } from "@/lib/services/vendor-service";
 import { teamService } from "@/lib/services/team-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { MoveDialog } from "@/components/locations/move-dialog";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Timeline,
   TimelineItem,
@@ -190,7 +191,7 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
       {/* Hero card — current location at a glance */}
       <div
         className={cn(
-          "flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-5 ring-1",
+          "flex flex-wrap items-center justify-between gap-4 rounded-2xl border p-4 ring-1",
           tone.surface,
           tone.ring,
         )}
@@ -253,9 +254,11 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
             ))}
           </div>
         ) : movements.length === 0 ? (
-          <div className="rounded-md border bg-card p-6 text-center text-sm italic text-muted-foreground">
-            No movements recorded yet.
-          </div>
+          <EmptyState
+            icon={MapPin}
+            title="No movements recorded yet"
+            description="This vehicle hasn't moved since arrival. Use Move to relocate it."
+          />
         ) : (
           <Timeline>
             {movements.map((m) => {

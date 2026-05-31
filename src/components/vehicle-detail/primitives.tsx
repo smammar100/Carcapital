@@ -98,7 +98,7 @@ export function KpiCard({ icon: Icon, label, value, hint, accent }: KpiCardProps
           "border-destructive/40 bg-destructive/5 ring-destructive/30",
       )}
     >
-      <CardContent className="flex flex-col gap-1">
+      <CardContent className="flex flex-col gap-1 p-0">
         <div className="flex items-center justify-between">
           <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {label}
@@ -170,7 +170,7 @@ export function Panel({
   return (
     <Card size="sm" className={cn("gap-3", className)}>
       {(title || action) && (
-        <CardHeader className="flex flex-row items-start justify-between gap-3">
+        <CardHeader className="flex flex-row items-start justify-between gap-3 p-0">
           <div className="flex flex-col gap-1">
             {title && <CardTitle>{title}</CardTitle>}
             {subtitle && <CardDescription>{subtitle}</CardDescription>}
@@ -178,7 +178,7 @@ export function Panel({
           {action && <div className="shrink-0">{action}</div>}
         </CardHeader>
       )}
-      <CardContent className={cn(flush && "px-0")}>{children}</CardContent>
+      <CardContent className={cn("p-0", flush && "-mx-4")}>{children}</CardContent>
     </Card>
   );
 }
@@ -200,7 +200,7 @@ export function InfoCard({ icon, title, children }: InfoCardProps) {
       size="sm"
       className="gap-3 border-violet-200/70 bg-violet-50/70 ring-violet-300/20 dark:border-violet-500/20 dark:bg-violet-500/5"
     >
-      <CardContent className="flex items-start gap-3">
+      <CardContent className="flex items-start gap-3 p-0">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-card text-violet-600 dark:text-violet-300">
           {icon}
         </div>

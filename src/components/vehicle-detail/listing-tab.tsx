@@ -44,11 +44,11 @@ export function ListingTab({ vehicle }: ListingTabProps) {
         title="Not listed yet"
         description="Vehicles in 'ready' status can be listed for sale."
         action={
-          vehicle.status === "ready" ? (
-            <Button asChild size="sm">
-              <Link href="/advert/work-list">Go to Work List</Link>
-            </Button>
-          ) : null
+          <Button asChild size="sm">
+            <Link href={`/vehicles/${vehicle.id}/advert`}>
+              Open Advert editor
+            </Link>
+          </Button>
         }
       />
     );
@@ -74,18 +74,21 @@ export function ListingTab({ vehicle }: ListingTabProps) {
         title="Advert Specification"
         subtitle="Mapped to AutoTrader's product hierarchy"
         action={
-          <Button variant="outline" size="sm">
-            Preview
+          <Button asChild size="sm">
+            <Link href={`/vehicles/${vehicle.id}/advert`}>Edit Advert</Link>
           </Button>
         }
       >
         <FieldGrid cols={4}>
           <Field label="Make">{vehicle.make}</Field>
           <Field label="Model">{vehicle.model}</Field>
-          <Field label="Generation" muted>
-            {vehicle.bodyType.toUpperCase()} ({vehicle.year - 2} – {vehicle.year + 5})
+          <Field label="Generation" muted={!vehicle.generation}>
+            {vehicle.generation ??
+              `${vehicle.bodyType.toUpperCase()} (${vehicle.year - 2} – ${vehicle.year + 5})`}
           </Field>
-          <Field label="Trim">{vehicle.variantName ?? "—"}</Field>
+          <Field label="Trim">
+            {vehicle.trim ?? vehicle.variantName ?? "—"}
+          </Field>
           <Field label="Fuel Type">
             <span className="capitalize">{vehicle.fuelType}</span>
           </Field>
@@ -97,8 +100,8 @@ export function ListingTab({ vehicle }: ListingTabProps) {
           <Field label="Transmission">
             <span className="capitalize">{vehicle.transmission}</span>
           </Field>
-          <Field label="Derivative" numeric>
-            {vehicle.variantCode ?? "—"}
+          <Field label="Derivative">
+            {vehicle.derivative ?? vehicle.variantCode ?? "—"}
           </Field>
         </FieldGrid>
       </Panel>

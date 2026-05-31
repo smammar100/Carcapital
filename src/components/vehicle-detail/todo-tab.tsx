@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { ClipboardCheck, Plus } from "lucide-react";
 import type { TodoItem, Vendor } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { todoService } from "@/lib/services/todo-service";
 import { vendorService } from "@/lib/services/vendor-service";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   Table,
   TableBody,
@@ -70,8 +71,18 @@ export function TodoTab({ vehicleId }: TodoTabProps) {
       flush
     >
       {todos.length === 0 ? (
-        <div className="px-6 py-10 text-center text-sm text-muted-foreground">
-          Nothing to do — this vehicle is prep-ready.
+        <div className="px-4 py-8">
+          <EmptyState
+            icon={ClipboardCheck}
+            title="All clear — prep-ready"
+            description="No repairs, prep, or inspection follow-ups logged for this vehicle yet."
+            action={
+              <Button variant="outline" size="sm">
+                <Plus className="mr-1 h-3.5 w-3.5" />
+                Add Item
+              </Button>
+            }
+          />
         </div>
       ) : (
         <Table>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Download, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
+import { AddVehicleButton } from "@/components/vehicles/add-vehicle-button";
 import { maintenanceService } from "@/lib/services/maintenance-service";
 import { returnService } from "@/lib/services/return-service";
 
@@ -60,12 +61,10 @@ export function DashboardGreeting() {
             Export
           </Link>
         </Button>
-        <Button asChild size="sm">
-          <Link href="/inventory/add-vehicle">
-            <Plus className="mr-1 h-3.5 w-3.5" />
-            Add Vehicle
-          </Link>
-        </Button>
+        <AddVehicleButton size="sm">
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          Add Vehicle
+        </AddVehicleButton>
       </div>
     </div>
   );
