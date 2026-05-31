@@ -33,7 +33,7 @@ export default function ListingsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Live Listings</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Live Listings</h1>
         <p className="text-sm text-muted-foreground">
           Vehicles currently advertised. Manage drafts and archive from the{" "}
           <Link href="/advert/work-list" className="text-primary hover:underline">
@@ -59,7 +59,7 @@ export default function ListingsPage() {
               <Card key={l.id} className="flex flex-col gap-2 p-4">
                 <div className="flex items-center justify-between">
                   {v && <RegPlate registration={v.registration} size="sm" />}
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="text-xs">
                     {l.atPriceIndicator.replace("_", " ")}
                   </Badge>
                 </div>

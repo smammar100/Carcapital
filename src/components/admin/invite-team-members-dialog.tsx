@@ -228,7 +228,7 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
           className="fixed inset-0 z-50 flex h-screen w-screen flex-col gap-0 bg-popover text-popover-foreground outline-none data-open:animate-in data-open:fade-in-0 data-closed:animate-out data-closed:fade-out-0"
         >
           <div className="flex items-center justify-between border-b px-8 py-5">
-            <DialogTitle className="text-lg font-heading font-medium">
+            <DialogTitle className="text-base font-heading font-medium">
               Invite team members
             </DialogTitle>
             <DialogClose
@@ -514,7 +514,7 @@ function RoleDescriptionItem({ role }: { role: RoleDef }) {
         {open ? "Hide details" : "View details"}
       </button>
       {open && (
-        <ul className="mt-1 list-disc rounded bg-muted/40 px-5 py-2 text-[11px] text-muted-foreground">
+        <ul className="mt-1 list-disc rounded bg-muted/40 px-5 py-2 text-xs text-muted-foreground">
           {role.capabilities.length === 0 ? (
             <li>Bypasses every capability check (super-user).</li>
           ) : (

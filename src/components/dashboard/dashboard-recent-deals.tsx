@@ -94,7 +94,7 @@ export function DashboardRecentDeals() {
         <div className="flex items-center gap-2">
           <ClipboardList className="h-4 w-4 text-muted-foreground" />
           <h2 className="text-sm font-semibold">Recent Deals</h2>
-          <Badge variant="secondary" className="text-[10px]">
+          <Badge variant="secondary" className="text-2xs">
             {rows?.length ?? "—"}
           </Badge>
         </div>

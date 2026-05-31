@@ -91,7 +91,7 @@ export function CustomerResultRow({
       </div>
       <Badge
         variant="outline"
-        className={cn("shrink-0 text-[10px]", MATCH_BADGE_STYLES[matchType])}
+        className={cn("shrink-0 text-xs", MATCH_BADGE_STYLES[matchType])}
       >
         {MATCH_LABELS[matchType] ?? matchType}
       </Badge>

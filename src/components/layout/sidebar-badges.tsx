@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
  * the corresponding warranty pages share a single round-trip per key.
  */
 
-const BADGE_CLASS = "ml-auto h-5 min-w-[20px] px-1.5 text-[10px] font-medium";
+const BADGE_CLASS = "ml-auto h-5 min-w-[20px] px-1.5 text-2xs font-medium";
 
 function InHouseWarrantyBadge() {
   const { company } = useAuth();

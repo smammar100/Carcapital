@@ -214,7 +214,7 @@ export function VehicleImage({
         }
       />
       {pending && variant !== "thumb" && (
-        <span className="absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-[10px] text-muted-foreground backdrop-blur">
+        <span className="absolute bottom-1 right-1 inline-flex items-center gap-1 rounded bg-background/80 px-1.5 py-0.5 text-xs text-muted-foreground backdrop-blur">
           <RefreshCw className="h-2.5 w-2.5 animate-spin" />
           Generating
         </span>

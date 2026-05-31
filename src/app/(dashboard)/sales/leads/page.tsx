@@ -315,7 +315,7 @@ export default function LeadsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Leads</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">
             {filtered ? `${filtered.length} matching` : "Loading…"}
           </p>
@@ -645,7 +645,7 @@ function Field({
 }) {
   return (
     <div>
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className={capitalize ? "capitalize" : undefined}>{children}</div>

@@ -343,7 +343,7 @@ export default function VehiclesPage() {
             <span className="font-medium">
               {v.make} {v.model}
             </span>
-            <span className="text-[11px] text-muted-foreground">
+            <span className="text-xs text-muted-foreground">
               {v.year}
             </span>
           </div>
@@ -480,7 +480,7 @@ export default function VehiclesPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">All Vehicles</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">All Vehicles</h1>
           <PageHelper>
             Every car since the business opened. Sold, unsold, returned, all
             of them. For historical analysis and reporting.

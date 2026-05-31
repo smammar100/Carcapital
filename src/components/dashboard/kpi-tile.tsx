@@ -35,7 +35,7 @@ export function KpiTile({
         <span>{label}</span>
         {Icon && <Icon className="h-3.5 w-3.5" />}
       </div>
-      <div className="text-3xl font-semibold tracking-tight">
+      <div className="text-2xl font-semibold tracking-tight">
         {value === null ? <Skeleton className="h-9 w-16" /> : value}
       </div>
       {hint && <div className="text-xs text-muted-foreground">{hint}</div>}

@@ -88,7 +88,7 @@ export function VehicleHeaderCard({
           )}
           <div className="flex flex-col items-start gap-1">
             <RegPlate registration={vehicle.registration} size="lg" />
-            <h1 className="text-xl font-semibold leading-tight">
+            <h1 className="text-2xl font-semibold leading-tight">
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
             <p className="text-xs text-muted-foreground">

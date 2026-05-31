@@ -43,7 +43,7 @@ export default function DashboardLayout({
         <div className="w-full max-w-md rounded-lg border bg-background p-6 shadow-sm">
           <div className="mb-3 flex items-center gap-2 text-destructive">
             <AlertCircle className="h-5 w-5" />
-            <h1 className="text-lg font-semibold">Can&apos;t connect</h1>
+            <h1 className="text-base font-semibold">Can&apos;t connect</h1>
           </div>
           <p className="mb-4 text-sm text-muted-foreground">{error}</p>
           <p className="mb-4 text-xs text-muted-foreground">

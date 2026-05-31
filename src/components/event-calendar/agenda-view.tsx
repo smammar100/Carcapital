@@ -45,7 +45,7 @@ export function AgendaView({
             className="mb-2 text-muted-foreground/50"
             size={32}
           />
-          <h3 className="font-medium text-lg">No events found</h3>
+          <h3 className="font-medium text-base">No events found</h3>
           <p className="text-muted-foreground">
             There are no events scheduled for this time period.
           </p>
@@ -62,7 +62,7 @@ export function AgendaView({
               key={day.toString()}
             >
               <span
-                className="absolute -top-3 left-0 flex h-6 items-center bg-background pe-4 text-[10px] uppercase data-today:font-medium sm:pe-4 sm:text-xs"
+                className="absolute -top-3 left-0 flex h-6 items-center bg-background pe-4 text-xs uppercase data-today:font-medium sm:pe-4 sm:text-xs"
                 data-today={isToday(day) || undefined}
               >
                 {format(day, "d MMM, EEEE")}

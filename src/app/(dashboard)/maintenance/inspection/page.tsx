@@ -66,7 +66,7 @@ export default function MaintenanceInspectionListPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Inspection Queue</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Inspection Queue</h1>
         <p className="text-sm text-muted-foreground">
           Vehicles in received / pending / being-prepared states. Click a row to open the inspection side panel.
         </p>
@@ -105,7 +105,7 @@ export default function MaintenanceInspectionListPage() {
                         <span className="font-medium">
                           {vehicle.make} {vehicle.model}
                         </span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-xs text-muted-foreground">
                           {vehicle.stockId}
                         </span>
                       </div>

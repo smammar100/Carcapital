@@ -151,7 +151,7 @@ export function EventItem({
     return (
       <EventWrapper
         className={cn(
-          "mt-[var(--event-gap)] h-[var(--event-height)] items-center text-[10px] sm:text-xs",
+          "mt-[var(--event-gap)] h-[var(--event-height)] items-center text-xs sm:text-xs",
           className,
         )}
         currentTime={currentTime}
@@ -168,7 +168,7 @@ export function EventItem({
         {children || (
           <span className="truncate">
             {!event.allDay && (
-              <span className="truncate font-normal opacity-70 sm:text-[11px]">
+              <span className="truncate font-normal opacity-70 sm:text-xs">
                 {formatTimeWithOptionalMinutes(displayStart)}{" "}
               </span>
             )}
@@ -185,7 +185,7 @@ export function EventItem({
         className={cn(
           "py-1",
           durationMinutes < 45 ? "items-center" : "flex-col",
-          view === "week" ? "text-[10px] sm:text-xs" : "text-xs",
+          view === "week" ? "text-xs sm:text-xs" : "text-xs",
           className,
         )}
         currentTime={currentTime}
@@ -212,7 +212,7 @@ export function EventItem({
           <>
             <div className="truncate font-medium">{event.title}</div>
             {showTime && (
-              <div className="truncate font-normal opacity-70 sm:text-[11px]">
+              <div className="truncate font-normal opacity-70 sm:text-xs">
                 {getEventTime()}
               </div>
             )}

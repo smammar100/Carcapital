@@ -205,7 +205,7 @@ export function InfoCard({ icon, title, children }: InfoCardProps) {
           {icon}
         </div>
         <div className="min-w-0">
-          <div className="text-sm font-semibold">{title}</div>
+          <div className="text-base font-semibold">{title}</div>
           <div className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
             {children}
           </div>

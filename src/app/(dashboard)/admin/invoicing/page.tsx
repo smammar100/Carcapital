@@ -215,7 +215,7 @@ export default function InvoicingPage() {
             </Badge>
           ) : (
             <span className="inline-flex items-center gap-1">
-              <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-[11px] font-medium uppercase tracking-wide text-foreground/80">
+              <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-foreground/80">
                 {i.type}
               </span>
               {refundedSaleIds.has(i.id) && (
@@ -396,7 +396,7 @@ export default function InvoicingPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Invoicing</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Invoicing</h1>
           <p className="text-sm text-muted-foreground">
             Sales + refunds, purchase invoices, and external-job invoices.
           </p>
@@ -523,7 +523,7 @@ export default function InvoicingPage() {
       {filter === "refund" && (
         <Card className="flex flex-wrap gap-6 p-4 text-sm">
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Refunds this month
             </div>
             <div className="mt-0.5 font-semibold tabular-nums">
@@ -531,7 +531,7 @@ export default function InvoicingPage() {
             </div>
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Refunds YTD
             </div>
             <div className="mt-0.5 font-semibold tabular-nums">
@@ -539,7 +539,7 @@ export default function InvoicingPage() {
             </div>
           </div>
           <div>
-            <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
               Total refund invoices
             </div>
             <div className="mt-0.5 font-semibold tabular-nums">
@@ -777,7 +777,7 @@ function Stat({
 }) {
   return (
     <div className="rounded-md border bg-background p-3">
-      <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div

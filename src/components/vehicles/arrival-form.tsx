@@ -669,7 +669,7 @@ export function ArrivalForm() {
         className="flex flex-col gap-4"
       >
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Add Vehicle</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Add Vehicle</h1>
           <p className="text-sm text-muted-foreground">
             Single-page arrival form. Typing the registration auto-checks your
             stock book and pre-fills make / year / colour / fuel from DVLA.
@@ -692,7 +692,7 @@ export function ArrivalForm() {
 
         {/* ── Auto-filled group: identity + compliance + valuation ── */}
         <div className="flex items-center gap-3 pt-1">
-          <h2 className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Auto-filled from DVLA + AutoTrader
           </h2>
           <span className="h-px flex-1 bg-border" aria-hidden />
@@ -897,7 +897,7 @@ export function ArrivalForm() {
               <h2 className="text-sm font-semibold">
                 AutoTrader valuation
               </h2>
-              <span className="text-[10.5px] uppercase tracking-wide text-muted-foreground">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                 Based on {Number(form.getValues("mileage")).toLocaleString()} mi
               </span>
             </div>
@@ -929,7 +929,7 @@ export function ArrivalForm() {
 
         {/* ── Manual-entry group: source, docs, costs, receiving, pricing ── */}
         <div className="flex items-center gap-3 pt-3">
-          <h2 className="shrink-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Your details — entered manually
           </h2>
           <span className="h-px flex-1 bg-border" aria-hidden />
@@ -1290,7 +1290,7 @@ function ValuationCell({
         highlight && "border-emerald-300/60 bg-emerald-50/60 dark:bg-emerald-500/5",
       )}
     >
-      <div className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className="mt-0.5 text-base font-semibold tabular-nums">

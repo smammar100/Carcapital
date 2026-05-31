@@ -49,7 +49,7 @@ export function DashboardStatCard({
         <span>{label}</span>
       </div>
       <p className="text-xs text-muted-foreground">{previous}</p>
-      <div className="text-3xl font-semibold tracking-tight">
+      <div className="text-2xl font-semibold tracking-tight">
         {current === null ? <Skeleton className="h-9 w-32" /> : current}
       </div>
       <div

@@ -102,7 +102,7 @@ export function PopoverTitle({
 }: PopoverPrimitive.Title.Props): React.ReactElement {
   return (
     <PopoverPrimitive.Title
-      className={cn("font-semibold text-lg leading-none", className)}
+      className={cn("font-semibold text-base leading-none", className)}
       data-slot="popover-title"
       {...props}
     />

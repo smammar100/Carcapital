@@ -95,10 +95,10 @@ export default function MaintenanceCalendarPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-h2 font-semibold tracking-tight">
+          <h1 className="text-2xl font-semibold tracking-tight">
             Maintenance Calendar
           </h1>
-          <p className="text-body-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Jobs colored by status — click an event to view or edit.
           </p>
         </div>

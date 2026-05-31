@@ -179,7 +179,7 @@ export function DialogTitle({
   return (
     <DialogPrimitive.Title
       className={cn(
-        "font-heading font-semibold text-xl leading-none",
+        "font-heading font-semibold text-base leading-none",
         className,
       )}
       data-slot="dialog-title"

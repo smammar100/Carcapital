@@ -99,7 +99,7 @@ export default function ActivityLogPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Activity Log</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Activity Log</h1>
         <p className="text-sm text-muted-foreground">
           {filtered ? `${filtered.length} entries` : "Loading…"}
         </p>
@@ -179,7 +179,7 @@ export default function ActivityLogPage() {
                 <li key={e.id} className="relative">
                   <span className="absolute -left-[27px] top-1 grid h-5 w-5 place-items-center rounded-full bg-background ring-2 ring-border">
                     <Avatar className="h-5 w-5">
-                      <AvatarFallback className="text-[8px]">
+                      <AvatarFallback className="text-2xs">
                         {user ? getInitials(user.name) : "?"}
                       </AvatarFallback>
                     </Avatar>
@@ -202,7 +202,7 @@ export default function ActivityLogPage() {
                     )}
                     <Badge
                       variant="outline"
-                      className="text-[10px] capitalize"
+                      className="text-xs capitalize"
                     >
                       {e.actionType.replace(/_/g, " ")}
                     </Badge>

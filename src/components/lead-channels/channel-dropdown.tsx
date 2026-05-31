@@ -64,7 +64,7 @@ export function ChannelDropdown({
               />
               <span>{c.label}</span>
               {!c.enabled ? (
-                <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   disabled
                 </span>
               ) : null}

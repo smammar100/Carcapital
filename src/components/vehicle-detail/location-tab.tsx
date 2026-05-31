@@ -207,12 +207,12 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <span className={cn("text-lg font-semibold", tone.text)}>
+              <span className={cn("text-base font-semibold", tone.text)}>
                 {VEHICLE_LOCATION_LABELS[vehicle.currentLocation]}
               </span>
               <span className={cn("size-2 rounded-full", tone.dot)} aria-hidden />
               {vehicle.outForTestDrive ? (
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-[10px] font-medium text-foreground/80">
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/60 px-2 py-0.5 text-xs font-medium text-foreground/80">
                   <Clock className="size-3" /> Out for test drive
                 </span>
               ) : null}

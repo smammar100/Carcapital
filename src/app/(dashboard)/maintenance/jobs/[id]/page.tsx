@@ -121,7 +121,7 @@ export default function MaintenanceJobDetailPage({
       <Card className="flex flex-col gap-3 p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">
+            <h1 className="text-2xl font-semibold tracking-tight">
               Maintenance Job
             </h1>
             <p className="text-sm text-muted-foreground">{job.description}</p>
@@ -189,7 +189,7 @@ export default function MaintenanceJobDetailPage({
                 <div key={n.id} className="rounded border bg-muted/30 p-3 text-sm">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px] uppercase">
+                      <Badge variant="secondary" className="text-xs uppercase">
                         {nt?.label ?? n.noteType}
                       </Badge>
                       <span className="text-xs font-medium">
@@ -214,7 +214,7 @@ export default function MaintenanceJobDetailPage({
 function KV({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded border p-2">
-      <div className="text-[10px] uppercase text-muted-foreground">{label}</div>
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 font-medium">{value}</div>
     </div>
   );

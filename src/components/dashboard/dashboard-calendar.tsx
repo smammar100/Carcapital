@@ -220,18 +220,18 @@ function EventRow({ event }: { event: CalendarEvent }) {
       />
       <div className="flex flex-1 items-start justify-between gap-2 min-w-0">
         <div className={cn("flex flex-col gap-1 min-w-0", t.title)}>
-          <p className="truncate text-[13px] font-semibold leading-none">
+          <p className="truncate text-sm font-semibold leading-none">
             {event.title}
           </p>
           {event.subtitle ? (
-            <p className="truncate text-[11px] font-medium leading-none">
+            <p className="truncate text-2xs font-medium leading-none">
               {event.subtitle}
             </p>
           ) : null}
         </div>
         <div
           className={cn(
-            "flex shrink-0 flex-col items-end gap-1 text-[11px] font-medium uppercase leading-none tabular-nums",
+            "flex shrink-0 flex-col items-end gap-1 text-2xs font-medium uppercase leading-none tabular-nums",
             t.time,
           )}
         >
@@ -279,10 +279,10 @@ function DaySection({
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between">
-        <div className="flex items-baseline gap-1 text-[12px]">
+        <div className="flex items-baseline gap-1 text-xs">
           <span
             className={cn(
-              "font-bold leading-5 tracking-wide",
+              "font-semibold leading-5 tracking-wide",
               isToday ? "text-[var(--cal-blue-text)]" : "text-muted-foreground",
             )}
           >
@@ -303,7 +303,7 @@ function DaySection({
               >
                 <ChevronLeft className="size-3" />
               </button>
-              <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+              <span className="text-2xs font-medium text-muted-foreground tabular-nums">
                 {safeIdx + 1} / {events.length}
               </span>
               <button
@@ -316,7 +316,7 @@ function DaySection({
               </button>
             </>
           ) : (
-            <span className="text-[11px] font-medium text-muted-foreground tabular-nums">
+            <span className="text-2xs font-medium text-muted-foreground tabular-nums">
               {events.length === 0
                 ? "No events"
                 : `${events.length} event`}
@@ -445,7 +445,7 @@ export function DashboardCalendar() {
   return (
     <Card className="flex h-full flex-col gap-4 p-4" size="sm">
       <div className="flex items-center justify-between">
-        <h2 className="flex items-baseline gap-1 text-2xl leading-8 font-medium tracking-tight">
+        <h2 className="flex items-baseline gap-1 text-base font-semibold tracking-tight">
           <span className="text-foreground">
             {MONTHS[displayMonth.getMonth()]}
           </span>
@@ -458,7 +458,7 @@ export function DashboardCalendar() {
             <button
               type="button"
               onClick={goToday}
-              className="rounded-full px-2 py-0.5 text-[11px] font-medium text-[var(--cal-blue-text)] transition-colors hover:bg-[var(--cal-today-surface)]"
+              className="rounded-full px-2 py-0.5 text-2xs font-medium text-[var(--cal-blue-text)] transition-colors hover:bg-[var(--cal-today-surface)]"
             >
               Today
             </button>
@@ -487,7 +487,7 @@ export function DashboardCalendar() {
           {WEEKDAYS.map((d) => (
             <div
               key={d}
-              className="flex flex-1 items-start justify-center p-1 text-center text-[10px] font-semibold leading-4 text-muted-foreground"
+              className="flex flex-1 items-start justify-center p-1 text-center text-2xs font-semibold leading-4 text-muted-foreground"
             >
               {d}
             </div>
@@ -516,7 +516,7 @@ export function DashboardCalendar() {
                 >
                   <span
                     className={cn(
-                      "flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold leading-none tabular-nums",
+                      "flex h-6 w-6 items-center justify-center rounded-full text-2xs font-semibold leading-none tabular-nums",
                       isSelected
                         ? "bg-[var(--cal-blue-bar)] text-white"
                         : isToday

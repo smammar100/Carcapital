@@ -215,12 +215,12 @@ export default function ListingsPage() {
         width: 140,
         render: (l) =>
           l.atStockId ? (
-            <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[11px] font-medium text-emerald-800">
+            <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-800">
               Synced #{l.atStockId.slice(0, 8)}
             </span>
           ) : l.atLastError ? (
             <span
-              className="inline-flex items-center rounded-md bg-rose-100 px-1.5 py-0.5 text-[11px] font-medium text-rose-800"
+              className="inline-flex items-center rounded-md bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-800"
               title={l.atLastError}
             >
               Error
@@ -384,7 +384,7 @@ export default function ListingsPage() {
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">Work List</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">Work List</h1>
           <p className="text-sm text-muted-foreground">
             {filtered ? `${filtered.length} listings` : "Loading…"}
           </p>
@@ -452,7 +452,7 @@ export default function ListingsPage() {
                           selectedVehicle.atRetailValuation as number,
                         )
                       }
-                      className="mt-1 text-[11px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                     >
                       AutoTrader retail: £
                       {selectedVehicle.atRetailValuation.toLocaleString()} — use

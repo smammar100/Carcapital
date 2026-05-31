@@ -7,12 +7,12 @@ import type React from "react";
 type AvatarSize = "xs" | "sm" | "md" | "lg" | "xl" | "2xl";
 
 const AVATAR_SIZE_CLASS: Record<AvatarSize, string> = {
-  xs: "size-5 text-[10px]",
-  sm: "size-6 text-[10px]",
+  xs: "size-5 text-2xs",
+  sm: "size-6 text-2xs",
   md: "size-8 text-xs",
   lg: "size-10 text-sm",
   xl: "size-12 text-base",
-  "2xl": "size-16 text-lg",
+  "2xl": "size-16 text-base",
 };
 
 export function Avatar({

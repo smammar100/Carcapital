@@ -235,7 +235,7 @@ function AiAngleTile({
           <RefreshCw className="h-3.5 w-3.5" />
         </button>
       </div>
-      <Badge variant="secondary" className="self-start text-[10px]">
+      <Badge variant="secondary" className="self-start text-xs">
         {tile.label}
       </Badge>
     </div>
