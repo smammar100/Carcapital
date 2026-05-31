@@ -78,26 +78,69 @@ export async function POST(request: Request) {
     );
   }
 
-  // 1. Resolve the token (service-role bypasses RLS — visitor has no JWT).
-  const { data: link, error: linkErr } = await admin
-    .from("team_join_links")
-    .select("company_id, default_role")
+  // 1. Resolve the token. Check targeted single-use invitations first, then
+  //    fall back to the shared reusable team_join_links magic-link.
+  let companyId: string;
+  let defaultRoles: string[];
+  let invitationToken: string | null = null;
+
+  const { data: invitation, error: invErr } = await admin
+    .from("team_invitations" as never)
+    .select("company_id, default_roles, expires_at, used_at")
     .eq("token", token)
     .maybeSingle();
-  if (linkErr) {
+
+  if (invErr) {
     return NextResponse.json(
       { error: "Could not validate the join link" },
       { status: 502 },
     );
   }
-  if (!link) {
-    return NextResponse.json(
-      { error: "This join link is invalid or has been reset" },
-      { status: 404 },
-    );
+
+  if (invitation) {
+    const inv = invitation as {
+      company_id: string;
+      default_roles: string[];
+      expires_at: string;
+      used_at: string | null;
+    };
+    if (inv.used_at) {
+      return NextResponse.json(
+        { error: "This invitation link has already been used" },
+        { status: 409 },
+      );
+    }
+    if (new Date(inv.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: "This invitation link has expired. Ask your manager to send a new one." },
+        { status: 410 },
+      );
+    }
+    companyId = inv.company_id;
+    defaultRoles = inv.default_roles.length > 0 ? inv.default_roles : ["view_only"];
+    invitationToken = token;
+  } else {
+    // Fall back to shared magic-link (team_join_links).
+    const { data: link, error: linkErr } = await admin
+      .from("team_join_links")
+      .select("company_id, default_role")
+      .eq("token", token)
+      .maybeSingle();
+    if (linkErr) {
+      return NextResponse.json(
+        { error: "Could not validate the join link" },
+        { status: 502 },
+      );
+    }
+    if (!link) {
+      return NextResponse.json(
+        { error: "This join link is invalid or has been reset" },
+        { status: 404 },
+      );
+    }
+    companyId = link.company_id as string;
+    defaultRoles = [(link.default_role as string) || "view_only"];
   }
-  const companyId = link.company_id as string;
-  const defaultRole = (link.default_role as string) || "view_only";
 
   // Guard: don't create a duplicate within the same company.
   const { data: existing } = await admin
@@ -113,11 +156,18 @@ export async function POST(request: Request) {
     );
   }
 
-  // 2. Create the auth user (no confirmation email — joiner set the password).
+  const now = new Date().toISOString();
+  const memberName = body.name?.trim() || nameFromEmail(email);
+
+  // 2. Create the auth user. The on_auth_user_created trigger auto-inserts the
+  //    matching public.users row from user_metadata (company_id, name, role),
+  //    so company_id MUST be passed here or the trigger fails with
+  //    "Database error creating new user".
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
+    user_metadata: { company_id: companyId, name: memberName, role: "sales" },
   });
   if (authErr || !authData?.user) {
     return NextResponse.json(
@@ -127,33 +177,43 @@ export async function POST(request: Request) {
   }
   const authUserId = authData.user.id;
 
-  // 3. Insert the matching public.users row in the accepted state.
-  const now = new Date().toISOString();
-  const { error: rowErr } = await admin.from("users").insert({
-    id: authUserId,
-    company_id: companyId,
-    name: body.name?.trim() || nameFromEmail(email),
-    email,
-    role: "sales",
-    is_super_user: false,
-    roles: [defaultRole],
-    active: true,
-    invited_at: null,
-    accepted_at: now,
-    last_login_at: null,
-    two_step_enabled: false,
-    creation_mode: "direct",
-    // The joiner chose their own password — no forced reset.
-    password_reset_required: false,
-    activated_at: now,
-  } as never);
+  // 3. The trigger created the base row; enrich it with the accepted-state
+  //    fields the app needs (roles, timestamps, flags). The joiner chose their
+  //    own password, so no forced reset.
+  const { error: rowErr } = await admin
+    .from("users")
+    .update({
+      name: memberName,
+      roles: defaultRoles,
+      is_super_user: false,
+      active: true,
+      invited_at: null,
+      accepted_at: now,
+      two_step_enabled: false,
+      creation_mode: "direct",
+      password_reset_required: false,
+      activated_at: now,
+    } as never)
+    .eq("id", authUserId);
 
   if (rowErr) {
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
     return NextResponse.json(
-      { error: `Account created but profile insert failed: ${rowErr.message}` },
+      { error: `Account created but profile update failed: ${rowErr.message}` },
       { status: 502 },
     );
+  }
+
+  // 4. Mark single-use invitation as consumed so the link can't be reused.
+  if (invitationToken) {
+    try {
+      await admin
+        .from("team_invitations" as never)
+        .update({ used_at: now } as never)
+        .eq("token", invitationToken);
+    } catch {
+      /* best-effort — the account is already created */
+    }
   }
 
   return NextResponse.json({ ok: true, email });

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
 
 /**
  * Server-only proxy to OpenAI's image-generation API. The key lives in
@@ -16,6 +17,16 @@ const ALLOWED_SIZES = new Set([
 ]);
 
 export async function POST(request: Request) {
+  // AuthZ: must be a signed-in, active user (any role). Blocks anonymous and
+  // deactivated callers from spending OpenAI credits.
+  try {
+    await requireUser();
+  } catch (e) {
+    const r = authErrorResponse(e);
+    if (r) return r;
+    throw e;
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

@@ -12,6 +12,7 @@ import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { GridOverlay } from "@/components/layout/grid-overlay";
 import { PageShell } from "@/components/layout/page-shell";
+import { RouteGuard } from "@/components/layout/route-guard";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardLayout({
@@ -122,7 +123,9 @@ function Shell({ children }: { children: React.ReactNode }) {
             the wider 1400px frame — Master Sheet et al. — render their
             own <PageShell wide> inside this default one; the inner wrapper
             wins because its max-w is higher. See plan §G4. */}
-        <PageShell>{children}</PageShell>
+        <PageShell>
+          <RouteGuard>{children}</RouteGuard>
+        </PageShell>
         {/* Dev-only column + 4px baseline overlay; appears when the URL
             contains `?grid=1`, otherwise renders nothing. Suspense wrap is
             required because useSearchParams() trips the CSR-bailout build

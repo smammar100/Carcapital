@@ -18,6 +18,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
 import {
   DvlaError,
   lookupDvlaVehicle,
@@ -243,6 +244,15 @@ function mergePayload(
 
 // ---- POST /api/vehicle/lookup -------------------------------------------
 export async function POST(request: Request) {
+  // AuthZ: must be a signed-in, active user (any role).
+  try {
+    await requireUser();
+  } catch (e) {
+    const r = authErrorResponse(e);
+    if (r) return r;
+    throw e;
+  }
+
   let payload: {
     registrationNumber?: string;
     force?: boolean;
