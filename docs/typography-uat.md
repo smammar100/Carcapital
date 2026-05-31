@@ -1,7 +1,7 @@
 # Typography UAT — full-app verification
 
-**Date:** 2026-05-31 · **Scope:** every page, view, and overlay in the app ·
-**Result:** ✅ **0 off-scale offenders across 34 surfaces + live overlays**
+**Date:** 2026-05-31 · **Scope:** every page, view, overlay, and auth page ·
+**Result:** ✅ **0 off-scale offenders across every surface audited**
 
 This documents the user-acceptance sweep that verified the consolidated type
 system is *actually rendered* correctly on every screen — not just present in the
@@ -61,18 +61,20 @@ Representative computed-size snapshots (size×count) captured during the sweep:
 | `/inventory/add-vehicle`       | 24×1 · 18×1 · 14×117 · 12×40 · 10×2    | **0**     |
 | Vehicle detail `/vehicles/[id]`| 24×5 · 18×7 · 14×70 · 12×54 · 10×9     | **0**     |
 | Advert editor `/vehicles/[id]/advert` | 18×10 · 14×54 · 12×249 · 10×3   | **0**     |
+| Dashboard `/dashboard` (logged-in + logged-out states) | 24×7 · 18×2 · 14 · 12 · 10 | **0** |
 | **Overlay** — user dropdown menu | 14×5 · 12×1                         | **0**     |
 | **Modal** — "New event" booking Sheet | title **18px/600** · 14×3      | **0**     |
+| **Auth** — `/login`, `/forgot-password`, `/reset-password` | 24 brand · 14 · 12 | **0** |
 
 The dropdown and the "New event" Sheet confirm overlays inherit the system: the
 Sheet title renders at the **18px title tier / 600** exactly as designed. All
 dialog/sheet/drawer/alert-dialog primitives share these migrated titles, so every
 modal is correct by construction.
 
-> **Not audited:** the unauthenticated auth pages (`/login`, `/forgot-password`,
-> `/reset-password`, `/set-password`) require logging the user's session out, which
-> was not done. They use the same migrated form controls and dialog primitives, so
-> they inherit the scale — but a logged-out pass should confirm them before release.
+> **Auth pages (logged-out pass):** `/login`, `/forgot-password`, and
+> `/reset-password` render the centred-card layout on-scale — 24px brand title,
+> 14px labels/inputs, 12px hints — all `OFF(0)`. `/set-password` redirects to
+> `/login` without an invite token; the landing page is clean.
 
 ---
 
