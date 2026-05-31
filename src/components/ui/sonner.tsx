@@ -37,6 +37,7 @@ const Toaster = ({ ...props }: ToasterProps) => {
         } as React.CSSProperties
       }
       toastOptions={{
+        style: { fontSize: "0.875rem" },
         classNames: {
           toast: "cn-toast",
         },
