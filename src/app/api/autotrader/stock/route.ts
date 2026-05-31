@@ -21,10 +21,26 @@ import {
 } from "@/lib/services/autotrader-service";
 import { buildStockCreateBody } from "@/lib/services/autotrader-stock-mapper";
 import type { Vehicle, Listing } from "@/lib/types";
+import {
+  requireUser,
+  requireCapability,
+  authErrorResponse,
+} from "@/lib/auth/require-user";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
+  // AuthZ: only a caller who can publish to AutoTrader may invoke this.
+  let actor;
+  try {
+    actor = await requireUser();
+    requireCapability(actor, "listing:publish_autotrader");
+  } catch (e) {
+    const r = authErrorResponse(e);
+    if (r) return r;
+    throw e;
+  }
+
   let payload: { vehicleId?: string; listingId?: string };
   try {
     payload = await request.json();
@@ -67,6 +83,11 @@ export async function POST(request: Request) {
   // Defense: the listing must belong to the vehicle + same company.
   if (lRow.vehicle_id !== vehicleId || lRow.company_id !== vRow.company_id) {
     return NextResponse.json({ error: "vehicle_listing_mismatch" }, { status: 400 });
+  }
+  // Cross-company guard: the records must belong to the CALLER's company.
+  // 404 so cross-company record existence isn't leaked.
+  if (vRow.company_id !== actor.companyId) {
+    return NextResponse.json({ error: "vehicle_or_listing_not_found" }, { status: 404 });
   }
 
   // Map snake_case rows → the camelCase shape the mapper expects (only the

@@ -21,6 +21,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
 
 export const runtime = "nodejs";
 
@@ -105,6 +106,15 @@ interface DvlaResponse {
 
 // ---- POST /api/dvla/lookup --------------------------------------------
 export async function POST(request: Request) {
+  // AuthZ: must be a signed-in, active user (any role).
+  try {
+    await requireUser();
+  } catch (e) {
+    const r = authErrorResponse(e);
+    if (r) return r;
+    throw e;
+  }
+
   const apiKey = process.env.DVLA_API_KEY;
   if (!apiKey) {
     return NextResponse.json(

@@ -11,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROLE_DEFS, type RoleValue } from "@/lib/roles";
-import { teamService, InviteValidationError } from "@/lib/services/team-service";
 import { joinLinkService } from "@/lib/services/join-link-service";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
@@ -64,20 +63,31 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
     }
     setSubmitting(true);
     try {
-      const created = await teamService.invite({
-        companyId: company.id,
-        emails,
-        roles: [DEFAULT_ROLE],
-        actorId: user.id,
-      });
+      let sent = 0;
+      for (const recipientEmail of emails) {
+        const res = await fetch("/api/team/send-invite", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            companyId: company.id,
+            recipientEmail,
+            roles: [DEFAULT_ROLE],
+            invitedByName: user.name,
+          }),
+        });
+        const json = (await res.json()) as { success?: boolean; error?: string };
+        if (!res.ok) throw new Error(json.error ?? "Could not send invitation");
+        sent++;
+      }
       toast.success(
-        `Invited ${created.length} member${created.length === 1 ? "" : "s"}`,
+        `Invitation sent to ${sent} ${sent === 1 ? "person" : "people"}`,
       );
       setEmailDraft("");
-      onInvited?.(created.length);
+      onInvited?.(sent);
     } catch (err) {
-      if (err instanceof InviteValidationError) toast.error(err.message);
-      else toast.error("Could not send invitations");
+      toast.error(
+        err instanceof Error ? err.message : "Could not send invitations",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -109,8 +119,8 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="gap-5 p-6 sm:max-w-lg">
+        <DialogHeader className="space-y-0 pr-8">
           <DialogTitle>Invite people to your team</DialogTitle>
         </DialogHeader>
 

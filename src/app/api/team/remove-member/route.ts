@@ -9,17 +9,23 @@
  *   - Established user → soft delete: active=false + ban the auth login so
  *     sessions are revoked, while preserving their historical records.
  *
- * Mirrors /api/team/create-with-password conventions.
+ * AuthZ: the caller must be authenticated, active, and hold admin:manage_users.
+ * The actor is taken from the session — never from the request body — and may
+ * only remove members of their own company.
  */
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  requireUser,
+  requireCapability,
+  authErrorResponse,
+} from "@/lib/auth/require-user";
 
 export const runtime = "nodejs";
 
 interface Body {
   userId?: string;
-  actorId?: string;
 }
 
 export async function POST(request: Request) {
@@ -30,14 +36,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const userId = body.userId?.trim();
-  const actorId = body.actorId?.trim();
+  // AuthZ: only an admin who can manage users may remove members. The actor is
+  // the authenticated caller — never a body-supplied actorId.
+  let actor;
+  try {
+    actor = await requireUser();
+    requireCapability(actor, "admin:manage_users");
+  } catch (e) {
+    const r = authErrorResponse(e);
+    if (r) return r;
+    throw e;
+  }
+  const actorId = actor.id;
 
-  if (!userId || !actorId) {
-    return NextResponse.json(
-      { error: "userId and actorId are required" },
-      { status: 400 },
-    );
+  const userId = body.userId?.trim();
+  if (!userId) {
+    return NextResponse.json({ error: "userId is required" }, { status: 400 });
   }
   if (userId === actorId) {
     return NextResponse.json(
@@ -79,6 +93,12 @@ export async function POST(request: Request) {
   }
 
   const companyId = target.company_id as string;
+
+  // Cross-company guard: an admin may only remove members of their own company.
+  // 404 (not 403) so cross-company member existence isn't leaked.
+  if (companyId !== actor.companyId) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
 
   // Guard: never strand a company without a super-administrator.
   if (target.is_super_user) {

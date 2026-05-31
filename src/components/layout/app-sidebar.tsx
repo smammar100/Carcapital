@@ -10,9 +10,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
 import { useSidebarState } from "@/contexts/sidebar-state-context";
 import { AddVehicleModal } from "@/components/vehicles/add-vehicle-modal";
-import { SIDEBAR_GROUPS, type SidebarItem } from "./sidebar-config";
+import { getPrimaryCta, type PrimaryCta } from "@/lib/role-cta";
+import {
+  SIDEBAR_GROUPS,
+  type SidebarGroup,
+  type SidebarItem,
+} from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
 import { cn } from "@/lib/utils";
 
@@ -39,11 +45,28 @@ function saveCollapsed(s: Set<string>): void {
 export function AppSidebar() {
   const pathname = usePathname();
   const { company } = useAuth();
+  const { can, isSuperUser } = usePermissions();
+  const primaryCta = React.useMemo(
+    () => getPrimaryCta({ isSuperUser, can }),
+    [isSuperUser, can],
+  );
   const { collapsed: railCollapsed, toggle: toggleRail } = useSidebarState();
   const [groupCollapsed, setGroupCollapsed] = React.useState<Set<string>>(
     () => new Set(),
   );
   const [addOpen, setAddOpen] = React.useState(false);
+
+  // Capability gating: an item shows if the user is a super-user, has no
+  // gate, or holds ANY of its required capabilities. A group renders only
+  // when at least one of its items is visible.
+  const visibleGroups: SidebarGroup[] = React.useMemo(() => {
+    const itemVisible = (item: SidebarItem) =>
+      isSuperUser || !item.requiredAnyOf || item.requiredAnyOf.some(can);
+    return SIDEBAR_GROUPS.map((group) => ({
+      ...group,
+      items: group.items.filter(itemVisible),
+    })).filter((group) => group.items.length > 0);
+  }, [can, isSuperUser]);
 
   React.useEffect(() => {
     setGroupCollapsed(loadCollapsed());
@@ -119,24 +142,27 @@ export function AppSidebar() {
         </div>
       )}
 
-      <div
-        className={cn(
-          "mt-5",
-          railCollapsed ? "flex justify-center px-0" : "px-4",
-        )}
-      >
-        <AddVehicleCta
-          collapsed={railCollapsed}
-          active={isActive("/inventory/add-vehicle")}
-          onClick={() => setAddOpen(true)}
-        />
-      </div>
+      {primaryCta && (
+        <div
+          className={cn(
+            "mt-5",
+            railCollapsed ? "flex justify-center px-0" : "px-4",
+          )}
+        >
+          <PrimaryCtaButton
+            cta={primaryCta}
+            collapsed={railCollapsed}
+            active={isActive(primaryCta.activeMatch)}
+            onModal={() => setAddOpen(true)}
+          />
+        </div>
+      )}
       <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} />
 
       <div className="h-6" />
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-3">
-        {SIDEBAR_GROUPS.map((group, gi) => {
+        {visibleGroups.map((group, gi) => {
           const items = group.items;
 
           if (!group.label) {
@@ -252,15 +278,18 @@ function NavRow({ item, active, collapsed }: NavRowProps) {
   );
 }
 
-function AddVehicleCta({
+function PrimaryCtaButton({
+  cta,
   collapsed,
   active,
-  onClick,
+  onModal,
 }: {
+  cta: PrimaryCta;
   collapsed: boolean;
   active: boolean;
-  onClick: () => void;
+  onModal: () => void;
 }) {
+  const Icon = cta.icon;
   const expandedClass = cn(
     "group/cta flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
     active && "ring-2 ring-primary/40",
@@ -270,36 +299,55 @@ function AddVehicleCta({
     active && "ring-2 ring-primary/40",
   );
 
+  // Expanded rail — full-width control with label.
   if (!collapsed) {
+    if (cta.kind === "modal") {
+      return (
+        <button
+          type="button"
+          onClick={onModal}
+          className={expandedClass}
+          aria-label={cta.label}
+        >
+          <Icon className="h-4 w-4" />
+          <span>{cta.label}</span>
+        </button>
+      );
+    }
     return (
-      <button
-        type="button"
-        onClick={onClick}
+      <Link
+        href={cta.href ?? "#"}
         className={expandedClass}
-        aria-label="Add Vehicle"
+        aria-label={cta.label}
       >
-        <Plus className="h-4 w-4" />
-        <span>Add Vehicle</span>
-      </button>
+        <Icon className="h-4 w-4" />
+        <span>{cta.label}</span>
+      </Link>
     );
   }
 
+  // Collapsed rail — icon-only with tooltip.
+  const trigger =
+    cta.kind === "modal" ? (
+      <button
+        type="button"
+        onClick={onModal}
+        className={railClass}
+        aria-label={cta.label}
+      >
+        <Icon className="h-4 w-4" />
+      </button>
+    ) : (
+      <Link href={cta.href ?? "#"} className={railClass} aria-label={cta.label}>
+        <Icon className="h-4 w-4" />
+      </Link>
+    );
+
   return (
     <Tooltip>
-      <TooltipTrigger
-        render={
-          <button
-            type="button"
-            onClick={onClick}
-            className={railClass}
-            aria-label="Add Vehicle"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        }
-      />
+      <TooltipTrigger render={trigger} />
       <TooltipContent side="right" sideOffset={8}>
-        Add Vehicle
+        {cta.label}
       </TooltipContent>
     </Tooltip>
   );

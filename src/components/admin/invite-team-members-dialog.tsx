@@ -20,7 +20,6 @@ import {
   type RoleValue,
   type RoleDef,
 } from "@/lib/roles";
-import { teamService, InviteValidationError } from "@/lib/services/team-service";
 import { useAuth } from "@/contexts/auth-context";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -57,6 +56,7 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
   // Create-with-password mode state.
   const [pwEmail, setPwEmail] = useState("");
   const [password, setPassword] = useState(generatePassword());
+  const [sendCredEmail, setSendCredEmail] = useState(false);
   const [createdCreds, setCreatedCreds] = useState<{
     email: string;
     password: string;
@@ -70,6 +70,7 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
     setRoleSearch("");
     setPwEmail("");
     setPassword(generatePassword());
+    setSendCredEmail(false);
     setCreatedCreds(null);
     setMode("invite");
   }
@@ -151,6 +152,7 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
           email,
           password,
           roles: [...roles],
+          sendEmail: sendCredEmail,
         }),
       });
       const json = (await res.json()) as {
@@ -163,7 +165,11 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
         return;
       }
       setCreatedCreds({ email: json.email ?? email, password });
-      toast.success(`${email} created — relay the credentials below`);
+      toast.success(
+        sendCredEmail
+          ? `${email} created — credentials emailed to them`
+          : `${email} created — relay the credentials below`,
+      );
       onInvited?.(1);
     } catch {
       toast.error("Could not create the member");
@@ -179,11 +185,12 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
       return;
     }
     setEmailError(null);
-    // Commit any draft text as a final email
+    // Commit any draft text as a final email.
     if (emailDraft.trim()) commitEmail(emailDraft);
-    const finalEmails = emailDraft.trim() && EMAIL_RE.test(emailDraft.trim())
-      ? [...emails, emailDraft.trim().toLowerCase()]
-      : emails;
+    const finalEmails =
+      emailDraft.trim() && EMAIL_RE.test(emailDraft.trim())
+        ? [...emails, emailDraft.trim().toLowerCase()]
+        : emails;
     if (finalEmails.length === 0) {
       setEmailError("Add at least one email address");
       return;
@@ -193,22 +200,34 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
       return;
     }
     setSubmitting(true);
+    let successCount = 0;
     try {
-      const created = await teamService.invite({
-        companyId: company.id,
-        emails: finalEmails,
-        roles: [...roles],
-        actorId: user.id,
-      });
-      toast.success(
-        `Invitation sent to ${created.length} member${created.length === 1 ? "" : "s"}`,
+      // Send a targeted single-use invite email for each address.
+      await Promise.all(
+        finalEmails.map(async (recipientEmail) => {
+          const res = await fetch("/api/team/send-invite", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              companyId: company.id,
+              recipientEmail,
+              roles: [...roles],
+              invitedByName: user.name,
+            }),
+          });
+          const json = (await res.json()) as { success?: boolean; error?: string };
+          if (!res.ok) throw new Error(json.error ?? "Could not send invitation");
+          successCount++;
+        }),
       );
-      onInvited?.(created.length);
+      toast.success(
+        `Invitation email sent to ${successCount} member${successCount === 1 ? "" : "s"}`,
+      );
+      onInvited?.(successCount);
       reset();
       onOpenChange(false);
     } catch (err) {
-      if (err instanceof InviteValidationError) toast.error(err.message);
-      else toast.error("Could not send invitations");
+      toast.error(err instanceof Error ? err.message : "Could not send invitations");
     } finally {
       setSubmitting(false);
     }
@@ -402,10 +421,20 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
                         </Button>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        The member signs in immediately with these — no email
-                        is sent. Ask them to change it after first login.
+                        The member signs in immediately — ask them to change
+                        their password after first login.
                       </p>
                     </div>
+                    <label className="flex cursor-pointer items-center gap-2.5">
+                      <Checkbox
+                        checked={sendCredEmail}
+                        onCheckedChange={(v) => setSendCredEmail(v === true)}
+                        data-testid="send-cred-email"
+                      />
+                      <span className="text-sm">
+                        Notify member by email with login link
+                      </span>
+                    </label>
                   </>
                 )}
               </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { CAR_ANGLES, carPhotoPrompt, type CarAngle } from "@/lib/services/photo-service";
 import {
@@ -80,6 +81,15 @@ async function generateAndPersist(
 }
 
 export async function POST(request: Request) {
+  // AuthZ: must be a signed-in, active user (any role).
+  try {
+    await requireUser();
+  } catch (e) {
+    const r = authErrorResponse(e);
+    if (r) return r;
+    throw e;
+  }
+
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     return NextResponse.json(
