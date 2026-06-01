@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Pencil, RefreshCw, ShieldCheck } from "lucide-react";
+import { RefreshCw, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -267,90 +267,44 @@ function EditableField({
   label,
   value,
   type,
-  readOnly,
   onCommit,
 }: {
   label: string;
   value: string | null;
   type: "text" | "number" | "date";
-  readOnly?: boolean;
   onCommit: (value: string | null) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  // Always-on input matching the Make/Model section above — no pencil, no
+  // click-to-edit toggle. Local draft mirrors the parent value so a re-fetch
+  // or sibling override updates the field. Date inputs commit on change
+  // (single interaction); text/number commit on blur so typing isn't cut off.
   const [draft, setDraft] = useState(value ?? "");
 
-  // Sync the local draft when the parent's value changes (re-fetch landed,
-  // sibling override flipped it, etc.). This is the documented React
-  // pattern for "mirror an external prop" — the rule is silenced here.
   /* eslint-disable react-hooks/set-state-in-effect */
   React.useEffect(() => {
     setDraft(value ?? "");
   }, [value]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  function commit() {
-    onCommit(draft.trim() === "" ? null : draft);
-    setEditing(false);
+  function commit(next: string) {
+    onCommit(next.trim() === "" ? null : next);
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </label>
-        {!readOnly && !editing ? (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={`Override ${label}`}
-          >
-            <Pencil className="size-3" />
-          </button>
-        ) : null}
-      </div>
-      {editing ? (
-        <Input
-          type={type}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") {
-              setDraft(value ?? "");
-              setEditing(false);
-            }
-          }}
-          autoFocus
-          className="h-8 text-sm"
-        />
-      ) : (
-        <button
-          type="button"
-          onClick={() => !readOnly && setEditing(true)}
-          disabled={readOnly}
-          className={cn(
-            "w-full rounded-md border bg-muted/30 px-2.5 py-1.5 text-left text-sm tabular-nums",
-            !readOnly &&
-              "cursor-text transition-colors hover:border-primary/40 hover:bg-muted/50",
-          )}
-          aria-label={readOnly ? label : `Edit ${label}`}
-        >
-          {value && value.trim() !== "" ? (
-            type === "date" ? (
-              formatDate(value)
-            ) : (
-              value
-            )
-          ) : (
-            <span className="text-muted-foreground">
-              {readOnly ? "—" : "— add"}
-            </span>
-          )}
-        </button>
-      )}
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
+      <Input
+        type={type}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (type === "date") commit(e.target.value);
+        }}
+        onBlur={() => commit(draft)}
+        className="text-sm"
+      />
     </div>
   );
 }
