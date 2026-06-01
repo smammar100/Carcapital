@@ -134,8 +134,9 @@ export function ComplianceCard({
         />
       </div>
 
-      {/* 6 detail fields in a 2/3-col grid with override pencils */}
-      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* 6 detail fields — 2 per row to match the vehicle-identity + seller
+          sections above and below (was 3-col on lg, which looked inconsistent). */}
+      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
         <EditableField
           label="Registration Date"
           value={value.registrationDate}
