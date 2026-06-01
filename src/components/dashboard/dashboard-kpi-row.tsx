@@ -45,6 +45,12 @@ interface KpiDef {
   href: string;
   requiredAnyOf: Capability[];
   value: (s: Stats) => string;
+  /**
+   * Operational KPIs are tailored for hands-on roles (Inspector, Workshop).
+   * Super-users / admins see the canonical 6-card overview instead, so these
+   * are hidden from them to avoid an unbalanced 8-card row.
+   */
+  operational?: boolean;
 }
 
 const KPI_DEFS: KpiDef[] = [
@@ -71,6 +77,7 @@ const KPI_DEFS: KpiDef[] = [
     href: "/maintenance/inspection",
     requiredAnyOf: ["inspection:run", "inspection:add_note"],
     value: (s) => String(s.inspectionsPending),
+    operational: true,
   },
   {
     key: "active_jobs",
@@ -84,6 +91,7 @@ const KPI_DEFS: KpiDef[] = [
       "workshop:add_note",
     ],
     value: (s) => String(s.activeJobs),
+    operational: true,
   },
   {
     key: "cars_in_readiness",
@@ -220,13 +228,18 @@ export function DashboardKpiRow() {
     };
   }, [data]);
 
-  const visibleKpis = useMemo(
-    () =>
-      KPI_DEFS.filter(
-        (k) => isSuperUser || k.requiredAnyOf.some((c) => can(c)),
-      ),
-    [can, isSuperUser],
-  );
+  const visibleKpis = useMemo(() => {
+    // Admin-overview viewers (super-users, or anyone with the financials /
+    // master-sheet view) get the canonical 6-card overview — the operational
+    // KPIs (Inspections Pending, Active Workshop Jobs) are for hands-on roles,
+    // so we hide them here to avoid an unbalanced 8-card row.
+    const isOverviewViewer =
+      isSuperUser || can("admin:view_financials") || can("admin:view_master_sheet");
+    return KPI_DEFS.filter((k) => {
+      if (k.operational && isOverviewViewer) return false;
+      return isSuperUser || k.requiredAnyOf.some((c) => can(c));
+    });
+  }, [can, isSuperUser]);
 
   if (visibleKpis.length === 0) return null;
 
