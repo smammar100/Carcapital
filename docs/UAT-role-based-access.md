@@ -238,6 +238,8 @@ Validates the full lifecycle: admin invites by email with a chosen role → reci
 
 **Setup:** log in as **Abbas (Owner)**. Open **Users & Permissions**. Note the `RESEND_API_KEY` must be set for the email to actually send; on the no-domain dev key, Resend only delivers to the address the Resend account was verified with — if the email doesn't arrive, read the invite link from the `team_invitations` row (`token`) and open `/join/<token>` directly.
 
+> **Root-cause fix — shipped `a1e3aef` (2026-06-01).** Previously, accepting an invite created a Supabase **auth** user but **no `public.users` profile**: `accept-join` (and `create-with-password`) assumed an `on_auth_user_created` trigger inserted the row and only ran an `UPDATE`. **No such trigger exists in this database**, so the `UPDATE` matched zero rows and the new user had **null `company_id`/`roles`/`active` → no access, not in the team list** — the symptom this Part 4 exists to catch. Both routes now **UPSERT** the profile row explicitly (`id`, `company_id`, `email`, `name`, `role`, `roles`, flags), so cases 4C/4D pass. `legacyRoleForRoles()` (in `src/lib/roles.ts`) maps the capability `roles[]` to the legacy `users.role` the salesperson/inspector pickers still key off. **Regression assertion:** after any accept, the `public.users` row must exist with a non-null `company_id`, the invited `roles[]`, and `active = true`.
+
 ### 4A. Invite with a chosen role
 | # | Steps | Expected | ✓ | Notes |
 |---|---|---|---|---|
@@ -275,6 +277,17 @@ Validates the full lifecycle: admin invites by email with a chosen role → reci
 | 4E.1 | Invite `qa-view@yopmail.com` leaving role at **default (View Only)** → accept → log in | Lands on `/admin/master-sheet`; read-only sections only; **no primary CTA**; can't reach edit pages | [ ] | |
 | 4E.2 | Invite an email that's already an active member | Graceful handling — clear message, no duplicate `users` row | [ ] | |
 | 4E.3 | After acceptance, Abbas deactivates the new member (remove-member) → that user tries to log in | Login blocked / no data access (active-flag gate) | [ ] | |
+
+### 4F. Verified automated runs (2026-06-01 · dev server + Supabase)
+`accept-join` was driven via the live API with magic-link tokens (no email needed); the resulting profile, capabilities, and login were verified directly in the database. Test accounts were deleted afterward (DB returned to 13 users / 13 auth / 0 orphans).
+
+| Role invited | Profile created | `roles[]` | legacy `role` | In team list | Home route | Primary CTA | Login |
+|---|---|---|---|---|---|---|---|
+| Sales Specialist | ✅ | `{sales_specialist}` | `sales` | ✅ | `/sales/leads` | New Lead | ✅ |
+| Inspector | ✅ | `{inspector}` | `inspector` | ✅ | `/maintenance/inspection` | Start Inspection | ✅ |
+| Finance Admin | ✅ | `{finance_admin}` | `sales` | ✅ | `/admin/invoicing` | New Invoice | ✅ |
+
+All three: `company_id` set, `active = true`, `accepted_at` set, `password_reset_required = false`, capabilities resolved to the role's expected set. Confirms the `a1e3aef` fix generalises across operations / sales / finance roles.
 
 ---
 
