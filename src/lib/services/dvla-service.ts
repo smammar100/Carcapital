@@ -229,6 +229,17 @@ export const dvlaService = {
         return toFormPartial(body);
       }
 
+      // 401/403 — session expired or insufficient permission. The combined
+      // lookup route now requires an authenticated active user (added with
+      // the role-based security hardening). Surface it clearly rather than
+      // letting it collapse into a generic null that looks like "not found".
+      if (res.status === 401 || res.status === 403) {
+        console.warn(
+          `[dvla] lookup unauthorized (${res.status}) for ${reg} — session may have expired`,
+        );
+        return null;
+      }
+
       // 500 (missing key) or 502 (upstream) — try mock fallback first
       if (res.status === 500 || res.status === 502) {
         const fallback = mockFallback(reg);
