@@ -206,7 +206,7 @@ export function NewWarrantyDialog({
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-4 px-6"
         >
           {/* 1. Type selector — two card-style options */}
           <div className="grid gap-2 sm:grid-cols-2">
@@ -419,7 +419,10 @@ export function NewWarrantyDialog({
             </div>
           </Card>
 
-          <DialogFooter>
+          {/* -mx-6 cancels the form's px-6 so the footer spans full width and
+              its own px-6 lines up flush with the dialog edges, matching the
+              header. mt-2 keeps a little breathing room above the divider. */}
+          <DialogFooter className="-mx-6 mt-2">
             <Button
               type="button"
               variant="outline"
