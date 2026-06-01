@@ -33,13 +33,25 @@ export class AuthError extends Error {
   }
 }
 
+/** Reject a promise if it doesn't settle within `ms`. Prevents a slow
+ *  Supabase round-trip from hanging the whole serverless function (which,
+ *  on the vehicle-lookup route, manifested as a spinner that never resolved). */
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new AuthError(401, `${label} timed out`)), ms),
+    ),
+  ]);
+}
+
 /** Authenticate + load the active caller. Throws AuthError(401/403) otherwise. */
 export async function requireUser(): Promise<AuthedActor> {
   const supabase = await createClient();
   const {
     data: { user },
     error,
-  } = await supabase.auth.getUser();
+  } = await withTimeout(supabase.auth.getUser(), 8_000, "auth check");
   if (error || !user) throw new AuthError(401, "Authentication required");
 
   // Load the profile with the service-role client so this works regardless of

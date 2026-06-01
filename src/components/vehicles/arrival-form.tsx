@@ -350,13 +350,27 @@ export function ArrivalForm() {
     setDuplicate(null);
     setLoadingStartedAt(Date.now());
 
-    // Hard ceiling on the WHOLE lookup. If we don't land on a terminal
-    // state in 15s the controller aborts itself. Defence-in-depth alongside
-    // dvla-service's own 12s AbortController + the 5s Supabase race below.
-    const ceiling = setTimeout(() => controller.abort(), 15_000);
-
     const formatted = formatRegPlate(reg);
     let landedTerminal = false;
+
+    // Hard ceiling on the WHOLE lookup. If we don't land on a terminal
+    // state in 15s, force the form out of "loading" so the spinner can
+    // never stick. Defence-in-depth alongside dvla-service's own 12s
+    // AbortController + the 5s Supabase race below.
+    //
+    // NB: we set not_found DIRECTLY here rather than only aborting the
+    // controller — the finally block's safety-net skips when signal.aborted
+    // is true, so a bare abort() would leave the spinner spinning forever
+    // (the production "just keeps searching" bug).
+    const ceiling = setTimeout(() => {
+      if (!landedTerminal) {
+        console.warn("[arrival-form] lookup ceiling hit (15s) — forcing not_found");
+        landedTerminal = true;
+        setDvlaState("not_found");
+        setLoadingStartedAt(null);
+      }
+      controller.abort();
+    }, 15_000);
 
     try {
       // dbPromise races against a 5s deadline. If Supabase doesn't respond
