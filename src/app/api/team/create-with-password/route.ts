@@ -16,7 +16,7 @@
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { RoleValue } from "@/lib/roles";
+import { legacyRoleForRoles, type RoleValue } from "@/lib/roles";
 import { sendCredentialsEmail } from "@/lib/email/send-invite";
 import {
   requireUser,
@@ -122,15 +122,16 @@ export async function POST(request: Request) {
   const isSuperUser = roles.includes("owner");
   const memberName = body.name?.trim() || nameFromEmail(email);
 
-  // 1. Create the auth user. The on_auth_user_created trigger auto-inserts the
-  //    matching public.users row from user_metadata (company_id, name, role),
-  //    so company_id MUST be passed here or the trigger fails with
-  //    "Database error creating new user".
+  // 1. Create the auth user (no email round-trip). We provision the matching
+  //    public.users row ourselves in step 2 — this codebase has NO
+  //    on_auth_user_created trigger, so relying on one would leave the member
+  //    with an auth account but no profile (null company/roles → no access).
+  const legacyRole = legacyRoleForRoles(roles);
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { company_id: companyId, name: memberName, role: "sales" },
+    user_metadata: { company_id: companyId, name: memberName, role: legacyRole },
   });
   if (authErr || !authData?.user) {
     return NextResponse.json(
@@ -140,29 +141,38 @@ export async function POST(request: Request) {
   }
   const authUserId = authData.user.id;
 
-  // 2. The trigger created the base row; enrich it with roles/flags. Direct
-  //    creation forces a password change on first login (SPEC Point 2).
+  // 2. Provision the public.users profile row. UPSERT on the primary key so it
+  //    is correct whether or not a base row already exists — no hidden trigger
+  //    dependency. company_id, email and role are NOT NULL so they MUST be set
+  //    here. Direct creation forces a password change on first login (SPEC
+  //    Point 2).
   const { error: rowErr } = await admin
     .from("users")
-    .update({
-      name: memberName,
-      is_super_user: isSuperUser,
-      roles,
-      active: true,
-      invited_at: null,
-      accepted_at: now,
-      two_step_enabled: false,
-      creation_mode: "direct",
-      password_reset_required: true,
-      activated_at: null,
-    } as never)
-    .eq("id", authUserId);
+    .upsert(
+      {
+        id: authUserId,
+        company_id: companyId,
+        email,
+        name: memberName,
+        role: legacyRole,
+        is_super_user: isSuperUser,
+        roles,
+        active: true,
+        invited_at: null,
+        accepted_at: now,
+        two_step_enabled: false,
+        creation_mode: "direct",
+        password_reset_required: true,
+        activated_at: null,
+      } as never,
+      { onConflict: "id" },
+    );
 
   if (rowErr) {
     // Roll back the orphan auth user so a retry can succeed cleanly.
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
     return NextResponse.json(
-      { error: `Auth user created but profile update failed: ${rowErr.message}` },
+      { error: `Auth user created but profile creation failed: ${rowErr.message}` },
       { status: 502 },
     );
   }

@@ -287,3 +287,26 @@ export function capabilitiesForRoles(roles: RoleValue[]): Set<Capability> {
 export function rolesByGroup(group: RoleGroup): RoleDef[] {
   return ROLE_DEFS.filter((r) => r.group === group);
 }
+
+/**
+ * Map a set of capability-roles to the coarse LEGACY `users.role` value.
+ *
+ * The app is capability-driven now (`roles[]` + `user_permissions`), but the
+ * single `users.role` column is still NOT NULL and a handful of UI filters key
+ * off it (salesperson / inspector pickers in the sales + maintenance pages).
+ * Every profile-row insert must therefore supply a sensible legacy value.
+ *
+ * The mapping mirrors the seeded data exactly: owner / admin / inspector /
+ * driver / inventory_manager keep their specific value; every sales-ish or
+ * specialist role (sales_specialist, sales_manager, finance_admin,
+ * aftercare_specialist, workshop_lead, view_only) falls back to "sales".
+ */
+export function legacyRoleForRoles(roles: RoleValue[]): string {
+  if (roles.includes("owner")) return "owner";
+  if (roles.includes("administrator") || roles.includes("iam_admin"))
+    return "admin";
+  if (roles.includes("inventory_manager")) return "inventory_manager";
+  if (roles.includes("inspector")) return "inspector";
+  if (roles.includes("driver")) return "driver";
+  return "sales";
+}

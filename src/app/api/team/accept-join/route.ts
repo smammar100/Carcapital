@@ -16,6 +16,7 @@
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { legacyRoleForRoles, type RoleValue } from "@/lib/roles";
 
 export const runtime = "nodejs";
 
@@ -159,15 +160,16 @@ export async function POST(request: Request) {
   const now = new Date().toISOString();
   const memberName = body.name?.trim() || nameFromEmail(email);
 
-  // 2. Create the auth user. The on_auth_user_created trigger auto-inserts the
-  //    matching public.users row from user_metadata (company_id, name, role),
-  //    so company_id MUST be passed here or the trigger fails with
-  //    "Database error creating new user".
+  // 2. Create the auth user (no email round-trip). We provision the matching
+  //    public.users row ourselves in step 3 — this codebase has NO
+  //    on_auth_user_created trigger, so relying on one would leave the joiner
+  //    with an auth account but no profile (null company/roles → no access).
+  const legacyRole = legacyRoleForRoles(defaultRoles as RoleValue[]);
   const { data: authData, error: authErr } = await admin.auth.admin.createUser({
     email,
     password,
     email_confirm: true,
-    user_metadata: { company_id: companyId, name: memberName, role: "sales" },
+    user_metadata: { company_id: companyId, name: memberName, role: legacyRole },
   });
   if (authErr || !authData?.user) {
     return NextResponse.json(
@@ -177,29 +179,37 @@ export async function POST(request: Request) {
   }
   const authUserId = authData.user.id;
 
-  // 3. The trigger created the base row; enrich it with the accepted-state
-  //    fields the app needs (roles, timestamps, flags). The joiner chose their
-  //    own password, so no forced reset.
+  // 3. Provision the public.users profile row in the ACCEPTED state. UPSERT on
+  //    the primary key so this is correct whether or not a base row already
+  //    exists — no hidden trigger dependency. company_id, email and role are
+  //    NOT NULL so they MUST be set here. The joiner chose their own password,
+  //    so no forced reset.
   const { error: rowErr } = await admin
     .from("users")
-    .update({
-      name: memberName,
-      roles: defaultRoles,
-      is_super_user: false,
-      active: true,
-      invited_at: null,
-      accepted_at: now,
-      two_step_enabled: false,
-      creation_mode: "direct",
-      password_reset_required: false,
-      activated_at: now,
-    } as never)
-    .eq("id", authUserId);
+    .upsert(
+      {
+        id: authUserId,
+        company_id: companyId,
+        email,
+        name: memberName,
+        role: legacyRole,
+        roles: defaultRoles,
+        is_super_user: false,
+        active: true,
+        invited_at: null,
+        accepted_at: now,
+        two_step_enabled: false,
+        creation_mode: "direct",
+        password_reset_required: false,
+        activated_at: now,
+      } as never,
+      { onConflict: "id" },
+    );
 
   if (rowErr) {
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
     return NextResponse.json(
-      { error: `Account created but profile update failed: ${rowErr.message}` },
+      { error: `Account created but profile creation failed: ${rowErr.message}` },
       { status: 502 },
     );
   }
