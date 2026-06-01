@@ -186,7 +186,10 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
               {roles.size > 0 ? selectedRoleLabels : "None selected"}
             </span>
           </div>
-          <div className="mt-2 flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border p-1">
+          {/* NOTE: a plain block, NOT `flex flex-col`. A height-capped flex
+              column shrinks its children to fit instead of scrolling, which
+              crushed every row and made the group headers overlap the roles. */}
+          <div className="mt-2 max-h-64 space-y-1 overflow-y-auto rounded-md border p-1">
             {ROLE_GROUPS.map((group) => {
               const groupRoles = ROLE_DEFS.filter((r) => r.group === group);
               if (groupRoles.length === 0) return null;
