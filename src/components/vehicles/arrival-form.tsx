@@ -406,28 +406,35 @@ export function ArrivalForm() {
           stockId: existing.stockId,
           label: `${existing.make} ${existing.model ?? ""}`.trim(),
         });
-        setDvlaState("duplicate");
-        landedTerminal = true;
-        // Let DVLA finish so the LRU cache warms up for the next user.
-        void dvlaPromise;
-        return;
+        // NB: do NOT return here. Even for a car already in the stock book we
+        // still want DVLA + AutoTrader to populate the form so the user can
+        // review the pulled make/model/compliance data — previously the early
+        // return left every field blank under the "already in stock" banner.
       }
 
-      // 2. No duplicate — wait for DVLA.
+      // 2. Wait for DVLA (runs whether or not it's a duplicate).
       const dvla = await dvlaPromise;
       if (signal.aborted) return;
 
-      if (!dvla) {
+      // Terminal state: a duplicate keeps its banner; otherwise found /
+      // not_found reflects whether DVLA returned anything.
+      if (existing) {
+        setDvlaState("duplicate");
+      } else if (!dvla) {
         setDvlaState("not_found");
         landedTerminal = true;
         return;
+      } else {
+        setDvlaState("found");
       }
+      landedTerminal = true;
+
+      // Duplicate with no DVLA hit: banner is shown, nothing to fill.
+      if (!dvla) return;
 
       // Auto-fill from the combined DVLA + DVSA payload. Null / undefined
       // checks (not truthy) so legitimate zero values — e.g. engineSizeCC=0
       // for electric cars, or co2Emissions=0 for some EVs — still populate.
-      setDvlaState("found");
-      landedTerminal = true;
       if (dvla.make) form.setValue("make", dvla.make);
       // AutoTrader taxonomy → the Variant fields + Body/Transmission selects.
       // DVLA returns none of these; without them the form left Variant Name /
