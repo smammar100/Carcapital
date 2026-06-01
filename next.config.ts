@@ -20,6 +20,7 @@ const nextConfig: NextConfig = {
       "lucide-react",
       "@phosphor-icons/react",
       "@hugeicons/react",
+      "@remixicon/react",
       "date-fns",
     ],
   },

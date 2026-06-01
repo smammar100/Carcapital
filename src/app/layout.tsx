@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Figtree } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/contexts/auth-context";
@@ -9,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { getInitialAuth } from "@/lib/auth-initial";
+import { AuthBoundary } from "@/components/layout/auth-boundary";
 
 const figtree = Figtree({
   subsets: ["latin"],
@@ -41,6 +43,10 @@ export const metadata: Metadata = {
 // (which would trip the CSR-bailout error on pages using useSearchParams).
 export const dynamic = "force-dynamic";
 
+// Deploy to London first (UK = primary production market), Mumbai as fallback
+// for South Asian traffic. Both are dramatically closer than the iad1 default.
+export const preferredRegion = ["lhr1", "bom1"];
+
 const SUPABASE_HOSTNAME = (() => {
   try {
     const u = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -55,7 +61,10 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { user, company } = await getInitialAuth();
+  // Start the auth fetch without blocking — the HTML shell streams immediately
+  // while Supabase resolves in the background. AuthBoundary awaits the promise
+  // inside a Suspense boundary so fonts/CSS reach the browser ~400 ms sooner.
+  const authPromise = getInitialAuth();
 
   return (
     <html
@@ -86,11 +95,17 @@ export default async function RootLayout({
         )}
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <AuthProvider initialUser={user} initialCompany={company}>
-          <NotificationsProvider>
-            <TooltipProvider delay={150}>{children}</TooltipProvider>
-          </NotificationsProvider>
-        </AuthProvider>
+        <Suspense
+          fallback={
+            <AuthProvider initialUser={null} initialCompany={null}>
+              <NotificationsProvider>
+                <TooltipProvider delay={150}>{children}</TooltipProvider>
+              </NotificationsProvider>
+            </AuthProvider>
+          }
+        >
+          <AuthBoundary authPromise={authPromise}>{children}</AuthBoundary>
+        </Suspense>
         <Toaster richColors closeButton position="bottom-right" />
         <SpeedInsights />
         <Analytics />
