@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
+import { getHomeForUser } from "@/lib/user-home";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -39,25 +40,49 @@ export default function LoginPage() {
 function LoginInner() {
   const router = useRouter();
   const search = useSearchParams();
-  const { user, loading, signIn } = useAuth();
-  const next = search.get("next") ?? "/dashboard";
+  const { user, signIn, signOut } = useAuth();
+  const explicitNext = search.get("next");
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: { email: "", password: "" },
   });
 
-  // Already signed in → straight to next.
+  const justSubmittedRef = useRef(false);
+  const clearedRef = useRef(false);
+
+  // Landing on /login means "I want to authenticate." If a PRE-EXISTING session
+  // is present (e.g. switching accounts), sign it out ONCE so the form is usable
+  // and the next sign-in starts clean — never auto-redirect a logged-in user
+  // away (that bounced account-switchers back as the old user).
+  //
+  // CRITICAL: skip when the session is one our own onSubmit just created
+  // (justSubmittedRef) — otherwise this signs the freshly-logged-in user right
+  // back out. Guarded by clearedRef so it fires at most once per visit.
   useEffect(() => {
-    if (!loading && user) router.replace(next);
-  }, [loading, user, next, router]);
+    if (clearedRef.current || justSubmittedRef.current) return;
+    if (user) {
+      clearedRef.current = true;
+      void signOut();
+    }
+  }, [user, signOut]);
+
+  // After a successful sign-in, `user` hydrates → route to the role's home
+  // (or the explicit ?next= deep-link if one was provided).
+  useEffect(() => {
+    if (justSubmittedRef.current && user) {
+      router.replace(explicitNext ?? getHomeForUser(user));
+    }
+  }, [user, explicitNext, router]);
 
   async function onSubmit(values: FormValues) {
     try {
+      justSubmittedRef.current = true;
       await signIn(values.email, values.password);
       toast.success("Signed in");
-      router.push(next);
+      // The effect above performs the redirect once `user` hydrates.
     } catch (err) {
+      justSubmittedRef.current = false;
       const msg =
         err instanceof Error ? err.message : "Could not sign in";
       toast.error(msg);

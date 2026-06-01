@@ -247,10 +247,18 @@ export function AuthProvider({
           if (event === "TOKEN_REFRESHED") return;
 
           const nextId = nextSession?.user?.id ?? null;
-          // Tab refocus re-emits SIGNED_IN / INITIAL_SESSION for the SAME
-          // user. Re-hydrating then is pointless and the cause of the
-          // blank-on-tab-switch bug, so skip when nothing changed.
-          if (nextId === userIdRef.current && event !== "SIGNED_OUT") return;
+          // Tab refocus re-emits INITIAL_SESSION for the SAME user; re-hydrating
+          // then is pointless and caused the blank-on-tab-switch bug, so skip
+          // when nothing changed. BUT a deliberate SIGNED_IN (a real login,
+          // incl. switching accounts) must always re-hydrate so the new
+          // identity replaces the old — even if the id ref looks stale.
+          if (
+            nextId === userIdRef.current &&
+            event !== "SIGNED_OUT" &&
+            event !== "SIGNED_IN"
+          ) {
+            return;
+          }
 
           // CRITICAL: never await a Supabase call inside this callback.
           // supabase-js runs it while holding the GoTrue auth lock; a DB
@@ -289,6 +297,13 @@ export function AuthProvider({
 
   async function signIn(email: string, password: string): Promise<void> {
     const supabase = createClient();
+    // Drop any existing session + cached rows FIRST so signing in as a
+    // different user can't leave the previous identity/data in place (the
+    // "logged in as someone else but still see the old user" bug).
+    await supabase.auth.signOut().catch(() => {});
+    invalidateAll();
+    setUser(null);
+    setCompany(null);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,

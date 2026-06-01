@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@/contexts/auth-context";
 import { teamService } from "@/lib/services/team-service";
 import { permissionService } from "@/lib/services/permission-service";
+import { invalidate } from "@/lib/cache";
 import type { Capability } from "@/lib/capabilities";
 import type { User, UUID } from "@/lib/types";
 import { toast } from "sonner";
@@ -44,6 +45,10 @@ export function usePermissionsGrid(): UsePermissionsGrid {
   const reload = useCallback(async () => {
     if (!company) return;
     setLoading(true);
+    // Bust the team:/auth: caches first so a member who accepted an invite
+    // since this grid last loaded shows up without a hard refresh (the
+    // accept-join insert happens server-side, outside this client's cache).
+    invalidate("team:");
     const list = await teamService.getAll(company.id);
     const server = await permissionService.effectiveCapabilitiesForUsers(list);
     setUsers(list);

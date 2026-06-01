@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, RotateCw } from "lucide-react";
 import {
   Dialog,
@@ -10,14 +10,17 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ROLE_DEFS, type RoleValue } from "@/lib/roles";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ROLE_DEFS, ROLE_GROUPS, type RoleValue } from "@/lib/roles";
 import { joinLinkService } from "@/lib/services/join-link-service";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// New joiners land View Only by default; an admin elevates them in the grid.
+// New joiners default to View Only (safe least-privilege); the admin can pick
+// a different role before sending so the invitee accepts straight into it.
 const DEFAULT_ROLE: RoleValue = "view_only";
 
 function roleLabel(value: RoleValue): string {
@@ -36,6 +39,25 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
   const [submitting, setSubmitting] = useState(false);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
+  // Role(s) the invitee will accept into. Defaults to View Only; admin can
+  // change before sending. At least one role is always selected.
+  const [roles, setRoles] = useState<Set<RoleValue>>(
+    () => new Set<RoleValue>([DEFAULT_ROLE]),
+  );
+
+  function toggleRole(value: RoleValue) {
+    setRoles((prev) => {
+      const next = new Set(prev);
+      if (next.has(value)) next.delete(value);
+      else next.add(value);
+      return next;
+    });
+  }
+
+  const selectedRoleLabels = useMemo(
+    () => [...roles].map(roleLabel).join(", "),
+    [roles],
+  );
 
   useEffect(() => {
     if (!open || !company || !user) return;
@@ -61,6 +83,11 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
       toast.error(`"${invalid}" is not a valid email address`);
       return;
     }
+    if (roles.size === 0) {
+      toast.error("Select at least one role for the invitee");
+      return;
+    }
+    const roleList = [...roles];
     setSubmitting(true);
     try {
       let sent = 0;
@@ -71,7 +98,7 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
           body: JSON.stringify({
             companyId: company.id,
             recipientEmail,
-            roles: [DEFAULT_ROLE],
+            roles: roleList,
             invitedByName: user.name,
           }),
         });
@@ -146,6 +173,49 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
             {submitting && <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />}
             Invite
           </Button>
+        </div>
+
+        {/* Role selector — the invitee accepts straight into these roles. */}
+        <div>
+          <div className="flex items-baseline justify-between">
+            <Label className="text-sm font-medium">Role for invitee</Label>
+            <span
+              className="text-xs text-muted-foreground"
+              data-testid="invite-selected-roles"
+            >
+              {roles.size > 0 ? selectedRoleLabels : "None selected"}
+            </span>
+          </div>
+          <div className="mt-2 flex max-h-44 flex-col gap-1 overflow-y-auto rounded-md border p-1">
+            {ROLE_GROUPS.map((group) => {
+              const groupRoles = ROLE_DEFS.filter((r) => r.group === group);
+              if (groupRoles.length === 0) return null;
+              return (
+                <div key={group} className="flex flex-col">
+                  <div className="rounded bg-muted/40 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {group}
+                  </div>
+                  {groupRoles.map((r) => (
+                    <label
+                      key={r.value}
+                      className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/30"
+                    >
+                      <Checkbox
+                        checked={roles.has(r.value)}
+                        onCheckedChange={() => toggleRole(r.value)}
+                        data-testid={`invite-role-${r.value}`}
+                      />
+                      <span>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+              );
+            })}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Defaults to View Only. The invitee gets these roles the moment they
+            accept — change them anytime in the permissions grid.
+          </p>
         </div>
 
         <div className="rounded-xl border p-4">

@@ -232,11 +232,58 @@ console.log({ rows: data?.length ?? 0, error });   // expect rows:0 or RLS error
 
 ---
 
+## Part 4 — Invite & Onboarding flow
+
+Validates the full lifecycle: admin invites by email with a chosen role → recipient accepts → onboards with correct access → shows in the grid. Use **https://yopmail.com** for disposable inboxes (any `name@yopmail.com` works; read it at yopmail.com by entering the name).
+
+**Setup:** log in as **Abbas (Owner)**. Open **Users & Permissions**. Note the `RESEND_API_KEY` must be set for the email to actually send; on the no-domain dev key, Resend only delivers to the address the Resend account was verified with — if the email doesn't arrive, read the invite link from the `team_invitations` row (`token`) and open `/join/<token>` directly.
+
+### 4A. Invite with a chosen role
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 4A.1 | Click **Invite Member** (or the "Invite Member" CTA) | Dialog opens with an email field **and a Role selector**; selector defaults to **View Only** | [ ] | |
+| 4A.2 | Enter `qa-sales@yopmail.com`, select **Sales Specialist** (untick View Only), click **Invite** | Success toast "Invitation sent to 1 person"; selected-roles label reads "Sales Specialist" | [ ] | |
+| 4A.3 | (DB check) inspect the latest `team_invitations` row | `recipient_email = qa-sales@yopmail.com`, `default_roles = {sales_specialist}`, `used_at = null`, `expires_at` ~7 days out | [ ] | |
+| 4A.4 | Open `qa-sales` inbox at yopmail.com | Branded "You've been invited" email with an **Accept Invitation** button → `/join/<token>` | [ ] | |
+
+### 4B. Accept the invite
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 4B.1 | Click the invite link | `/join/<token>` shows the join form: Name (optional), Email (prefilled/locked or shown), Password, Confirm | [ ] | |
+| 4B.2 | Enter name + matching password (≥8 chars) → **Create account** | Success toast; redirected to `/login` | [ ] | |
+| 4B.3 | Re-open the SAME invite link | Rejected — "already used / invalid"; no second account created | [ ] | |
+| 4B.4 | Open a tampered/expired token URL | Clear error; no account created | [ ] | |
+
+### 4C. New user's first login & access (the core question)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 4C.1 | Log in as `qa-sales@yopmail.com` | Lands on **/sales/leads** (role home), NOT a blank dashboard | [ ] | |
+| 4C.2 | Inspect sidebar + primary CTA | Sales group visible (Leads, Appointments, Pipeline, Deals, Invoice Generation); CTA = **New Lead**; no Admin/Inventory/Maintenance/Warranties | [ ] | |
+| 4C.3 | Type `/admin/invoicing` in the URL | **Access restricted** panel (not the page) | [ ] | |
+| 4C.4 | Dashboard KPIs | Show sales-relevant KPIs (New Leads, Sold This Month), not inspection/admin ones | [ ] | |
+
+### 4D. Admin sees the new member
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 4D.1 | Back as Abbas → open **Users & Permissions** (no hard refresh / Ctrl+R) | The new member **appears in the grid** | [ ] | |
+| 4D.2 | Check their capability row | Sales Specialist capabilities are pre-ticked (create_lead, edit_lead, book_appointment, edit_pipeline_stage, mark_sold, invoice:generate, view_master_calendar) | [ ] | |
+| 4D.3 | Member count | Incremented; row shows the name + email from acceptance | [ ] | |
+
+### 4E. Default & edge cases
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 4E.1 | Invite `qa-view@yopmail.com` leaving role at **default (View Only)** → accept → log in | Lands on `/admin/master-sheet`; read-only sections only; **no primary CTA**; can't reach edit pages | [ ] | |
+| 4E.2 | Invite an email that's already an active member | Graceful handling — clear message, no duplicate `users` row | [ ] | |
+| 4E.3 | After acceptance, Abbas deactivates the new member (remove-member) → that user tries to log in | Login blocked / no data access (active-flag gate) | [ ] | |
+
+---
+
 ## Sign-off
 
 - [ ] All Part 1 role rows pass.
 - [ ] All Part 2 cross-cutting cases pass.
 - [ ] **All Part 3 bypass attempts are REJECTED.**
+- [ ] All Part 4 invite & onboarding cases pass.
 - [ ] `node scripts/delete-test-users.mjs` run to clean up.
 
 Tester: ________________  Date: ____________
