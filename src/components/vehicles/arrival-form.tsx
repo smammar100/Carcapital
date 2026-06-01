@@ -1140,6 +1140,27 @@ export function ArrivalForm() {
                 />
               </div>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label>Finance Provider</Label>
+              <Controller
+                control={form.control}
+                name="financeProvider"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FINANCE_PROVIDERS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
           </div>
         </Card>
 
@@ -1171,27 +1192,6 @@ export function ArrivalForm() {
               </tr>
             </tbody>
           </table>
-          <div className="flex flex-col gap-2">
-            <Label>Finance Provider</Label>
-            <Controller
-              control={form.control}
-              name="financeProvider"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FINANCE_PROVIDERS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
         </Card>
 
         {/* Section 5 — Receiving */}
