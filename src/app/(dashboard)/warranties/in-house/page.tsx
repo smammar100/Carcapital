@@ -50,6 +50,12 @@ export default function InHouseWarrantiesPage() {
   const [fileClaimFor, setFileClaimFor] = useState<Warranty | null>(null);
   const refetch = () => setRefreshKey((k) => k + 1);
 
+  // The role-based "New Warranty" CTA navigates here with ?new=1 — auto-open
+  // the create dialog so the CTA lands the user straight in the create flow.
+  useEffect(() => {
+    if (searchParams.get("new") === "1") setNewWarrantyOpen(true);
+  }, [searchParams]);
+
   // Initial + on-refresh data load.
   useEffect(() => {
     if (!company) return;

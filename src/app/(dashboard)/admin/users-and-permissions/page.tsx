@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, ShieldX } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
@@ -17,6 +18,13 @@ export default function TeamAndSecurityPage() {
   const gridRef = useRef<PermissionsGridHandle>(null);
 
   const canManage = isSuperUser || can("admin:manage_permissions");
+
+  // The role-based "Invite Member" CTA (IAM Admin / Owner) navigates here with
+  // ?invite=1 — auto-open the invite dialog so the CTA lands in the flow.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("invite") === "1" && canManage) setInviteOpen(true);
+  }, [searchParams, canManage]);
 
   return (
     <div className="flex flex-col gap-6">

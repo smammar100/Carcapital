@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Plus, UserPlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -121,6 +122,13 @@ export default function LeadsPage() {
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [drillLead, setDrillLead] = useState<Lead | null>(null);
+
+  // The role-based "New Lead" CTA navigates here with ?new=1 — auto-open the
+  // create dialog so the CTA lands the user straight in the create flow.
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    if (searchParams.get("new") === "1") setCreateOpen(true);
+  }, [searchParams]);
 
   const create = useForm<CreateInput, unknown, CreateOutput>({
     resolver: zodResolver(createSchema),

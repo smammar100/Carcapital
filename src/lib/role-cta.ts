@@ -37,6 +37,13 @@ const CTA_RULES: CtaRule[] = [
     cta: { label: "Add Vehicle", icon: Plus, kind: "modal", activeMatch: "/inventory/add-vehicle" },
   },
   {
+    // Administrator manages inventory/adverts/vendors but lacks inventory:add —
+    // Add Vehicle is still their most frequent creation action, so an
+    // inventory:edit holder gets it too (ranks above admin:manage_users below).
+    cap: "inventory:edit",
+    cta: { label: "Add Vehicle", icon: Plus, kind: "modal", activeMatch: "/inventory/add-vehicle" },
+  },
+  {
     cap: "inspection:run",
     cta: { label: "Start Inspection", icon: ClipboardCheck, kind: "link", href: "/maintenance/inspection", activeMatch: "/maintenance/inspection" },
   },
