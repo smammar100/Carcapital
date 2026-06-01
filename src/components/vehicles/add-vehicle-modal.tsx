@@ -56,6 +56,12 @@ export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
     const qs = params.toString();
     setNavigating(true);
     router.push(`/inventory/add-vehicle${qs ? `?${qs}` : ""}`);
+    // Close the modal after kicking off navigation. Critical when the user is
+    // ALREADY on /inventory/add-vehicle: router.push() to the same path only
+    // swaps query params (no remount/navigation event), so the modal's
+    // `navigating` spinner would otherwise hang open forever. Closing here also
+    // resets state via onOpenChange→reset so a re-open starts clean.
+    onOpenChange(false);
   }
 
   function reset() {

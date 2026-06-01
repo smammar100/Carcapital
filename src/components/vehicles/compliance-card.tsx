@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useState } from "react";
-import { Pencil, RefreshCw, ShieldCheck } from "lucide-react";
+import { RefreshCw, ShieldCheck } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -134,8 +134,9 @@ export function ComplianceCard({
         />
       </div>
 
-      {/* 6 detail fields in a 2/3-col grid with override pencils */}
-      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
+      {/* 6 detail fields — 2 per row to match the vehicle-identity + seller
+          sections above and below (was 3-col on lg, which looked inconsistent). */}
+      <div className="grid gap-x-4 gap-y-3 sm:grid-cols-2">
         <EditableField
           label="Registration Date"
           value={value.registrationDate}
@@ -175,8 +176,9 @@ export function ComplianceCard({
                 : "No"
           }
           type="text"
-          readOnly
-          onCommit={() => {}}
+          onCommit={(v) =>
+            onChange({ automatedVehicle: parseYesNo(v) })
+          }
         />
         <EditableField
           label="Last V5C Issued"
@@ -202,6 +204,17 @@ export function ComplianceCard({
 // ---------------------------------------------------------------------------
 // Pieces
 // ---------------------------------------------------------------------------
+
+/** Parse a free-text Yes/No override into a boolean. Returns null for blank
+ *  or unrecognised input so the field can be cleared back to "—". */
+function parseYesNo(v: string | null): boolean | null {
+  if (v == null) return null;
+  const s = v.trim().toLowerCase();
+  if (s === "") return null;
+  if (["yes", "y", "true", "1"].includes(s)) return true;
+  if (["no", "n", "false", "0"].includes(s)) return false;
+  return null;
+}
 
 type Tone = "good" | "bad" | "neutral";
 
@@ -255,78 +268,44 @@ function EditableField({
   label,
   value,
   type,
-  readOnly,
   onCommit,
 }: {
   label: string;
   value: string | null;
   type: "text" | "number" | "date";
-  readOnly?: boolean;
   onCommit: (value: string | null) => void;
 }) {
-  const [editing, setEditing] = useState(false);
+  // Always-on input matching the Make/Model section above — no pencil, no
+  // click-to-edit toggle. Local draft mirrors the parent value so a re-fetch
+  // or sibling override updates the field. Date inputs commit on change
+  // (single interaction); text/number commit on blur so typing isn't cut off.
   const [draft, setDraft] = useState(value ?? "");
 
-  // Sync the local draft when the parent's value changes (re-fetch landed,
-  // sibling override flipped it, etc.). This is the documented React
-  // pattern for "mirror an external prop" — the rule is silenced here.
   /* eslint-disable react-hooks/set-state-in-effect */
   React.useEffect(() => {
     setDraft(value ?? "");
   }, [value]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  function commit() {
-    onCommit(draft.trim() === "" ? null : draft);
-    setEditing(false);
+  function commit(next: string) {
+    onCommit(next.trim() === "" ? null : next);
   }
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </label>
-        {!readOnly && !editing ? (
-          <button
-            type="button"
-            onClick={() => setEditing(true)}
-            className="text-muted-foreground transition-colors hover:text-foreground"
-            aria-label={`Override ${label}`}
-          >
-            <Pencil className="size-3" />
-          </button>
-        ) : null}
-      </div>
-      {editing ? (
-        <Input
-          type={type}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") commit();
-            if (e.key === "Escape") {
-              setDraft(value ?? "");
-              setEditing(false);
-            }
-          }}
-          autoFocus
-          className="h-8 text-sm"
-        />
-      ) : (
-        <div className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-sm tabular-nums">
-          {value && value.trim() !== "" ? (
-            type === "date" ? (
-              formatDate(value)
-            ) : (
-              value
-            )
-          ) : (
-            <span className="text-muted-foreground">—</span>
-          )}
-        </div>
-      )}
+    <div className="flex flex-col gap-1.5">
+      <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </label>
+      <Input
+        type={type}
+        value={draft}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          if (type === "date") commit(e.target.value);
+        }}
+        onBlur={() => commit(draft)}
+        className="text-sm"
+      />
     </div>
   );
 }

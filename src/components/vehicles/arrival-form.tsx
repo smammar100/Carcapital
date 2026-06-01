@@ -310,8 +310,10 @@ export function ArrivalForm() {
     return () => clearInterval(id);
   }, [loadingStartedAt]);
 
-  async function handleDvlaLookup() {
-    const reg = form.getValues("registration");
+  async function handleDvlaLookup(regOverride?: string) {
+    // Prefer an explicit reg (passed by the param-change auto-lookup, which
+    // can't rely on form.setValue having flushed yet) over the form value.
+    const reg = regOverride ?? form.getValues("registration");
     // Skip lookups while the user is still typing — UK plates are 4-8 chars
     // (with optional space). Anything shorter is mid-typing; anything longer
     // is junk. The DVLA route rejects anything that doesn't match
@@ -406,28 +408,35 @@ export function ArrivalForm() {
           stockId: existing.stockId,
           label: `${existing.make} ${existing.model ?? ""}`.trim(),
         });
-        setDvlaState("duplicate");
-        landedTerminal = true;
-        // Let DVLA finish so the LRU cache warms up for the next user.
-        void dvlaPromise;
-        return;
+        // NB: do NOT return here. Even for a car already in the stock book we
+        // still want DVLA + AutoTrader to populate the form so the user can
+        // review the pulled make/model/compliance data — previously the early
+        // return left every field blank under the "already in stock" banner.
       }
 
-      // 2. No duplicate — wait for DVLA.
+      // 2. Wait for DVLA (runs whether or not it's a duplicate).
       const dvla = await dvlaPromise;
       if (signal.aborted) return;
 
-      if (!dvla) {
+      // Terminal state: a duplicate keeps its banner; otherwise found /
+      // not_found reflects whether DVLA returned anything.
+      if (existing) {
+        setDvlaState("duplicate");
+      } else if (!dvla) {
         setDvlaState("not_found");
         landedTerminal = true;
         return;
+      } else {
+        setDvlaState("found");
       }
+      landedTerminal = true;
+
+      // Duplicate with no DVLA hit: banner is shown, nothing to fill.
+      if (!dvla) return;
 
       // Auto-fill from the combined DVLA + DVSA payload. Null / undefined
       // checks (not truthy) so legitimate zero values — e.g. engineSizeCC=0
       // for electric cars, or co2Emissions=0 for some EVs — still populate.
-      setDvlaState("found");
-      landedTerminal = true;
       if (dvla.make) form.setValue("make", dvla.make);
       // AutoTrader taxonomy → the Variant fields + Body/Transmission selects.
       // DVLA returns none of these; without them the form left Variant Name /
@@ -500,19 +509,31 @@ export function ArrivalForm() {
     }
   }
 
-  // Auto-run the lookup once on mount when arriving from the Add Vehicle
-  // modal with a `?reg=` param. Reg + mileage are already in the form
-  // defaults, so this single call carries mileage → valuations populate.
-  const autoLookupDoneRef = useRef(false);
+  // Auto-run the lookup when arriving from the Add Vehicle modal with a
+  // `?reg=` param — AND re-run it if the param CHANGES while the page is
+  // already mounted (the modal navigates add-vehicle?reg=A → add-vehicle?reg=B
+  // without remounting, so a one-shot mount effect would never re-fire and the
+  // form would keep showing the old car). We track the last reg we looked up
+  // and re-seed the reg/mileage fields before kicking off the new lookup.
+  const lastAutoLookupRegRef = useRef<string>("");
   useEffect(() => {
-    if (autoLookupDoneRef.current) return;
-    const regParam = (searchParams.get("reg") ?? "").trim();
-    if (regParam) {
-      autoLookupDoneRef.current = true;
-      void handleDvlaLookup();
+    const regParam = (searchParams.get("reg") ?? "").trim().toUpperCase();
+    if (!regParam) return;
+    if (lastAutoLookupRegRef.current === regParam) return;
+    lastAutoLookupRegRef.current = regParam;
+
+    // Re-seed the form's reg + mileage from the new query params so the rest
+    // of the form (and submit) sees the latest values.
+    form.setValue("registration", regParam);
+    const mileageParam = Number(searchParams.get("mileage"));
+    if (Number.isFinite(mileageParam) && mileageParam > 0) {
+      form.setValue("mileage", Math.round(mileageParam));
     }
+    // Pass regParam explicitly — setValue above may not have flushed into
+    // form state yet, and handleDvlaLookup() otherwise reads the stale reg.
+    void handleDvlaLookup(regParam);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [searchParams]);
 
   function addTodo() {
     if (!newTodo.description.trim()) return;
@@ -1119,6 +1140,27 @@ export function ArrivalForm() {
                 />
               </div>
             </div>
+            <div className="flex flex-col gap-2">
+              <Label>Finance Provider</Label>
+              <Controller
+                control={form.control}
+                name="financeProvider"
+                render={({ field }) => (
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FINANCE_PROVIDERS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>
+                          {p.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
           </div>
         </Card>
 
@@ -1129,8 +1171,8 @@ export function ArrivalForm() {
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="py-1.5 pr-2 font-medium">Cost Item</th>
-                <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
                 <th className="py-1.5 pr-2 text-right font-medium">VAT 20%</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
               </tr>
             </thead>
             <tbody>
@@ -1143,34 +1185,13 @@ export function ArrivalForm() {
               <CostRow label="Other Charges" name="otherCharges" form={form} />
               <tr className="border-t bg-muted/30">
                 <td className="py-2 pr-2 font-semibold">Total Buying Price</td>
+                <td />
                 <td className="py-2 pr-2 text-right font-semibold tabular-nums">
                   {formatCurrency(totalBuyingPrice)}
                 </td>
-                <td />
               </tr>
             </tbody>
           </table>
-          <div className="flex flex-col gap-2">
-            <Label>Finance Provider</Label>
-            <Controller
-              control={form.control}
-              name="financeProvider"
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {FINANCE_PROVIDERS.map((p) => (
-                      <SelectItem key={p.value} value={p.value}>
-                        {p.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
         </Card>
 
         {/* Section 5 — Receiving */}
@@ -1332,6 +1353,9 @@ function CostRow({
       <td className="py-1.5 pr-2">
         <Label className="text-xs font-normal">{label}</Label>
       </td>
+      <td className="py-1.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
+        {vat !== null ? formatCurrency(vat) : "—"}
+      </td>
       <td className="py-1.5 pr-2 text-right">
         <Input
           type="number"
@@ -1339,9 +1363,6 @@ function CostRow({
           {...form.register(name)}
           className="h-8 text-right tabular-nums"
         />
-      </td>
-      <td className="py-1.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
-        {vat !== null ? formatCurrency(vat) : "—"}
       </td>
     </tr>
   );
