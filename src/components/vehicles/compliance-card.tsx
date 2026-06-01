@@ -175,8 +175,9 @@ export function ComplianceCard({
                 : "No"
           }
           type="text"
-          readOnly
-          onCommit={() => {}}
+          onCommit={(v) =>
+            onChange({ automatedVehicle: parseYesNo(v) })
+          }
         />
         <EditableField
           label="Last V5C Issued"
@@ -202,6 +203,17 @@ export function ComplianceCard({
 // ---------------------------------------------------------------------------
 // Pieces
 // ---------------------------------------------------------------------------
+
+/** Parse a free-text Yes/No override into a boolean. Returns null for blank
+ *  or unrecognised input so the field can be cleared back to "—". */
+function parseYesNo(v: string | null): boolean | null {
+  if (v == null) return null;
+  const s = v.trim().toLowerCase();
+  if (s === "") return null;
+  if (["yes", "y", "true", "1"].includes(s)) return true;
+  if (["no", "n", "false", "0"].includes(s)) return false;
+  return null;
+}
 
 type Tone = "good" | "bad" | "neutral";
 
@@ -315,7 +327,17 @@ function EditableField({
           className="h-8 text-sm"
         />
       ) : (
-        <div className="rounded-md border bg-muted/30 px-2.5 py-1.5 text-sm tabular-nums">
+        <button
+          type="button"
+          onClick={() => !readOnly && setEditing(true)}
+          disabled={readOnly}
+          className={cn(
+            "w-full rounded-md border bg-muted/30 px-2.5 py-1.5 text-left text-sm tabular-nums",
+            !readOnly &&
+              "cursor-text transition-colors hover:border-primary/40 hover:bg-muted/50",
+          )}
+          aria-label={readOnly ? label : `Edit ${label}`}
+        >
           {value && value.trim() !== "" ? (
             type === "date" ? (
               formatDate(value)
@@ -323,9 +345,11 @@ function EditableField({
               value
             )
           ) : (
-            <span className="text-muted-foreground">—</span>
+            <span className="text-muted-foreground">
+              {readOnly ? "—" : "— add"}
+            </span>
           )}
-        </div>
+        </button>
       )}
     </div>
   );
