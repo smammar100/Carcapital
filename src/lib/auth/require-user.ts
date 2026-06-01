@@ -48,11 +48,43 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
 /** Authenticate + load the active caller. Throws AuthError(401/403) otherwise. */
 export async function requireUser(): Promise<AuthedActor> {
   const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await withTimeout(supabase.auth.getUser(), 8_000, "auth check");
-  if (error || !user) throw new AuthError(401, "Authentication required");
+
+  // getUser() validates the access token against Supabase. If the token has
+  // expired, API routes (excluded from middleware, which is what refreshes
+  // tokens for page navigations) have nothing to refresh it — so getUser()
+  // 401s even though the browser still holds a valid refresh token. Fall back
+  // to getSession(), which uses the refresh token to mint a fresh access
+  // token, then re-validate. This was the production "every lookup 401s while
+  // the dashboard shows logged-in" bug.
+  const getUserResult = await withTimeout(
+    supabase.auth.getUser(),
+    8_000,
+    "auth check",
+  );
+  let user = getUserResult.data.user;
+  let authError: unknown = getUserResult.error;
+
+  if (!user) {
+    // Try a refresh via the session (uses the refresh-token cookie).
+    const { data: sessionData } = await withTimeout(
+      supabase.auth.getSession(),
+      8_000,
+      "session refresh",
+    );
+    if (sessionData?.session?.user) {
+      user = sessionData.session.user;
+      authError = null;
+    }
+  }
+
+  if (!user) {
+    const msg =
+      authError instanceof Error ? authError.message : "no user";
+    console.warn(
+      `[require-user] 401 — no valid session (getUser+getSession both failed): ${msg}`,
+    );
+    throw new AuthError(401, "Authentication required");
+  }
 
   // Load the profile with the service-role client so this works regardless of
   // RLS, but keyed strictly to the authenticated user's own id.
