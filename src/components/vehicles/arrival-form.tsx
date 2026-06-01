@@ -1171,8 +1171,8 @@ export function ArrivalForm() {
             <thead>
               <tr className="border-b text-left text-xs text-muted-foreground">
                 <th className="py-1.5 pr-2 font-medium">Cost Item</th>
-                <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
                 <th className="py-1.5 pr-2 text-right font-medium">VAT 20%</th>
+                <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
               </tr>
             </thead>
             <tbody>
@@ -1185,10 +1185,10 @@ export function ArrivalForm() {
               <CostRow label="Other Charges" name="otherCharges" form={form} />
               <tr className="border-t bg-muted/30">
                 <td className="py-2 pr-2 font-semibold">Total Buying Price</td>
+                <td />
                 <td className="py-2 pr-2 text-right font-semibold tabular-nums">
                   {formatCurrency(totalBuyingPrice)}
                 </td>
-                <td />
               </tr>
             </tbody>
           </table>
@@ -1353,6 +1353,9 @@ function CostRow({
       <td className="py-1.5 pr-2">
         <Label className="text-xs font-normal">{label}</Label>
       </td>
+      <td className="py-1.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
+        {vat !== null ? formatCurrency(vat) : "—"}
+      </td>
       <td className="py-1.5 pr-2 text-right">
         <Input
           type="number"
@@ -1360,9 +1363,6 @@ function CostRow({
           {...form.register(name)}
           className="h-8 text-right tabular-nums"
         />
-      </td>
-      <td className="py-1.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
-        {vat !== null ? formatCurrency(vat) : "—"}
       </td>
     </tr>
   );
