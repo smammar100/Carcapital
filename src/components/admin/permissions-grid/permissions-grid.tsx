@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DataGridSearchBar } from "@/components/data-grid";
 import { RemoveMemberDialog } from "@/components/admin/remove-member-dialog";
+import { EditRolesDialog } from "@/components/admin/edit-roles-dialog";
 import type { User } from "@/lib/types";
 import { usePermissionsGrid } from "./use-permissions-grid";
 import { PermissionsGridTable } from "./permissions-grid-table";
@@ -46,6 +47,7 @@ export const PermissionsGrid = forwardRef<
     } = usePermissionsGrid();
     const [filter, setFilter] = useState("");
     const [removeTarget, setRemoveTarget] = useState<User | null>(null);
+    const [editTarget, setEditTarget] = useState<User | null>(null);
 
     useImperativeHandle(ref, () => ({ reload }), [reload]);
 
@@ -88,6 +90,7 @@ export const PermissionsGrid = forwardRef<
             currentUserId={currentUser?.id}
             onToggle={toggleCapability}
             onRemove={setRemoveTarget}
+            onEditRoles={setEditTarget}
           />
         )}
 
@@ -105,6 +108,15 @@ export const PermissionsGrid = forwardRef<
             if (!o) setRemoveTarget(null);
           }}
           onRemoved={() => void reload()}
+        />
+
+        <EditRolesDialog
+          user={editTarget}
+          open={editTarget !== null}
+          onOpenChange={(o) => {
+            if (!o) setEditTarget(null);
+          }}
+          onSaved={() => void reload()}
         />
       </div>
     );

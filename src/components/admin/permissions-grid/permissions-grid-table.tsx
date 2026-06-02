@@ -6,7 +6,7 @@ import {
   CAPABILITY_LABELS,
   type Capability,
 } from "@/lib/capabilities";
-import { Trash2 } from "lucide-react";
+import { Trash2, SlidersHorizontal } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
 import type { User, UUID } from "@/lib/types";
@@ -20,6 +20,7 @@ interface Props {
   currentUserId?: UUID;
   onToggle: (userId: UUID, cap: Capability) => void;
   onRemove?: (user: User) => void;
+  onEditRoles?: (user: User) => void;
 }
 
 const STICKY_COL =
@@ -32,6 +33,7 @@ export function PermissionsGridTable({
   currentUserId,
   onToggle,
   onRemove,
+  onEditRoles,
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -130,12 +132,25 @@ export function PermissionsGridTable({
                         {u.email}
                       </span>
                     </div>
+                    {onEditRoles && !isYou && !u.isSuperUser && (
+                      <button
+                        type="button"
+                        onClick={() => onEditRoles(u)}
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/member:opacity-100"
+                        aria-label={`Edit roles for ${u.name}`}
+                        title="Edit roles"
+                        data-testid={`edit-roles-${u.id}`}
+                      >
+                        <SlidersHorizontal className="h-4 w-4" />
+                      </button>
+                    )}
                     {onRemove && !isYou && !u.isSuperUser && (
                       <button
                         type="button"
                         onClick={() => onRemove(u)}
                         className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/member:opacity-100"
                         aria-label={`Remove ${u.name}`}
+                        title="Remove member"
                         data-testid={`remove-member-${u.id}`}
                       >
                         <Trash2 className="h-4 w-4" />

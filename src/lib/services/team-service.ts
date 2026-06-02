@@ -205,29 +205,39 @@ export const teamService = {
     });
   },
 
+  /**
+   * Change a member's role bundle. Routed through the server (admin client)
+   * because RLS only lets a user update their OWN row — an admin can't change
+   * another member's roles from the browser. The route also re-derives the
+   * legacy `users.role` column and enforces the manage-users/permissions
+   * capability + guards (no self-edit, no super-user targets).
+   */
   async setRoles(
     userId: UUID,
     roles: RoleValue[],
     actorId: UUID,
   ): Promise<User> {
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("users")
-      .update({ roles })
-      .eq("id", userId)
-      .select(SELECT)
-      .single();
-    if (error) throw error;
-    const user = data as unknown as User;
-    bustUserCaches();
-    await activityService.log({
-      companyId: user.companyId,
-      userId: actorId,
-      vehicleId: null,
-      actionType: "user_invited",
-      description: `Updated roles for ${user.email}: ${roles.join(", ")}`,
-      metadata: { targetUserId: userId, roles },
+    const res = await fetch("/api/team/set-roles", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, roles }),
     });
+    const json = (await res.json()) as { user?: User; error?: string };
+    if (!res.ok || !json.user) {
+      throw new Error(json.error ?? "Could not update roles");
+    }
+    bustUserCaches();
+    const user = json.user;
+    await activityService
+      .log({
+        companyId: user.companyId,
+        userId: actorId,
+        vehicleId: null,
+        actionType: "user_invited",
+        description: `Updated roles for ${user.email}: ${roles.join(", ")}`,
+        metadata: { targetUserId: userId, roles },
+      })
+      .catch(() => {});
     return user;
   },
 

@@ -40,7 +40,13 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
   // Reset state when target user changes / dialog re-opens.
   useEffect(() => {
     if (open && user) {
-      setRoles(new Set(user.roles as RoleValue[]));
+      // Intentional reset-on-open: re-sync the picker to the target member each
+      // time the dialog opens. Owner == super-user, not assignable here, so it
+      // is never seeded.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setRoles(
+        new Set((user.roles as RoleValue[]).filter((r) => r !== "owner")),
+      );
       setSearch("");
     }
   }, [open, user]);
@@ -53,9 +59,12 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
   }
 
   const filteredRoleDefs = useMemo(() => {
+    // Owner / Super Administrator is a deliberate super-user grant, not
+    // assignable from the role editor — exclude it from the picker.
+    const assignable = ROLE_DEFS.filter((r) => r.value !== "owner");
     const q = search.trim().toLowerCase();
-    if (!q) return ROLE_DEFS;
-    return ROLE_DEFS.filter(
+    if (!q) return assignable;
+    return assignable.filter(
       (r) =>
         r.label.toLowerCase().includes(q) ||
         r.description.toLowerCase().includes(q),
