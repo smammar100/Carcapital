@@ -168,13 +168,15 @@ function LoginInner() {
           </Form>
         </Card>
 
-        <p className="mt-8 text-center text-xs text-muted-foreground">
-          Dev seed users: shared password{" "}
-          <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-            CarCap!demo1
-          </code>
-          .
-        </p>
+        {process.env.NODE_ENV !== "production" && (
+          <p className="mt-8 text-center text-xs text-muted-foreground">
+            Dev seed users: shared password{" "}
+            <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
+              CarCapUAT!2026
+            </code>
+            .
+          </p>
+        )}
       </div>
     </div>
   );
