@@ -291,12 +291,71 @@ All three: `company_id` set, `active = true`, `accepted_at` set, `password_reset
 
 ---
 
+## Part 5 — Username accounts & login (no-email)
+
+Admin-generated **username + password** staff logins, relayed out-of-band (WhatsApp / phone / in person) — **no email anywhere in the user-facing flow**. Email stays an optional path for clients whose staff do have addresses. Under the hood each username account uses an internal **synthetic email** `<username>@<dealership-slug>.staff.carcapital.uk` that is never shown. Migration `0026`; shared helpers in `src/lib/auth/username.ts`; admin UI in `add-staff-dialog.tsx` / `reset-password-dialog.tsx`.
+
+### 5A. Admin creates a username login (no email)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5A.1 | Users & Permissions → **Add staff** | Dialog has Name, Username (auto-suggested), Role picker, generated Password — **no email field** | ☐ | |
+| 5A.2 | Type name "Ahmed Khan" | Username auto-suggests `ahmed.khan` (editable; live format hint) | ☐ | |
+| 5A.3 | Pick Inspector → Generate password → Create | Success; **relay box shows Username + Password (no email)** + Copy | ☐ | |
+| 5A.4 | (DB) inspect the new row | `username='ahmed.khan'`, `email='ahmed.khan@car-capital-uk.staff.carcapital.uk'`, `creation_mode='direct'`, `password_reset_required=true`, `roles={inspector}`; auth row `email_confirmed_at` set; no mail sent | ☐ | |
+
+### 5B. Username login + forced first-password set
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5B.1 | `/login` → `ahmed.khan` + temp password | Signed in (React intercepts; no native GET) | ☐ | |
+| 5B.2 | — | Forced redirect to `/set-password` → set new password (no email link) → `/maintenance/inspection` | ☐ | |
+| 5B.3 | Sign out → log in with the NEW password | Works; the temp password is rejected | ☐ | |
+
+### 5C. Role view (username user)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5C.1 | Inspect sidebar / CTA / home | Match Inspector (Start Inspection, `/maintenance/inspection`) | ☐ | |
+| 5C.2 | Admin → grid | Member shows by **username** (never the synthetic email) | ☐ | |
+
+### 5D. Per-dealership uniqueness
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5D.1 | Add staff `ahmed.khan` again (same dealership) | **409 "That username is already taken"**, no orphan auth user | ☐ | |
+| 5D.2 | (Multi-tenant) same username in another dealership | Allowed; `/login?org=<other-slug>` resolves the right account | ☐ | |
+
+### 5E. Email path still works (optional secondary)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5E.1 | `/login` with an email account (contains `@`) | Authenticates via the email path (unchanged) | ☐ | |
+| 5E.2 | "Invite by email" tab | Still creates an email-based account | ☐ | |
+
+### 5F. Admin password reset (no-email)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5F.1 | Grid → **Reset password** on Ahmed | Relay box shows new Username + Password | ☐ | |
+| 5F.2 | Old password fails; new logs in | New password works + re-forces `/set-password` | ☐ | |
+
+### 5G. Security
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 5G.1 | Authenticated self-`update users set username/email` | **Blocked** (guard trigger, errcode 42501) | ✅ | guard fn body confirmed to cover `username` + `email` |
+| 5G.2 | Non-admin POST `/api/team/create-with-password` or `/reset-password` | **403** | ☐ | gated by requireCapability / requireAnyCapability |
+
+### 5H. Verified automated runs (2026-06-07)
+- ✅ **Migration 0026 applied** (live DB): `companies.slug='car-capital-uk'`, `users.username` + partial unique index `users_company_username_key`, guard trigger extended to `username`+`email` (function body confirmed via `pg_get_functiondef`).
+- ✅ **Unit tests 13/13** (`pnpm test`): `syntheticEmail('car-capital-uk','ahmed.khan')` === `ahmed.khan@car-capital-uk.staff.carcapital.uk` — the exact mapping the login page **and** the create route share; `isValidUsername` mirrors the DB CHECK; `looksLikeEmail` / `suggestUsername` / `normalizeUsername`.
+- ✅ **Production build READY** (Vercel preview of `fix/kpi-overview-count`): the feature type-checks + builds in prod; `pnpm tsc --noEmit` clean; new files lint-clean.
+- ✅ **Login UI live** on the preview: a single **"Username or email"** field (type=text). The login flow runs end-to-end (form → React `onSubmit` → `signInWithPassword` → GoTrue → toast), confirmed by a deliberate wrong-cred attempt returning "Invalid login credentials" (no native GET — React intercepts).
+- ⏳ **Live admin-driven walkthrough (5A–5F, 5G.2)**: pending a current admin login — the seed admin passwords were rotated and creating test accounts on the shared DB was not authorized for this task. Run on the preview/demo with a working admin to tick 5A–5F + 5G.2.
+
+---
+
 ## Sign-off
 
 - [ ] All Part 1 role rows pass.
 - [ ] All Part 2 cross-cutting cases pass.
 - [ ] **All Part 3 bypass attempts are REJECTED.**
 - [ ] All Part 4 invite & onboarding cases pass.
+- [ ] All Part 5 username-account & login cases pass.
 - [ ] `node scripts/delete-test-users.mjs` run to clean up.
 
 Tester: ________________  Date: ____________
