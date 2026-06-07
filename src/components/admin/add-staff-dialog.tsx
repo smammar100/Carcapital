@@ -145,7 +145,7 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-5 p-6 sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] gap-5 overflow-y-auto p-6 sm:max-w-lg">
         <DialogHeader className="space-y-0 pr-8">
           <DialogTitle>Add staff member</DialogTitle>
         </DialogHeader>
@@ -232,7 +232,7 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                     : "None selected"}
                 </span>
               </div>
-              <div className="mt-2 max-h-48 space-y-1 overflow-y-auto rounded-md border p-1">
+              <div className="mt-2 space-y-1 rounded-md border p-1">
                 {ROLE_GROUPS.map((group) => {
                   const groupRoles = ROLE_DEFS.filter((r) => r.group === group);
                   if (groupRoles.length === 0) return null;
