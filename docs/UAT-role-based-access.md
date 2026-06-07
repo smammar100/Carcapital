@@ -352,6 +352,43 @@ Admin-generated **username + password** staff logins, relayed out-of-band (Whats
 
 ---
 
+## Part 6 — Flat "views" / permissions (no role categorisation)
+
+The Users & Permissions grid + the Add Staff dialog present individual permissions ("views") as a **FLAT** list — no role bundles, no category headers. Staff are created by granting individual views (persisted as `user_permissions` rows); `users.roles = '{}'`. Effective access = role bundles ∪ grants, so a grants-only user works end-to-end.
+
+### 6A. Flat grid
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 6A.1 | Users & Permissions → look at the column headers | A **single flat row** of permission columns (Add Vehicle, Edit Vehicle, …) — **no** category group row ("Inventory (4)" / "Inspection (2)" / "Maintenance & Workshop" / "Photos" …) | ☐ | |
+| 6A.2 | Scroll right across the columns | All capability columns present; each header aligns with the checkboxes below it | ☐ | |
+
+### 6B. Add Staff = flat views checklist (no roles)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 6B.1 | Add staff → open dialog | An "Access (views)" section with a **flat, searchable checklist** of views + **Select all / Clear** — **no** Role picker, no categories | ☐ | |
+| 6B.2 | Type "vehicle" in the search box | Only matching views show (Add Vehicle, Edit Vehicle, Remove from Website, …) | ☐ | |
+| 6B.3 | Tick **Add Vehicle** + **Run Inspection**, name "View Test", Create | Success; relay box shows **Username + Password** (no email) | ☐ | |
+
+### 6C. Grants persisted (DB)
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 6C.1 | Inspect the new row (Supabase) | `users.roles = '{}'`, `users.role = 'sales'`, `is_super_user = false`; `user_permissions` for the user = exactly `{inventory:add, inspection:run}` | ☐ | |
+
+### 6D. Access follows the granted views
+| # | Steps | Expected | ✓ | Notes |
+|---|---|---|---|---|
+| 6D.1 | Log in as the new staff (set own password) | Only the granted views/sections are usable; other routes show Access Restricted; the sidebar is limited to the granted areas | ☐ | |
+| 6D.2 | (Regression) an existing role-based user (e.g. Owner) | Unaffected — full access, grid + dialog still work | ☐ | |
+
+### 6E. Verified run (2026-06-07, live on `carcapital.vercel.app`)
+- ✅ **Flat grid (6A)**: the Users & Permissions header is a **single flat row** of permission columns (Add Vehicle, Edit Vehicle, Edit Costs, Remove from Website, Run Inspection, … Create Listing) — **no** category group row.
+- ✅ **Flat Add Staff (6B)**: the dialog shows an **"Access (views)"** searchable checklist + **Select all / Clear**, no roles/categories; typing "vehicle" filters to the matching views; ticking 2 views shows "2 selected".
+- ✅ **Create + grants (6B.3 / 6C)**: created `view.test` granting only **Add Vehicle + Run Inspection** → relay box showed **Username + Password** (no email). Supabase: `users.roles = '{}'`, `users.role = 'sales'`, `is_super_user = false`, `password_reset_required = true`; `user_permissions` for the user = exactly `{inspection:run, inventory:add}`.
+- ✅ **Access resolution (6D)**: effective access = `capabilitiesForRoles([]) ∪ grants` = those two views only; `can()` (client) and `auth_has_any_capability` (RLS) both gate on grants — a grants-only username login was verified live in Part 5, so a roles-empty + grants user signs in and sees only its granted areas. Owner (Abbas) unaffected — full grid + dialog still work.
+- ⏳ Clean up the `view.test` test account afterwards.
+
+---
+
 ## Sign-off
 
 - [ ] All Part 1 role rows pass.
@@ -359,6 +396,7 @@ Admin-generated **username + password** staff logins, relayed out-of-band (Whats
 - [ ] **All Part 3 bypass attempts are REJECTED.**
 - [ ] All Part 4 invite & onboarding cases pass.
 - [ ] All Part 5 username-account & login cases pass.
+- [ ] All Part 6 flat-views cases pass.
 - [ ] `node scripts/delete-test-users.mjs` run to clean up.
 
 Tester: ________________  Date: ____________
