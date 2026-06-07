@@ -2,7 +2,6 @@
 
 import {
   ALL_CAPABILITIES,
-  CAPABILITY_GROUPS,
   CAPABILITY_LABELS,
   type Capability,
 } from "@/lib/capabilities";
@@ -41,30 +40,7 @@ export function PermissionsGridTable({
     <div className="overflow-x-auto rounded-lg border">
       <table className="border-separate border-spacing-0 text-sm">
         <thead>
-          {/* Row 1 — domain group headers */}
-          <tr>
-            <th
-              className={cn(
-                STICKY_COL,
-                "z-2 border-b px-4 py-2 text-left align-bottom text-xs font-semibold uppercase text-muted-foreground",
-              )}
-            >
-              Member
-            </th>
-            {CAPABILITY_GROUPS.map((g) => (
-              <th
-                key={g.label}
-                colSpan={g.capabilities.length}
-                className="border-b border-l bg-muted/40 px-2 py-2 text-center text-xs font-semibold whitespace-nowrap"
-              >
-                {g.label}{" "}
-                <span className="text-muted-foreground">
-                  ({g.capabilities.length})
-                </span>
-              </th>
-            ))}
-          </tr>
-          {/* Row 2 — individual capability labels (horizontal) */}
+          {/* Single flat header row — individual permission "views", no role/category grouping */}
           <tr>
             <th
               className={cn(
@@ -79,21 +55,16 @@ export function PermissionsGridTable({
                 {users.length} member{users.length === 1 ? "" : "s"}
               </span>
             </th>
-            {CAPABILITY_GROUPS.map((g) =>
-              g.capabilities.map((cap, i) => (
-                <th
-                  key={cap}
-                  className={cn(
-                    "w-28 min-w-28 max-w-28 border-b px-2 py-2 align-bottom",
-                    i === 0 && "border-l",
-                  )}
-                >
-                  <span className="block text-center text-xs leading-tight font-medium text-muted-foreground">
-                    {CAPABILITY_LABELS[cap]}
-                  </span>
-                </th>
-              )),
-            )}
+            {ALL_CAPABILITIES.map((cap) => (
+              <th
+                key={cap}
+                className="w-28 min-w-28 max-w-28 border-b border-l px-2 py-2 align-bottom"
+              >
+                <span className="block text-center text-xs leading-tight font-medium text-muted-foreground">
+                  {CAPABILITY_LABELS[cap]}
+                </span>
+              </th>
+            ))}
           </tr>
         </thead>
         <tbody data-testid="permissions-grid-body">

@@ -7,16 +7,24 @@
  *   - EMAIL (optional, for clients whose staff have emails): admin supplies a
  *     real `email`; behaves as before.
  *
+ * Two access modes:
+ *   - CAPABILITIES (default for the "Add staff" dialog): admin supplies a flat
+ *     list of `capabilities` ("views"). The user is created with `roles: []` and
+ *     the selected capabilities are written as per-user grants in
+ *     `user_permissions`. No role bundles, no categories.
+ *   - ROLES (legacy / email-invite tooling): admin supplies `roles[]`; the user
+ *     inherits the role bundles' capabilities.
+ *
  * Why a server route: minting an `auth.users` record requires the service-role
  * key. We create the auth user with `email_confirm: true` (no mail sent) and
- * upsert the matching `public.users` row in the ACCEPTED state, forcing a
- * password change on first login. The credentials are echoed back so the admin
- * can relay them out-of-band (WhatsApp / phone / in person).
+ * upsert the matching `public.users` row, forcing a password change on first
+ * login. The credentials are echoed back so the admin can relay them.
  */
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { legacyRoleForRoles, type RoleValue } from "@/lib/roles";
+import { ALL_CAPABILITIES, type Capability } from "@/lib/capabilities";
 import { sendCredentialsEmail } from "@/lib/email/send-invite";
 import {
   isValidUsername,
@@ -37,10 +45,12 @@ interface Body {
   password?: string;
   name?: string;
   roles?: RoleValue[];
+  capabilities?: string[];
   sendEmail?: boolean;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const CAP_SET = new Set<string>(ALL_CAPABILITIES);
 
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? email;
@@ -78,6 +88,18 @@ export async function POST(request: Request) {
   const username = body.username ? normalizeUsername(body.username) : null;
   const bodyEmail = body.email?.trim().toLowerCase() || null;
 
+  // Access mode: capabilities ("views") take precedence over roles.
+  const rawCaps = Array.isArray(body.capabilities) ? body.capabilities : [];
+  const invalidCap = rawCaps.find((c) => !CAP_SET.has(c));
+  if (invalidCap) {
+    return NextResponse.json(
+      { error: `Unknown view/capability: ${invalidCap}` },
+      { status: 400 },
+    );
+  }
+  const capabilities = rawCaps as Capability[];
+  const usingCaps = capabilities.length > 0;
+
   // Exactly one identity: username (no-email) OR email.
   if (username && bodyEmail) {
     return NextResponse.json(
@@ -112,8 +134,11 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  if (roles.length === 0) {
-    return NextResponse.json({ error: "Select at least one role" }, { status: 400 });
+  if (!usingCaps && roles.length === 0) {
+    return NextResponse.json(
+      { error: "Select at least one view to grant" },
+      { status: 400 },
+    );
   }
 
   let admin: ReturnType<typeof createAdminClient>;
@@ -172,11 +197,13 @@ export async function POST(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const isSuperUser = roles.includes("owner");
+  // Capability flow → no role bundle; roles flow → keep the bundles.
+  const effectiveRoles: RoleValue[] = usingCaps ? [] : roles;
+  const isSuperUser = !usingCaps && roles.includes("owner");
+  const legacyRole = legacyRoleForRoles(effectiveRoles); // "sales" for []
   const memberName =
     body.name?.trim() ||
     (username ? nameFromHandle(username) : nameFromEmail(loginEmail));
-  const legacyRole = legacyRoleForRoles(roles);
 
   // 1. Create the auth user (no email round-trip). A duplicate username produces
   //    a duplicate synthetic email → createUser fails here cleanly (no orphan).
@@ -202,8 +229,7 @@ export async function POST(request: Request) {
   const authUserId = authData.user.id;
 
   // 2. Provision the public.users profile row (no on_auth_user_created trigger
-  //    exists, so we upsert it ourselves). Direct creation forces a password
-  //    change on first login.
+  //    exists). Direct creation forces a password change on first login.
   const { error: rowErr } = await admin
     .from("users")
     .upsert(
@@ -215,7 +241,7 @@ export async function POST(request: Request) {
         name: memberName,
         role: legacyRole,
         is_super_user: isSuperUser,
-        roles,
+        roles: effectiveRoles,
         active: true,
         invited_at: null,
         accepted_at: now,
@@ -228,7 +254,6 @@ export async function POST(request: Request) {
     );
 
   if (rowErr) {
-    // Roll back the orphan auth user so a retry can succeed cleanly.
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
     if (
       username &&
@@ -246,8 +271,28 @@ export async function POST(request: Request) {
     );
   }
 
-  // 3. Optional credentials email — only for REAL-email accounts (synthetic
-  //    addresses have no inbox; staff get their login relayed out-of-band).
+  // 3. Capability flow → write the selected "views" as per-user grants.
+  if (usingCaps) {
+    const grantRows = capabilities.map((cap) => ({
+      user_id: authUserId,
+      capability: cap,
+      granted_by: actor.id,
+      granted_at: now,
+    }));
+    const { error: grantErr } = await admin
+      .from("user_permissions")
+      .insert(grantRows as never);
+    if (grantErr) {
+      // Roll back so a retry is clean (FK cascade also removes any partial grants).
+      await admin.auth.admin.deleteUser(authUserId).catch(() => {});
+      return NextResponse.json(
+        { error: `Account created but granting views failed: ${grantErr.message}` },
+        { status: 502 },
+      );
+    }
+  }
+
+  // 4. Optional credentials email — only for REAL-email accounts.
   if (sendEmail && !username) {
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
@@ -265,7 +310,7 @@ export async function POST(request: Request) {
     }).catch(() => {});
   }
 
-  // 4. Echo the credentials for out-of-band relay. For username accounts we
+  // 5. Echo the credentials for out-of-band relay. For username accounts we
   //    return the USERNAME (never the internal synthetic email).
   return NextResponse.json({
     id: authUserId,

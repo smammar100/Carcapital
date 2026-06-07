@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, RefreshCw, Copy } from "lucide-react";
 import {
   Dialog,
@@ -12,16 +12,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { ROLE_DEFS, ROLE_GROUPS, type RoleValue } from "@/lib/roles";
+import {
+  ALL_CAPABILITIES,
+  CAPABILITY_LABELS,
+  type Capability,
+} from "@/lib/capabilities";
 import {
   isValidUsername,
   normalizeUsername,
   suggestUsername,
 } from "@/lib/auth/username";
 import { toast } from "sonner";
-
-// New staff default to View Only (least privilege); admin picks before creating.
-const DEFAULT_ROLE: RoleValue = "view_only";
 
 // Crypto-random, human-relayable temporary password (no ambiguous chars).
 function generatePassword(): string {
@@ -33,10 +34,6 @@ function generatePassword(): string {
   return `${out}!9`;
 }
 
-function roleLabel(v: RoleValue): string {
-  return ROLE_DEFS.find((r) => r.value === v)?.label ?? v;
-}
-
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -45,17 +42,16 @@ interface Props {
 
 /**
  * Create a staff login with NO email — the admin generates a username +
- * password and relays it out-of-band (WhatsApp / phone / in person). Under the
- * hood the account gets an internal synthetic email (never shown). On success
- * the credentials are surfaced in a copyable box.
+ * password and relays it out-of-band. Access is assigned as a flat list of
+ * individual "views" (capabilities) — no roles, no categories. The selected
+ * views are stored as per-user grants; on success the credentials are shown.
  */
 export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
   const [name, setName] = useState("");
   // null => follow the auto-suggestion derived from `name`; string => admin-edited.
   const [usernameOverride, setUsernameOverride] = useState<string | null>(null);
-  const [roles, setRoles] = useState<Set<RoleValue>>(
-    () => new Set<RoleValue>([DEFAULT_ROLE]),
-  );
+  const [caps, setCaps] = useState<Set<Capability>>(() => new Set<Capability>());
+  const [search, setSearch] = useState("");
   const [password, setPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,7 +67,8 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
     /* eslint-disable react-hooks/set-state-in-effect */
     setName("");
     setUsernameOverride(null);
-    setRoles(new Set<RoleValue>([DEFAULT_ROLE]));
+    setCaps(new Set<Capability>());
+    setSearch("");
     setPassword(generatePassword());
     setError(null);
     setCreated(null);
@@ -83,15 +80,23 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
   const canSubmit =
     name.trim().length > 0 &&
     usernameOk &&
-    roles.size > 0 &&
+    caps.size > 0 &&
     password.length >= 8 &&
     !submitting;
 
-  function toggleRole(v: RoleValue) {
-    setRoles((prev) => {
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return ALL_CAPABILITIES;
+    return ALL_CAPABILITIES.filter((c) =>
+      CAPABILITY_LABELS[c].toLowerCase().includes(q),
+    );
+  }, [search]);
+
+  function toggleCap(c: Capability) {
+    setCaps((prev) => {
       const next = new Set(prev);
-      if (next.has(v)) next.delete(v);
-      else next.add(v);
+      if (next.has(c)) next.delete(c);
+      else next.add(c);
       return next;
     });
   }
@@ -108,13 +113,10 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
           username: normalizeUsername(username),
           name: name.trim(),
           password,
-          roles: [...roles],
+          capabilities: [...caps],
         }),
       });
-      const json = (await res.json()) as {
-        username?: string;
-        error?: string;
-      };
+      const json = (await res.json()) as { username?: string; error?: string };
       if (!res.ok) {
         setError(json.error ?? "Could not create the staff login");
         return;
@@ -222,41 +224,64 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
 
             <div>
               <div className="flex items-baseline justify-between">
-                <Label className="text-sm font-medium">Role</Label>
+                <Label className="text-sm font-medium">Access (views)</Label>
                 <span
                   className="text-xs text-muted-foreground"
-                  data-testid="add-staff-selected-roles"
+                  data-testid="add-staff-selected-count"
                 >
-                  {roles.size > 0
-                    ? [...roles].map(roleLabel).join(", ")
-                    : "None selected"}
+                  {caps.size} selected
                 </span>
               </div>
-              <div className="mt-2 space-y-1 rounded-md border p-1">
-                {ROLE_GROUPS.map((group) => {
-                  const groupRoles = ROLE_DEFS.filter((r) => r.group === group);
-                  if (groupRoles.length === 0) return null;
-                  return (
-                    <div key={group} className="flex flex-col">
-                      <div className="rounded bg-muted/40 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {group}
-                      </div>
-                      {groupRoles.map((r) => (
-                        <label
-                          key={r.value}
-                          className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/30"
-                        >
-                          <Checkbox
-                            checked={roles.has(r.value)}
-                            onCheckedChange={() => toggleRole(r.value)}
-                            data-testid={`add-staff-role-${r.value}`}
-                          />
-                          <span>{r.label}</span>
-                        </label>
-                      ))}
-                    </div>
-                  );
-                })}
+              <p className="mt-1 text-xs text-muted-foreground">
+                Tick the views this staff member can access — just the screens
+                and actions they need. No roles.
+              </p>
+              <Input
+                className="mt-2"
+                placeholder="Search views…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                data-testid="add-staff-cap-search"
+              />
+              <div className="mt-2 flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCaps(new Set<Capability>(ALL_CAPABILITIES))}
+                  data-testid="add-staff-select-all"
+                >
+                  Select all
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCaps(new Set<Capability>())}
+                  data-testid="add-staff-clear"
+                >
+                  Clear
+                </Button>
+              </div>
+              <div className="mt-2 max-h-64 space-y-0.5 overflow-y-auto rounded-md border p-1">
+                {filtered.map((cap) => (
+                  <label
+                    key={cap}
+                    className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-sm hover:bg-muted/30"
+                  >
+                    <Checkbox
+                      checked={caps.has(cap)}
+                      onCheckedChange={() => toggleCap(cap)}
+                      data-testid={`add-staff-cap-${cap}`}
+                    />
+                    <span>{CAPABILITY_LABELS[cap]}</span>
+                  </label>
+                ))}
+                {filtered.length === 0 && (
+                  <p className="px-2 py-2 text-xs text-muted-foreground">
+                    No views match “{search}”.
+                  </p>
+                )}
               </div>
             </div>
 
