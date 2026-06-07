@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { DataGridSearchBar } from "@/components/data-grid";
 import { RemoveMemberDialog } from "@/components/admin/remove-member-dialog";
 import { EditRolesDialog } from "@/components/admin/edit-roles-dialog";
+import { ResetPasswordDialog } from "@/components/admin/reset-password-dialog";
 import type { User } from "@/lib/types";
 import { usePermissionsGrid } from "./use-permissions-grid";
 import { PermissionsGridTable } from "./permissions-grid-table";
@@ -48,6 +49,7 @@ export const PermissionsGrid = forwardRef<
     const [filter, setFilter] = useState("");
     const [removeTarget, setRemoveTarget] = useState<User | null>(null);
     const [editTarget, setEditTarget] = useState<User | null>(null);
+    const [resetTarget, setResetTarget] = useState<User | null>(null);
 
     useImperativeHandle(ref, () => ({ reload }), [reload]);
 
@@ -91,6 +93,7 @@ export const PermissionsGrid = forwardRef<
             onToggle={toggleCapability}
             onRemove={setRemoveTarget}
             onEditRoles={setEditTarget}
+            onResetPassword={setResetTarget}
           />
         )}
 
@@ -117,6 +120,14 @@ export const PermissionsGrid = forwardRef<
             if (!o) setEditTarget(null);
           }}
           onSaved={() => void reload()}
+        />
+
+        <ResetPasswordDialog
+          user={resetTarget}
+          open={resetTarget !== null}
+          onOpenChange={(o) => {
+            if (!o) setResetTarget(null);
+          }}
         />
       </div>
     );

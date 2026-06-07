@@ -6,7 +6,7 @@ import {
   CAPABILITY_LABELS,
   type Capability,
 } from "@/lib/capabilities";
-import { Trash2, SlidersHorizontal } from "lucide-react";
+import { Trash2, SlidersHorizontal, KeyRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
 import type { User, UUID } from "@/lib/types";
@@ -21,6 +21,7 @@ interface Props {
   onToggle: (userId: UUID, cap: Capability) => void;
   onRemove?: (user: User) => void;
   onEditRoles?: (user: User) => void;
+  onResetPassword?: (user: User) => void;
 }
 
 const STICKY_COL =
@@ -34,6 +35,7 @@ export function PermissionsGridTable({
   onToggle,
   onRemove,
   onEditRoles,
+  onResetPassword,
 }: Props) {
   return (
     <div className="overflow-x-auto rounded-lg border">
@@ -129,7 +131,7 @@ export function PermissionsGridTable({
                         )}
                       </div>
                       <span className="truncate text-xs text-muted-foreground">
-                        {u.email}
+                        {u.username ?? u.email}
                       </span>
                     </div>
                     {onEditRoles && !isYou && !u.isSuperUser && (
@@ -142,6 +144,18 @@ export function PermissionsGridTable({
                         data-testid={`edit-roles-${u.id}`}
                       >
                         <SlidersHorizontal className="h-4 w-4" />
+                      </button>
+                    )}
+                    {onResetPassword && !isYou && !u.isSuperUser && (
+                      <button
+                        type="button"
+                        onClick={() => onResetPassword(u)}
+                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/member:opacity-100"
+                        aria-label={`Reset password for ${u.name}`}
+                        title="Reset password"
+                        data-testid={`reset-password-${u.id}`}
+                      >
+                        <KeyRound className="h-4 w-4" />
                       </button>
                     )}
                     {onRemove && !isYou && !u.isSuperUser && (

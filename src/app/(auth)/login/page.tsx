@@ -9,6 +9,11 @@ import { z } from "zod";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/auth-context";
 import { getHomeForUser } from "@/lib/user-home";
+import {
+  looksLikeEmail,
+  syntheticEmail,
+  DEFAULT_ORG_SLUG,
+} from "@/lib/auth/username";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -22,7 +27,7 @@ import {
 } from "@/components/ui/form";
 
 const schema = z.object({
-  email: z.string().email("Enter a valid email address"),
+  identifier: z.string().min(1, "Enter your username or email"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -42,10 +47,13 @@ function LoginInner() {
   const search = useSearchParams();
   const { user, signIn, signOut } = useAuth();
   const explicitNext = search.get("next");
+  // Dealership for username logins (scopes the internal synthetic email). From
+  // ?org=<slug>, else the default single dealership. Email logins ignore this.
+  const orgSlug = search.get("org") ?? DEFAULT_ORG_SLUG;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { email: "", password: "" },
+    defaultValues: { identifier: "", password: "" },
   });
 
   const justSubmittedRef = useRef(false);
@@ -78,7 +86,12 @@ function LoginInner() {
   async function onSubmit(values: FormValues) {
     try {
       justSubmittedRef.current = true;
-      await signIn(values.email, values.password);
+      // No "@" → treat as a username and map to the dealership's internal
+      // synthetic email; otherwise sign in with the email directly.
+      const email = looksLikeEmail(values.identifier)
+        ? values.identifier.trim().toLowerCase()
+        : syntheticEmail(orgSlug, values.identifier);
+      await signIn(email, values.password);
       toast.success("Signed in");
       // The effect above performs the redirect once `user` hydrates.
     } catch (err) {
@@ -113,15 +126,15 @@ function LoginInner() {
             >
               <FormField
                 control={form.control}
-                name="email"
+                name="identifier"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>Username or email</FormLabel>
                     <FormControl>
                       <Input
-                        type="email"
-                        autoComplete="email"
-                        placeholder="you@carcapital.uk"
+                        type="text"
+                        autoComplete="username"
+                        placeholder="username"
                         autoFocus
                         {...field}
                       />

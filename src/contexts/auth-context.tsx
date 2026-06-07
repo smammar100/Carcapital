@@ -49,6 +49,7 @@ const USER_WITH_COMPANY_SELECT = `
   companyId:company_id,
   name,
   email,
+  username,
   role,
   isSuperUser:is_super_user,
   roles,
@@ -65,6 +66,7 @@ const USER_WITH_COMPANY_SELECT = `
   company:companies (
     id,
     name,
+    slug,
     address,
     vatNumber:vat_number,
     logoUrl:logo_url,

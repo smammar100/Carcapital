@@ -21,6 +21,7 @@ const SELECT = `
   companyId:company_id,
   name,
   email,
+  username,
   role,
   isSuperUser:is_super_user,
   roles,

@@ -13,6 +13,10 @@ export type ISODateTime = string;   // "2026-04-22T14:30:00.000Z"
 export interface Company {
   id: UUID;
   name: string;
+  /** URL-safe dealership identifier — scopes no-email synthetic logins and
+   *  resolves the dealership at /login?org=<slug>. Always set on DB-loaded rows;
+   *  optional only so demo/mock literals can omit it. */
+  slug?: string;
   address: string;
   vatNumber: string | null;
   logoUrl: string | null;
@@ -34,6 +38,14 @@ export interface User {
   companyId: UUID;
   name: string;
   email: string;
+  /**
+   * Per-dealership login handle for no-email staff (unique per company). NULL
+   * for email-based accounts. Staff with a username never see/use the email —
+   * it is an internal synthetic address (see src/lib/auth/username.ts).
+   * Always present on DB-loaded rows (string or null); optional only so
+   * demo/mock literals can omit it.
+   */
+  username?: string | null;
   /** Legacy display label only — authority is driven by `roles` + capabilities. */
   role: UserRole;
   /** v4.1 Gap 3 — bypasses every capability check. */
