@@ -6,7 +6,7 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/contexts/auth-context";
 import { getHomeForUser } from "@/lib/user-home";
 import {
@@ -15,16 +15,7 @@ import {
   DEFAULT_ORG_SLUG,
 } from "@/lib/auth/username";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { NordInputField } from "@/components/nord/form";
 
 const schema = z.object({
   identifier: z.string().min(1, "Enter your username or email"),
@@ -96,100 +87,94 @@ function LoginInner() {
       // The effect above performs the redirect once `user` hydrates.
     } catch (err) {
       justSubmittedRef.current = false;
-      const msg =
-        err instanceof Error ? err.message : "Could not sign in";
+      const msg = err instanceof Error ? err.message : "Could not sign in";
       toast.error(msg);
       form.setError("password", { message: " " });
     }
   }
 
+  // form.handleSubmit wraps onSubmit, which reads submission-guard refs — a
+  // standard RHF + ref pattern the react-hooks/refs rule over-flags.
+  // eslint-disable-next-line react-hooks/refs
+  const handleFormSubmit = form.handleSubmit(onSubmit);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-muted/40 to-background px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 grid h-12 w-12 place-items-center rounded-xl bg-primary text-primary-foreground text-sm font-semibold tracking-widest">
+    <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+      {/* Left — sign-in form */}
+      <div className="flex items-center justify-center bg-background px-6 py-12">
+        <div className="w-full max-w-[360px]">
+          <div className="grid h-12 w-12 place-items-center rounded-xl bg-primary text-sm font-bold tracking-widest text-primary-foreground shadow-sm">
             CC
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Car Capital UK
+          <h1 className="mt-6 text-2xl font-semibold tracking-tight">
+            Sign in to your account
           </h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Sign in to continue
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            Welcome back — let&apos;s get to work.
+          </p>
+
+          <form onSubmit={handleFormSubmit} className="mt-7 flex flex-col gap-4">
+            <NordInputField
+              control={form.control}
+              name="identifier"
+              label="Username or email"
+              type="text"
+              autoComplete="username"
+              placeholder="username"
+            />
+            <NordInputField
+              control={form.control}
+              name="password"
+              label="Password"
+              type="password"
+              autoComplete="current-password"
+            />
+            <Button
+              type="submit"
+              expand
+              loading={form.formState.isSubmitting}
+              className="mt-1"
+            >
+              Sign in
+            </Button>
+            <Link
+              href="/forgot-password"
+              className="self-center text-xs text-muted-foreground underline-offset-4 hover:underline"
+            >
+              Forgot password?
+            </Link>
+          </form>
+
+          {process.env.NODE_ENV !== "production" && (
+            <p className="mt-8 text-xs text-muted-foreground">
+              Dev seed users: shared password{" "}
+              <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
+                CarCapUAT!2026
+              </code>
+              .
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Right — branded car panel (Unsplash). Hidden on small screens. */}
+      <div className="relative hidden lg:block">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/35 to-black/10" />
+        <div className="absolute inset-x-0 bottom-0 p-10 text-white">
+          <div className="text-3xl font-semibold leading-tight">
+            Run your forecourt, end to end.
+          </div>
+          <p className="mt-3 max-w-md text-sm text-white/85">
+            Inventory, inspections, sales and warranties — one platform for the
+            whole dealership.
           </p>
         </div>
-
-        <Card className="p-6">
-          <Form {...form}>
-            <form
-              onSubmit={form.handleSubmit(onSubmit)}
-              className="flex flex-col gap-4"
-            >
-              <FormField
-                control={form.control}
-                name="identifier"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Username or email</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="text"
-                        autoComplete="username"
-                        placeholder="username"
-                        autoFocus
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <div className="flex items-baseline justify-between">
-                      <FormLabel>Password</FormLabel>
-                      <Link
-                        href="/forgot-password"
-                        className="text-xs text-muted-foreground underline-offset-4 hover:underline"
-                      >
-                        Forgot password?
-                      </Link>
-                    </div>
-                    <FormControl>
-                      <Input
-                        type="password"
-                        autoComplete="current-password"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <Button
-                type="submit"
-                className="mt-2"
-                disabled={form.formState.isSubmitting}
-              >
-                {form.formState.isSubmitting ? "Signing in…" : "Sign in"}
-              </Button>
-            </form>
-          </Form>
-        </Card>
-
-        {process.env.NODE_ENV !== "production" && (
-          <p className="mt-8 text-center text-xs text-muted-foreground">
-            Dev seed users: shared password{" "}
-            <code className="rounded bg-muted px-1.5 py-0.5 text-foreground">
-              CarCapUAT!2026
-            </code>
-            .
-          </p>
-        )}
       </div>
     </div>
   );
