@@ -1,31 +1,26 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Figtree } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import { Suspense } from "react";
+// Nord base (design tokens + Inter webfont + FOUC guard for undefined
+// <nord-*> elements) MUST load before globals.css so our token bridge and
+// `.dark` overrides win the cascade. Order = cascade order in the prod build.
+import "@nordhealth/css";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { AuthProvider } from "@/contexts/auth-context";
 import { NotificationsProvider } from "@/contexts/notifications-context";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "@/components/ui/sonner";
+import { ThemeProvider } from "@/components/theme-provider";
+import { NordRegister } from "@/components/nord/nord-register";
+import { NordToaster } from "@/components/nord/nord-toaster";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Analytics } from "@vercel/analytics/next";
 import { getInitialAuth } from "@/lib/auth-initial";
 import { AuthBoundary } from "@/components/layout/auth-boundary";
 
-const figtree = Figtree({
-  subsets: ["latin"],
-  variable: "--font-sans",
-  display: "swap",
-  preload: true,
-});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-});
-
+// UI font comes from Nord (Inter / "Nordhealth Sans") via @nordhealth/css and
+// the --font-sans → --n-font-family mapping in globals.css. Geist Mono stays
+// for code / monospaced values.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
@@ -70,16 +65,15 @@ export default async function RootLayout({
     <html
       lang="en"
       // Browser extensions (e.g. Demoway, focus-visible polyfills) mutate the
-      // <html>/<body> attributes before React hydrates. Suppress only silences
-      // attribute mismatches on this element itself — children still warn.
+      // <html>/<body> attributes before React hydrates. next-themes also writes
+      // the theme class here pre-hydration. Suppress silences attribute
+      // mismatches on this element itself — children still warn.
       suppressHydrationWarning
       className={cn(
         "h-full",
         "antialiased",
-        geistSans.variable,
         geistMono.variable,
         "font-sans",
-        figtree.variable,
       )}
     >
       <head>
@@ -95,18 +89,27 @@ export default async function RootLayout({
         )}
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
-        <Suspense
-          fallback={
-            <AuthProvider initialUser={null} initialCompany={null}>
-              <NotificationsProvider>
-                <TooltipProvider delay={150}>{children}</TooltipProvider>
-              </NotificationsProvider>
-            </AuthProvider>
-          }
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
         >
-          <AuthBoundary authPromise={authPromise}>{children}</AuthBoundary>
-        </Suspense>
-        <Toaster richColors closeButton position="bottom-right" />
+          {/* Registers the <nord-*> custom elements on the client. */}
+          <NordRegister />
+          <Suspense
+            fallback={
+              <AuthProvider initialUser={null} initialCompany={null}>
+                <NotificationsProvider>
+                  <TooltipProvider delay={150}>{children}</TooltipProvider>
+                </NotificationsProvider>
+              </AuthProvider>
+            }
+          >
+            <AuthBoundary authPromise={authPromise}>{children}</AuthBoundary>
+          </Suspense>
+          <NordToaster />
+        </ThemeProvider>
         <SpeedInsights />
         <Analytics />
       </body>

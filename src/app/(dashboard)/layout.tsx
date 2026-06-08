@@ -4,10 +4,6 @@ import { Suspense, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import {
-  SidebarStateProvider,
-  useSidebarState,
-} from "@/contexts/sidebar-state-context";
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { GridOverlay } from "@/components/layout/grid-overlay";
@@ -29,9 +25,9 @@ export default function DashboardLayout({
     void revalidate();
   }, [pathname, revalidate]);
 
-  // Force users with a temp password through /set-password before any
-  // dashboard route. Middleware can't see passwordResetRequired (it's a
-  // public.users column, not in the session JWT), so this stays client-side.
+  // Force users with a temp password through /set-password before any dashboard
+  // route. Middleware can't see passwordResetRequired (public.users column, not
+  // in the session JWT), so this stays client-side.
   useEffect(() => {
     if (user?.passwordResetRequired) {
       router.replace("/set-password");
@@ -66,74 +62,20 @@ export default function DashboardLayout({
     );
   }
 
+  // Nord layout owns the sidebar/header chrome + responsive nav toggle, peek,
+  // and collapse persistence (persist-nav-state) — replacing the old custom
+  // 2×2 grid shell + sidebar-state-context. PageShell keeps content padding, so
+  // the layout's own padding is disabled.
   return (
-    <SidebarStateProvider>
-      <Shell>{children}</Shell>
-    </SidebarStateProvider>
-  );
-}
-
-/**
- * Shell — 2x2 CSS Grid:
- *   ┌────────────────────────────┐
- *   │ sidebar │     header       │
- *   │         ├──────────────────┤
- *   │         │      main        │
- *   └────────────────────────────┘
- * Sidebar width comes from `--shell-sidebar-w` (260px expanded, 64px
- * collapsed); header height from `--shell-header-h` (56px). Main scrolls
- * independently while sidebar + header remain pinned.
- */
-function Shell({ children }: { children: React.ReactNode }) {
-  const { collapsed } = useSidebarState();
-  return (
-    <div
-      data-shell
-      data-sidebar-collapsed={collapsed ? "true" : "false"}
-      className="grid h-screen w-screen overflow-hidden bg-background"
-      style={{
-        // Literal px values here (not var(--shell-sidebar-w) etc) — the
-        // variables resolved correctly via getPropertyValue but the grid
-        // engine read them as the *expanded* value, suspect Tailwind v4
-        // `@theme inline` is shadowing them. Source-of-truth tokens still
-        // live in globals.css for any other consumer.
-        gridTemplateColumns: collapsed ? "64px 1fr" : "260px 1fr",
-        gridTemplateRows: "56px 1fr",
-        gridTemplateAreas: '"sidebar header" "sidebar main"',
-        transition: "grid-template-columns 200ms ease",
-      }}
-    >
-      <aside
-        style={{ gridArea: "sidebar" }}
-        className="overflow-hidden border-r bg-sidebar"
-      >
-        <AppSidebar />
-      </aside>
-      <header
-        style={{ gridArea: "header" }}
-        className="border-b bg-background"
-      >
-        <AppHeader />
-      </header>
-      <main
-        style={{ gridArea: "main" }}
-        className="relative overflow-y-auto bg-muted/20"
-      >
-        {/* LeafyGreen-style content cap (1152px default). Pages that need
-            the wider 1400px frame — Master Sheet et al. — render their
-            own <PageShell wide> inside this default one; the inner wrapper
-            wins because its max-w is higher. See plan §G4. */}
-        <PageShell>
-          <RouteGuard>{children}</RouteGuard>
-        </PageShell>
-        {/* Dev-only column + 4px baseline overlay; appears when the URL
-            contains `?grid=1`, otherwise renders nothing. Suspense wrap is
-            required because useSearchParams() trips the CSR-bailout build
-            error inside a dynamic layout. */}
-        <Suspense fallback={null}>
-          <GridOverlay />
-        </Suspense>
-      </main>
-    </div>
+    <nord-layout padding="none" persistNavState>
+      <AppSidebar />
+      <AppHeader />
+      <PageShell>
+        <RouteGuard>{children}</RouteGuard>
+      </PageShell>
+      <Suspense fallback={null}>
+        <GridOverlay />
+      </Suspense>
+    </nord-layout>
   );
 }

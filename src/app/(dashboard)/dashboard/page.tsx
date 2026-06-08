@@ -2,21 +2,34 @@
 
 import { useMemo } from "react";
 import { usePermissions } from "@/hooks/use-permissions";
+import { cn } from "@/lib/utils";
 import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting";
 import { DashboardKpiRow } from "@/components/dashboard/dashboard-kpi-row";
+import { DashboardStockOverview } from "@/components/dashboard/dashboard-stock-overview";
 import { DashboardRecentDeals } from "@/components/dashboard/dashboard-recent-deals";
-import { DashboardCalendar } from "@/components/dashboard/dashboard-calendar";
-import { DealsInProgress } from "@/components/dashboard/deals-in-progress";
-import { OngoingRepairs } from "@/components/dashboard/ongoing-repairs";
-import { cn } from "@/lib/utils";
+import { DashboardUpcomingAppointments } from "@/components/dashboard/dashboard-upcoming-appointments";
+import { DashboardTodayUpdates } from "@/components/dashboard/dashboard-today-updates";
+import { DashboardRecentActivity } from "@/components/dashboard/dashboard-recent-activity";
 
 export default function DashboardPage() {
   const { can, isSuperUser } = usePermissions();
 
+  // Each widget is gated to the capabilities that make it relevant, so every
+  // role sees a dashboard scoped to their job. The grid spans below adapt when
+  // a widget is hidden so there are no empty columns.
   const flags = useMemo(() => {
     const any = (...caps: Parameters<typeof can>[0][]) =>
       isSuperUser || caps.some((c) => can(c));
     return {
+      stock: any(
+        "inventory:add",
+        "inventory:edit",
+        "inspection:run",
+        "maintenance:create",
+        "advert:create",
+        "advert:edit",
+        "admin:view_master_sheet",
+      ),
       deals: any(
         "sales:create_lead",
         "sales:edit_lead",
@@ -32,48 +45,54 @@ export default function DashboardPage() {
         "maintenance:edit",
         "inspection:run",
       ),
-      pipeline: any("sales:edit_pipeline_stage", "sales:mark_sold"),
-      repairs: any(
-        "maintenance:create",
-        "maintenance:edit",
-        "maintenance:complete",
-        "workshop:add_note",
-        "inspection:run",
-      ),
+      news: any("admin:view_master_sheet", "admin:view_financials"),
     };
   }, [can, isSuperUser]);
 
-  const row1Count = Number(flags.deals) + Number(flags.calendar);
-  const row2Count = Number(flags.pipeline) + Number(flags.repairs);
+  const row2 = Number(flags.stock) + Number(flags.deals);
+  // Today's updates always shows — an at-a-glance personal summary for any role.
+  const row3 = 1 + Number(flags.calendar) + Number(flags.news);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <DashboardGreeting />
 
-      <div className="min-h-[140px]">
-        <DashboardKpiRow />
-      </div>
+      <DashboardKpiRow />
 
-      {row1Count > 0 && (
+      {row2 > 0 && (
         <div
           className={cn(
-            "grid gap-3",
-            row1Count === 2 && flags.deals && flags.calendar
-              ? "lg:grid-cols-[2fr_1fr]"
-              : "grid-cols-1",
+            "grid items-stretch gap-3",
+            row2 === 2 ? "lg:grid-cols-12" : "grid-cols-1",
           )}
         >
-          {flags.deals && <DashboardRecentDeals />}
-          {flags.calendar && <DashboardCalendar />}
+          {flags.stock && (
+            <div className={cn(row2 === 2 && "lg:col-span-5")}>
+              <DashboardStockOverview />
+            </div>
+          )}
+          {flags.deals && (
+            <div className={cn(row2 === 2 && "lg:col-span-7")}>
+              <DashboardRecentDeals />
+            </div>
+          )}
         </div>
       )}
 
-      {row2Count > 0 && (
-        <div className={cn("grid gap-3", row2Count === 2 ? "lg:grid-cols-2" : "grid-cols-1")}>
-          {flags.pipeline && <DealsInProgress />}
-          {flags.repairs && <OngoingRepairs />}
-        </div>
-      )}
+      <div
+        className={cn(
+          "grid items-stretch gap-3",
+          row3 === 3
+            ? "lg:grid-cols-3"
+            : row3 === 2
+              ? "lg:grid-cols-2"
+              : "grid-cols-1",
+        )}
+      >
+        {flags.calendar && <DashboardUpcomingAppointments />}
+        <DashboardTodayUpdates />
+        {flags.news && <DashboardRecentActivity />}
+      </div>
     </div>
   );
 }

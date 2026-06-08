@@ -2,19 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Car, Loader2, Search } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import type { Input as NordInput } from "@nordhealth/components";
 
 interface Props {
   open: boolean;
@@ -24,14 +12,13 @@ interface Props {
 }
 
 /**
- * Add Vehicle pre-entry modal. Captures registration + mileage up front so the
- * arrival form can run the DVLA + AutoTrader lookup in one shot (mileage is
- * required for AutoTrader valuations). "Continue manually" skips the lookup
- * and opens a blank form.
+ * Add Vehicle pre-entry modal (Nord <nord-modal>). Captures registration +
+ * mileage up front so the arrival form can run the DVLA + AutoTrader lookup in
+ * one shot. "Continue manually" skips the lookup and opens a blank form.
  */
 export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
   const router = useRouter();
-  const regInputRef = useRef<HTMLInputElement>(null);
+  const regInputRef = useRef<NordInput>(null);
   const [reg, setReg] = useState("");
   const [mileage, setMileage] = useState("");
   const [navigating, setNavigating] = useState(false);
@@ -40,9 +27,6 @@ export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
   const canLookup = cleanedReg.length >= 4 && cleanedReg.length <= 8;
 
   function go(withLookup: boolean) {
-    // The primary CTA stays solid (primary-black) even before a valid reg is
-    // entered — clicking it without one just nudges focus to the field rather
-    // than navigating to a lookup that would fail.
     if (withLookup && !canLookup) {
       regInputRef.current?.focus();
       return;
@@ -51,16 +35,13 @@ export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
     if (withLookup) {
       params.set("reg", cleanedReg);
       const m = Number(mileage);
-      if (Number.isFinite(m) && m > 0) params.set("mileage", String(Math.round(m)));
+      if (Number.isFinite(m) && m > 0)
+        params.set("mileage", String(Math.round(m)));
     }
     const qs = params.toString();
     setNavigating(true);
     router.push(`/inventory/add-vehicle${qs ? `?${qs}` : ""}`);
-    // Close the modal after kicking off navigation. Critical when the user is
-    // ALREADY on /inventory/add-vehicle: router.push() to the same path only
-    // swaps query params (no remount/navigation event), so the modal's
-    // `navigating` spinner would otherwise hang open forever. Closing here also
-    // resets state via onOpenChange→reset so a re-open starts clean.
+    // Close after kicking off navigation (also resets state for a clean re-open).
     onOpenChange(false);
   }
 
@@ -71,88 +52,72 @@ export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
   }
 
   return (
-    <Dialog
+    <nord-modal
       open={open}
-      onOpenChange={(o) => {
-        if (!o) reset();
-        onOpenChange(o);
+      size="m"
+      aria-label="Add a vehicle"
+      // Fires on any close (backdrop / Esc / close button / programmatic) —
+      // sync React state so the controlled `open` prop doesn't re-open it.
+      onclose={() => {
+        reset();
+        onOpenChange(false);
       }}
     >
-      <DialogContent className="max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2.5">
-            <span className="grid size-9 place-items-center rounded-lg bg-primary/10 text-primary">
-              <Car className="size-4.5" />
-            </span>
-            Add a vehicle
-          </DialogTitle>
-          <DialogDescription>
-            Enter the registration and mileage — we&apos;ll pull make, model,
-            derivative, tax, MOT and an AutoTrader valuation automatically.
-          </DialogDescription>
-        </DialogHeader>
+      <h2 slot="header">Add a vehicle</h2>
 
-        <DialogPanel className="grid gap-4">
-          <div className="grid gap-1.5">
-            <Label htmlFor="add-vehicle-reg">Registration</Label>
-            <Input
-              id="add-vehicle-reg"
-              ref={regInputRef}
-              value={reg}
-              onChange={(e) => setReg(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && canLookup) go(true);
-              }}
-              placeholder="EK18 FUT"
-              autoFocus
-              autoComplete="off"
-              spellCheck={false}
-              className="font-mono uppercase tracking-wider"
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="add-vehicle-mileage">Mileage</Label>
-            <Input
-              id="add-vehicle-mileage"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              value={mileage}
-              onChange={(e) => setMileage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && canLookup) go(true);
-              }}
-              placeholder="e.g. 45000"
-            />
-            <p className="text-xs text-muted-foreground">
-              Needed for an accurate AutoTrader valuation.
-            </p>
-          </div>
-        </DialogPanel>
+      <div className="flex flex-col gap-4">
+        <p className="text-sm text-muted-foreground">
+          Enter the registration and mileage — we&apos;ll pull make, model,
+          derivative, tax, MOT and an AutoTrader valuation automatically.
+        </p>
+        <nord-input
+          ref={regInputRef}
+          label="Registration"
+          value={reg}
+          onInput={(e) =>
+            setReg((e.target as HTMLInputElement).value.toUpperCase())
+          }
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === "Enter" && canLookup) go(true);
+          }}
+          placeholder="EK18 FUT"
+          autocomplete="off"
+          spellCheck={false}
+          className="font-mono uppercase"
+          suppressHydrationWarning
+        />
+        <nord-input
+          label="Mileage"
+          type="number"
+          inputmode="numeric"
+          hint="Needed for an accurate AutoTrader valuation."
+          value={mileage}
+          onInput={(e) => setMileage((e.target as HTMLInputElement).value)}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === "Enter" && canLookup) go(true);
+          }}
+          placeholder="e.g. 45000"
+          suppressHydrationWarning
+        />
+      </div>
 
-        <DialogFooter className="sm:items-center sm:justify-between">
-          <Button
-            type="button"
-            variant="ghost"
-            onClick={() => go(false)}
-            disabled={navigating}
-          >
-            Continue manually
-          </Button>
-          <Button
-            type="button"
-            onClick={() => go(true)}
-            disabled={navigating}
-          >
-            {navigating ? (
-              <Loader2 className="mr-1.5 size-4 animate-spin" />
-            ) : (
-              <Search className="mr-1.5 size-4" />
-            )}
-            Look up &amp; continue
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <nord-button
+        slot="footer"
+        variant="plain"
+        onClick={() => go(false)}
+        disabled={navigating}
+      >
+        Continue manually
+      </nord-button>
+      <nord-button
+        slot="footer"
+        variant="primary"
+        onClick={() => go(true)}
+        loading={navigating}
+      >
+        <nord-icon slot="start" name="navigation-search" />
+        Look up &amp; continue
+      </nord-button>
+    </nord-modal>
   );
 }

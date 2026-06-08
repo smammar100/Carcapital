@@ -51,10 +51,13 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  /* Radius scale anchored on Nord's --n-border-radius (≈5px) so every rounded-*
+     utility matches the Nord web components instead of Tailwind's 16px default. */
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 1px);
+  --radius-xl: calc(var(--radius) + 3px);
+  --radius-2xl: calc(var(--radius) + 5px);
 
   --animate-skeleton: skeleton 2s -1s infinite linear;
   --animate-caret-blink: 1s ease-out infinite caret-blink;
@@ -183,115 +186,138 @@
   }
 }
 
+/* ── Nord token bridge ───────────────────────────────────────────────
+   The app's semantic tokens are re-pointed at Nord design tokens (`--n-*`,
+   defined by @nordhealth/css which is imported BEFORE this file). This keeps
+   every Tailwind consumer (bg-card, text-muted-foreground, border-border,
+   bg-primary, …) visually consistent with the Nord <nord-*> components during
+   the migration, and lets a single `.dark` class flip both at once (the .dark
+   block below only re-declares `--n-color-*`, which these vars resolve through).
+   Light `--n-color-*` values come from @nordhealth/css. */
 :root {
-  --radius: 0.625rem;
-  --background: var(--color-white);
-  --foreground: var(--color-neutral-800);
-  --card: var(--color-white);
-  --card-foreground: var(--color-neutral-800);
-  --popover: var(--color-white);
-  --popover-foreground: var(--color-neutral-800);
-  --primary: var(--color-neutral-800);
-  --primary-foreground: var(--color-neutral-50);
-  --secondary: --alpha(var(--color-black) / 4%);
-  --secondary-foreground: var(--color-neutral-800);
-  --muted: --alpha(var(--color-black) / 4%);
-  --muted-foreground: color-mix(
-    in srgb,
-    var(--color-neutral-500) 90%,
-    var(--color-black)
-  );
-  --accent: --alpha(var(--color-black) / 4%);
-  --accent-foreground: var(--color-neutral-800);
-  --destructive: var(--color-red-500);
-  --destructive-foreground: var(--color-red-700);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-700);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-700);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-700);
-  --border: --alpha(var(--color-black) / 8%);
-  --input: --alpha(var(--color-black) / 10%);
-  --ring: var(--color-neutral-400);
-  --chart-1: var(--color-orange-600);
-  --chart-2: var(--color-teal-600);
-  --chart-3: var(--color-cyan-900);
-  --chart-4: var(--color-amber-400);
-  --chart-5: var(--color-amber-500);
-  --sidebar: var(--color-neutral-50);
-  --sidebar-foreground: color-mix(
-    in srgb,
-    var(--color-neutral-800) 64%,
-    var(--sidebar)
-  );
-  --sidebar-primary: var(--color-neutral-800);
-  --sidebar-primary-foreground: var(--color-neutral-50);
-  --sidebar-accent: --alpha(var(--color-black) / 4%);
-  --sidebar-accent-foreground: var(--color-neutral-800);
-  --sidebar-border: --alpha(var(--color-black) / 6%);
-  --sidebar-ring: var(--color-neutral-400);
+  color-scheme: light;
+  /* Use Nord's bundled font (Inter / "Nordhealth Sans") app-wide. */
+  --font-sans: var(--n-font-family);
+  --radius: var(--n-border-radius);
+  --background: var(--n-color-background);
+  --foreground: var(--n-color-text);
+  --card: var(--n-color-surface);
+  --card-foreground: var(--n-color-text);
+  --popover: var(--n-color-surface);
+  --popover-foreground: var(--n-color-text);
+  --primary: var(--n-color-accent);
+  --primary-foreground: var(--n-color-text-on-accent);
+  --secondary: var(--n-color-active);
+  --secondary-foreground: var(--n-color-text);
+  --muted: var(--n-color-active);
+  --muted-foreground: var(--n-color-text-weaker);
+  --accent: var(--n-color-active);
+  --accent-foreground: var(--n-color-text);
+  --destructive: var(--n-color-status-danger);
+  --destructive-foreground: var(--n-color-text-danger);
+  --info: var(--n-color-status-info);
+  --info-foreground: var(--n-color-text-info);
+  --success: var(--n-color-status-success);
+  --success-foreground: var(--n-color-text-success);
+  --warning: var(--n-color-status-warning);
+  --warning-foreground: var(--n-color-text-warning);
+  --border: var(--n-color-border);
+  --input: var(--n-color-border);
+  --ring: var(--n-color-accent);
+  --chart-1: var(--n-color-accent);
+  --chart-2: var(--n-color-status-success);
+  --chart-3: var(--n-color-status-progress);
+  --chart-4: var(--n-color-status-warning);
+  --chart-5: var(--n-color-status-highlight);
+  --sidebar: var(--n-color-nav-surface);
+  --sidebar-foreground: var(--n-color-text);
+  --sidebar-primary: var(--n-color-accent);
+  --sidebar-primary-foreground: var(--n-color-text-on-accent);
+  --sidebar-accent: var(--n-color-nav-hover);
+  --sidebar-accent-foreground: var(--n-color-text);
+  --sidebar-border: var(--n-color-border);
+  --sidebar-ring: var(--n-color-accent);
 }
 
+/* Dark mode = Nord's dark theme tokens, re-scoped from @nordhealth/themes'
+   nord-dark.css (which ships :root-scoped) onto the next-themes `.dark` class.
+   The semantic tokens in :root reference these `--n-color-*` vars, so they
+   resolve to the dark values automatically for any element inside `.dark` —
+   flipping Nord components AND Tailwind utilities together. */
 .dark {
-  --background: color-mix(
-    in srgb,
-    var(--color-neutral-950) 96%,
-    var(--color-white)
-  );
-  --foreground: var(--color-neutral-100);
-  --card: color-mix(in srgb, var(--background) 98%, var(--color-white));
-  --card-foreground: var(--color-neutral-100);
-  --popover: color-mix(in srgb, var(--background) 96%, var(--color-white));
-  --popover-foreground: var(--color-neutral-100);
-  --primary: var(--color-neutral-100);
-  --primary-foreground: var(--color-neutral-800);
-  --secondary: --alpha(var(--color-white) / 4%);
-  --secondary-foreground: var(--color-neutral-100);
-  --muted: --alpha(var(--color-white) / 4%);
-  --muted-foreground: color-mix(
-    in srgb,
-    var(--color-neutral-500) 90%,
-    var(--color-white)
-  );
-  --accent: --alpha(var(--color-white) / 4%);
-  --accent-foreground: var(--color-neutral-100);
-  --destructive: color-mix(
-    in srgb,
-    var(--color-red-500) 90%,
-    var(--color-white)
-  );
-  --destructive-foreground: var(--color-red-400);
-  --info: var(--color-blue-500);
-  --info-foreground: var(--color-blue-400);
-  --success: var(--color-emerald-500);
-  --success-foreground: var(--color-emerald-400);
-  --warning: var(--color-amber-500);
-  --warning-foreground: var(--color-amber-400);
-  --border: --alpha(var(--color-white) / 6%);
-  --input: --alpha(var(--color-white) / 8%);
-  --ring: var(--color-neutral-500);
-  --chart-1: var(--color-blue-700);
-  --chart-2: var(--color-emerald-500);
-  --chart-3: var(--color-amber-500);
-  --chart-4: var(--color-purple-500);
-  --chart-5: var(--color-rose-500);
-  --sidebar: color-mix(
-    in srgb,
-    var(--color-neutral-950) 97%,
-    var(--color-white)
-  );
-  --sidebar-foreground: color-mix(
-    in srgb,
-    var(--color-neutral-100) 64%,
-    var(--sidebar)
-  );
-  --sidebar-primary: var(--color-neutral-100);
-  --sidebar-primary-foreground: var(--color-neutral-800);
-  --sidebar-accent: --alpha(var(--color-white) / 4%);
-  --sidebar-accent-foreground: var(--color-neutral-100);
-  --sidebar-border: --alpha(var(--color-white) / 5%);
-  --sidebar-ring: var(--color-neutral-400);
+  color-scheme: dark;
+  --n-color-accent: rgb(42, 70, 157);
+  --n-color-text: rgb(222, 223, 225);
+  --n-color-text-link: rgb(92, 130, 245);
+  --n-color-text-weak: rgb(222, 223, 225);
+  --n-color-text-weaker: rgb(143, 148, 158);
+  --n-color-text-weakest: rgb(85, 89, 98);
+  --n-color-text-on-accent: rgb(255, 255, 255);
+  --n-color-text-error: rgb(203, 58, 29);
+  --n-color-text-danger: rgb(243, 126, 104);
+  --n-color-text-success: rgb(99, 193, 116);
+  --n-color-text-neutral: rgb(155, 161, 166);
+  --n-color-text-neutral-strong: rgb(236, 237, 238);
+  --n-color-text-warning: rgb(219, 161, 0);
+  --n-color-text-warning-strong: rgb(51, 40, 16);
+  --n-color-text-highlight: rgb(191, 122, 240);
+  --n-color-text-info: rgb(128, 153, 255);
+  --n-color-text-progress: rgb(47, 202, 218);
+  --n-color-nav-surface: rgb(38, 41, 48);
+  --n-color-nav-heading: rgb(155, 155, 155);
+  --n-color-nav-hover: rgb(44, 49, 58);
+  --n-color-border: rgb(47, 52, 60);
+  --n-color-border-strong: rgb(61, 67, 77);
+  --n-color-border-neutral: rgb(49, 53, 56);
+  --n-color-border-warning: rgb(71, 52, 0);
+  --n-color-border-highlight: rgb(73, 36, 97);
+  --n-color-border-danger: rgb(101, 32, 22);
+  --n-color-border-success: rgb(29, 68, 39);
+  --n-color-border-info: rgb(34, 52, 110);
+  --n-color-border-progress: rgb(6, 69, 85);
+  --n-color-surface: rgb(29, 32, 37);
+  --n-color-background: rgb(24, 27, 32);
+  --n-color-surface-raised: rgb(34, 37, 43);
+  --n-color-surface-lowered: rgb(43, 47, 49);
+  --n-color-overlay: rgba(9, 10, 12, 0.5);
+  --n-color-status-neutral: rgb(29, 32, 37);
+  --n-color-status-warning: rgb(253, 204, 68);
+  --n-color-status-highlight: rgb(129, 63, 186);
+  --n-color-status-danger: rgb(203, 58, 29);
+  --n-color-status-success: rgb(32, 131, 51);
+  --n-color-status-info: rgb(55, 91, 210);
+  --n-color-status-progress: rgb(0, 127, 153);
+  --n-color-status-notification: rgb(231, 84, 54);
+  --n-color-status-neutral-weak: rgb(32, 36, 37);
+  --n-color-status-warning-weak: rgb(44, 32, 0);
+  --n-color-status-highlight-weak: rgb(48, 26, 58);
+  --n-color-status-danger-weak: rgb(59, 24, 19);
+  --n-color-status-success-weak: rgb(20, 41, 26);
+  --n-color-status-info-weak: rgb(25, 33, 64);
+  --n-color-status-progress-weak: rgb(8, 45, 53);
+  --n-color-button: rgb(29, 32, 37);
+  --n-color-button-hover: rgb(38, 41, 48);
+  --n-color-border-hover: rgb(143, 148, 158);
+  --n-color-icon: rgb(143, 148, 158);
+  --n-color-icon-hover: rgb(222, 223, 225);
+  --n-color-active: rgb(38, 41, 48);
+  --n-color-header: rgb(38, 41, 48);
+  --n-color-accent-secondary: rgb(42, 70, 157);
+  --n-input-background: var(--n-color-active);
+  --n-input-background-inactive: var(--n-color-surface);
+  --n-textarea-background: var(--n-color-active);
+  --n-textarea-background-inactive: var(--n-color-surface);
+  --n-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  --n-box-shadow-card: 0 0 0 1px var(--n-color-border),
+    0 1px 5px rgba(0, 0, 0, 0.15);
+  --n-box-shadow-header: 0 1px 5px rgba(0, 0, 0, 0.15);
+  --n-box-shadow-modal: 0 0 0 1px var(--n-color-border),
+    0 24px 38px 3px rgba(0, 0, 0, 0.34), 0px 9px 86px 8px rgba(0, 0, 0, 0.28),
+    0px 11px 15px -7px rgba(0, 0, 0, 0.28);
+  --n-box-shadow-popout: 0 4px 12px rgba(0, 0, 0, 0.25),
+    0 0 0 1px var(--n-color-border);
+  --n-box-shadow-nav: 0 0 0 1px var(--n-color-border),
+    0 5px 17px rgba(0, 0, 0, 0.24);
 }
 
 @layer base {

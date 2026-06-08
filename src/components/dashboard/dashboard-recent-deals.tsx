@@ -1,25 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Filter, Search } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { salesService } from "@/lib/services/sales-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import type { SalesDeal, Vehicle } from "@/lib/types";
+import type { SalesDeal, SalesStage, Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  type ColumnDef,
-  DataGridHeaderRow,
-  DataGridRow,
-  DataGridShell,
-  DataGridTable,
-  VehicleCell,
-} from "@/components/data-grid";
+import { VehicleImage } from "@/components/shared/vehicle-image";
+import { formatCurrency } from "@/lib/utils";
 
 interface DealRow extends SalesDeal {
   vehicle: Vehicle | null;
@@ -27,12 +18,36 @@ interface DealRow extends SalesDeal {
   date: string;
 }
 
+const STAGE: Record<
+  SalesStage,
+  {
+    label: string;
+    variant: "info" | "warning" | "success" | "neutral" | "highlight";
+  }
+> = {
+  new_lead: { label: "New lead", variant: "info" },
+  contacted: { label: "Contacted", variant: "info" },
+  test_drive: { label: "Test drive", variant: "warning" },
+  offer_made: { label: "Offer made", variant: "warning" },
+  deposit_taken: { label: "Deposit taken", variant: "highlight" },
+  collection_delivery: { label: "Collection", variant: "highlight" },
+  completed_sale: { label: "Completed", variant: "success" },
+  lost: { label: "Lost", variant: "neutral" },
+};
+
+function fmtDate(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+  });
+}
+
 export function DashboardRecentDeals() {
   const { company } = useAuth();
   const router = useRouter();
   const [deals, setDeals] = useState<SalesDeal[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [query, setQuery] = useState("");
 
   useEffect(() => {
     if (!company) return;
@@ -47,99 +62,110 @@ export function DashboardRecentDeals() {
 
   const rows = useMemo<DealRow[] | null>(() => {
     if (!deals) return null;
-    const byMostRecent = [...deals].sort((a, b) =>
-      b.updatedAt.localeCompare(a.updatedAt),
-    );
-    const filtered = query.trim()
-      ? byMostRecent.filter((d) => {
-          const v = vehicles.find((x) => x.id === d.vehicleId);
-          const hay =
-            `${d.customerName} ${v?.registration ?? ""} ${v?.make ?? ""} ${v?.model ?? ""}`.toLowerCase();
-          return hay.includes(query.trim().toLowerCase());
-        })
-      : byMostRecent;
-    return filtered.slice(0, 20).map((d) => {
-      const dt =
-        d.completionDate ?? d.depositDate ?? d.collectionDate ?? d.updatedAt;
-      return {
-        ...d,
-        vehicle: vehicles.find((v) => v.id === d.vehicleId) ?? null,
-        total: d.agreedPrice ?? d.offerPrice,
-        date: dt.slice(0, 10),
-      };
-    });
-  }, [deals, vehicles, query]);
-
-  const cols = useMemo<ColumnDef<DealRow>[]>(
-    () => [
-      {
-        key: "vehicle",
-        label: "Vehicle",
-        type: "vehicle",
-        sticky: true,
-        width: 200,
-        render: (r) => <VehicleCell vehicle={r.vehicle} />,
-      },
-      { key: "customerName", label: "Customer", type: "text", width: 160 },
-      { key: "stage", label: "Stage", type: "salesStage", width: 130 },
-      { key: "total", label: "Total", type: "currency", width: 110 },
-      { key: "date", label: "Date", type: "date", width: 120 },
-    ],
-    [],
-  );
+    return [...deals]
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 6)
+      .map((d) => {
+        const dt =
+          d.completionDate ?? d.depositDate ?? d.collectionDate ?? d.updatedAt;
+        return {
+          ...d,
+          vehicle: vehicles.find((v) => v.id === d.vehicleId) ?? null,
+          total: d.agreedPrice ?? d.offerPrice,
+          date: dt.slice(0, 10),
+        };
+      });
+  }, [deals, vehicles]);
 
   return (
-    <Card className="flex h-full flex-col gap-4 pt-5 pb-4" size="sm">
-      <div className="flex flex-wrap items-center justify-between gap-2 px-5">
+    <Card className="h-full overflow-hidden">
+      <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex items-center gap-2">
-          <ClipboardList className="h-4 w-4 text-muted-foreground" />
-          <h2 className="text-sm font-semibold">Recent Deals</h2>
-          <Badge variant="secondary" className="text-2xs">
+          <h2 className="text-sm font-semibold">Recent deals</h2>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
             {rows?.length ?? "—"}
-          </Badge>
+          </span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search reg or customer…"
-              className="h-8 w-56 pl-7 text-xs"
-            />
-          </div>
-          <Button variant="outline" size="sm" className="h-8 gap-1">
-            <Filter className="h-3.5 w-3.5" />
-            Filter
-          </Button>
-        </div>
+        <Link
+          href="/sales/deals"
+          className="text-xs text-link underline-offset-4 hover:underline"
+        >
+          View all
+        </Link>
       </div>
 
       {rows === null ? (
-        <Skeleton className="mx-5 h-72" />
+        <div className="p-4">
+          <Skeleton className="h-64" />
+        </div>
       ) : rows.length === 0 ? (
-        <p className="py-6 text-center text-xs text-muted-foreground">
-          No deals match.
+        <p className="px-4 py-8 text-center text-xs text-muted-foreground">
+          No deals yet.
         </p>
       ) : (
-        <DataGridShell bare className="px-5">
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                <th className="px-4 py-2 font-medium">Vehicle</th>
+                <th className="px-3 py-2 font-medium">Customer</th>
+                <th className="px-3 py-2 font-medium">Stage</th>
+                <th className="px-3 py-2 text-right font-medium">Total</th>
+                <th className="px-4 py-2 text-right font-medium">Date</th>
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((r, i) => (
-                <DataGridRow
-                  key={r.id}
-                  row={r}
-                  cols={cols}
-                  index={i}
-                  onClick={(row) =>
-                    row.vehicle && router.push(`/vehicles/${row.vehicle.id}`)
-                  }
-                />
-              ))}
+              {rows.map((r) => {
+                const stage = STAGE[r.stage];
+                return (
+                  <tr
+                    key={r.id}
+                    onClick={() =>
+                      r.vehicle && router.push(`/vehicles/${r.vehicle.id}`)
+                    }
+                    className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-accent/40"
+                  >
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-2.5">
+                        {r.vehicle ? (
+                          <VehicleImage
+                            vehicle={r.vehicle}
+                            variant="thumb"
+                            className="h-9 w-12 shrink-0 rounded"
+                          />
+                        ) : (
+                          <span className="h-9 w-12 shrink-0 rounded bg-muted" />
+                        )}
+                        <div className="leading-tight">
+                          <div className="font-mono text-xs font-semibold">
+                            {r.vehicle?.registration ?? "—"}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {r.vehicle
+                              ? `${r.vehicle.stockId} · ${r.vehicle.make} ${r.vehicle.model}`
+                              : "—"}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5">{r.customerName}</td>
+                    <td className="px-3 py-2.5">
+                      <nord-badge variant={stage.variant}>
+                        {stage.label}
+                      </nord-badge>
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">
+                      {formatCurrency(r.total)}
+                    </td>
+                    <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">
+                      {fmtDate(r.date)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
-          </DataGridTable>
-        </DataGridShell>
+          </table>
+        </div>
       )}
     </Card>
   );
