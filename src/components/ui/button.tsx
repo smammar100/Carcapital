@@ -131,7 +131,12 @@ export function Button(props: ButtonProps): React.ReactElement {
       suppressHydrationWarning
       {...(rest as React.HTMLAttributes<HTMLElement>)}
     >
-      {children}
+      {/* Lay icon + label as one centered row. Nord's default slot treats a raw
+          slotted <svg> as a stray node (it misplaces it), so wrap content so
+          any lucide icon + text align correctly. */}
+      <span className="inline-flex items-center justify-center gap-1.5 [&_svg]:shrink-0">
+        {children}
+      </span>
     </nord-button>
   );
 }
