@@ -159,9 +159,10 @@ function LoginInner() {
 
       {/* Right — branded car panel (Unsplash). Hidden on small screens. */}
       <div className="relative hidden lg:block">
+        {/* UK car on a UK street with a UK plate (Unsplash, free license). */}
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src="https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=1400&q=80"
+          src="https://images.unsplash.com/photo-1676802584541-dc901dcaa815?auto=format&fit=crop&w=1400&q=80"
           alt=""
           className="absolute inset-0 h-full w-full object-cover"
         />

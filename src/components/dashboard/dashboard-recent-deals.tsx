@@ -58,7 +58,7 @@ export function DashboardRecentDeals() {
           return hay.includes(query.trim().toLowerCase());
         })
       : byMostRecent;
-    return filtered.slice(0, 20).map((d) => {
+    return filtered.slice(0, 6).map((d) => {
       const dt =
         d.completionDate ?? d.depositDate ?? d.collectionDate ?? d.updatedAt;
       return {
