@@ -3,10 +3,12 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { AddVehicleModal } from "@/components/vehicles/add-vehicle-modal";
 import { getPrimaryCta, type PrimaryCta } from "@/lib/role-cta";
+import { cn } from "@/lib/utils";
 import {
   SIDEBAR_GROUPS,
   type SidebarGroup,
@@ -14,37 +16,14 @@ import {
 } from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
 
-// lucide → Nordicon name, keyed by nav href. Closest available interface-/
-// navigation-/generic- icons; refine later as needed.
-const NAV_ICON: Record<string, string> = {
-  "/dashboard": "navigation-dashboard",
-  "/admin/master-sheet": "interface-table",
-  "/admin/master-calendar": "interface-calendar",
-  "/admin/users-and-permissions": "user-multiple",
-  "/admin/vehicle-returns": "arrow-undo",
-  "/admin/invoicing": "file-invoice",
-  "/admin/vendors": "generic-company",
-  "/admin/activity": "interface-history",
-  "/vehicles": "navigation-catalog",
-  "/admin/locations": "interface-location-on",
-  "/maintenance": "interface-setting-slider",
-  "/maintenance/calendar": "interface-calendar",
-  "/maintenance/inspection": "interface-checked-circle",
-  "/maintenance/workshop": "interface-content-book",
-  "/advert/work-list": "interface-content-book",
-  "/advert/photo-processing": "file-picture",
-  "/advert/listings": "interface-globe",
-  "/advert/performance": "graph-bars",
-  "/sales/leads": "user-add",
-  "/sales/appointments": "interface-calendar",
-  "/sales/pipeline": "graph-trend-up",
-  "/sales/deals": "interface-shopping-cart",
-  "/sales/invoice-generation": "file-invoice",
-  "/warranties/in-house": "interface-shield",
-  "/warranties/external": "interface-new-window",
-  "/warranties/claims": "interface-warning",
-};
-const FALLBACK_ICON = "interface-grid";
+// Active = neutral pill + left accent tick (prototype "Variation E"). Crucially
+// NOT a solid-blue fill, so it never reads like the primary "Add Vehicle" CTA.
+const ITEM_BASE =
+  "relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm no-underline transition-colors";
+const ITEM_ACTIVE =
+  "bg-muted font-semibold text-foreground before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r before:bg-primary";
+const ITEM_INACTIVE =
+  "text-foreground/75 hover:bg-muted hover:text-foreground";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -52,6 +31,9 @@ export function AppSidebar() {
   const { company } = useAuth();
   const { can, isSuperUser } = usePermissions();
   const [addOpen, setAddOpen] = React.useState(false);
+  // Collapsed group labels (in-memory; persists across SPA navigation since the
+  // sidebar stays mounted in the dashboard layout). Default: all expanded.
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
 
   const primaryCta = React.useMemo(
     () => getPrimaryCta({ isSuperUser, can }),
@@ -75,15 +57,45 @@ export function AppSidebar() {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
-  // Keep client-side routing: <nord-nav-item href> renders a real <a> (good for
-  // a11y / open-in-new-tab), but a plain click would full-reload — so intercept
-  // and route via Next, while letting modifier-clicks use the native link.
-  function handleNav(e: React.MouseEvent, href: string): void {
+  function toggleGroup(label: string): void {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(label)) next.delete(label);
+      else next.add(label);
+      return next;
+    });
+  }
+
+  // Client-side routing comes free from <Link>; modifier-clicks open a new tab.
+  function handleCtaNav(e: React.MouseEvent, href: string): void {
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
       return;
     e.preventDefault();
     router.push(href);
   }
+
+  const renderItems = (items: SidebarItem[]) => (
+    <ul className="mt-0.5 flex flex-col gap-0.5">
+      {items.map((item) => {
+        const Icon = item.icon;
+        const on = isActive(item.href);
+        const Badge = SIDEBAR_BADGES[item.href];
+        return (
+          <li key={item.href}>
+            <Link
+              href={item.href}
+              aria-current={on ? "page" : undefined}
+              className={cn(ITEM_BASE, on ? ITEM_ACTIVE : ITEM_INACTIVE)}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span className="flex-1 truncate">{item.label}</span>
+              {Badge ? <Badge /> : null}
+            </Link>
+          </li>
+        );
+      })}
+    </ul>
+  );
 
   return (
     <nord-navigation slot="nav">
@@ -113,31 +125,41 @@ export function AppSidebar() {
           <PrimaryCtaButton
             cta={primaryCta}
             onModal={() => setAddOpen(true)}
-            onNav={handleNav}
+            onNav={handleCtaNav}
           />
         </div>
       )}
       <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} />
 
-      {visibleGroups.map((group, gi) => (
-        <nord-nav-group key={gi} heading={group.label ?? undefined}>
-          {group.items.map((item) => {
-            const Badge = SIDEBAR_BADGES[item.href];
+      <div className="flex flex-col gap-1.5 px-1 pb-2">
+        {visibleGroups.map((group) => {
+          if (group.label === null) {
             return (
-              <nord-nav-item
-                key={item.href}
-                href={item.href}
-                icon={NAV_ICON[item.href] ?? FALLBACK_ICON}
-                active={isActive(item.href) || undefined}
-                onClick={(e: React.MouseEvent) => handleNav(e, item.href)}
-              >
-                {item.label}
-                {Badge ? <Badge /> : null}
-              </nord-nav-item>
+              <div key="__top">{renderItems(group.items)}</div>
             );
-          })}
-        </nord-nav-group>
-      ))}
+          }
+          const isOpen = !collapsed.has(group.label);
+          return (
+            <div key={group.label}>
+              <button
+                type="button"
+                onClick={() => toggleGroup(group.label as string)}
+                aria-expanded={isOpen}
+                className="flex w-full items-center gap-1 rounded px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <span className="flex-1 text-left">{group.label}</span>
+                <ChevronDown
+                  className={cn(
+                    "h-3.5 w-3.5 shrink-0 transition-transform",
+                    !isOpen && "-rotate-90",
+                  )}
+                />
+              </button>
+              {isOpen && renderItems(group.items)}
+            </div>
+          );
+        })}
+      </div>
     </nord-navigation>
   );
 }
