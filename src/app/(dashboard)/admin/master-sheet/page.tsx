@@ -809,12 +809,13 @@ export default function MasterSheetPage() {
           >
             <Plus className="h-3.5 w-3.5" /> Add filter
           </button>
-          <div className="ml-auto flex items-center gap-3">
+          <div className="flex min-w-[240px] flex-1 items-center gap-3">
             <nord-input
               type="search"
               hideLabel
               label="Search"
               size="s"
+              expand
               placeholder="Search reg, stock, make…"
               value={search}
               onInput={(e) => {
