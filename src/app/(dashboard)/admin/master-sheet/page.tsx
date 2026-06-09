@@ -725,7 +725,9 @@ export default function MasterSheetPage() {
 
   return (
     <PageShell wide>
-      <div className="flex h-full flex-col gap-3">
+      {/* Bounded viewport height so the table's own container scrolls (and the
+          sticky <thead> sticks) instead of the whole page scrolling. */}
+      <div className="flex h-[calc(100dvh-8rem)] flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Master Sheet</h1>
@@ -802,20 +804,12 @@ export default function MasterSheetPage() {
               </button>
             </span>
           ))}
-          <button
-            type="button"
-            onClick={() => setBuilderOpen((o) => !o)}
-            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/40"
-          >
-            <Plus className="h-3.5 w-3.5" /> Add filter
-          </button>
-          <div className="flex min-w-[240px] flex-1 items-center gap-3">
+          <div className="ml-auto flex items-center gap-2">
             <nord-input
               type="search"
               hideLabel
               label="Search"
               size="s"
-              expand
               placeholder="Search reg, stock, make…"
               value={search}
               onInput={(e) => {
@@ -824,19 +818,13 @@ export default function MasterSheetPage() {
               }}
               suppressHydrationWarning
             />
-            <span className="whitespace-nowrap text-xs text-muted-foreground">
-              {filters.length || search.trim() ? (
-                <>
-                  Matches{" "}
-                  <span className="font-medium text-foreground">
-                    {filtered?.length ?? 0}
-                  </span>{" "}
-                  of {vehicles?.length ?? 0}
-                </>
-              ) : (
-                <>{vehicles?.length ?? 0} vehicles</>
-              )}
-            </span>
+            <button
+              type="button"
+              onClick={() => setBuilderOpen((o) => !o)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/40"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add filter
+            </button>
           </div>
         </div>
         {builderOpen && (
