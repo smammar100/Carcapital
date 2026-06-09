@@ -330,12 +330,10 @@
        parent" bug. Resetting to 0 lets children shrink properly. */
     min-width: 0;
     min-height: 0;
-  }
-
-  html {
-    /* Thin, theme-aware scrollbars on Firefox + Chromium. */
+    /* Thin, unobtrusive scrollbars on EVERY scroll container — page, tables,
+       nav, panels, textareas. Firefox + Chromium 121+ + Safari 18.2+. */
     scrollbar-width: thin;
-    scrollbar-color: var(--muted-foreground) transparent;
+    scrollbar-color: gray transparent;
   }
 
   body {

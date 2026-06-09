@@ -102,7 +102,9 @@ export function AppSidebar() {
       <Link
         slot="header"
         href="/dashboard"
-        className="flex min-w-0 items-center gap-2 px-1 py-1 no-underline"
+        // Nord's header slot has no inset (unlike the body), so add left padding
+        // to align the brand with the nav items / CTA below it.
+        className="flex min-w-0 items-center gap-2 py-1 pl-5 pr-3 no-underline"
       >
         <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
           CC
