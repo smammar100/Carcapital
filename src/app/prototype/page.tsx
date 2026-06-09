@@ -1,42 +1,66 @@
 "use client";
 
+import {
+  Calendar,
+  Car,
+  Download,
+  Filter,
+  Hash,
+  Palette,
+  PoundSterling,
+  Plus,
+  Settings2,
+  SlidersHorizontal,
+  Tag,
+  Type as TypeIcon,
+  Upload,
+  Group as GroupIcon,
+  ArrowUpDown,
+  ChevronLeft,
+  ChevronRight,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * /prototype — design comparison surface (auth-free).
  *
- * Current feature: DASHBOARD. 5 variations stacked vertically. Mock data only —
- * pure design comparison. References (Mobbin): Base44 / Shopify (KPI overview),
- * StackAI / Navattic / Whop (stats + sparklines), Adaline / Lovable (sidebar
- * rail), bento grids. See the `prototype` skill.
+ * Current feature: MASTER SHEET (wide dense data grid). 5 variations stacked
+ * vertically. Mock data. References (Mobbin): Clay / Linear (dense power grid),
+ * Airtable (gridlines + row height + sum footer), Neon / Replit (filter-chip
+ * query bar + pagination), Attio (sortable headers + aggregation footer),
+ * Shopify / Glide (managed inventory + inline edit + frozen column).
+ *
+ * Every variation includes the shared <FilterBar/> so the filtering UX can be
+ * compared across all five grid styles.
  */
 export default function PrototypePage() {
   return (
     <div className="min-h-screen bg-muted/30 p-6 text-foreground">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight">
-          Prototype — Dashboard · 5 variations
+          Prototype — Master Sheet · 5 variations
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick a winner (A–E). Mock data; real Nord components +
-          Mobbin-referenced layouts. Toggle OS dark mode to preview both themes.
+          Pick a winner (A–E). Each shows the same filter bar (applied chips +
+          add-condition builder) so you can compare filtering in every grid.
         </p>
       </header>
 
       <div className="flex flex-col gap-10">
-        <Frame label="A — Classic ops overview" sub="Base44 / Shopify">
+        <Frame label="A — Dense power grid" sub="Clay / Linear">
           <VariationA />
         </Frame>
-        <Frame label="B — Stats with sparklines" sub="StackAI / Navattic / Whop">
+        <Frame label="B — Airtable spreadsheet" sub="Airtable / Glide">
           <VariationB />
         </Frame>
-        <Frame label="C — Bento grid" sub="modern bento dashboard">
+        <Frame label="C — Query / filter-chip grid" sub="Neon / Replit">
           <VariationC />
         </Frame>
-        <Frame label="D — Sidebar-stat layout" sub="Adaline / Lovable">
+        <Frame label="D — Aggregation grid" sub="Attio">
           <VariationD />
         </Frame>
-        <Frame label="E — Table-first console" sub="operational, table-led">
+        <Frame label="E — Managed inventory" sub="Shopify / Glide">
           <VariationE />
         </Frame>
       </div>
@@ -59,609 +83,693 @@ function Frame({
         <span className="text-sm font-semibold">{label}</span>
         <span className="text-xs text-muted-foreground">{sub}</span>
       </div>
-      <div className="bg-background">{children}</div>
+      <div className="bg-card">{children}</div>
     </section>
   );
 }
 
 /* ---------------------------------------------------------------- mock data */
 
-const KPIS = [
-  { label: "Cars in stock", value: "107", delta: "+4", up: true },
-  { label: "In readiness", value: "18", delta: "+6", up: true },
-  { label: "Sold this month", value: "23", delta: "+12%", up: true },
-  { label: "New leads (24h)", value: "9", delta: "+3", up: true },
-  { label: "Open claims", value: "2", delta: "-1", up: true },
-  { label: "Avg days in stock", value: "34d", delta: "-5%", up: true },
-];
-
-type Stage = "New lead" | "Test drive" | "Offer made" | "Completed" | "Lost";
-const STAGE_VARIANT: Record<
-  Stage,
-  "info" | "warning" | "success" | "neutral" | "danger"
+type Status = "Ready" | "Listed" | "Prep" | "Inspection" | "Photos";
+const STATUS_VARIANT: Record<
+  Status,
+  "success" | "info" | "warning" | "highlight"
 > = {
-  "New lead": "info",
-  "Test drive": "warning",
-  "Offer made": "warning",
-  Completed: "success",
-  Lost: "neutral",
+  Ready: "success",
+  Listed: "info",
+  Prep: "warning",
+  Inspection: "highlight",
+  Photos: "highlight",
 };
-const DEALS: {
-  reg: string;
+
+interface Row {
   stock: string;
-  car: string;
-  customer: string;
-  stage: Stage;
-  total: string;
-  date: string;
-}[] = [
-  { reg: "LU17 JHZ", stock: "CC-0012", car: "Audi A3", customer: "Aisha Khan", stage: "New lead", total: "—", date: "01 Jun" },
-  { reg: "LX18 FTN", stock: "CC-0001", car: "Audi A1", customer: "James Wilson", stage: "Test drive", total: "—", date: "31 May" },
-  { reg: "BW17 NLL", stock: "CC-0009", car: "BMW 1 Series", customer: "Mary Johnson", stage: "Completed", total: "£3,300", date: "16 May" },
-  { reg: "LM16 RUH", stock: "CC-0002", car: "VW Golf", customer: "Anna Edwards", stage: "Offer made", total: "£12,800", date: "29 Apr" },
-  { reg: "KF67 ATZ", stock: "CC-0010", car: "Ford Focus", customer: "Peter Hill", stage: "Completed", total: "£2,175", date: "26 Apr" },
-  { reg: "LB64 ZHM", stock: "CC-0006", car: "Mini Cooper", customer: "Charlotte Reed", stage: "Lost", total: "£36,000", date: "23 Apr" },
+  reg: string;
+  make: string;
+  model: string;
+  variant: string;
+  year: number;
+  colour: string;
+  mileage: number;
+  body: string;
+  price: number;
+  days: number;
+  status: Status;
+}
+
+const VEHICLES: Row[] = [
+  { stock: "CC-0004", reg: "SA17 WUV", make: "Audi", model: "A3", variant: "1.4 TFSI CoD Sport Sportback 5dr S Tronic", year: 2017, colour: "Grey", mileage: 32900, body: "Hatchback", price: 12995, days: 41, status: "Ready" },
+  { stock: "CC-0013", reg: "LG68 OCH", make: "BMW", model: "3 Series", variant: "2.0 318d Sport Saloon 4dr Auto", year: 2018, colour: "Blue", mileage: 68800, body: "Saloon", price: 15750, days: 22, status: "Listed" },
+  { stock: "CC-0017", reg: "MT67 RLZ", make: "BMW", model: "X1", variant: "2.0 20i xLine SUV 5dr xDrive", year: 2017, colour: "Silver", mileage: 38500, body: "SUV", price: 16450, days: 63, status: "Prep" },
+  { stock: "CC-0018", reg: "NA66 XGM", make: "BMW", model: "X5", variant: "2.0 40e M Sport SUV 5dr Plug-in Hybrid", year: 2016, colour: "Black", mileage: 73500, body: "SUV", price: 21995, days: 12, status: "Inspection" },
+  { stock: "CC-0019", reg: "HV67 UPS", make: "Citroen", model: "Grand C4", variant: "1.6 BlueHDi Feel MPV 5dr EAT6", year: 2017, colour: "Blue", mileage: 42150, body: "MPV", price: 9450, days: 88, status: "Ready" },
+  { stock: "CC-0022", reg: "RB00 HNT", make: "Fiat", model: "500", variant: "1.2 Lounge Hatchback 3dr Dualogic", year: 2023, colour: "Red", mileage: 62500, body: "Hatchback", price: 8995, days: 5, status: "Photos" },
+  { stock: "CC-0023", reg: "WG18 FLB", make: "Ford", model: "EcoSport", variant: "1.0T EcoBoost Zetec SUV 5dr Auto", year: 2018, colour: "Silver", mileage: 51000, body: "SUV", price: 10995, days: 34, status: "Listed" },
 ];
 
-const TASKS = [
-  { label: "Cars to prep for forecourt", count: 9 },
-  { label: "Inspections pending", count: 3 },
-  { label: "Vehicle returns to review", count: 1 },
-  { label: "Adverts awaiting photos", count: 5 },
-];
+const TYPE_ICON: Record<string, LucideIcon> = {
+  text: TypeIcon,
+  num: Hash,
+  currency: PoundSterling,
+  date: Calendar,
+  status: Tag,
+  colour: Palette,
+  vehicle: Car,
+};
 
-/* ------------------------------------------------------------- mini pieces */
+const fmtNum = (n: number) => n.toLocaleString("en-GB");
+const fmtGBP = (n: number) => `£${n.toLocaleString("en-GB")}`;
 
-function Sparkline({ up = true, className }: { up?: boolean; className?: string }) {
-  const points = up
-    ? "0,30 18,26 36,27 54,18 72,21 90,9 108,6"
-    : "0,8 18,12 36,10 54,18 72,15 90,24 108,28";
-  const fill = up
-    ? "0,30 18,26 36,27 54,18 72,21 90,9 108,6 108,32 0,32"
-    : "0,8 18,12 36,10 54,18 72,15 90,24 108,28 108,32 0,32";
+/* ------------------------------------------------------------- small pieces */
+
+function StatusBadge({ status }: { status: Status }) {
+  return <nord-badge variant={STATUS_VARIANT[status]}>{status}</nord-badge>;
+}
+
+function Dot({ status }: { status: Status }) {
+  const color: Record<Status, string> = {
+    Ready: "var(--n-color-status-success)",
+    Listed: "var(--n-color-status-info)",
+    Prep: "var(--n-color-status-warning)",
+    Inspection: "var(--n-color-accent)",
+    Photos: "var(--n-color-accent)",
+  };
   return (
-    <svg
-      viewBox="0 0 108 32"
-      preserveAspectRatio="none"
-      className={cn("h-9 w-full", className)}
-      aria-hidden="true"
-    >
-      <polygon points={fill} fill="var(--n-color-accent)" opacity="0.08" />
-      <polyline
-        points={points}
-        fill="none"
-        stroke="var(--n-color-accent)"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        vectorEffect="non-scaling-stroke"
+    <span className="inline-flex items-center gap-1.5">
+      <span
+        className="h-2 w-2 rounded-full"
+        style={{ background: color[status] }}
       />
-    </svg>
+      {status}
+    </span>
   );
 }
 
-function PageHead({ compact }: { compact?: boolean }) {
+function VehicleCell({ v }: { v: Row }) {
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div>
-        <h2
-          className={cn(
-            "font-semibold tracking-tight",
-            compact ? "text-lg" : "text-2xl",
-          )}
-        >
-          Welcome back, Abbas
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Today you have <span className="font-medium text-foreground">9 cars</span> to
-          prep and <span className="font-medium text-foreground">1 return</span> pending.
-        </p>
-      </div>
-      <div className="flex gap-2">
-        <nord-button>
-          <nord-icon slot="start" name="interface-download" />
-          Export
-        </nord-button>
-        <nord-button variant="primary">
-          <nord-icon slot="start" name="interface-add-small" />
-          Add vehicle
-        </nord-button>
-      </div>
-    </div>
-  );
-}
-
-function StageBadge({ stage }: { stage: Stage }) {
-  return <nord-badge variant={STAGE_VARIANT[stage]}>{stage}</nord-badge>;
-}
-
-function DealsTable({ rows = DEALS }: { rows?: typeof DEALS }) {
-  return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b border-border text-left text-xs text-muted-foreground">
-            <th className="px-3 py-2 font-medium">Vehicle</th>
-            <th className="px-3 py-2 font-medium">Customer</th>
-            <th className="px-3 py-2 font-medium">Stage</th>
-            <th className="px-3 py-2 text-right font-medium">Total</th>
-            <th className="px-3 py-2 text-right font-medium">Date</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((d) => (
-            <tr
-              key={d.stock}
-              className="border-b border-border/60 last:border-0 hover:bg-accent/40"
-            >
-              <td className="px-3 py-2.5">
-                <div className="flex items-center gap-2.5">
-                  <span className="grid h-9 w-12 shrink-0 place-items-center rounded bg-muted text-muted-foreground">
-                    <nord-icon name="generic-truck" size="s" />
-                  </span>
-                  <div className="leading-tight">
-                    <div className="font-mono text-xs font-semibold">{d.reg}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {d.stock} · {d.car}
-                    </div>
-                  </div>
-                </div>
-              </td>
-              <td className="px-3 py-2.5">{d.customer}</td>
-              <td className="px-3 py-2.5">
-                <StageBadge stage={d.stage} />
-              </td>
-              <td className="px-3 py-2.5 text-right tabular-nums">{d.total}</td>
-              <td className="px-3 py-2.5 text-right text-muted-foreground tabular-nums">
-                {d.date}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TasksCard() {
-  return (
-    <nord-card padding="none">
-      <div className="border-b border-border px-4 py-3">
-        <h3 className="text-sm font-semibold">Today</h3>
-      </div>
-      <ul className="divide-y divide-border">
-        {TASKS.map((t) => (
-          <li
-            key={t.label}
-            className="flex items-center justify-between px-4 py-3 text-sm"
-          >
-            <span className="text-muted-foreground">{t.label}</span>
-            <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
-              {t.count}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </nord-card>
-  );
-}
-
-function CardHead({
-  title,
-  count,
-  action = true,
-}: {
-  title: string;
-  count?: number;
-  action?: boolean;
-}) {
-  return (
-    <div className="flex items-center justify-between border-b border-border px-4 py-3">
-      <div className="flex items-center gap-2">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        {count != null && (
-          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-            {count}
-          </span>
-        )}
-      </div>
-      {action && (
-        <a href="#" className="text-xs text-link hover:underline">
-          View all
-        </a>
-      )}
-    </div>
-  );
-}
-
-/** Div card matching the Nord surface — used in the bento so we control height
- *  and centering precisely (mirrors the app's real ui/Card). */
-function Panel({
-  className,
-  children,
-}: {
-  className?: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col overflow-hidden rounded-lg border border-border bg-card shadow-sm",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-const APPTS = [
-  { date: "Mon 8", time: "10:00", who: "James Wilson", what: "Test drive · Audi A1" },
-  { date: "Mon 8", time: "14:30", who: "Sofia Rossi", what: "Handover · VW Golf" },
-  { date: "Tue 9", time: "11:15", who: "Mark Lee", what: "Viewing · BMW 1 Series" },
-  { date: "Wed 10", time: "09:30", who: "Priya Shah", what: "Collection · Ford Focus" },
-];
-
-const STOCK_SEGMENTS = [
-  { label: "Ready to sell", value: 18, color: "var(--n-color-status-success)" },
-  { label: "In preparation", value: 41, color: "var(--n-color-status-warning)" },
-  { label: "Awaiting inspection", value: 31, color: "var(--n-color-status-info)" },
-  { label: "In workshop", value: 17, color: "var(--n-color-accent)" },
-];
-
-function Donut() {
-  const total = STOCK_SEGMENTS.reduce((s, x) => s + x.value, 0);
-  const r = 42;
-  const c = 2 * Math.PI * r;
-  return (
-    <div className="flex h-full w-full items-center gap-6">
-      <div className="relative flex aspect-square h-full max-h-[230px] min-h-[150px] shrink-0 items-center justify-center">
-        <svg viewBox="0 0 110 110" className="h-full w-full -rotate-90">
-          <circle
-            cx="55"
-            cy="55"
-            r={r}
-            fill="none"
-            stroke="var(--n-color-border)"
-            strokeWidth="11"
-          />
-          {STOCK_SEGMENTS.map((s, i) => {
-            const len = (s.value / total) * c;
-            const start = STOCK_SEGMENTS.slice(0, i).reduce(
-              (acc, x) => acc + (x.value / total) * c,
-              0,
-            );
-            return (
-              <circle
-                key={s.label}
-                cx="55"
-                cy="55"
-                r={r}
-                fill="none"
-                stroke={s.color}
-                strokeWidth="11"
-                strokeDasharray={`${len} ${c - len}`}
-                strokeDashoffset={-start}
-              />
-            );
-          })}
-        </svg>
-        <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-3xl font-semibold tabular-nums">{total}</span>
-          <span className="text-xs text-muted-foreground">in stock</span>
+    <div className="flex items-center gap-2.5">
+      <span className="grid h-8 w-11 shrink-0 place-items-center rounded bg-muted text-muted-foreground">
+        <Car className="h-4 w-4" />
+      </span>
+      <div className="leading-tight">
+        <div className="font-mono text-[11px] font-semibold">{v.reg}</div>
+        <div className="text-xs text-muted-foreground">
+          {v.make} {v.model}
         </div>
       </div>
-      <ul className="flex flex-1 flex-col gap-3">
-        {STOCK_SEGMENTS.map((s) => (
-          <li key={s.label} className="flex items-center gap-2 text-sm">
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: s.color }}
-            />
-            <span className="flex-1 text-muted-foreground">{s.label}</span>
-            <span className="font-medium tabular-nums">{s.value}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   );
 }
 
-const NEWS = [
-  {
-    tag: "Pricing",
-    title: "3 vehicles repriced after market check",
-    time: "2h ago",
-    thumb:
-      "https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&w=160&h=120&q=70",
-  },
-  {
-    tag: "Auction",
-    title: "BCA Blackbushe — 12 lots matched your buy box",
-    time: "5h ago",
-    thumb:
-      "https://images.unsplash.com/photo-1552519507-da3b142c6e3d?auto=format&fit=crop&w=160&h=120&q=70",
-  },
-  {
-    tag: "Compliance",
-    title: "2 MOTs due within the next 7 days",
-    time: "1d ago",
-    thumb:
-      "https://images.unsplash.com/photo-1676802584541-dc901dcaa815?auto=format&fit=crop&w=160&h=120&q=70",
-  },
-  {
-    tag: "Finance",
-    title: "Lender rate card updated for June",
-    time: "1d ago",
-    thumb:
-      "https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?auto=format&fit=crop&w=160&h=120&q=70",
-  },
-];
+function ToolbarButton({
+  icon: Icon,
+  children,
+  variant,
+}: {
+  icon: LucideIcon;
+  children: React.ReactNode;
+  variant?: "primary";
+}) {
+  return (
+    <nord-button size="s" variant={variant}>
+      <Icon slot="start" className="h-4 w-4" />
+      {children}
+    </nord-button>
+  );
+}
 
-/* ---------------------------------------------------------- A: classic grid */
+/* --------------------------------------------------------------- filter bar */
+
+function FilterChip({
+  label,
+  op,
+  value,
+}: {
+  label: string;
+  op: string;
+  value: string;
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1 text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-muted-foreground">{op}</span>
+      <span className="font-medium">{value}</span>
+      <button
+        type="button"
+        className="ml-0.5 text-muted-foreground hover:text-foreground"
+      >
+        ✕
+      </button>
+    </span>
+  );
+}
+
+/**
+ * Shared filter UX shown on every variation: applied-filter chips + an open
+ * "add condition" builder (Field · Operator · Value) using real Nord controls.
+ */
+function FilterBar() {
+  return (
+    <div className="flex flex-col gap-2 border-b border-border bg-muted/20 px-4 py-2.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-muted-foreground">Where</span>
+        <FilterChip label="Make" op="is" value="Audi, BMW" />
+        <FilterChip label="Year" op="≥" value="2017" />
+        <FilterChip label="Status" op="is" value="Ready" />
+        <span className="ml-auto whitespace-nowrap text-xs text-muted-foreground">
+          Matches <span className="font-medium text-foreground">7</span> of 111
+        </span>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-card p-2">
+        <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <Plus className="h-3.5 w-3.5" /> Add filter
+        </span>
+        <div className="w-36">
+          <nord-select size="s" hideLabel label="Field" expand suppressHydrationWarning>
+            <option>Make</option>
+            <option>Model</option>
+            <option>Year</option>
+            <option>Colour</option>
+            <option>Mileage</option>
+            <option>Body</option>
+            <option>Price</option>
+            <option>Days in stock</option>
+            <option>Status</option>
+          </nord-select>
+        </div>
+        <div className="w-32">
+          <nord-select size="s" hideLabel label="Operator" expand suppressHydrationWarning>
+            <option>is</option>
+            <option>is not</option>
+            <option>≥</option>
+            <option>≤</option>
+            <option>contains</option>
+          </nord-select>
+        </div>
+        <div className="w-44">
+          <nord-input
+            size="s"
+            hideLabel
+            label="Value"
+            placeholder="Value…"
+            expand
+            suppressHydrationWarning
+          />
+        </div>
+        <nord-button size="s">Cancel</nord-button>
+        <nord-button size="s" variant="primary">
+          Add
+        </nord-button>
+      </div>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- A: dense power grid */
 function VariationA() {
   return (
-    <div className="flex flex-col gap-5 p-6">
-      <PageHead />
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        {KPIS.map((k) => (
-          <div
-            key={k.label}
-            className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4"
-          >
-            <span className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {k.label}
-            </span>
-            <span className="text-2xl font-semibold tracking-tight tabular-nums">
-              {k.value}
-            </span>
-            <span className="text-xs font-medium text-success-foreground">
-              {k.delta} vs last month
-            </span>
-          </div>
-        ))}
-      </div>
-      <div className="grid gap-3 lg:grid-cols-[2fr_1fr]">
-        <nord-card padding="none">
-          <CardHead title="Recent deals" count={DEALS.length} />
-          <DealsTable />
-        </nord-card>
-        <TasksCard />
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------ B: stats + sparklines */
-function VariationB() {
-  return (
-    <div className="flex flex-col gap-5 p-6">
-      <PageHead />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        {KPIS.slice(0, 4).map((k, i) => (
-          <div
-            key={k.label}
-            className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4"
-          >
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {k.label}
-            </span>
-            <div className="flex items-end justify-between gap-2">
-              <span className="text-3xl font-semibold tracking-tight tabular-nums">
-                {k.value}
-              </span>
-              <span className="pb-1 text-xs font-medium text-success-foreground">
-                {k.delta}
-              </span>
-            </div>
-            <Sparkline up={i % 2 === 0} />
-          </div>
-        ))}
-      </div>
-      <nord-card padding="none">
-        <CardHead title="Sales · last 30 days" />
-        <div className="p-4">
-          <Sparkline className="h-40" />
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">All vehicles</h2>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            111
+          </span>
         </div>
-      </nord-card>
-      <nord-card padding="none">
-        <CardHead title="Recent deals" count={DEALS.length} />
-        <DealsTable />
-      </nord-card>
+        <div className="flex items-center gap-2">
+          <nord-input
+            type="search"
+            hideLabel
+            label="Search"
+            size="s"
+            placeholder="Search reg or stock…"
+          />
+          <ToolbarButton icon={Filter}>Filter</ToolbarButton>
+          <ToolbarButton icon={Settings2}>Columns 44</ToolbarButton>
+          <ToolbarButton icon={Download} variant="primary">
+            Export CSV
+          </ToolbarButton>
+        </div>
+      </div>
+      <FilterBar />
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse whitespace-nowrap text-xs">
+          <thead className="sticky top-0 bg-muted/50 text-left text-muted-foreground">
+            <tr>
+              <th className="w-9 px-3 py-2">
+                <input type="checkbox" className="accent-[var(--n-color-accent)]" />
+              </th>
+              <th className="w-8 px-2 py-2 text-right font-medium">#</th>
+              {[
+                { l: "Stock ID", t: "text" },
+                { l: "Vehicle", t: "vehicle" },
+                { l: "Variant", t: "text" },
+                { l: "Year", t: "num" },
+                { l: "Colour", t: "colour" },
+                { l: "Mileage", t: "num" },
+                { l: "Body", t: "text" },
+                { l: "Price", t: "currency" },
+                { l: "Status", t: "status" },
+              ].map((c) => {
+                const Ic = TYPE_ICON[c.t];
+                return (
+                  <th key={c.l} className="px-3 py-2 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ic className="h-3 w-3 opacity-60" />
+                      {c.l}
+                    </span>
+                  </th>
+                );
+              })}
+            </tr>
+          </thead>
+          <tbody>
+            {VEHICLES.map((v, i) => (
+              <tr
+                key={v.stock}
+                className="border-t border-border/60 hover:bg-accent/40"
+              >
+                <td className="px-3 py-1.5">
+                  <input type="checkbox" className="accent-[var(--n-color-accent)]" />
+                </td>
+                <td className="px-2 py-1.5 text-right text-muted-foreground tabular-nums">
+                  {i + 1}
+                </td>
+                <td className="px-3 py-1.5 font-mono">{v.stock}</td>
+                <td className="px-3 py-1.5">
+                  <VehicleCell v={v} />
+                </td>
+                <td className="max-w-[240px] truncate px-3 py-1.5 text-muted-foreground">
+                  {v.variant}
+                </td>
+                <td className="px-3 py-1.5 tabular-nums">{v.year}</td>
+                <td className="px-3 py-1.5">{v.colour}</td>
+                <td className="px-3 py-1.5 text-right tabular-nums">
+                  {fmtNum(v.mileage)}
+                </td>
+                <td className="px-3 py-1.5">{v.body}</td>
+                <td className="px-3 py-1.5 text-right font-medium tabular-nums">
+                  {fmtGBP(v.price)}
+                </td>
+                <td className="px-3 py-1.5">
+                  <StatusBadge status={v.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
 
-/* ----------------------------------------------------------------- C: bento */
+/* ------------------------------------------------------- B: airtable spreadsheet */
+function VariationB() {
+  const COLS = [
+    { l: "Stock ID", t: "text", k: (v: Row) => v.stock, mono: true },
+    { l: "Make", t: "text", k: (v: Row) => v.make },
+    { l: "Model", t: "text", k: (v: Row) => v.model },
+    { l: "Year", t: "num", k: (v: Row) => v.year },
+    { l: "Colour", t: "colour", k: (v: Row) => v.colour },
+    { l: "Mileage", t: "num", k: (v: Row) => fmtNum(v.mileage) },
+    { l: "Body", t: "text", k: (v: Row) => v.body },
+    { l: "Price", t: "currency", k: (v: Row) => fmtGBP(v.price) },
+  ];
+  return (
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2 text-xs">
+        <ToolbarButton icon={Settings2}>Hide fields</ToolbarButton>
+        <ToolbarButton icon={Filter}>Filter</ToolbarButton>
+        <ToolbarButton icon={GroupIcon}>Group</ToolbarButton>
+        <ToolbarButton icon={ArrowUpDown}>Sort</ToolbarButton>
+        <ToolbarButton icon={Palette}>Color</ToolbarButton>
+        <div className="ml-auto flex items-center gap-1.5">
+          <ToolbarButton icon={SlidersHorizontal}>Row height</ToolbarButton>
+          <ToolbarButton icon={Download} variant="primary">
+            Export
+          </ToolbarButton>
+        </div>
+      </div>
+      <FilterBar />
+      <div className="overflow-x-auto">
+        <table className="border-collapse whitespace-nowrap text-xs [&_td]:border [&_td]:border-border/70 [&_th]:border [&_th]:border-border/70">
+          <thead className="bg-muted/50 text-left text-muted-foreground">
+            <tr>
+              <th className="w-9 px-2 py-1.5 text-right">#</th>
+              <th className="sticky left-0 z-10 bg-muted/50 px-3 py-1.5 font-medium">
+                <span className="inline-flex items-center gap-1.5">
+                  <Car className="h-3 w-3 opacity-60" /> Vehicle
+                </span>
+              </th>
+              {COLS.map((c) => {
+                const Ic = TYPE_ICON[c.t];
+                return (
+                  <th key={c.l} className="px-3 py-1.5 font-medium">
+                    <span className="inline-flex items-center gap-1.5">
+                      <Ic className="h-3 w-3 opacity-60" />
+                      {c.l}
+                    </span>
+                  </th>
+                );
+              })}
+              <th className="px-3 py-1.5 font-medium">
+                <span className="inline-flex items-center gap-1.5">
+                  <Tag className="h-3 w-3 opacity-60" /> Status
+                </span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {VEHICLES.map((v, i) => (
+              <tr key={v.stock} className="hover:bg-accent/30">
+                <td className="px-2 py-1.5 text-right text-muted-foreground tabular-nums">
+                  {i + 1}
+                </td>
+                <td className="sticky left-0 z-10 bg-card px-3 py-1.5">
+                  <span className="font-mono text-[11px] font-semibold">
+                    {v.reg}
+                  </span>
+                </td>
+                {COLS.map((c) => (
+                  <td
+                    key={c.l}
+                    className={cn(
+                      "px-3 py-1.5",
+                      (c.t === "num" || c.t === "currency") &&
+                        "text-right tabular-nums",
+                      c.mono && "font-mono",
+                    )}
+                  >
+                    {c.k(v)}
+                  </td>
+                ))}
+                <td className="px-3 py-1.5">
+                  <StatusBadge status={v.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="bg-muted/30 text-muted-foreground">
+              <td className="px-2 py-1.5" />
+              <td className="sticky left-0 z-10 bg-muted/30 px-3 py-1.5 text-xs font-medium">
+                111 records
+              </td>
+              <td className="px-3 py-1.5" colSpan={4} />
+              <td className="px-3 py-1.5 text-right text-xs">
+                Σ {fmtNum(VEHICLES.reduce((s, v) => s + v.mileage, 0))}
+              </td>
+              <td className="px-3 py-1.5" />
+              <td className="px-3 py-1.5 text-right text-xs">
+                Σ {fmtGBP(VEHICLES.reduce((s, v) => s + v.price, 0))}
+              </td>
+              <td className="px-3 py-1.5" />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------- C: query / filter-chip grid */
 function VariationC() {
   return (
-    <div className="flex flex-col gap-5 p-6">
-      <PageHead />
-      {/* all six metrics */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-        {KPIS.map((k) => (
-          <div
-            key={k.label}
-            className="flex flex-col gap-2 rounded-lg border border-border bg-card p-4"
-          >
-            <span className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {k.label}
-            </span>
-            <span className="text-2xl font-semibold tracking-tight tabular-nums">
-              {k.value}
-            </span>
-            <span className="text-xs font-medium text-success-foreground">
-              {k.delta}
-            </span>
-          </div>
-        ))}
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <h2 className="text-sm font-semibold">All vehicles</h2>
+          <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+            111
+          </span>
+        </div>
+        <div className="flex items-center gap-2">
+          <nord-input
+            type="search"
+            hideLabel
+            label="Search"
+            size="s"
+            placeholder="Search reg or stock…"
+          />
+          <ToolbarButton icon={Download} variant="primary">
+            Export
+          </ToolbarButton>
+        </div>
       </div>
-      {/* row 2 — stock overview (donut) + recent deals, equal height */}
-      <div className="grid items-stretch gap-3 lg:grid-cols-12">
-        <Panel className="lg:col-span-5">
-          <CardHead title="Stock overview" action={false} />
-          <div className="flex flex-1 p-6">
-            <Donut />
-          </div>
-        </Panel>
-        <Panel className="lg:col-span-7">
-          <CardHead title="Recent deals" count={DEALS.length} />
-          <DealsTable rows={DEALS.slice(0, 4)} />
-        </Panel>
+      <FilterBar />
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse whitespace-nowrap text-xs">
+          <thead className="bg-muted/40 text-left text-muted-foreground">
+            <tr>
+              {[
+                ["Stock ID", "text"],
+                ["Vehicle", "vehicle"],
+                ["Variant", "text"],
+                ["Year", "integer"],
+                ["Colour", "text"],
+                ["Mileage", "integer"],
+                ["Price", "numeric"],
+                ["Status", "enum"],
+              ].map(([l, t]) => (
+                <th key={l} className="px-3 py-2">
+                  <div className="font-medium text-foreground">{l}</div>
+                  <div className="text-[10px] font-normal lowercase opacity-60">
+                    {t}
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {VEHICLES.map((v) => (
+              <tr
+                key={v.stock}
+                className="border-t border-border/60 hover:bg-accent/40"
+              >
+                <td className="px-3 py-2 font-mono">{v.stock}</td>
+                <td className="px-3 py-2">
+                  <VehicleCell v={v} />
+                </td>
+                <td className="max-w-[260px] truncate px-3 py-2 text-muted-foreground">
+                  {v.variant}
+                </td>
+                <td className="px-3 py-2 tabular-nums">{v.year}</td>
+                <td className="px-3 py-2">{v.colour}</td>
+                <td className="px-3 py-2 tabular-nums">{fmtNum(v.mileage)}</td>
+                <td className="px-3 py-2 font-medium tabular-nums">
+                  {fmtGBP(v.price)}
+                </td>
+                <td className="px-3 py-2">
+                  <StatusBadge status={v.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
-      {/* row 3 — upcoming appointments | today updates | latest news */}
-      <div className="grid items-stretch gap-3 lg:grid-cols-3">
-        <Panel>
-          <CardHead title="Upcoming appointments" count={APPTS.length} />
-          <ul className="divide-y divide-border">
-            {APPTS.map((a) => (
-              <li
-                key={a.time + a.who}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm"
-              >
-                <div className="flex w-12 shrink-0 flex-col leading-tight">
-                  <span className="text-xs font-semibold tabular-nums">
-                    {a.time}
-                  </span>
-                  <span className="text-xs text-muted-foreground">{a.date}</span>
-                </div>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <div className="truncate font-medium">{a.who}</div>
-                  <div className="truncate text-xs text-muted-foreground">
-                    {a.what}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Panel>
-          <CardHead title="Today's updates" action={false} />
-          <ul className="divide-y divide-border">
-            {TASKS.map((t) => (
-              <li
-                key={t.label}
-                className="flex items-center justify-between px-4 py-3 text-sm"
-              >
-                <span className="text-muted-foreground">{t.label}</span>
-                <span className="grid h-6 min-w-6 place-items-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
-                  {t.count}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-        <Panel>
-          <CardHead title="Latest news" action={false} />
-          <ul className="divide-y divide-border">
-            {NEWS.map((n) => (
-              <li key={n.title} className="flex gap-3 px-4 py-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={n.thumb}
-                  alt=""
-                  className="h-14 w-20 shrink-0 rounded-md border border-border object-cover"
-                />
-                <div className="flex min-w-0 flex-col gap-1.5">
-                  <div className="flex items-center gap-2">
-                    <nord-badge variant="info">{n.tag}</nord-badge>
-                    <span className="text-xs text-muted-foreground">
-                      {n.time}
-                    </span>
-                  </div>
-                  <p className="text-sm leading-snug">{n.title}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </Panel>
+      <div className="flex items-center justify-between border-t border-border px-4 py-2.5 text-xs text-muted-foreground">
+        <span>
+          Showing <span className="font-medium text-foreground">1–7</span> of 111
+        </span>
+        <div className="flex items-center gap-2">
+          <span>Rows per page 50</span>
+          <nord-button size="s" disabled>
+            <ChevronLeft slot="start" className="h-4 w-4" />
+            Prev
+          </nord-button>
+          <nord-button size="s">
+            Next
+            <ChevronRight slot="end" className="h-4 w-4" />
+          </nord-button>
+        </div>
       </div>
     </div>
   );
 }
 
-/* -------------------------------------------------------- D: sidebar-stat */
+/* ------------------------------------------------------------ D: aggregation grid */
 function VariationD() {
   return (
-    <div className="flex flex-col gap-5 p-6">
-      <PageHead />
-      <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-        <div className="flex flex-col gap-4">
-          <nord-card padding="none">
-            <CardHead title="Sales · last 30 days" />
-            <div className="p-4">
-              <Sparkline className="h-44" />
-            </div>
-          </nord-card>
-          <nord-card padding="none">
-            <CardHead title="Recent deals" count={DEALS.length} />
-            <DealsTable />
-          </nord-card>
+    <div className="flex flex-col">
+      <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-2">
+        <ToolbarButton icon={ArrowUpDown}>Sort</ToolbarButton>
+        <ToolbarButton icon={Filter}>Filter</ToolbarButton>
+        <ToolbarButton icon={Settings2}>Columns</ToolbarButton>
+        <div className="ml-auto flex items-center gap-1.5">
+          <ToolbarButton icon={Upload}>Import</ToolbarButton>
+          <ToolbarButton icon={Download} variant="primary">
+            Export
+          </ToolbarButton>
         </div>
-        <aside className="flex flex-col gap-3">
-          <nord-card padding="none">
-            <div className="divide-y divide-border">
-              {KPIS.slice(0, 4).map((k) => (
-                <div
-                  key={k.label}
-                  className="flex items-center justify-between px-4 py-3"
-                >
-                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                    {k.label}
+      </div>
+      <FilterBar />
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse whitespace-nowrap text-xs">
+          <thead className="bg-muted/40 text-left text-muted-foreground">
+            <tr>
+              {[
+                ["Stock ID", false],
+                ["Vehicle", false],
+                ["Year", true],
+                ["Colour", false],
+                ["Mileage", true],
+                ["Body", false],
+                ["Price", true],
+                ["Days", true],
+                ["Status", false],
+              ].map(([l, sortable]) => (
+                <th key={l as string} className="px-3 py-2 font-medium">
+                  <span className="inline-flex items-center gap-1">
+                    {l}
+                    {sortable && <ArrowUpDown className="h-3 w-3 opacity-50" />}
                   </span>
-                  <span className="text-lg font-semibold tabular-nums">
-                    {k.value}
-                  </span>
-                </div>
+                </th>
               ))}
-            </div>
-          </nord-card>
-          <TasksCard />
-        </aside>
+            </tr>
+          </thead>
+          <tbody>
+            {VEHICLES.map((v) => (
+              <tr
+                key={v.stock}
+                className="border-t border-border/60 hover:bg-accent/40"
+              >
+                <td className="px-3 py-2 font-mono">{v.stock}</td>
+                <td className="px-3 py-2">
+                  <VehicleCell v={v} />
+                </td>
+                <td className="px-3 py-2 tabular-nums">{v.year}</td>
+                <td className="px-3 py-2">{v.colour}</td>
+                <td className="px-3 py-2 text-right tabular-nums">
+                  {fmtNum(v.mileage)}
+                </td>
+                <td className="px-3 py-2">{v.body}</td>
+                <td className="px-3 py-2 text-right font-medium tabular-nums">
+                  {fmtGBP(v.price)}
+                </td>
+                <td className="px-3 py-2 text-right tabular-nums">{v.days}</td>
+                <td className="px-3 py-2">
+                  <StatusBadge status={v.status} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot className="border-t-2 border-border bg-muted/40 font-medium">
+            <tr>
+              <td className="px-3 py-2">Count 111</td>
+              <td className="px-3 py-2" />
+              <td className="px-3 py-2 text-muted-foreground tabular-nums">
+                2016–2023
+              </td>
+              <td className="px-3 py-2" />
+              <td className="px-3 py-2 text-right tabular-nums">
+                avg {fmtNum(53000)}
+              </td>
+              <td className="px-3 py-2" />
+              <td className="px-3 py-2 text-right tabular-nums">
+                Σ {fmtGBP(1418500)}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">avg 38</td>
+              <td className="px-3 py-2" />
+            </tr>
+          </tfoot>
+        </table>
       </div>
     </div>
   );
 }
 
-/* ------------------------------------------------------ E: table-first console */
+/* ----------------------------------------------------------- E: managed inventory */
 function VariationE() {
+  const TABS = ["All 111", "Ready 18", "Listed 41", "Sold 23"];
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <PageHead compact />
-      <div className="flex flex-wrap gap-x-8 gap-y-3 rounded-lg border border-border bg-card px-5 py-4">
-        {KPIS.map((k) => (
-          <div key={k.label} className="flex flex-col">
-            <span className="text-xs text-muted-foreground">{k.label}</span>
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-xl font-semibold tabular-nums">
-                {k.value}
-              </span>
-              <span className="text-xs font-medium text-success-foreground">
-                {k.delta}
-              </span>
-            </div>
-          </div>
-        ))}
-      </div>
-      <nord-card padding="none">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-          <h3 className="text-sm font-semibold">Recent deals</h3>
-          <div className="flex items-center gap-2">
-            <nord-input
-              type="search"
-              hideLabel
-              label="Search"
-              size="s"
-              placeholder="Search reg or customer…"
-            />
-            <nord-button size="s">
-              <nord-icon slot="start" name="interface-filter" />
-              Filter
-            </nord-button>
-          </div>
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 pt-2">
+        <div className="flex items-end gap-1">
+          {TABS.map((t, i) => (
+            <button
+              key={t}
+              type="button"
+              className={cn(
+                "border-b-2 px-3 py-2 text-xs font-medium transition-colors",
+                i === 0
+                  ? "border-primary text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {t}
+            </button>
+          ))}
         </div>
-        <DealsTable />
-      </nord-card>
+        <div className="flex items-center gap-1.5 pb-1.5">
+          <ToolbarButton icon={Upload}>Import</ToolbarButton>
+          <ToolbarButton icon={Download}>Export</ToolbarButton>
+        </div>
+      </div>
+      <FilterBar />
+
+      {/* bulk action bar (demo: 3 selected) */}
+      <div className="flex items-center gap-3 border-b border-border bg-accent/40 px-4 py-2 text-xs">
+        <span className="font-medium">3 selected</span>
+        <nord-button size="s">Change status</nord-button>
+        <nord-button size="s">Move location</nord-button>
+        <nord-button size="s" variant="danger">
+          Remove
+        </nord-button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse whitespace-nowrap text-sm">
+          <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+            <tr>
+              <th className="w-9 px-3 py-2.5">
+                <input type="checkbox" className="accent-[var(--n-color-accent)]" />
+              </th>
+              <th className="sticky left-0 z-10 bg-muted/40 px-3 py-2.5 font-medium">
+                Vehicle
+              </th>
+              <th className="px-3 py-2.5 font-medium">Year</th>
+              <th className="px-3 py-2.5 font-medium">Mileage</th>
+              <th className="px-3 py-2.5 font-medium">Status</th>
+              <th className="px-3 py-2.5 text-right font-medium">Price (editable)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {VEHICLES.map((v, i) => (
+              <tr
+                key={v.stock}
+                className="border-t border-border/60 hover:bg-accent/30"
+              >
+                <td className="px-3 py-2">
+                  <input
+                    type="checkbox"
+                    defaultChecked={i < 3}
+                    className="accent-[var(--n-color-accent)]"
+                  />
+                </td>
+                <td className="sticky left-0 z-10 bg-card px-3 py-2">
+                  <VehicleCell v={v} />
+                </td>
+                <td className="px-3 py-2 tabular-nums">{v.year}</td>
+                <td className="px-3 py-2 tabular-nums">{fmtNum(v.mileage)}</td>
+                <td className="px-3 py-2">
+                  <Dot status={v.status} />
+                </td>
+                <td className="px-3 py-2">
+                  <div className="ml-auto w-32">
+                    <nord-input
+                      size="s"
+                      hideLabel
+                      label="Price"
+                      value={String(v.price)}
+                      expand
+                    />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

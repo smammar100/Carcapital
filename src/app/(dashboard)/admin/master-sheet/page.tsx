@@ -1,22 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Calendar as CalendarIcon,
-  Car,
   Check,
   Download,
   FileSpreadsheet,
-  Hash,
-  MapPin,
   Plus,
-  PoundSterling,
   SlidersHorizontal,
-  Tag,
-  Type,
   X,
 } from "lucide-react";
-import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
@@ -31,7 +23,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import {
   Popover,
   PopoverContent,
@@ -150,18 +142,73 @@ const COLS: ColDef[] = [
   { key: "imagesCount", label: "Imgs", type: "number", width: 70 },
 ];
 
-const TYPE_ICON: Record<ColType, typeof Type> = {
-  vehicle: Car,
-  stockId: Hash,
-  text: Type,
-  number: Hash,
-  currency: PoundSterling,
-  date: CalendarIcon,
-  boolean: Check,
-  select: Tag,
-  status: Tag,
-  location: MapPin,
-};
+/* ---- Filtering (Master Sheet "Variation C" filter-chip bar) -------------- */
+
+type FilterKind = "text" | "num";
+interface FilterField {
+  key: keyof Vehicle;
+  label: string;
+  kind: FilterKind;
+}
+const FILTER_FIELDS: FilterField[] = [
+  { key: "make", label: "Make", kind: "text" },
+  { key: "model", label: "Model", kind: "text" },
+  { key: "year", label: "Year", kind: "num" },
+  { key: "colour", label: "Colour", kind: "text" },
+  { key: "mileage", label: "Mileage", kind: "num" },
+  { key: "vehicleType", label: "Type", kind: "text" },
+  { key: "bodyType", label: "Body", kind: "text" },
+  { key: "fuelType", label: "Fuel", kind: "text" },
+  { key: "transmission", label: "Transmission", kind: "text" },
+  { key: "status", label: "Status", kind: "text" },
+  { key: "listingPrice", label: "Listing price", kind: "num" },
+  { key: "daysInStock", label: "Days in stock", kind: "num" },
+];
+
+interface FilterCond {
+  id: number;
+  key: keyof Vehicle;
+  label: string;
+  kind: FilterKind;
+  op: string;
+  value: string;
+}
+
+const TEXT_OPS = [
+  { v: "is", l: "is" },
+  { v: "not", l: "is not" },
+  { v: "contains", l: "contains" },
+];
+const NUM_OPS = [
+  { v: "gte", l: "≥" },
+  { v: "lte", l: "≤" },
+  { v: "eq", l: "=" },
+];
+function opsFor(kind: FilterKind) {
+  return kind === "num" ? NUM_OPS : TEXT_OPS;
+}
+function opLabel(op: string): string {
+  return [...TEXT_OPS, ...NUM_OPS].find((o) => o.v === op)?.l ?? op;
+}
+function kindOf(key: keyof Vehicle): FilterKind {
+  return FILTER_FIELDS.find((f) => f.key === key)?.kind ?? "text";
+}
+function matchCond(c: FilterCond, v: Vehicle): boolean {
+  const raw = v[c.key];
+  if (c.kind === "num") {
+    const n = typeof raw === "number" ? raw : Number(raw);
+    const fv = Number(c.value);
+    if (Number.isNaN(n) || Number.isNaN(fv)) return true;
+    if (c.op === "gte") return n >= fv;
+    if (c.op === "lte") return n <= fv;
+    return n === fv;
+  }
+  const s = String(raw ?? "").toLowerCase();
+  const fv = c.value.toLowerCase();
+  if (c.op === "contains") return s.includes(fv);
+  if (c.op === "not") return s !== fv;
+  return s === fv;
+}
 
 const STATUS_TONE: Record<VehicleStatus, string> = {
   received: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
@@ -389,6 +436,14 @@ export default function MasterSheetPage() {
   const [partners, setPartners] = useState<DealerPartner[]>([]);
   const [quick, setQuick] = useState<QuickAdd>({ ...EMPTY_QUICK_ADD });
   const [adding, setAdding] = useState(false);
+  // Filter-chip bar (Variation C) state.
+  const [filters, setFilters] = useState<FilterCond[]>([]);
+  const [search, setSearch] = useState("");
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [bField, setBField] = useState<keyof Vehicle>("make");
+  const [bOp, setBOp] = useState("is");
+  const [bValue, setBValue] = useState("");
+  const filterId = useRef(1);
 
   useEffect(() => {
     if (!company) return;
@@ -576,7 +631,42 @@ export default function MasterSheetPage() {
     [visible],
   );
 
-  const filtered = useMemo(() => vehicles, [vehicles]);
+  const filtered = useMemo(() => {
+    if (!vehicles) return null;
+    const q = search.trim().toLowerCase();
+    return vehicles.filter((v) => {
+      if (q) {
+        const hay =
+          `${v.registration} ${v.stockId} ${v.make} ${v.model}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return filters.every((c) => matchCond(c, v));
+    });
+  }, [vehicles, search, filters]);
+
+  function addFilter() {
+    const fld = FILTER_FIELDS.find((f) => f.key === bField);
+    if (!fld || !bValue.trim()) return;
+    setFilters((prev) => [
+      ...prev,
+      {
+        id: filterId.current++,
+        key: fld.key,
+        label: fld.label,
+        kind: fld.kind,
+        op: bOp,
+        value: bValue.trim(),
+      },
+    ]);
+    setBValue("");
+    setBuilderOpen(false);
+    setPage(1);
+  }
+
+  function removeFilter(id: number) {
+    setFilters((prev) => prev.filter((f) => f.id !== id));
+    setPage(1);
+  }
 
   const totalPages = filtered
     ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -685,6 +775,144 @@ export default function MasterSheetPage() {
         </div>
       </div>
 
+      {/* Variation C — filter-chip bar: applied chips + add-condition builder */}
+      <div className="flex flex-col gap-2 rounded-lg border border-border bg-card px-4 py-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-medium text-muted-foreground">Where</span>
+          {filters.length === 0 && (
+            <span className="text-xs text-muted-foreground">
+              No filters applied
+            </span>
+          )}
+          {filters.map((f) => (
+            <span
+              key={f.id}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-xs"
+            >
+              <span className="text-muted-foreground">{f.label}</span>
+              <span className="text-muted-foreground">{opLabel(f.op)}</span>
+              <span className="font-medium">{f.value}</span>
+              <button
+                type="button"
+                onClick={() => removeFilter(f.id)}
+                aria-label={`Remove ${f.label} filter`}
+                className="ml-0.5 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          ))}
+          <button
+            type="button"
+            onClick={() => setBuilderOpen((o) => !o)}
+            className="inline-flex items-center gap-1 rounded-md border border-dashed border-border px-2 py-1 text-xs font-medium text-muted-foreground hover:bg-accent/40"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add filter
+          </button>
+          <div className="ml-auto flex items-center gap-3">
+            <nord-input
+              type="search"
+              hideLabel
+              label="Search"
+              size="s"
+              placeholder="Search reg, stock, make…"
+              value={search}
+              onInput={(e) => {
+                setSearch((e.target as HTMLInputElement).value);
+                setPage(1);
+              }}
+              suppressHydrationWarning
+            />
+            <span className="whitespace-nowrap text-xs text-muted-foreground">
+              {filters.length || search.trim() ? (
+                <>
+                  Matches{" "}
+                  <span className="font-medium text-foreground">
+                    {filtered?.length ?? 0}
+                  </span>{" "}
+                  of {vehicles?.length ?? 0}
+                </>
+              ) : (
+                <>{vehicles?.length ?? 0} vehicles</>
+              )}
+            </span>
+          </div>
+        </div>
+        {builderOpen && (
+          <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-border bg-muted/20 p-2">
+            <span className="text-xs font-medium text-muted-foreground">
+              Add condition
+            </span>
+            <div className="w-40">
+              <nord-select
+                size="s"
+                hideLabel
+                label="Field"
+                expand
+                value={String(bField)}
+                onChange={(e) => {
+                  const key = (e.target as HTMLSelectElement)
+                    .value as keyof Vehicle;
+                  setBField(key);
+                  setBOp(kindOf(key) === "num" ? "gte" : "is");
+                }}
+                suppressHydrationWarning
+              >
+                {FILTER_FIELDS.map((f) => (
+                  <option key={String(f.key)} value={String(f.key)}>
+                    {f.label}
+                  </option>
+                ))}
+              </nord-select>
+            </div>
+            <div className="w-32">
+              <nord-select
+                size="s"
+                hideLabel
+                label="Operator"
+                expand
+                value={bOp}
+                onChange={(e) => setBOp((e.target as HTMLSelectElement).value)}
+                suppressHydrationWarning
+              >
+                {opsFor(kindOf(bField)).map((o) => (
+                  <option key={o.v} value={o.v}>
+                    {o.l}
+                  </option>
+                ))}
+              </nord-select>
+            </div>
+            <div className="w-48">
+              <nord-input
+                size="s"
+                hideLabel
+                label="Value"
+                placeholder="Value…"
+                expand
+                value={bValue}
+                onInput={(e) => setBValue((e.target as HTMLInputElement).value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") addFilter();
+                }}
+                suppressHydrationWarning
+              />
+            </div>
+            <nord-button
+              size="s"
+              onClick={() => {
+                setBuilderOpen(false);
+                setBValue("");
+              }}
+            >
+              Cancel
+            </nord-button>
+            <nord-button size="s" variant="primary" onClick={addFilter}>
+              Add filter
+            </nord-button>
+          </div>
+        )}
+      </div>
+
       {!filtered ? (
         <Skeleton className="h-72" />
       ) : filtered.length === 0 ? (
@@ -721,29 +949,23 @@ export default function MasterSheetPage() {
                       />
                     </div>
                   </th>
-                  {cols.map((c, i) => {
-                    const Icon = TYPE_ICON[c.type];
-                    return (
-                      <th
-                        key={colKey(c)}
-                        className={cn(
-                          "border-b border-r px-2 text-left font-medium",
-                          c.sticky &&
-                            "sticky z-30 bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]",
-                        )}
-                        style={c.sticky ? { left: 40 } : undefined}
-                      >
-                        <div className="flex h-8 items-center gap-1.5 text-xs text-muted-foreground">
-                          <Icon className="h-3 w-3 shrink-0" />
-                          <span className="truncate text-foreground">
-                            {c.label}
-                          </span>
-                        </div>
-                        {/* Drop hint placeholder for visual cue between cols */}
-                        {i === cols.length - 1 ? null : null}
-                      </th>
-                    );
-                  })}
+                  {cols.map((c) => (
+                    <th
+                      key={colKey(c)}
+                      className={cn(
+                        "border-b border-r px-2 text-left font-medium",
+                        c.sticky &&
+                          "sticky z-30 bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]",
+                      )}
+                      style={c.sticky ? { left: 40 } : undefined}
+                    >
+                      <div className="flex h-8 items-center text-xs">
+                        <span className="truncate font-medium text-foreground">
+                          {c.label}
+                        </span>
+                      </div>
+                    </th>
+                  ))}
                   <th className="border-b">
                     <div className="flex h-8 items-center justify-center text-muted-foreground">
                       <Plus className="h-3.5 w-3.5" />
