@@ -42,9 +42,9 @@ export function PermissionCell({
   return (
     <td
       className={cn(
-        "h-10 w-10 p-0 text-center align-middle",
+        "h-12 border-b border-l p-0 text-center align-middle transition-colors group-hover/row:bg-muted",
         changed &&
-          "bg-amber-50 ring-1 ring-amber-300 ring-inset dark:bg-amber-950/20 dark:ring-amber-700",
+          "bg-amber-50 ring-1 ring-amber-300 ring-inset group-hover/row:bg-amber-50 dark:bg-amber-950/20 dark:ring-amber-700 dark:group-hover/row:bg-amber-950/20",
       )}
     >
       <div className="flex items-center justify-center">

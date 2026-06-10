@@ -2,11 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Plus, Mail, ShieldX } from "lucide-react";
+import { Plus, ShieldX } from "lucide-react";
 import { usePermissions } from "@/hooks/use-permissions";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
-import { InviteMemberDialog } from "@/components/admin/invite-member-dialog";
 import { AddStaffDialog } from "@/components/admin/add-staff-dialog";
 import {
   PermissionsGrid,
@@ -15,7 +14,6 @@ import {
 
 export default function TeamAndSecurityPage() {
   const { can, isSuperUser, isLoading } = usePermissions();
-  const [inviteOpen, setInviteOpen] = useState(false);
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const gridRef = useRef<PermissionsGridHandle>(null);
 
@@ -59,15 +57,9 @@ export default function TeamAndSecurityPage() {
                 <Plus className="mr-1.5 h-3 w-3" />
                 Add staff
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setInviteOpen(true)}
-                data-testid="invite-email-btn"
-              >
-                <Mail className="mr-1.5 h-3 w-3" />
-                Invite by email
-              </Button>
+              {/* "Invite by email" CTA hidden for now — username accounts are
+                  the live flow. Restore the button + InviteMemberDialog from
+                  git history to re-enable it. */}
             </div>
           }
         />
@@ -77,12 +69,6 @@ export default function TeamAndSecurityPage() {
         open={addStaffOpen}
         onOpenChange={setAddStaffOpen}
         onCreated={() => void gridRef.current?.reload()}
-      />
-
-      <InviteMemberDialog
-        open={inviteOpen}
-        onOpenChange={setInviteOpen}
-        onInvited={() => void gridRef.current?.reload()}
       />
     </div>
   );

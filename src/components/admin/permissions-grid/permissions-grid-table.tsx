@@ -2,8 +2,10 @@
 
 import {
   ALL_CAPABILITIES,
+  CAPABILITY_GROUPS,
   CAPABILITY_LABELS,
   type Capability,
+  type CapabilityGroup,
 } from "@/lib/capabilities";
 import { Trash2, SlidersHorizontal, KeyRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -14,6 +16,8 @@ import type { PermissionsMap } from "./types";
 
 interface Props {
   users: User[];
+  /** Visible capability groups (drives the grouped two-row header). */
+  groups?: CapabilityGroup[];
   localState: PermissionsMap;
   serverState: PermissionsMap;
   currentUserId?: UUID;
@@ -23,11 +27,16 @@ interface Props {
   onResetPassword?: (user: User) => void;
 }
 
-const STICKY_COL =
-  "sticky left-0 z-1 bg-background border-r min-w-[220px] max-w-[220px]";
+const MEMBER_COL_W = 248;
+const CAP_COL_W = 92;
+
+// Solid backgrounds on sticky cells — translucency lets scrolled-out content
+// bleed through (same fix as the Master Sheet). Shadow marks the frozen edge.
+const STICKY_SHADOW = "shadow-[2px_0_4px_-2px_var(--shadow-color)]";
 
 export function PermissionsGridTable({
   users,
+  groups = CAPABILITY_GROUPS,
   localState,
   serverState,
   currentUserId,
@@ -36,16 +45,27 @@ export function PermissionsGridTable({
   onEditRoles,
   onResetPassword,
 }: Props) {
+  // Columns flattened in group order (keeps related capabilities adjacent).
+  const caps = groups.flatMap((g) => g.capabilities);
+
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="border-separate border-spacing-0 text-sm">
-        <thead>
-          {/* Single flat header row — individual permission "views", no role/category grouping */}
+    <div className="relative max-h-[calc(100dvh-17rem)] min-h-[320px] overflow-auto rounded-lg border">
+      <table
+        className="w-max border-separate text-xs"
+        style={{ borderSpacing: 0 }}
+      >
+        <colgroup>
+          <col style={{ width: MEMBER_COL_W }} />
+          {caps.map((cap) => (
+            <col key={cap} style={{ width: CAP_COL_W }} />
+          ))}
+        </colgroup>
+        <thead className="sticky top-0 z-20 bg-muted">
           <tr>
             <th
               className={cn(
-                STICKY_COL,
-                "z-2 border-b px-4 pb-2 align-bottom",
+                "sticky left-0 z-30 border-b border-r bg-muted px-4 text-left",
+                STICKY_SHADOW,
               )}
             >
               <span
@@ -55,31 +75,41 @@ export function PermissionsGridTable({
                 {users.length} member{users.length === 1 ? "" : "s"}
               </span>
             </th>
-            {ALL_CAPABILITIES.map((cap) => (
+            {caps.map((cap) => (
               <th
                 key={cap}
-                className="w-28 min-w-28 max-w-28 border-b border-l px-2 py-2 align-bottom"
+                className="border-b border-l bg-muted px-1.5 py-1.5 text-center align-middle"
               >
-                <span className="block text-center text-xs leading-tight font-medium text-muted-foreground">
+                <span
+                  className="line-clamp-2 text-center text-[11px] font-medium leading-[14px] text-muted-foreground"
+                  title={CAPABILITY_LABELS[cap]}
+                >
                   {CAPABILITY_LABELS[cap]}
                 </span>
               </th>
             ))}
           </tr>
         </thead>
-        <tbody data-testid="permissions-grid-body">
+        <tbody className="bg-background" data-testid="permissions-grid-body">
           {users.map((u) => {
             const local = localState.get(u.id) ?? new Set<Capability>();
             const server = serverState.get(u.id) ?? new Set<Capability>();
             const isYou = currentUserId === u.id;
+            const granted = u.isSuperUser ? ALL_CAPABILITIES.length : local.size;
             return (
               <tr
                 key={u.id}
-                className="hover:bg-muted/20"
+                className="group/row"
                 data-testid={`permissions-grid-row-${u.id}`}
               >
-                <td className={cn(STICKY_COL, "border-b px-4 py-2")}>
-                  <div className="group/member flex items-center gap-2">
+                <td
+                  className={cn(
+                    "sticky left-0 z-10 border-b border-r bg-background px-3",
+                    "group-hover/row:bg-muted",
+                    STICKY_SHADOW,
+                  )}
+                >
+                  <div className="group/member flex h-12 items-center gap-2">
                     <Avatar className="h-7 w-7">
                       <AvatarFallback className="text-2xs">
                         {getInitials(u.name)}
@@ -105,48 +135,62 @@ export function PermissionsGridTable({
                         {u.username ?? u.email}
                       </span>
                     </div>
-                    {onEditRoles && !isYou && !u.isSuperUser && (
-                      <button
-                        type="button"
-                        onClick={() => onEditRoles(u)}
-                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/member:opacity-100"
-                        aria-label={`Edit roles for ${u.name}`}
-                        title="Edit roles"
-                        data-testid={`edit-roles-${u.id}`}
-                      >
-                        <SlidersHorizontal className="h-4 w-4" />
-                      </button>
-                    )}
-                    {onResetPassword && !isYou && !u.isSuperUser && (
-                      <button
-                        type="button"
-                        onClick={() => onResetPassword(u)}
-                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/member:opacity-100"
-                        aria-label={`Reset password for ${u.name}`}
-                        title="Reset password"
-                        data-testid={`reset-password-${u.id}`}
-                      >
-                        <KeyRound className="h-4 w-4" />
-                      </button>
-                    )}
-                    {onRemove && !isYou && !u.isSuperUser && (
-                      <button
-                        type="button"
-                        onClick={() => onRemove(u)}
-                        className="shrink-0 text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover/member:opacity-100"
-                        aria-label={`Remove ${u.name}`}
-                        title="Remove member"
-                        data-testid={`remove-member-${u.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
+                    <span
+                      className={cn(
+                        "ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
+                        "group-focus-within/member:hidden group-hover/member:hidden",
+                      )}
+                    >
+                      {granted}/{ALL_CAPABILITIES.length}
+                    </span>
+                    <div
+                      className={cn(
+                        "ml-auto hidden shrink-0 items-center gap-1.5",
+                        "group-focus-within/member:flex group-hover/member:flex",
+                      )}
+                    >
+                      {onEditRoles && !isYou && !u.isSuperUser && (
+                        <button
+                          type="button"
+                          onClick={() => onEditRoles(u)}
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Edit roles for ${u.name}`}
+                          title="Edit roles"
+                          data-testid={`edit-roles-${u.id}`}
+                        >
+                          <SlidersHorizontal className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onResetPassword && !isYou && !u.isSuperUser && (
+                        <button
+                          type="button"
+                          onClick={() => onResetPassword(u)}
+                          className="text-muted-foreground hover:text-foreground"
+                          aria-label={`Reset password for ${u.name}`}
+                          title="Reset password"
+                          data-testid={`reset-password-${u.id}`}
+                        >
+                          <KeyRound className="h-4 w-4" />
+                        </button>
+                      )}
+                      {onRemove && !isYou && !u.isSuperUser && (
+                        <button
+                          type="button"
+                          onClick={() => onRemove(u)}
+                          className="text-muted-foreground hover:text-destructive"
+                          aria-label={`Remove ${u.name}`}
+                          title="Remove member"
+                          data-testid={`remove-member-${u.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </td>
-                {ALL_CAPABILITIES.map((cap) => {
+                {caps.map((cap) => {
                   const checked = local.has(cap);
-                  const changed =
-                    !u.isSuperUser && checked !== server.has(cap);
+                  const changed = !u.isSuperUser && checked !== server.has(cap);
                   return (
                     <PermissionCell
                       key={cap}
