@@ -1,989 +1,458 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import {
-  Check,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Copy,
-  Minus,
-  RefreshCw,
   Search,
-  UserPlus,
-  X,
+  Receipt,
+  Undo2,
+  CheckCircle2,
+  Car,
+  TrendingUp,
+  Clock,
+  History,
+  Filter,
+  ChevronDown,
+  type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
  * /prototype — design comparison surface (auth-free).
  *
- * Current feature: ADD STAFF DIALOG (username + password account with view
- * grants). 5 fully functional variations rendered OPEN on scrim frames so
- * they compare side-by-side. Every one works end-to-end: name → username
- * auto-suggestion (editable), grouped view selection with live counts,
- * deterministic temp-password regenerate + copy, validation, and a success
- * state showing the credentials. References (Mobbin): Slack onboarding
- * (stepper), Linear/Height settings dialogs (two-column), Front/Fresha
- * (role presets), Intercom new-teammate permissions (grouped sections),
- * Stripe/Intercom side panels (sheet).
+ * Current feature: ACTIVITY LOG (/admin/activity). 5 variations stacked
+ * vertically. Mock data mirrors the real feed (user, time, description,
+ * vehicle reg, action type). References (Mobbin, web): 7shifts (filtered feed
+ * with action badges), Airbnb / Todoist (date-grouped dot timeline), Vercel
+ * (left filter rail + feed), Employment Hero / Fibery (audit table), Linear
+ * (icon-led compact feed).
  */
 
-/* ------------------------------------------------------------ shared model */
+type Action =
+  | "invoice_created"
+  | "vehicle_returned"
+  | "sale_completed"
+  | "vehicle_status_changed"
+  | "sale_stage_changed";
 
-interface PermGroup {
-  label: string;
-  caps: string[];
-}
+type Event = {
+  user: string;
+  time: string;
+  group: string;
+  desc: string;
+  reg: string;
+  action: Action;
+};
 
-const PERM_GROUPS: PermGroup[] = [
-  { label: "Inventory", caps: ["Add Vehicle", "Edit Vehicle", "Edit Costs", "Remove from Website"] },
-  { label: "Inspection", caps: ["Run Inspection", "Add Inspection Note"] },
-  { label: "Maintenance & Workshop", caps: ["Create Maintenance Job", "Edit Maintenance Job", "Complete Maintenance Job", "Add Workshop Note"] },
-  { label: "Photos & Adverts", caps: ["Process Photos", "Create Listing", "Edit Listing", "Publish to AutoTrader"] },
-  { label: "Leads & Sales", caps: ["Create Lead", "Edit Lead", "Book Appointment", "Edit Pipeline Stage", "Mark Sold"] },
-  { label: "Invoicing", caps: ["Generate Invoice", "Send Invoice", "Mark Paid"] },
-  { label: "Warranties & Returns", caps: ["Create Warranty", "Raise Claim", "Resolve Claim", "Create Vehicle Return"] },
-  { label: "Admin", caps: ["View Master Sheet", "View Financials", "View Master Calendar", "Manage Users", "Manage Permissions"] },
-];
-const ALL_CAPS: string[] = PERM_GROUPS.flatMap((g) => g.caps);
-
-const ROLE_PRESETS: { label: string; caps: string[] }[] = [
-  { label: "Administrator", caps: ALL_CAPS },
-  { label: "Inventory Manager", caps: [...PERM_GROUPS[0].caps, "Process Photos"] },
-  { label: "Workshop Lead", caps: [...PERM_GROUPS[2].caps, ...PERM_GROUPS[1].caps] },
-  { label: "Inspector", caps: [...PERM_GROUPS[1].caps] },
-  { label: "Sales Specialist", caps: [...PERM_GROUPS[4].caps] },
-  { label: "Finance Admin", caps: [...PERM_GROUPS[5].caps, "Create Vehicle Return"] },
-  { label: "View Only", caps: [] },
-];
-
-/** Deterministic temp-password pool — regenerate cycles, no Math.random. */
-const PASSWORDS = [
-  "Xk7Trf2WqBn4!9",
-  "Vm3PdJ8sRwH2!9",
-  "Qt6BzN4kLcY8!9",
-  "Hr9MfW3pXdK5!9",
-  "Zw4SgV7nTjQ6!9",
+const EVENTS: Event[] = [
+  { user: "Abbas Bhai", time: "1 hour ago", group: "Today", desc: "Invoice REF-2026-0002 (refund) created — Test", reg: "FT19XGM", action: "invoice_created" },
+  { user: "Abbas Bhai", time: "1 hour ago", group: "Today", desc: "Return FT19XGM → resolved", reg: "FT19XGM", action: "vehicle_returned" },
+  { user: "Abbas Bhai", time: "4 days ago", group: "Earlier", desc: "KF67ATZ sold to Peter Hill", reg: "KF67ATZ", action: "sale_completed" },
+  { user: "Abbas Bhai", time: "4 days ago", group: "Earlier", desc: "KF67ATZ → sold", reg: "KF67ATZ", action: "vehicle_status_changed" },
+  { user: "Abbas Bhai", time: "4 days ago", group: "Earlier", desc: "KF67ATZ → completed sale", reg: "KF67ATZ", action: "sale_stage_changed" },
+  { user: "Sara Malik", time: "4 days ago", group: "Earlier", desc: "LW16RUH sold to Anna Edwards", reg: "LW16RUH", action: "sale_completed" },
+  { user: "Sara Malik", time: "4 days ago", group: "Earlier", desc: "LW16RUH → sold", reg: "LW16RUH", action: "vehicle_status_changed" },
+  { user: "Sara Malik", time: "4 days ago", group: "Earlier", desc: "LW16RUH → completed sale", reg: "LW16RUH", action: "sale_stage_changed" },
+  { user: "Abbas Bhai", time: "4 days ago", group: "Earlier", desc: "KF67ATZ → collection delivery", reg: "KF67ATZ", action: "sale_stage_changed" },
 ];
 
-const suggestUsername = (name: string): string =>
-  name
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "")
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .join(".");
+const ACT: Record<Action, { label: string; icon: LucideIcon; chip: string; dot: string; tint: string }> = {
+  invoice_created: { label: "Invoice Created", icon: Receipt, chip: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300", dot: "bg-violet-500", tint: "bg-violet-100 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300" },
+  vehicle_returned: { label: "Vehicle Returned", icon: Undo2, chip: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300", dot: "bg-rose-500", tint: "bg-rose-100 text-rose-600 dark:bg-rose-500/15 dark:text-rose-300" },
+  sale_completed: { label: "Sale Completed", icon: CheckCircle2, chip: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300", dot: "bg-emerald-500", tint: "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300" },
+  vehicle_status_changed: { label: "Vehicle Status Changed", icon: Car, chip: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300", dot: "bg-sky-500", tint: "bg-sky-100 text-sky-600 dark:bg-sky-500/15 dark:text-sky-300" },
+  sale_stage_changed: { label: "Sale Stage Changed", icon: TrendingUp, chip: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300", dot: "bg-blue-500", tint: "bg-blue-100 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300" },
+};
 
-const isValidUsername = (u: string): boolean => /^[a-z0-9][a-z0-9._-]{2,}$/.test(u);
-
-/* --------------------------------------------------------- shared form hook */
-
-interface StaffForm {
-  name: string;
-  setName: (v: string) => void;
-  username: string;
-  setUsernameOverride: (v: string) => void;
-  usernameOk: boolean;
-  password: string;
-  regenPassword: () => void;
-  caps: Set<string>;
-  toggleCap: (c: string) => void;
-  setCaps: (list: string[]) => void;
-  error: string | null;
-  setError: (e: string | null) => void;
-  created: { username: string; password: string } | null;
-  submit: () => void;
-  reset: () => void;
-}
-
-function useStaffForm(): StaffForm {
-  const [name, setName] = useState("");
-  const [usernameOverride, setUsernameOverride] = useState<string | null>(null);
-  const [pwIdx, setPwIdx] = useState(0);
-  const [caps, setCapsState] = useState<Set<string>>(() => new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [created, setCreated] = useState<{ username: string; password: string } | null>(null);
-
-  const username = usernameOverride ?? suggestUsername(name);
-  const password = PASSWORDS[pwIdx % PASSWORDS.length];
-
-  const submit = (): void => {
-    if (!name.trim()) {
-      setError("Enter the staff member's name.");
-      return;
-    }
-    if (!isValidUsername(username)) {
-      setError("Username needs 3+ characters (letters, digits, . _ -).");
-      return;
-    }
-    if (caps.size === 0) {
-      setError("Tick at least one view — otherwise they can't see anything.");
-      return;
-    }
-    setError(null);
-    setCreated({ username, password });
-  };
-
-  const reset = (): void => {
-    setName("");
-    setUsernameOverride(null);
-    setCapsState(new Set());
-    setPwIdx((i) => i + 1);
-    setError(null);
-    setCreated(null);
-  };
-
-  return {
-    name,
-    setName,
-    username,
-    setUsernameOverride: (v) => setUsernameOverride(v),
-    usernameOk: isValidUsername(username),
-    password,
-    regenPassword: () => setPwIdx((i) => i + 1),
-    caps,
-    toggleCap: (c) =>
-      setCapsState((prev) => {
-        const next = new Set(prev);
-        if (next.has(c)) next.delete(c);
-        else next.add(c);
-        return next;
-      }),
-    setCaps: (list) => setCapsState(new Set(list)),
-    error,
-    setError,
-    created,
-    submit,
-    reset,
-  };
-}
-
-/* ------------------------------------------------------- shared sub-pieces */
-
-function CheckBox({ on, some = false }: { on: boolean; some?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "grid h-4 w-4 shrink-0 place-items-center rounded border transition-colors",
-        on || some
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-border bg-card",
-      )}
-    >
-      {on ? <Check className="h-3 w-3" /> : some ? <Minus className="h-3 w-3" /> : null}
-    </span>
-  );
-}
-
-function CopyChip({ value }: { value: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      type="button"
-      onClick={() => {
-        void navigator.clipboard.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[10px] font-medium hover:bg-muted"
-    >
-      {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-      {copied ? "Copied" : "Copy"}
-    </button>
-  );
-}
-
-function PasswordField({ form }: { form: StaffForm }) {
-  return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xs font-medium">Temporary password</span>
-      <div className="flex items-center gap-2">
-        <code className="h-9 min-w-0 flex-1 truncate rounded-md border border-border bg-muted/40 px-3 leading-9 text-sm">
-          {form.password}
-        </code>
-        <button
-          type="button"
-          aria-label="Regenerate password"
-          onClick={form.regenPassword}
-          className="grid h-9 w-9 shrink-0 place-items-center rounded-md border border-border text-muted-foreground hover:bg-muted hover:text-foreground"
-        >
-          <RefreshCw className="h-4 w-4" />
-        </button>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Auto-generated. The staff member is forced to set their own on first login.
-      </p>
-    </div>
-  );
-}
-
-function SuccessPanel({
-  created,
-  onReset,
-}: {
-  created: { username: string; password: string };
-  onReset: () => void;
-}) {
-  return (
-    <div className="flex flex-col gap-3 p-4">
-      <p className="flex items-center gap-2 text-sm font-medium">
-        <Check className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-        Staff login created
-      </p>
-      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-        <span className="w-20 shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
-          Username
-        </span>
-        <code className="min-w-0 flex-1 truncate text-xs">{created.username}</code>
-        <CopyChip value={created.username} />
-      </div>
-      <div className="flex items-center gap-2 rounded-md border border-border bg-muted/40 px-3 py-2">
-        <span className="w-20 shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
-          Password
-        </span>
-        <code className="min-w-0 flex-1 truncate text-xs">{created.password}</code>
-        <CopyChip value={created.password} />
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Relay these out-of-band — they won&apos;t be shown again.
-      </p>
-      <div className="flex justify-end gap-2">
-        <nord-button size="s" type="button" suppressHydrationWarning onClick={onReset}>
-          Add another
-        </nord-button>
-      </div>
-    </div>
-  );
-}
-
-function IdentityFields({ form }: { form: StaffForm }) {
-  return (
-    <>
-      <nord-input
-        expand
-        label="Name"
-        type="text"
-        placeholder="Ahmed Khan"
-        value={form.name}
-        onInput={(e) => form.setName((e.target as HTMLInputElement).value)}
-        suppressHydrationWarning
-      />
-      <nord-input
-        expand
-        label="Username"
-        hint="Staff log in with this username + the password below. No email needed."
-        type="text"
-        placeholder="ahmed.khan"
-        value={form.username}
-        onInput={(e) => form.setUsernameOverride((e.target as HTMLInputElement).value)}
-        suppressHydrationWarning
-      />
-    </>
-  );
-}
-
-/* --------------------------------------------------------------- page shell */
+const GROUPS = ["Today", "Earlier"];
 
 export default function PrototypePage() {
   return (
     <div className="min-h-screen bg-muted/30 p-6 text-foreground">
       <header className="mb-6">
         <h1 className="text-xl font-semibold tracking-tight">
-          Prototype — Add Staff dialog · 5 functional variations
+          Prototype — Activity Log · 6 variations
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick a winner (A–E). Each dialog is rendered open and fully works:
-          type a name to auto-suggest the username, tick views (grouped — no
-          more wall of checkboxes), regenerate/copy the temp password, submit
-          to see the credentials hand-off state.
+          Pick a winner (A–E). Mock data; real Nord components +
+          Mobbin-referenced layouts. Toggle OS dark mode to preview both themes.
         </p>
       </header>
 
-      <div className="grid grid-cols-1 gap-8 2xl:grid-cols-2">
-        <Frame label="A — Two-step wizard" sub="Slack onboarding / Deel">
+      <div className="flex flex-col gap-10">
+        <Frame label="A — Filtered feed + action badges" sub="7shifts — filter bar, avatar rows with colored action badges">
           <VariationA />
         </Frame>
-        <Frame label="B — Two-column: identity + access" sub="Linear / Height settings">
+        <Frame label="B — Date-grouped dot timeline" sub="Airbnb / Todoist — grouped by date with a colored dot rail">
           <VariationB />
         </Frame>
-        <Frame label="C — Role preset first" sub="Front / Fresha">
+        <Frame label="C — Filter rail + feed" sub="Vercel — sticky action-type filters on the left, feed on the right">
           <VariationC />
         </Frame>
-        <Frame label="D — Grouped accordion list" sub="Intercom teammate form">
+        <Frame label="D — Audit table" sub="Employment Hero / Fibery — gridded table, matches Master Sheet">
           <VariationD />
         </Frame>
-        <Frame label="E — Side panel with toggle tiles" sub="Stripe / Intercom sheet">
+        <Frame label="E — Icon-led feed + summary" sub="Linear — category icons + a summary strip on top">
           <VariationE />
+        </Frame>
+        <Frame label="F — GitHub-style timeline" sub="GitHub — continuous rail with colored event icon nodes">
+          <VariationF />
         </Frame>
       </div>
     </div>
   );
 }
 
-function Frame({
-  label,
-  sub,
-  children,
-}: {
-  label: string;
-  sub: string;
-  children: React.ReactNode;
-}) {
+/* ----------------------------------------------------------------- chrome */
+
+function Frame({ label, sub, children }: { label: string; sub: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-2 flex items-baseline justify-between gap-3 px-1">
-        <span className="text-sm font-semibold">{label}</span>
-        <span className="text-xs text-muted-foreground">{sub}</span>
+      <div className="mb-3">
+        <h2 className="text-sm font-semibold">{label}</h2>
+        <p className="text-xs text-muted-foreground">{sub}</p>
       </div>
-      {children}
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">{children}</div>
     </section>
   );
 }
 
-/** Scrim-look stage the open dialog sits on. */
-function Stage({
-  children,
-  align = "center",
-}: {
-  children: React.ReactNode;
-  align?: "center" | "right";
-}) {
+function PageHead() {
   return (
-    <div
-      className={cn(
-        "flex min-h-[680px] rounded-lg border border-border bg-foreground/10 p-6 dark:bg-black/40",
-        align === "center" ? "items-center justify-center" : "items-stretch justify-end p-0",
-      )}
-    >
-      {children}
+    <div className="mb-4">
+      <h3 className="text-xl font-semibold tracking-tight">Activity Log</h3>
+      <p className="text-sm text-muted-foreground">150 entries</p>
     </div>
   );
 }
 
-function DialogHeader({ title, sub }: { title: string; sub?: string }) {
+function Avatar({ name, className }: { name: string; className?: string }) {
+  const initials = name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
   return (
-    <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-      <div className="flex min-w-0 items-center gap-2.5">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-          <UserPlus className="h-4 w-4" />
-        </span>
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-semibold">{title}</h3>
-          {sub && <p className="truncate text-xs text-muted-foreground">{sub}</p>}
-        </div>
+    <span className={cn("grid shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary", className)}>
+      {initials}
+    </span>
+  );
+}
+
+function ActionBadge({ a }: { a: Action }) {
+  return (
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", ACT[a].chip)}>
+      {ACT[a].label}
+    </span>
+  );
+}
+
+function RegChip({ reg }: { reg: string }) {
+  return (
+    <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground/80">
+      {reg}
+    </span>
+  );
+}
+
+function FakeSelect({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <label className="text-xs text-muted-foreground">{label}</label>
+      <div className="mt-1 flex h-9 items-center justify-between rounded-md border border-border bg-background px-3 text-sm">
+        {value}
+        <ChevronDown className="h-4 w-4 text-muted-foreground" />
       </div>
-      <button
-        type="button"
-        aria-label="Close"
-        className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        <X className="h-4 w-4" />
-      </button>
     </div>
   );
 }
 
-/* ------------------------------------------------------------- Variation A */
+/* ------------------------------------------------------- A · filtered feed */
 
-function VariationA(): React.ReactElement {
-  const form = useStaffForm();
-  const [step, setStep] = useState<0 | 1>(0);
-
-  const nextFromIdentity = (): void => {
-    if (!form.name.trim()) {
-      form.setError("Enter the staff member's name.");
-      return;
-    }
-    if (!form.usernameOk) {
-      form.setError("Username needs 3+ characters (letters, digits, . _ -).");
-      return;
-    }
-    form.setError(null);
-    setStep(1);
-  };
-
+function VariationA() {
   return (
-    <Stage>
-      <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-xl">
-        <DialogHeader
-          title="Add staff member"
-          sub={step === 0 ? "Step 1 of 2 — who are they?" : "Step 2 of 2 — what can they see?"}
-        />
-        {form.created ? (
-          <SuccessPanel
-            created={form.created}
-            onReset={() => {
-              form.reset();
-              setStep(0);
-            }}
-          />
-        ) : (
-          <>
-            {/* Step dots */}
-            <div className="flex items-center gap-1.5 px-4 pt-3">
-              {[0, 1].map((i) => (
-                <span
-                  key={i}
-                  className={cn(
-                    "h-1.5 rounded-full transition-all",
-                    step === i ? "w-6 bg-primary" : "w-1.5 bg-border",
-                  )}
-                />
-              ))}
-            </div>
+    <div>
+      <PageHead />
+      <div className="mb-4 grid grid-cols-2 gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-4">
+        <FakeSelect label="Action" value="All actions" />
+        <FakeSelect label="User" value="All users" />
+        <FakeSelect label="From" value="mm/dd/yyyy" />
+        <FakeSelect label="To" value="mm/dd/yyyy" />
+      </div>
 
-            {step === 0 ? (
-              <div className="flex flex-col gap-3.5 p-4">
-                <IdentityFields form={form} />
-                <PasswordField form={form} />
+      <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
+        {EVENTS.map((e, i) => (
+          <li key={i} className="flex items-center gap-3 px-4 py-3 hover:bg-accent/30">
+            <Avatar name={e.user} className="h-9 w-9" />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-medium">{e.user}</span>
+                <ActionBadge a={e.action} />
               </div>
-            ) : (
-              <div className="flex max-h-[380px] flex-col gap-3 overflow-y-auto p-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-muted-foreground">
-                    Tick the views {form.name.trim() || "this staff member"} can access.
-                  </p>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums">
-                    {form.caps.size} selected
-                  </span>
-                </div>
-                {PERM_GROUPS.map((g) => {
-                  const onCount = g.caps.filter((c) => form.caps.has(c)).length;
+              <div className="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                <span>{e.desc}</span>
+                <RegChip reg={e.reg} />
+              </div>
+            </div>
+            <span className="shrink-0 text-xs text-muted-foreground">{e.time}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* ------------------------------------------------- B · date-grouped timeline */
+
+function VariationB() {
+  return (
+    <div>
+      <PageHead />
+      <div className="flex flex-col gap-6">
+        {GROUPS.map((g) => {
+          const items = EVENTS.filter((e) => e.group === g);
+          return (
+            <div key={g}>
+              <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g}</h4>
+              <ol className="flex flex-col">
+                {items.map((e, i) => {
+                  const meta = ACT[e.action];
+                  const Icon = meta.icon;
+                  const last = i === items.length - 1;
                   return (
-                    <div key={g.label}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          form.setCaps(
-                            onCount === g.caps.length
-                              ? [...form.caps].filter((c) => !g.caps.includes(c))
-                              : [...new Set([...form.caps, ...g.caps])],
-                          )
-                        }
-                        className="flex w-full items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-muted/60"
-                      >
-                        <CheckBox on={onCount === g.caps.length} some={onCount > 0 && onCount < g.caps.length} />
-                        <span className="flex-1 text-xs font-semibold">{g.label}</span>
-                        <span className="text-[10px] tabular-nums text-muted-foreground">
-                          {onCount}/{g.caps.length}
+                    <li key={i} className="flex gap-3">
+                      {/* icon node + connecting rail */}
+                      <div className="flex flex-col items-center">
+                        <span className={cn("z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full ring-4 ring-card", meta.tint)}>
+                          <Icon className="h-4 w-4" />
                         </span>
-                      </button>
-                      <div className="ml-6 grid grid-cols-2 gap-x-2">
-                        {g.caps.map((c) => (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => form.toggleCap(c)}
-                            className="flex items-center gap-2 rounded px-1 py-1 text-left hover:bg-muted/60"
-                          >
-                            <CheckBox on={form.caps.has(c)} />
-                            <span className="truncate text-xs">{c}</span>
-                          </button>
-                        ))}
+                        {!last && <span className="w-px flex-1 bg-border" />}
                       </div>
-                    </div>
+                      <div className={cn("flex flex-1 items-start justify-between gap-3 pt-1", last ? "pb-0" : "pb-5")}>
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="font-medium">{e.desc}</span>
+                            <RegChip reg={e.reg} />
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            {meta.label} · {e.user}
+                          </div>
+                        </div>
+                        <span className="shrink-0 text-xs text-muted-foreground">{e.time}</span>
+                      </div>
+                    </li>
                   );
                 })}
-              </div>
-            )}
-
-            {form.error && (
-              <p className="px-4 pb-1 text-xs font-medium text-destructive-foreground">
-                {form.error}
-              </p>
-            )}
-
-            <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
-              {step === 1 ? (
-                <nord-button size="s" type="button" suppressHydrationWarning onClick={() => setStep(0)}>
-                  <ChevronLeft slot="start" className="h-3.5 w-3.5" />
-                  Back
-                </nord-button>
-              ) : (
-                <span />
-              )}
-              {step === 0 ? (
-                <nord-button variant="primary" size="s" type="button" suppressHydrationWarning onClick={nextFromIdentity}>
-                  Next — access
-                  <ChevronRight slot="end" className="h-3.5 w-3.5" />
-                </nord-button>
-              ) : (
-                <nord-button variant="primary" size="s" type="button" suppressHydrationWarning onClick={form.submit}>
-                  <UserPlus slot="start" className="h-3.5 w-3.5" />
-                  Create staff login
-                </nord-button>
-              )}
+              </ol>
             </div>
-          </>
-        )}
+          );
+        })}
       </div>
-    </Stage>
+    </div>
   );
 }
 
-/* ------------------------------------------------------------- Variation B */
+/* ----------------------------------------------------- C · filter rail + feed */
 
-function VariationB(): React.ReactElement {
-  const form = useStaffForm();
-  const [query, setQuery] = useState("");
-
-  const q = query.trim().toLowerCase();
-  const groups = q
-    ? PERM_GROUPS.map((g) => ({
-        ...g,
-        caps: g.caps.filter((c) => c.toLowerCase().includes(q)),
-      })).filter((g) => g.caps.length > 0)
-    : PERM_GROUPS;
+function VariationC() {
+  const [checks, setChecks] = useState<Record<Action, boolean>>({
+    invoice_created: true,
+    vehicle_returned: true,
+    sale_completed: true,
+    vehicle_status_changed: true,
+    sale_stage_changed: true,
+  });
+  const toggle = (a: Action) => setChecks((c) => ({ ...c, [a]: !c[a] }));
+  const visible = EVENTS.filter((e) => checks[e.action]);
 
   return (
-    <Stage>
-      <div className="w-full max-w-2xl rounded-lg border border-border bg-card shadow-xl">
-        <DialogHeader title="Add staff member" sub="Username login — no email needed" />
-        {form.created ? (
-          <SuccessPanel created={form.created} onReset={form.reset} />
-        ) : (
-          <>
-            <div className="grid grid-cols-[260px_1fr]">
-              {/* Identity column */}
-              <div className="flex flex-col gap-3.5 border-r border-border p-4">
-                <IdentityFields form={form} />
-                <PasswordField form={form} />
-              </div>
+    <div>
+      <PageHead />
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[220px_1fr]">
+        <aside className="h-fit rounded-lg border border-border bg-background p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <Filter className="h-3.5 w-3.5" /> Action type
+          </div>
+          <div className="flex flex-col gap-1">
+            {(Object.keys(ACT) as Action[]).map((a) => (
+              <label key={a} className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-accent/40">
+                <input type="checkbox" checked={checks[a]} onChange={() => toggle(a)} />
+                <span className={cn("h-2 w-2 rounded-full", ACT[a].dot)} />
+                <span className="truncate">{ACT[a].label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 border-t border-border pt-3">
+            <FakeSelect label="Date range" value="Last 7 days" />
+          </div>
+        </aside>
 
-              {/* Access column */}
-              <div className="flex max-h-[420px] flex-col">
-                <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-                  <div className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-background px-2.5">
-                    <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <input
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      placeholder="Search views…"
-                      className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    />
-                  </div>
-                  <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums">
-                    {form.caps.size}/{ALL_CAPS.length}
+        <div className="overflow-hidden rounded-lg border border-border">
+          <ul className="divide-y divide-border">
+            {visible.map((e, i) => {
+              const Icon = ACT[e.action].icon;
+              return (
+                <li key={i} className="flex items-center gap-3 px-4 py-2.5 hover:bg-accent/30">
+                  <span className={cn("grid h-7 w-7 shrink-0 place-items-center rounded-full", ACT[e.action].tint)}>
+                    <Icon className="h-3.5 w-3.5" />
                   </span>
-                </div>
-                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-3">
-                  {groups.map((g) => {
-                    const onCount = g.caps.filter((c) => form.caps.has(c)).length;
-                    return (
-                      <div key={g.label}>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            form.setCaps(
-                              onCount === g.caps.length
-                                ? [...form.caps].filter((c) => !g.caps.includes(c))
-                                : [...new Set([...form.caps, ...g.caps])],
-                            )
-                          }
-                          className="mb-0.5 flex w-full items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-muted/60"
-                        >
-                          <CheckBox on={onCount === g.caps.length} some={onCount > 0 && onCount < g.caps.length} />
-                          <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {g.label}
-                          </span>
-                        </button>
-                        <div className="ml-6 flex flex-col">
-                          {g.caps.map((c) => (
-                            <button
-                              key={c}
-                              type="button"
-                              onClick={() => form.toggleCap(c)}
-                              className="flex items-center gap-2 rounded px-1 py-[3px] text-left hover:bg-muted/60"
-                            >
-                              <CheckBox on={form.caps.has(c)} />
-                              <span className="truncate text-xs">{c}</span>
-                            </button>
-                          ))}
+                  <span className="flex-1 text-sm">
+                    <span className="font-medium">{e.user}</span>{" "}
+                    <span className="text-muted-foreground">{e.desc}</span>
+                  </span>
+                  <RegChip reg={e.reg} />
+                  <span className="w-20 shrink-0 text-right text-xs text-muted-foreground">{e.time}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <button type="button" className="w-full border-t border-border py-2.5 text-sm text-muted-foreground hover:bg-accent/30 hover:text-foreground">
+            Load more
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------ D · audit table */
+
+function VariationD() {
+  return (
+    <div>
+      <PageHead />
+      <div className="mb-3 flex items-center justify-end gap-2">
+        <div className="relative w-56">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input placeholder="Search…" className="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-sm outline-none focus:border-primary" />
+        </div>
+        <button type="button" className="flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm">
+          <Filter className="h-4 w-4" /> Filters
+        </button>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-border">
+        <table className="w-full min-w-[680px] border-collapse text-sm [&_td]:border-r [&_td]:border-border [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border [&_th:last-child]:border-r-0">
+          <thead>
+            <tr className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
+              <th className="px-3 py-2.5 font-medium">Time</th>
+              <th className="px-3 py-2.5 font-medium">User</th>
+              <th className="px-3 py-2.5 font-medium">Action</th>
+              <th className="px-3 py-2.5 font-medium">Detail</th>
+              <th className="px-3 py-2.5 font-medium">Vehicle</th>
+            </tr>
+          </thead>
+          <tbody>
+            {EVENTS.map((e, i) => (
+              <tr key={i} className="border-b border-border hover:bg-muted/50">
+                <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">{e.time}</td>
+                <td className="whitespace-nowrap px-3 py-2.5">
+                  <span className="flex items-center gap-2">
+                    <Avatar name={e.user} className="h-6 w-6" />
+                    {e.user}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5"><ActionBadge a={e.action} /></td>
+                <td className="px-3 py-2.5">{e.desc}</td>
+                <td className="whitespace-nowrap px-3 py-2.5"><RegChip reg={e.reg} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------------------------------------- E · icon feed + summary */
+
+function VariationE() {
+  return (
+    <div>
+      <PageHead />
+      <div className="mb-4 flex flex-wrap gap-3">
+        <SummaryStat icon={History} label="Total entries" value="150" />
+        <SummaryStat icon={Clock} label="Today" value="2" />
+        <SummaryStat icon={CheckCircle2} label="Sales completed" value="2" />
+        <SummaryStat icon={Receipt} label="Invoices" value="1" />
+      </div>
+
+      <div className="flex flex-col gap-6">
+        {GROUPS.map((g) => (
+          <Fragment key={g}>
+            <div>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{g}</h4>
+              <ul className="flex flex-col gap-1.5">
+                {EVENTS.filter((e) => e.group === g).map((e, i) => {
+                  const Icon = ACT[e.action].icon;
+                  return (
+                    <li key={i} className="flex items-center gap-3 rounded-lg border border-border bg-background px-3 py-2.5 hover:bg-accent/30">
+                      <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-lg", ACT[e.action].tint)}>
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-sm">{e.desc}</div>
+                        <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{e.user}</span><span>·</span>
+                          <span>{ACT[e.action].label}</span>
                         </div>
                       </div>
-                    );
-                  })}
-                  {groups.length === 0 && (
-                    <p className="py-6 text-center text-xs text-muted-foreground">
-                      No views match “{query}”.
-                    </p>
-                  )}
-                </div>
-              </div>
+                      <RegChip reg={e.reg} />
+                      <span className="shrink-0 text-xs text-muted-foreground">{e.time}</span>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-
-            {form.error && (
-              <p className="border-t border-border px-4 pt-2 text-xs font-medium text-destructive-foreground">
-                {form.error}
-              </p>
-            )}
-            <div className={cn("flex justify-end gap-2 px-4 py-3", !form.error && "border-t border-border")}>
-              <nord-button size="s" type="button" suppressHydrationWarning>
-                Cancel
-              </nord-button>
-              <nord-button variant="primary" size="s" type="button" suppressHydrationWarning onClick={form.submit}>
-                <UserPlus slot="start" className="h-3.5 w-3.5" />
-                Create staff login
-              </nord-button>
-            </div>
-          </>
-        )}
+          </Fragment>
+        ))}
       </div>
-    </Stage>
+    </div>
   );
 }
 
-/* ------------------------------------------------------------- Variation C */
+/* ------------------------------------------------------- F · GitHub timeline */
 
-function VariationC(): React.ReactElement {
-  const form = useStaffForm();
-  const [preset, setPreset] = useState<string | null>(null);
-  const [customising, setCustomising] = useState(false);
-
-  const applyPreset = (label: string): void => {
-    const p = ROLE_PRESETS.find((r) => r.label === label);
-    if (!p) return;
-    setPreset(label);
-    form.setCaps(p.caps);
-    setCustomising(false);
-  };
-
+function VariationF() {
   return (
-    <Stage>
-      <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-xl">
-        <DialogHeader title="Add staff member" sub="Start from a role, then fine-tune" />
-        {form.created ? (
-          <SuccessPanel
-            created={form.created}
-            onReset={() => {
-              form.reset();
-              setPreset(null);
-              setCustomising(false);
-            }}
-          />
-        ) : (
-          <>
-            <div className="flex max-h-[460px] flex-col gap-3.5 overflow-y-auto p-4">
-              <IdentityFields form={form} />
-
-              <div className="flex flex-col gap-1">
-                <span className="text-xs font-medium">Starts as</span>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {ROLE_PRESETS.map((r) => (
-                    <button
-                      key={r.label}
-                      type="button"
-                      onClick={() => applyPreset(r.label)}
-                      aria-pressed={preset === r.label}
-                      className={cn(
-                        "flex items-center justify-between gap-1.5 rounded-md border px-2.5 py-2 text-left text-xs font-medium transition-colors",
-                        preset === r.label
-                          ? "border-primary/50 bg-primary/5"
-                          : "border-border text-muted-foreground hover:bg-muted/60",
-                      )}
-                    >
-                      <span className="truncate">{r.label}</span>
-                      <span className="shrink-0 text-[10px] tabular-nums text-muted-foreground">
-                        {r.caps.length}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+    <div>
+      <PageHead />
+      <ol className="flex flex-col">
+        {EVENTS.map((e, i) => {
+          const meta = ACT[e.action];
+          const Icon = meta.icon;
+          const last = i === EVENTS.length - 1;
+          return (
+            <li key={i} className="flex gap-3">
+              {/* rail: icon node + connecting line */}
+              <div className="flex flex-col items-center">
+                <span className={cn("z-10 grid h-8 w-8 shrink-0 place-items-center rounded-full ring-4 ring-card", meta.tint)}>
+                  <Icon className="h-4 w-4" />
+                </span>
+                {!last && <span className="w-px flex-1 bg-border" />}
               </div>
-
-              {preset !== null && (
-                <div className="rounded-md border border-border bg-muted/40 p-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      {form.caps.size} view{form.caps.size === 1 ? "" : "s"} granted
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setCustomising((c) => !c)}
-                      className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                    >
-                      Customise
-                      <ChevronDown className={cn("h-3 w-3 transition-transform", customising && "rotate-180")} />
-                    </button>
-                  </div>
-                  {!customising ? (
-                    <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                      {form.caps.size > 0 ? [...form.caps].join(" · ") : "Read-only dashboard access."}
-                    </p>
-                  ) : (
-                    <div className="mt-2 space-y-2">
-                      {PERM_GROUPS.map((g) => (
-                        <div key={g.label}>
-                          <p className="mb-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                            {g.label}
-                          </p>
-                          <div className="grid grid-cols-2 gap-x-2">
-                            {g.caps.map((c) => (
-                              <button
-                                key={c}
-                                type="button"
-                                onClick={() => form.toggleCap(c)}
-                                className="flex items-center gap-2 rounded px-1 py-[3px] text-left hover:bg-muted"
-                              >
-                                <CheckBox on={form.caps.has(c)} />
-                                <span className="truncate text-xs">{c}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <PasswordField form={form} />
-            </div>
-
-            {form.error && (
-              <p className="px-4 pb-1 text-xs font-medium text-destructive-foreground">{form.error}</p>
-            )}
-            <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
-              <nord-button size="s" type="button" suppressHydrationWarning>
-                Cancel
-              </nord-button>
-              <nord-button variant="primary" size="s" type="button" suppressHydrationWarning onClick={form.submit}>
-                <UserPlus slot="start" className="h-3.5 w-3.5" />
-                Create staff login
-              </nord-button>
-            </div>
-          </>
-        )}
-      </div>
-    </Stage>
+              {/* event row */}
+              <div className={cn("flex flex-1 flex-wrap items-center gap-x-2 gap-y-1 pt-1", last ? "pb-0" : "pb-5")}>
+                <Avatar name={e.user} className="h-5 w-5 text-2xs" />
+                <span className="text-sm">
+                  <span className="font-semibold">{e.user}</span>{" "}
+                  <span className="text-muted-foreground">{e.desc}</span>
+                </span>
+                <RegChip reg={e.reg} />
+                <span className="text-xs text-muted-foreground">· {e.time}</span>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
-/* ------------------------------------------------------------- Variation D */
-
-function VariationD(): React.ReactElement {
-  const form = useStaffForm();
-  const [open, setOpen] = useState<Set<string>>(() => new Set([PERM_GROUPS[0].label]));
-  const [query, setQuery] = useState("");
-
-  const q = query.trim().toLowerCase();
-  const groups = q
-    ? PERM_GROUPS.map((g) => ({
-        ...g,
-        caps: g.caps.filter((c) => c.toLowerCase().includes(q)),
-      })).filter((g) => g.caps.length > 0)
-    : PERM_GROUPS;
-
-  const toggleOpen = (label: string): void =>
-    setOpen((prev) => {
-      const next = new Set(prev);
-      if (next.has(label)) next.delete(label);
-      else next.add(label);
-      return next;
-    });
-
+function SummaryStat({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
   return (
-    <Stage>
-      <div className="w-full max-w-md rounded-lg border border-border bg-card shadow-xl">
-        <DialogHeader title="Add staff member" sub="Views grouped by section — expand what you need" />
-        {form.created ? (
-          <SuccessPanel created={form.created} onReset={form.reset} />
-        ) : (
-          <>
-            <div className="flex max-h-[460px] flex-col gap-3.5 overflow-y-auto p-4">
-              <IdentityFields form={form} />
-
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium">Access (views)</span>
-                  <span className="text-[10px] tabular-nums text-muted-foreground">
-                    {form.caps.size} selected
-                  </span>
-                </div>
-                <div className="flex h-8 items-center gap-2 rounded-md border border-border bg-background px-2.5">
-                  <Search className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                  <input
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search views…"
-                    className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                  />
-                </div>
-                <div className="overflow-hidden rounded-md border border-border">
-                  {groups.map((g, gi) => {
-                    const expanded = q ? true : open.has(g.label);
-                    const onCount = g.caps.filter((c) => form.caps.has(c)).length;
-                    return (
-                      <div key={g.label} className={cn(gi > 0 && "border-t border-border")}>
-                        <div className="flex items-center gap-2 bg-muted/40 px-2.5 py-1.5">
-                          <button
-                            type="button"
-                            aria-label={`${onCount === g.caps.length ? "Clear" : "Select"} all ${g.label}`}
-                            onClick={() =>
-                              form.setCaps(
-                                onCount === g.caps.length
-                                  ? [...form.caps].filter((c) => !g.caps.includes(c))
-                                  : [...new Set([...form.caps, ...g.caps])],
-                              )
-                            }
-                          >
-                            <CheckBox on={onCount === g.caps.length} some={onCount > 0 && onCount < g.caps.length} />
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => toggleOpen(g.label)}
-                            className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                          >
-                            <span className="truncate text-xs font-semibold">{g.label}</span>
-                            <span className="text-[10px] tabular-nums text-muted-foreground">
-                              {onCount}/{g.caps.length}
-                            </span>
-                            <ChevronDown
-                              className={cn(
-                                "ml-auto h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform",
-                                expanded && "rotate-180",
-                              )}
-                            />
-                          </button>
-                        </div>
-                        {expanded && (
-                          <div className="grid grid-cols-2 gap-x-2 px-2.5 py-1.5">
-                            {g.caps.map((c) => (
-                              <button
-                                key={c}
-                                type="button"
-                                onClick={() => form.toggleCap(c)}
-                                className="flex items-center gap-2 rounded px-1 py-[3px] text-left hover:bg-muted/60"
-                              >
-                                <CheckBox on={form.caps.has(c)} />
-                                <span className="truncate text-xs">{c}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                  {groups.length === 0 && (
-                    <p className="px-3 py-6 text-center text-xs text-muted-foreground">
-                      No views match “{query}”.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <PasswordField form={form} />
-            </div>
-
-            {form.error && (
-              <p className="px-4 pb-1 text-xs font-medium text-destructive-foreground">{form.error}</p>
-            )}
-            <div className="flex justify-end gap-2 border-t border-border px-4 py-3">
-              <nord-button size="s" type="button" suppressHydrationWarning>
-                Cancel
-              </nord-button>
-              <nord-button variant="primary" size="s" type="button" suppressHydrationWarning onClick={form.submit}>
-                <UserPlus slot="start" className="h-3.5 w-3.5" />
-                Create staff login
-              </nord-button>
-            </div>
-          </>
-        )}
+    <div className="flex flex-1 items-center gap-3 rounded-lg border border-border bg-background px-4 py-3">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground">
+        <Icon className="h-4 w-4" />
+      </span>
+      <div>
+        <div className="text-xs text-muted-foreground">{label}</div>
+        <div className="text-lg font-semibold tabular-nums">{value}</div>
       </div>
-    </Stage>
-  );
-}
-
-/* ------------------------------------------------------------- Variation E */
-
-function VariationE(): React.ReactElement {
-  const form = useStaffForm();
-
-  return (
-    <Stage align="right">
-      <div className="flex w-full max-w-md flex-col border-l border-border bg-card shadow-xl">
-        <DialogHeader title="Add staff member" sub="Toggle the screens they should see" />
-        {form.created ? (
-          <SuccessPanel created={form.created} onReset={form.reset} />
-        ) : (
-          <>
-            <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-              <IdentityFields form={form} />
-
-              {PERM_GROUPS.map((g) => {
-                const onCount = g.caps.filter((c) => form.caps.has(c)).length;
-                return (
-                  <div key={g.label}>
-                    <div className="mb-1.5 flex items-center justify-between">
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {g.label}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          form.setCaps(
-                            onCount === g.caps.length
-                              ? [...form.caps].filter((c) => !g.caps.includes(c))
-                              : [...new Set([...form.caps, ...g.caps])],
-                          )
-                        }
-                        className="text-[10px] font-medium text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                      >
-                        {onCount === g.caps.length ? "Clear" : "All"}
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {g.caps.map((c) => {
-                        const on = form.caps.has(c);
-                        return (
-                          <button
-                            key={c}
-                            type="button"
-                            onClick={() => form.toggleCap(c)}
-                            aria-pressed={on}
-                            className={cn(
-                              "flex items-center gap-2 rounded-md border px-2 py-1.5 text-left text-xs font-medium transition-colors",
-                              on
-                                ? "border-primary/50 bg-primary/5 text-foreground"
-                                : "border-border text-muted-foreground hover:bg-muted/60",
-                            )}
-                          >
-                            <CheckBox on={on} />
-                            <span className="truncate">{c}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-
-              <PasswordField form={form} />
-            </div>
-
-            {form.error && (
-              <p className="px-4 pb-1 text-xs font-medium text-destructive-foreground">{form.error}</p>
-            )}
-            <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
-              <span className="text-xs tabular-nums text-muted-foreground">
-                {form.caps.size}/{ALL_CAPS.length} views
-              </span>
-              <div className="flex gap-2">
-                <nord-button size="s" type="button" suppressHydrationWarning>
-                  Cancel
-                </nord-button>
-                <nord-button variant="primary" size="s" type="button" suppressHydrationWarning onClick={form.submit}>
-                  <UserPlus slot="start" className="h-3.5 w-3.5" />
-                  Create staff login
-                </nord-button>
-              </div>
-            </div>
-          </>
-        )}
-      </div>
-    </Stage>
+    </div>
   );
 }

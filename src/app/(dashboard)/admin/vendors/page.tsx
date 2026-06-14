@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Handshake, Plus, Store } from "lucide-react";
+import {
+  Banknote,
+  Briefcase,
+  CheckCircle2,
+  Handshake,
+  Package,
+  Plus,
+  Store,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vendorService } from "@/lib/services/vendor-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
@@ -17,7 +27,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Tabs,
   TabsContent,
@@ -30,7 +40,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -40,20 +49,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  type ColumnDef,
-  DataGridColumnsButton,
-  DataGridDensityToggle,
-  DataGridFooterRow,
-  DataGridHeaderRow,
-  DataGridRow,
-  DataGridShell,
-  DataGridSkeletonRows,
-  DataGridTable,
-  useColumnVisibility,
-  useDensity,
-} from "@/components/data-grid";
-import { toast } from "sonner";
+import { cn, formatCurrency } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 export default function VendorsPage() {
   const searchParams = useSearchParams();
@@ -68,6 +65,9 @@ export default function VendorsPage() {
   const [tab, setTab] = useState<"garages" | "partners">(() =>
     searchParams.get("tab") === "dealer-partners" ? "partners" : "garages",
   );
+  // "Add" triggers live on the tab row (parent); each tab opens its own dialog.
+  const [garageAdd, setGarageAdd] = useState(false);
+  const [partnerAdd, setPartnerAdd] = useState(false);
 
   function selectTab(v: "garages" | "partners") {
     setTab(v);
@@ -95,15 +95,26 @@ export default function VendorsPage() {
         value={tab}
         onValueChange={(v) => selectTab(v as "garages" | "partners")}
       >
-        <TabsList>
-          <TabsTrigger value="garages">Garages</TabsTrigger>
-          <TabsTrigger value="partners">Dealer Partners</TabsTrigger>
-        </TabsList>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <TabsList>
+            <TabsTrigger value="garages">Garages</TabsTrigger>
+            <TabsTrigger value="partners">Dealer Partners</TabsTrigger>
+          </TabsList>
+          {tab === "garages" ? (
+            <Button onClick={() => setGarageAdd(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add Garage
+            </Button>
+          ) : (
+            <Button onClick={() => setPartnerAdd(true)}>
+              <Plus className="mr-1.5 h-4 w-4" /> Add Dealer Partner
+            </Button>
+          )}
+        </div>
         <TabsContent value="garages" className="mt-4">
-          <GaragesTab />
+          <GaragesTab addOpen={garageAdd} setAddOpen={setGarageAdd} />
         </TabsContent>
         <TabsContent value="partners" className="mt-4">
-          <DealerPartnersTab />
+          <DealerPartnersTab addOpen={partnerAdd} setAddOpen={setPartnerAdd} />
         </TabsContent>
       </Tabs>
     </div>
@@ -144,12 +155,23 @@ interface VendorRow extends Vendor {
   totalSpent: number;
 }
 
-function GaragesTab() {
+function GaragesTab({
+  addOpen,
+  setAddOpen,
+}: {
+  addOpen: boolean;
+  setAddOpen: (v: boolean) => void;
+}) {
   const { company } = useAuth();
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [maintJobs, setMaintJobs] = useState<MaintenanceJob[]>([]);
   const [draft, setDraft] = useState<DraftVendor | null>(null);
   const [loadError, setLoadError] = useState(false);
+
+  // The "Add Garage" trigger lives on the tab row (parent); open the draft here.
+  useEffect(() => {
+    if (addOpen) setDraft({ ...EMPTY_VENDOR });
+  }, [addOpen]);
 
   const load = useCallback(async () => {
     if (!company) return;
@@ -191,35 +213,13 @@ function GaragesTab() {
     }));
   }, [vendors, maintJobs]);
 
-  const cols = useMemo<ColumnDef<VendorRow>[]>(
-    () => [
-      { key: "name", label: "Name", type: "text", sticky: true, width: 220 },
-      { key: "phone", label: "Phone", type: "phone", width: 160 },
-      { key: "speciality", label: "Speciality", type: "select", width: 140 },
-      {
-        key: "activeCount",
-        label: "Active jobs",
-        type: "custom",
-        width: 110,
-        align: "right",
-        render: (v) =>
-          v.activeCount > 0 ? (
-            <Badge variant="secondary" className="tabular-nums">
-              {v.activeCount}
-            </Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">0</span>
-          ),
-      },
-      { key: "totalSpent", label: "Total spent", type: "currency", width: 130 },
-      { key: "active", label: "Active", type: "boolean", width: 80 },
-    ],
-    [],
-  );
-
-  const { density, setDensity } = useDensity();
-  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
-  const lockedKeys = useMemo(() => new Set(["name"]), []);
+  const stats = useMemo(() => {
+    const activeJobs = rows?.reduce((a, r) => a + r.activeCount, 0) ?? 0;
+    const totalSpent = rows?.reduce((a, r) => a + r.totalSpent, 0) ?? 0;
+    const specialities = new Set(vendors?.map((v) => v.speciality)).size;
+    const activeGarages = vendors?.filter((v) => v.active).length ?? 0;
+    return { activeJobs, totalSpent, specialities, activeGarages };
+  }, [rows, vendors]);
 
   async function handleSave() {
     if (!company || !draft) return;
@@ -242,36 +242,48 @@ function GaragesTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {vendors ? `${vendors.length} garages` : "Loading…"}
-        </p>
-        <div className="flex items-center gap-2">
-          <DataGridColumnsButton
-            columns={cols}
-            hiddenKeys={hiddenKeys}
-            onChange={setHiddenKeys}
-            lockedKeys={lockedKeys}
-          />
-          <DataGridDensityToggle density={density} onChange={setDensity} />
-          <Dialog
-            open={draft !== null}
-            onOpenChange={(o) => {
-              if (!o) setDraft(null);
-              else if (draft === null) setDraft({ ...EMPTY_VENDOR });
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-1.5 h-4 w-4" /> Add Garage
-              </Button>
-            </DialogTrigger>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          icon={Wrench}
+          label="Garages"
+          value={vendors ? String(vendors.length) : "—"}
+          sub={`${stats.activeGarages} active`}
+        />
+        <KpiCard
+          icon={Briefcase}
+          label="Active jobs"
+          value={String(stats.activeJobs)}
+          sub="in progress"
+        />
+        <KpiCard
+          icon={Banknote}
+          label="Total spent"
+          value={formatCurrency(stats.totalSpent)}
+          sub="all-time"
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Specialities"
+          value={String(stats.specialities)}
+          sub="covered"
+        />
+      </div>
+
+      <Dialog
+        open={draft !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDraft(null);
+            setAddOpen(false);
+          }
+        }}
+      >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>{draft?.id ? "Edit Garage" : "Add Garage"}</DialogTitle>
             </DialogHeader>
             {draft && (
-              <div className="grid gap-3">
+              <div className="grid gap-3 px-6 pb-6">
                 <div>
                   <Label>Name</Label>
                   <Input
@@ -322,9 +334,7 @@ function GaragesTab() {
               <Button onClick={handleSave}>Save</Button>
             </DialogFooter>
           </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      </Dialog>
 
       {loadError && !rows ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 text-center">
@@ -336,14 +346,7 @@ function GaragesTab() {
           </Button>
         </div>
       ) : !rows ? (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
-            <tbody>
-              <DataGridSkeletonRows columns={visibleCols} rows={5} />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
+        <Skeleton className="h-72" />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Store}
@@ -351,35 +354,70 @@ function GaragesTab() {
           description="Add the garages and parts suppliers you work with."
         />
       ) : (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[640px] border-collapse text-sm [&_td]:border-r [&_td]:border-border [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border [&_th:last-child]:border-r-0">
+            <thead>
+              <tr className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2.5 font-medium">Name</th>
+                <th className="px-3 py-2.5 font-medium">Phone</th>
+                <th className="px-3 py-2.5 font-medium">Speciality</th>
+                <th className="px-3 py-2.5 text-right font-medium">Active jobs</th>
+                <th className="px-3 py-2.5 text-right font-medium">Total spent</th>
+                <th className="px-3 py-2.5 font-medium">Status</th>
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((row, i) => (
-                <DataGridRow
+              {rows.map((row) => (
+                <tr
                   key={row.id}
-                  row={row}
-                  cols={visibleCols}
-                  index={i}
-                  onClick={(v) =>
+                  onClick={() =>
                     setDraft({
-                      id: v.id,
-                      name: v.name,
-                      phone: v.phone,
-                      speciality: v.speciality,
-                      active: v.active,
+                      id: row.id,
+                      name: row.name,
+                      phone: row.phone,
+                      speciality: row.speciality,
+                      active: row.active,
                     })
                   }
-                />
+                  className="cursor-pointer border-b border-border hover:bg-muted/50"
+                >
+                  <td className="whitespace-nowrap px-3 py-2.5">
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={row.name} />
+                      <span className="font-medium">{row.name}</span>
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                    {row.phone || "—"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <SpecChip s={row.speciality} />
+                  </td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {row.activeCount}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">
+                    {formatCurrency(row.totalSpent)}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <ActiveDot active={row.active} />
+                  </td>
+                </tr>
               ))}
-              <DataGridFooterRow
-                label="New garage"
-                span={visibleCols.length}
-                onClick={() => setDraft({ ...EMPTY_VENDOR })}
-              />
+              <tr>
+                <td colSpan={6} className="border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...EMPTY_VENDOR })}
+                    className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+                  >
+                    <Plus className="h-4 w-4" /> New garage
+                  </button>
+                </td>
+              </tr>
             </tbody>
-          </DataGridTable>
-        </DataGridShell>
+          </table>
+        </div>
       )}
     </div>
   );
@@ -415,13 +453,24 @@ interface PartnerRow extends DealerPartner {
   activeStock: number;
 }
 
-function DealerPartnersTab() {
+function DealerPartnersTab({
+  addOpen,
+  setAddOpen,
+}: {
+  addOpen: boolean;
+  setAddOpen: (v: boolean) => void;
+}) {
   const { company } = useAuth();
   const router = useRouter();
   const [partners, setPartners] = useState<DealerPartner[] | null>(null);
   const [counts, setCounts] = useState<Map<string, number>>(new Map());
   const [draft, setDraft] = useState<DraftPartner | null>(null);
   const [loadError, setLoadError] = useState(false);
+
+  // The "Add Dealer Partner" trigger lives on the tab row (parent).
+  useEffect(() => {
+    if (addOpen) setDraft({ ...EMPTY_PARTNER });
+  }, [addOpen]);
 
   const reload = useCallback(async () => {
     if (!company) return;
@@ -451,40 +500,14 @@ function DealerPartnersTab() {
     }));
   }, [partners, counts]);
 
-  const cols = useMemo<ColumnDef<PartnerRow>[]>(
-    () => [
-      {
-        key: "name",
-        label: "Contact Name",
-        type: "text",
-        sticky: true,
-        width: 200,
-      },
-      { key: "phone", label: "Phone", type: "phone", width: 150 },
-      { key: "companyName", label: "Company Name", type: "text", width: 200 },
-      {
-        key: "activeStock",
-        label: "Active Stock",
-        type: "custom",
-        width: 120,
-        align: "right",
-        render: (p) =>
-          p.activeStock > 0 ? (
-            <Badge variant="secondary" className="tabular-nums">
-              {p.activeStock}
-            </Badge>
-          ) : (
-            <span className="text-xs text-muted-foreground">0</span>
-          ),
-      },
-      { key: "active", label: "Active", type: "boolean", width: 80 },
-    ],
-    [],
-  );
-
-  const { density, setDensity } = useDensity();
-  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
-  const lockedKeys = useMemo(() => new Set(["name"]), []);
+  const stats = useMemo(() => {
+    const activeStock = rows?.reduce((a, r) => a + r.activeStock, 0) ?? 0;
+    const activeCount = partners?.filter((p) => p.active).length ?? 0;
+    const companies = new Set(
+      partners?.map((p) => p.companyName).filter(Boolean),
+    ).size;
+    return { activeStock, activeCount, companies };
+  }, [rows, partners]);
 
   async function handleSave() {
     if (!company || !draft) return;
@@ -517,30 +540,42 @@ function DealerPartnersTab() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">
-          {partners ? `${partners.length} dealer partners` : "Loading…"}
-        </p>
-        <div className="flex items-center gap-2">
-          <DataGridColumnsButton
-            columns={cols}
-            hiddenKeys={hiddenKeys}
-            onChange={setHiddenKeys}
-            lockedKeys={lockedKeys}
-          />
-          <DataGridDensityToggle density={density} onChange={setDensity} />
-          <Dialog
-            open={draft !== null}
-            onOpenChange={(o) => {
-              if (!o) setDraft(null);
-              else if (draft === null) setDraft({ ...EMPTY_PARTNER });
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="mr-1.5 h-4 w-4" /> Add Dealer Partner
-              </Button>
-            </DialogTrigger>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          icon={Store}
+          label="Dealer partners"
+          value={partners ? String(partners.length) : "—"}
+          sub={`${stats.activeCount} active`}
+        />
+        <KpiCard
+          icon={Package}
+          label="Active stock"
+          value={String(stats.activeStock)}
+          sub="listed"
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Active"
+          value={String(stats.activeCount)}
+          sub={partners ? `of ${partners.length}` : "—"}
+        />
+        <KpiCard
+          icon={Handshake}
+          label="Companies"
+          value={String(stats.companies)}
+          sub="linked"
+        />
+      </div>
+
+      <Dialog
+        open={draft !== null}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDraft(null);
+            setAddOpen(false);
+          }
+        }}
+      >
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle>
@@ -548,7 +583,7 @@ function DealerPartnersTab() {
               </DialogTitle>
             </DialogHeader>
             {draft && (
-              <div className="grid gap-3">
+              <div className="grid gap-3 px-6 pb-6">
                 <div>
                   <Label>Contact name</Label>
                   <Input
@@ -621,9 +656,7 @@ function DealerPartnersTab() {
               <Button onClick={handleSave}>Save</Button>
             </DialogFooter>
           </DialogContent>
-          </Dialog>
-        </div>
-      </div>
+      </Dialog>
 
       {loadError && !rows ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-10 text-center">
@@ -635,14 +668,7 @@ function DealerPartnersTab() {
           </Button>
         </div>
       ) : !rows ? (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
-            <tbody>
-              <DataGridSkeletonRows columns={visibleCols} rows={5} />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
+        <Skeleton className="h-72" />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Handshake}
@@ -650,32 +676,141 @@ function DealerPartnersTab() {
           description="Add the trade partners who supply you stock. (Requires database migration 0002.)"
         />
       ) : (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[640px] border-collapse text-sm [&_td]:border-r [&_td]:border-border [&_td:last-child]:border-r-0 [&_th]:border-r [&_th]:border-border [&_th:last-child]:border-r-0">
+            <thead>
+              <tr className="border-b border-border bg-muted text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2.5 font-medium">Contact</th>
+                <th className="px-3 py-2.5 font-medium">Phone</th>
+                <th className="px-3 py-2.5 font-medium">Company</th>
+                <th className="px-3 py-2.5 text-right font-medium">Active stock</th>
+                <th className="px-3 py-2.5 font-medium">Status</th>
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((row, i) => (
-                <DataGridRow
+              {rows.map((row) => (
+                <tr
                   key={row.id}
-                  row={row}
-                  cols={visibleCols}
-                  index={i}
                   onClick={() =>
-                    router.push(
-                      `/admin/vendors/dealer-partners/${row.id}`,
-                    )
+                    router.push(`/admin/vendors/dealer-partners/${row.id}`)
                   }
-                />
+                  className="cursor-pointer border-b border-border hover:bg-muted/50"
+                >
+                  <td className="whitespace-nowrap px-3 py-2.5">
+                    <span className="flex items-center gap-2.5">
+                      <Avatar name={row.companyName || row.name} />
+                      <span className="font-medium">{row.name}</span>
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                    {row.phone || "—"}
+                  </td>
+                  <td className="px-3 py-2.5">{row.companyName || "—"}</td>
+                  <td className="px-3 py-2.5 text-right tabular-nums">
+                    {row.activeStock}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <ActiveDot active={row.active} />
+                  </td>
+                </tr>
               ))}
-              <DataGridFooterRow
-                label="New dealer partner"
-                span={visibleCols.length}
-                onClick={() => setDraft({ ...EMPTY_PARTNER })}
-              />
+              <tr>
+                <td colSpan={5} className="border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setDraft({ ...EMPTY_PARTNER })}
+                    className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+                  >
+                    <Plus className="h-4 w-4" /> New dealer partner
+                  </button>
+                </td>
+              </tr>
             </tbody>
-          </DataGridTable>
-        </DataGridShell>
+          </table>
+        </div>
       )}
     </div>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Variation A shared helpers
+// ────────────────────────────────────────────────────────────────────────────
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  sub: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div className="mt-1.5 text-2xl font-semibold tabular-nums">{value}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+const SPEC_CLS: Record<string, string> = {
+  mechanical: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300",
+  general: "bg-muted text-foreground/75",
+  electrical:
+    "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  tyres: "bg-slate-100 text-slate-700 dark:bg-slate-500/20 dark:text-slate-300",
+  bodywork:
+    "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+  mot: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+};
+
+function SpecChip({ s }: { s: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide",
+        SPEC_CLS[s] ?? "bg-muted text-foreground/75",
+      )}
+    >
+      {s}
+    </span>
+  );
+}
+
+function ActiveDot({ active }: { active: boolean }) {
+  return active ? (
+    <span className="inline-flex items-center gap-1 text-xs text-emerald-600 dark:text-emerald-400">
+      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
+    </span>
+  ) : (
+    <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+      <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/50" />{" "}
+      Inactive
+    </span>
+  );
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials = name
+    ? name
+        .split(" ")
+        .map((w) => w[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "?";
+  return (
+    <span className="grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary/10 text-xs font-semibold text-primary">
+      {initials}
+    </span>
   );
 }

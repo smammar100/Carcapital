@@ -3,14 +3,19 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
+  CheckCircle2,
+  Clock,
   Eye,
-  Loader2,
   Mail,
   Pencil,
   Plus,
   Printer,
   Receipt,
+  RotateCcw,
+  Search,
+  TrendingUp,
   Upload,
+  type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -28,7 +33,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Tabs,
   TabsContent,
@@ -52,21 +56,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
-import {
-  type ColumnDef,
-  DataGridColumnsButton,
-  DataGridDensityToggle,
-  DataGridFooterRow,
-  DataGridHeaderRow,
-  DataGridRow,
-  DataGridShell,
-  DataGridSkeletonRows,
-  DataGridTable,
-  useColumnVisibility,
-  useDensity,
-} from "@/components/data-grid";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import { toast } from "sonner";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 type Filter = InvoiceType | "all";
 type TopTab = "sales" | "purchase" | "external_job";
@@ -104,6 +95,7 @@ export default function InvoicingPage() {
   }
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [query, setQuery] = useState("");
   const [vat, setVat] = useState<{
     inputVat: number;
     outputVat: number;
@@ -191,127 +183,39 @@ export default function InvoicingPage() {
     return { month, ytd, count };
   }, [invoices]);
 
-  const cols = useMemo<ColumnDef<Invoice>[]>(
-    () => [
-      {
-        key: "invoiceNumber",
-        label: "Invoice #",
-        type: "text",
-        sticky: true,
-        width: 130,
-        render: (i) => (
-          <span className="font-mono text-xs">{i.invoiceNumber}</span>
-        ),
-      },
-      {
-        key: "type",
-        label: "Type",
-        type: "custom",
-        width: 130,
-        render: (i) =>
-          i.type === "refund" ? (
-            <Badge className="border-transparent bg-rose-100 text-rose-700">
-              Refund
-            </Badge>
-          ) : (
-            <span className="inline-flex items-center gap-1">
-              <span className="inline-flex max-w-full items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-foreground/80">
-                {i.type}
-              </span>
-              {refundedSaleIds.has(i.id) && (
-                <Badge className="border-transparent bg-amber-100 text-amber-800">
-                  Refunded
-                </Badge>
-              )}
-            </span>
-          ),
-      },
-      { key: "partyName", label: "Party", type: "text", width: 180 },
-      { key: "invoiceDate", label: "Date", type: "date", width: 120 },
-      { key: "subtotal", label: "Subtotal", type: "currency", width: 110 },
-      { key: "vatAmount", label: "VAT", type: "currency", width: 100 },
-      { key: "total", label: "Total", type: "currency", width: 120 },
-      { key: "status", label: "Status", type: "invoiceStatus", width: 110 },
-      {
-        key: "actions",
-        label: " ",
-        type: "custom",
-        width: 130,
-        align: "right",
-        render: (i) => (
-          <div className="flex justify-end gap-1">
-            {i.type === "sale" &&
-              i.status !== "paid" &&
-              i.status !== "cancelled" && (
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  disabled={!canEdit}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    router.push(
-                      `/sales/invoice-generation?invoiceId=${i.id}`,
-                    );
-                  }}
-                  title={
-                    canEdit ? "Edit" : "Permission required: Edit Invoice"
-                  }
-                  data-testid={`edit-invoice-${i.id}`}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              onClick={(e) => {
-                e.stopPropagation();
-                setViewing(i);
-              }}
-              title="View"
-            >
-              <Eye className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              disabled={!can("invoice:send")}
-              onClick={(e) => {
-                e.stopPropagation();
-                setEmailing(i);
-              }}
-              title={can("invoice:send") ? "Email" : "Permission required: Send Invoice"}
-            >
-              <Mail className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handlePrint(i);
-              }}
-              title="Print PDF"
-            >
-              <Printer className="h-4 w-4" />
-            </Button>
-          </div>
-        ),
-      },
-    ],
-    // Re-build cols when permissions change so the Email gate updates,
-    // and when the refunded-sale set changes so badges stay accurate.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [can, refundedSaleIds],
-  );
+  // KPI cards (Variation A) — derived from sale + refund invoices.
+  const kpis = useMemo(() => {
+    const all = invoices ?? [];
+    const sales = all.filter((i) => i.type === "sale");
+    const sum = (arr: Invoice[]) => arr.reduce((a, i) => a + i.total, 0);
+    const outstanding = sales.filter(
+      (i) => i.status !== "paid" && i.status !== "cancelled",
+    );
+    const paidSales = sales.filter((i) => i.status === "paid");
+    const refunds = all.filter((i) => i.type === "refund");
+    return {
+      invoiced: sum(sales),
+      invoicedN: sales.length,
+      outstanding: sum(outstanding),
+      outstandingN: outstanding.length,
+      paid: sum(paidSales),
+      paidN: paidSales.length,
+      refunds: sum(refunds),
+      refundsN: refunds.length,
+    };
+  }, [invoices]);
 
-  const { density, setDensity } = useDensity();
-  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
-  const lockedKeys = useMemo(() => new Set(["invoiceNumber"]), []);
+  // Free-text search over invoice # + party, applied on top of the tab filter.
+  const searched = useMemo(() => {
+    if (!filtered) return null;
+    const q = query.trim().toLowerCase();
+    if (!q) return filtered;
+    return filtered.filter(
+      (i) =>
+        i.invoiceNumber.toLowerCase().includes(q) ||
+        i.partyName.toLowerCase().includes(q),
+    );
+  }, [filtered, query]);
 
   async function handleSendEmail() {
     if (!emailing || !user) return;
@@ -416,7 +320,7 @@ export default function InvoicingPage() {
                 Capture an external invoice (PDF / image attachment).
               </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-3">
+            <div className="grid gap-3 px-6 pb-6">
               <div>
                 <Label>Type</Label>
                 <Select
@@ -500,6 +404,37 @@ export default function InvoicingPage() {
 
         <TabsContent value="sales" className="mt-4 flex flex-col gap-4">
 
+      {/* KPI cards (Variation A) */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard
+          icon={TrendingUp}
+          label="Total invoiced"
+          value={formatCurrency(kpis.invoiced)}
+          sub={`${kpis.invoicedN} invoice${kpis.invoicedN === 1 ? "" : "s"}`}
+        />
+        <KpiCard
+          icon={Clock}
+          label="Outstanding"
+          value={formatCurrency(kpis.outstanding)}
+          sub={`${kpis.outstandingN} unpaid`}
+          tone="text-amber-600 dark:text-amber-400"
+        />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Paid"
+          value={formatCurrency(kpis.paid)}
+          sub={`${kpis.paidN} settled`}
+          tone="text-emerald-600 dark:text-emerald-400"
+        />
+        <KpiCard
+          icon={RotateCcw}
+          label="Refunds"
+          value={formatCurrency(kpis.refunds)}
+          sub={`${kpis.refundsN} issued`}
+          tone="text-rose-600 dark:text-rose-400"
+        />
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
           <TabsList>
@@ -509,14 +444,14 @@ export default function InvoicingPage() {
             <TabsTrigger value="refund">Refunds / Cancellations</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="flex items-center gap-2">
-          <DataGridColumnsButton
-            columns={cols}
-            hiddenKeys={hiddenKeys}
-            onChange={setHiddenKeys}
-            lockedKeys={lockedKeys}
+        <div className="relative w-64 max-w-[45%]">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search invoice # or party…"
+            className="pl-8"
           />
-          <DataGridDensityToggle density={density} onChange={setDensity} />
         </div>
       </div>
 
@@ -549,45 +484,158 @@ export default function InvoicingPage() {
         </Card>
       )}
 
-      {!filtered ? (
-        // Row-aware skeleton — matches the table's column structure
-        // so the layout doesn't shift when invoices load in.
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
-            <tbody>
-              <DataGridSkeletonRows columns={visibleCols} rows={6} />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
-      ) : filtered.length === 0 ? (
+      {!searched ? (
+        <Skeleton className="h-72" />
+      ) : searched.length === 0 ? (
         <EmptyState
           icon={Receipt}
           title="No invoices in this view"
           description="Switch tabs or create one."
         />
       ) : (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
+        <div className="overflow-x-auto rounded-lg border border-border">
+          <table className="w-full min-w-[760px] text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40 text-left text-xs text-muted-foreground">
+                <th className="px-3 py-2.5 font-medium">Invoice #</th>
+                <th className="px-3 py-2.5 font-medium">Type</th>
+                <th className="px-3 py-2.5 font-medium">Party</th>
+                <th className="px-3 py-2.5 font-medium">Date</th>
+                <th className="px-3 py-2.5 text-right font-medium">Subtotal</th>
+                <th className="px-3 py-2.5 text-right font-medium">VAT</th>
+                <th className="px-3 py-2.5 text-right font-medium">Total</th>
+                <th className="px-3 py-2.5 font-medium">Status</th>
+                <th className="px-3 py-2.5 font-medium"> </th>
+              </tr>
+            </thead>
             <tbody>
-              {filtered.map((row, i) => (
-                <DataGridRow
-                  key={row.id}
-                  row={row}
-                  cols={visibleCols}
-                  index={i}
-                  onClick={(r) => setViewing(r)}
-                />
+              {searched.map((inv) => (
+                <tr
+                  key={inv.id}
+                  onClick={() => setViewing(inv)}
+                  className="cursor-pointer border-b border-border last:border-0 hover:bg-accent/30"
+                >
+                  <td className="whitespace-nowrap px-3 py-2.5">
+                    <span className="font-mono text-xs">
+                      {inv.invoiceNumber}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="inline-flex items-center gap-1">
+                      <TypeChip type={inv.type} />
+                      {refundedSaleIds.has(inv.id) && (
+                        <span className="inline-flex items-center rounded-md bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                          Refunded
+                        </span>
+                      )}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <span className="flex items-center gap-2">
+                      <Avatar name={inv.partyName} />
+                      <span className="truncate">{inv.partyName}</span>
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
+                    {formatDate(inv.invoiceDate)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums">
+                    {formatCurrency(inv.subtotal)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right tabular-nums text-muted-foreground">
+                    {formatCurrency(inv.vatAmount)}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-right font-medium tabular-nums">
+                    {formatCurrency(inv.total)}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <StatusPill status={inv.status} />
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <div className="flex justify-end gap-1">
+                      {inv.type === "sale" &&
+                        inv.status !== "paid" &&
+                        inv.status !== "cancelled" && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            disabled={!canEdit}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              router.push(
+                                `/sales/invoice-generation?invoiceId=${inv.id}`,
+                              );
+                            }}
+                            title={
+                              canEdit
+                                ? "Edit"
+                                : "Permission required: Edit Invoice"
+                            }
+                            data-testid={`edit-invoice-${inv.id}`}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewing(inv);
+                        }}
+                        title="View"
+                      >
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        disabled={!can("invoice:send")}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEmailing(inv);
+                        }}
+                        title={
+                          can("invoice:send")
+                            ? "Email"
+                            : "Permission required: Send Invoice"
+                        }
+                      >
+                        <Mail className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void handlePrint(inv);
+                        }}
+                        title="Print PDF"
+                      >
+                        <Printer className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
               ))}
-              <DataGridFooterRow
-                label="Upload invoice"
-                span={visibleCols.length}
-                onClick={() => setUploadOpen(true)}
-              />
+              <tr>
+                <td colSpan={9} className="border-t border-border">
+                  <button
+                    type="button"
+                    onClick={() => setUploadOpen(true)}
+                    className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+                  >
+                    <Upload className="h-4 w-4" /> Upload invoice
+                  </button>
+                </td>
+              </tr>
             </tbody>
-          </DataGridTable>
-        </DataGridShell>
+          </table>
+        </div>
       )}
 
       <Card className="grid gap-4 p-5 sm:grid-cols-[1fr_220px]">
@@ -655,7 +703,7 @@ export default function InvoicingPage() {
                   {viewing.partyName} · {formatDate(viewing.invoiceDate)}
                 </DialogDescription>
               </DialogHeader>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto px-6">
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b text-left text-muted-foreground">
@@ -687,7 +735,7 @@ export default function InvoicingPage() {
                   </tbody>
                 </table>
               </div>
-              <div className="grid gap-1 text-right text-sm tabular-nums">
+              <div className="grid gap-1 px-6 pb-6 text-right text-sm tabular-nums">
                 <div>
                   Subtotal: {formatCurrency(viewing.subtotal)}
                 </div>
@@ -725,7 +773,7 @@ export default function InvoicingPage() {
               <DialogHeader>
                 <DialogTitle>Email {emailing.invoiceNumber}</DialogTitle>
               </DialogHeader>
-              <div className="grid gap-3">
+              <div className="grid gap-3 px-6 pb-6">
                 <div>
                   <Label>To</Label>
                   <Input
@@ -763,6 +811,106 @@ export default function InvoicingPage() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/* Variation A helpers --------------------------------------------------- */
+
+function KpiCard({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  sub: string;
+  tone?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-background p-4">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
+        <Icon className="h-4 w-4 text-muted-foreground" />
+      </div>
+      <div
+        className={cn("mt-1.5 text-2xl font-semibold tabular-nums", tone)}
+      >
+        {value}
+      </div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>
+    </div>
+  );
+}
+
+const INV_STATUS: Record<string, { label: string; cls: string }> = {
+  draft: { label: "Draft", cls: "bg-muted text-muted-foreground" },
+  issued: {
+    label: "Issued",
+    cls: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
+  },
+  sent: {
+    label: "Sent",
+    cls: "bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300",
+  },
+  paid: {
+    label: "Paid",
+    cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+  },
+  cancelled: {
+    label: "Cancelled",
+    cls: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  },
+};
+
+function StatusPill({ status }: { status: string }) {
+  const m =
+    INV_STATUS[status] ?? { label: status, cls: "bg-muted text-muted-foreground" };
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize",
+        m.cls,
+      )}
+    >
+      {m.label}
+    </span>
+  );
+}
+
+function TypeChip({ type }: { type: InvoiceType }) {
+  if (type === "refund") {
+    return (
+      <span className="inline-flex items-center rounded-md bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+        Refund
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center rounded-md bg-muted px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-foreground/75">
+      {type}
+    </span>
+  );
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials =
+    !name || name === "—"
+      ? "?"
+      : name
+          .split(" ")
+          .map((w) => w[0])
+          .slice(0, 2)
+          .join("")
+          .toUpperCase();
+  return (
+    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+      {initials}
+    </span>
   );
 }
 
