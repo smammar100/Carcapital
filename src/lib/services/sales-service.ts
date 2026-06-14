@@ -66,6 +66,22 @@ export const salesService = {
 
   async create(input: CreateInput): Promise<SalesDeal> {
     const supabase = createClient();
+    // Dedupe: never open a second ACTIVE (non-lost) deal for the same vehicle
+    // (or the same lead). Return the existing deal so the caller can still
+    // navigate to it — prevents duplicate pipeline cards / two leads on one car.
+    const orFilter = input.leadId
+      ? `vehicle_id.eq.${input.vehicleId},lead_id.eq.${input.leadId}`
+      : `vehicle_id.eq.${input.vehicleId}`;
+    const { data: existing } = await supabase
+      .from("sales_deals")
+      .select(SELECT)
+      .eq("company_id", input.companyId)
+      .neq("stage", "lost")
+      .or(orFilter)
+      .limit(1)
+      .maybeSingle();
+    if (existing) return existing as unknown as SalesDeal;
+
     const { data, error } = await supabase
       .from("sales_deals")
       .insert({
@@ -81,8 +97,17 @@ export const salesService = {
       .select(SELECT)
       .single();
     if (error) throw error;
+    const deal = data as unknown as SalesDeal;
     invalidate(NS);
-    return data as unknown as SalesDeal;
+    await activityService.log({
+      companyId: input.companyId,
+      userId: input.sellingAgent,
+      vehicleId: input.vehicleId,
+      actionType: "lead_converted",
+      description: `Deal opened for ${input.customerName}`,
+      metadata: { dealId: deal.id, leadId: input.leadId },
+    });
+    return deal;
   },
 
   async updateStage(
@@ -124,6 +149,19 @@ export const salesService = {
           description: `${v.registration} sold to ${deal.customerName}`,
           metadata: { dealId: id },
         });
+      } else if (
+        stage === "deposit_taken" ||
+        stage === "collection_delivery"
+      ) {
+        // Reserve the car so it stops showing as available everywhere.
+        if (v.status !== "reserved" && v.status !== "sold") {
+          await vehicleService.changeStatus(v.id, "reserved", actorId);
+        }
+      } else if (stage === "lost") {
+        // Deal fell through — release the reservation back to the forecourt.
+        if (v.status === "reserved") {
+          await vehicleService.changeStatus(v.id, "listed", actorId);
+        }
       }
     }
     return deal;

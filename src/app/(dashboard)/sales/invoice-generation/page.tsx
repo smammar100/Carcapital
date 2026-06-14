@@ -159,7 +159,13 @@ function InvoiceGenerationForm() {
   // can run to 50+ cars — a plain dropdown isn't navigable).
   const filteredVehicles = useMemo(() => {
     const q = vehicleQuery.trim().toLowerCase().replace(/\s+/g, "");
-    const list = vehicles ?? [];
+    const list = (vehicles ?? []).filter(
+      // Don't offer already-sold/returned cars for a fresh invoice — except the
+      // one already selected/being edited, so existing invoices still load.
+      (v) =>
+        v.id === vehicleId ||
+        (v.status !== "sold" && v.status !== "returned"),
+    );
     if (!q) return list;
     return list.filter((v) =>
       `${v.stockId}${v.registration}${v.make}${v.model}`
@@ -167,7 +173,7 @@ function InvoiceGenerationForm() {
         .replace(/\s+/g, "")
         .includes(q),
     );
-  }, [vehicles, vehicleQuery]);
+  }, [vehicles, vehicleQuery, vehicleId]);
 
   async function handlePostcodeLookup() {
     if (!buyerPostcode.trim()) {

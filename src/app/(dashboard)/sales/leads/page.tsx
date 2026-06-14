@@ -123,6 +123,7 @@ export default function LeadsPage() {
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
   const [createOpen, setCreateOpen] = useState(false);
   const [drillLead, setDrillLead] = useState<Lead | null>(null);
+  const [creatingDeal, setCreatingDeal] = useState(false);
 
   // The role-based "New Lead" CTA navigates here with ?new=1 — auto-open the
   // create dialog so the CTA lands the user straight in the create flow.
@@ -325,18 +326,24 @@ export default function LeadsPage() {
   // Pipeline. Requires a linked stock vehicle since a deal is vehicle-scoped.
   async function handleCreateDeal() {
     if (!user || !company || !drillLead || !drillLead.vehicleId) return;
-    await salesService.create({
-      companyId: company.id,
-      vehicleId: drillLead.vehicleId,
-      leadId: drillLead.id,
-      customerName: drillLead.customerName,
-      customerPhone: drillLead.customerPhone,
-      customerEmail: drillLead.customerEmail ?? null,
-      sellingAgent: drillLead.assignedTo,
-    });
-    toast.success("Deal created — opening pipeline");
-    setDrillLead(null);
-    router.push("/sales/pipeline");
+    if (creatingDeal) return;
+    setCreatingDeal(true);
+    try {
+      await salesService.create({
+        companyId: company.id,
+        vehicleId: drillLead.vehicleId,
+        leadId: drillLead.id,
+        customerName: drillLead.customerName,
+        customerPhone: drillLead.customerPhone,
+        customerEmail: drillLead.customerEmail ?? null,
+        sellingAgent: drillLead.assignedTo,
+      });
+      toast.success("Deal ready — opening pipeline");
+      setDrillLead(null);
+      router.push("/sales/pipeline");
+    } finally {
+      setCreatingDeal(false);
+    }
   }
 
   return (
@@ -615,9 +622,11 @@ export default function LeadsPage() {
                   type="button"
                   variant="outline"
                   className="w-full"
+                  disabled={creatingDeal}
                   onClick={() => void handleCreateDeal()}
                 >
-                  <Plus className="mr-1.5 h-4 w-4" /> Create deal in pipeline
+                  <Plus className="mr-1.5 h-4 w-4" />{" "}
+                  {creatingDeal ? "Opening…" : "Create deal in pipeline"}
                 </Button>
               )}
               {drillLead.status === "appointment_booked" ? (
