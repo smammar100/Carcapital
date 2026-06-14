@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Megaphone, Plus, Send } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -78,6 +79,7 @@ type FormOutput = z.output<typeof schema>;
 
 export default function ListingsPage() {
   const { user, company } = useAuth();
+  const router = useRouter();
   const { can, isSuperUser } = usePermissions();
   const canPublishAT = isSuperUser || can("listing:publish_autotrader");
   const [listings, setListings] = useState<Listing[] | null>(null);
@@ -590,7 +592,15 @@ export default function ListingsPage() {
             <DataGridHeaderRow cols={visibleCols} />
             <tbody>
               {filtered.map((l, i) => (
-                <DataGridRow key={l.id} row={l} cols={visibleCols} index={i} />
+                <DataGridRow
+                  key={l.id}
+                  row={l}
+                  cols={visibleCols}
+                  index={i}
+                  onClick={(r) =>
+                    r.vehicleId && router.push(`/vehicles/${r.vehicleId}`)
+                  }
+                />
               ))}
             </tbody>
           </DataGridTable>
