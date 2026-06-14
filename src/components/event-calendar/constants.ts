@@ -10,9 +10,10 @@ export const WeekCellsHeight = 64;
 // Number of days to show in the agenda view
 export const AgendaDaysToShow = 30;
 
-// Start and end hours for the week and day views
-export const StartHour = 0;
-export const EndHour = 24;
+// Start and end hours for the week and day views — constrained to dealership
+// working hours so the grid opens at 09:00 (per 2026-06-10 review call).
+export const StartHour = 9;
+export const EndHour = 20;
 
 // Default start and end times
 export const DefaultStartHour = 9; // 9 AM

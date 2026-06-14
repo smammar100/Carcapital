@@ -21,7 +21,6 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -32,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { formatRelativeTime, formatCurrency } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const NOTE_TYPES: { value: JobNoteType; label: string; tone: string }[] = [
   { value: "note", label: "Note", tone: "secondary" },
@@ -47,7 +46,7 @@ export default function MaintenanceJobDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const { user } = useAuth();
+  const { user, company } = useAuth();
   const [job, setJob] = useState<MaintenanceJob | null | undefined>(undefined);
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [notes, setNotes] = useState<MaintenanceJobNote[]>([]);
@@ -57,14 +56,15 @@ export default function MaintenanceJobDetailPage({
   const [saving, setSaving] = useState(false);
 
   async function load() {
-    const all = await maintenanceService.getAll("company-1");
+    if (!company) return;
+    const all = await maintenanceService.getAll(company.id);
     const j = all.find((x) => x.id === id) ?? null;
     setJob(j);
     if (j) {
       const [v, n, u] = await Promise.all([
         vehicleService.getById(j.vehicleId),
         maintenanceNoteService.getForJob(j.id),
-        authService.getAllUsers(),
+        authService.getUsersForCompany(company.id),
       ]);
       setVehicle(v);
       setNotes(n);
@@ -75,7 +75,7 @@ export default function MaintenanceJobDetailPage({
   useEffect(() => {
     void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, company]);
 
   async function handleAddNote() {
     if (!user || !job || !newNote.trim()) return;
@@ -98,6 +98,17 @@ export default function MaintenanceJobDetailPage({
     if (!user || !job) return;
     await maintenanceService.updateStatus(job.id, newStatus, user.id);
     toast.success(`Status: ${newStatus.replace("_", " ")}`);
+    void load();
+  }
+
+  async function handleAssign(assignedTo: string) {
+    if (!user || !job) return;
+    await maintenanceService.update(
+      job.id,
+      { assignedTo: assignedTo === "none" ? null : assignedTo },
+      user.id,
+    );
+    toast.success("Owner updated");
     void load();
   }
 
@@ -126,8 +137,24 @@ export default function MaintenanceJobDetailPage({
             </h1>
             <p className="text-sm text-muted-foreground">{job.description}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {vehicle && <RegPlate registration={vehicle.registration} />}
+            <Select
+              value={job.assignedTo ?? "none"}
+              onValueChange={(v) => void handleAssign(v)}
+            >
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="Owner" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Unassigned</SelectItem>
+                {users.map((u) => (
+                  <SelectItem key={u.id} value={u.id}>
+                    {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={job.status} onValueChange={(v) => void handleStatusChange(v as MaintenanceStatus)}>
               <SelectTrigger className="w-44">
                 <SelectValue />

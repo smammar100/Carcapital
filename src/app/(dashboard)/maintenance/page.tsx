@@ -5,6 +5,7 @@ import Link from "next/link";
 import {
   Wrench,
   Plus,
+  Check,
   CircleDashed,
   CircleDot,
   CheckCircle2,
@@ -39,8 +40,14 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { AddVehicleButton } from "@/components/vehicles/add-vehicle-button";
-import { cn, formatCurrency, formatDate, getInitials } from "@/lib/utils";
-import { toast } from "sonner";
+import {
+  cn,
+  formatCurrency,
+  formatDate,
+  formatRegPlate,
+  getInitials,
+} from "@/lib/utils";
+import { toast } from "@/lib/toast";
 
 const STATUS_META: Record<
   MaintenanceStatus,
@@ -80,13 +87,27 @@ export default function MaintenancePage() {
 
   const grouped = useMemo(() => {
     if (!jobs) return null;
+    // Auto-archive: jobs completed more than 6 months ago drop off the live
+    // pipeline (they remain in history / the master sheet).
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 6);
+    const cutoffDate = cutoff.toISOString().slice(0, 10);
     const map: Record<MaintenanceStatus, MaintenanceJob[]> = {
       pending: [],
       in_progress: [],
       completed: [],
       stalled: [],
     };
-    for (const j of jobs) map[j.status].push(j);
+    for (const j of jobs) {
+      if (
+        j.status === "completed" &&
+        j.completedDate &&
+        j.completedDate < cutoffDate
+      ) {
+        continue;
+      }
+      map[j.status].push(j);
+    }
     return map;
   }, [jobs]);
 
@@ -97,7 +118,9 @@ export default function MaintenancePage() {
     toast.success("Job moved");
   }
 
-  const totalJobs = jobs?.length ?? 0;
+  const totalJobs = grouped
+    ? Object.values(grouped).reduce((n, l) => n + l.length, 0)
+    : 0;
 
   return (
     <div className="flex flex-col gap-4">
@@ -127,7 +150,7 @@ export default function MaintenancePage() {
             <Skeleton key={s.value} className="h-72" />
           ))}
         </div>
-      ) : jobs && jobs.length === 0 ? (
+      ) : totalJobs === 0 ? (
         <EmptyState
           icon={Wrench}
           title="No maintenance jobs yet"
@@ -197,15 +220,34 @@ export default function MaintenancePage() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div className="min-w-0">
-                              <p className="text-xs text-muted-foreground">
-                                Job:
-                              </p>
-                              <Link
-                                href={v ? `/vehicles/${v.id}` : "/vehicles"}
-                                className="font-mono text-base font-bold tracking-tight hover:underline"
-                              >
-                                #{shortId(j.id)}
-                              </Link>
+                              {v ? (
+                                <>
+                                  <Link
+                                    href={`/vehicles/${v.id}`}
+                                    className="block truncate font-mono text-base font-bold tracking-tight hover:underline"
+                                  >
+                                    {formatRegPlate(v.registration)}
+                                  </Link>
+                                  <Link
+                                    href={`/maintenance/jobs/${j.id}`}
+                                    className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                                  >
+                                    Job #{shortId(j.id)}
+                                  </Link>
+                                </>
+                              ) : (
+                                <>
+                                  <p className="text-xs text-muted-foreground">
+                                    Job:
+                                  </p>
+                                  <Link
+                                    href="/vehicles"
+                                    className="font-mono text-base font-bold tracking-tight hover:underline"
+                                  >
+                                    #{shortId(j.id)}
+                                  </Link>
+                                </>
+                              )}
                             </div>
                             <div className="flex items-start gap-1">
                               <div className="text-right">
@@ -289,6 +331,17 @@ export default function MaintenancePage() {
                                 className="w-20"
                               />
                             </Link>
+                          )}
+
+                          {j.status !== "completed" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 justify-center gap-1 text-xs"
+                              onClick={() => void handleMove(j.id, "completed")}
+                            >
+                              <Check className="h-3.5 w-3.5" /> Mark done
+                            </Button>
                           )}
 
                           <div className="mt-1 flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
