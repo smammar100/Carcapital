@@ -14,7 +14,7 @@ import {
   TrendingUp,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import type { Listing, Vehicle } from "@/lib/types";
 import { listingService } from "@/lib/services/listing-service";
 import { dvlaService } from "@/lib/services/dvla-service";

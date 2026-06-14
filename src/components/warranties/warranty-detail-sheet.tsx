@@ -9,7 +9,7 @@ import {
   ShieldAlert,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { warrantyService } from "@/lib/services/warranty-service";

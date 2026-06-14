@@ -24,7 +24,7 @@ import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { formatCurrency, formatRelativeTime } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 export default function SalesPipelinePage() {
   const { user, company } = useAuth();

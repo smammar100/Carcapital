@@ -28,7 +28,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
   const { user, company } = useAuth();

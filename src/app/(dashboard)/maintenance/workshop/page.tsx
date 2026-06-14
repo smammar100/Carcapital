@@ -47,7 +47,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { MaintenanceStatusBadge } from "@/components/shared/status-badge";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { formatCurrency, formatDate, formatTime12 } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const schema = z.object({
   customerName: z.string().min(1),

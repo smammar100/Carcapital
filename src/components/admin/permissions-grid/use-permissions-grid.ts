@@ -7,7 +7,7 @@ import { permissionService } from "@/lib/services/permission-service";
 import { invalidate } from "@/lib/cache";
 import type { Capability } from "@/lib/capabilities";
 import type { User, UUID } from "@/lib/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import type { PendingChange, PermissionsMap } from "./types";
 
 function cloneMap(src: PermissionsMap): PermissionsMap {

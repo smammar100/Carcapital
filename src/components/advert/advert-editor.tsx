@@ -12,7 +12,7 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import type { AdvertData, Listing, ListingChannel, Vehicle } from "@/lib/types";
 import { listingService } from "@/lib/services/listing-service";
 import { useAuth } from "@/contexts/auth-context";

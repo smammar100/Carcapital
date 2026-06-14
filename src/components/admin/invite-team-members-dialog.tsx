@@ -21,7 +21,7 @@ import {
   type RoleDef,
 } from "@/lib/roles";
 import { useAuth } from "@/contexts/auth-context";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

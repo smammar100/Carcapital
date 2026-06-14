@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { ImagePlus, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import type { Vehicle } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";

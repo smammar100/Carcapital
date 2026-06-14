@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { User } from "@/lib/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface Props {
   user: User | null;

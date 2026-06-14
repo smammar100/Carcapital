@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { VehicleHeaderCard } from "@/components/vehicle-detail/vehicle-header-card";
 import { VehicleDetailShell } from "@/components/vehicle-detail/vehicle-detail-shell";
 import { InspectionSidePanel } from "@/components/inspection/inspection-side-panel";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 /**
  * Vehicle detail — the v5 surface for a single piece of stock. The page

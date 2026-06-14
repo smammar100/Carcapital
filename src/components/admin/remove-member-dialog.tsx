@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { teamService } from "@/lib/services/team-service";
 import type { User } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface Props {
   user: User | null;

@@ -44,7 +44,7 @@ import {
   ComplianceCard,
   type ComplianceCardValue,
 } from "./compliance-card";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { cn, formatCurrency, formatRegPlate } from "@/lib/utils";
 
 // v4.1 spec §11.3 — single scrollable Add Vehicle page with 7 sections

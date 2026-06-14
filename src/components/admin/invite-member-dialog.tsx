@@ -16,7 +16,7 @@ import { ROLE_DEFS, ROLE_GROUPS, type RoleValue } from "@/lib/roles";
 import { joinLinkService } from "@/lib/services/join-link-service";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // New joiners default to View Only (safe least-privilege); the admin can pick

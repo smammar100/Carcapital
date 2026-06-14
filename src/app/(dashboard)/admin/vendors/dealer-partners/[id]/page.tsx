@@ -35,7 +35,7 @@ import {
   useColumnVisibility,
   useDensity,
 } from "@/components/data-grid";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface DraftPartner {
   name: string;

@@ -22,7 +22,7 @@ import {
   normalizeUsername,
   suggestUsername,
 } from "@/lib/auth/username";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 // Crypto-random, human-relayable temporary password (no ambiguous chars).
 function generatePassword(): string {

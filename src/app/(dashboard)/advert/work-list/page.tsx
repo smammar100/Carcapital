@@ -53,7 +53,7 @@ import {
   useColumnVisibility,
   useDensity,
 } from "@/components/data-grid";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const CHANNELS = ["website", "autotrader", "ebay", "facebook"] as const;
 type Channel = (typeof CHANNELS)[number];

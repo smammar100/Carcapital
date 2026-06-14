@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { createClient } from "@/lib/supabase/client";
 import { invalidateAll } from "@/lib/cache";
 import { warmDashboardCache } from "@/lib/cache-warmup";
@@ -208,9 +208,7 @@ export function AuthProvider({
       void revalidate();
       if (wasHiddenFor > STALE_AFTER_MS) {
         invalidateAll();
-        toast.success("Refreshed data after returning", {
-          id: "stale-tab-refresh", // de-dupe a focus burst
-        });
+        toast.success("Refreshed data after returning");
       }
     };
     window.addEventListener("focus", onWake);

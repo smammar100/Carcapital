@@ -16,7 +16,7 @@ import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const BACKGROUNDS = [
   { id: "white", label: "White Studio", swatch: "bg-zinc-50", hint: "seamless white cyclorama" },

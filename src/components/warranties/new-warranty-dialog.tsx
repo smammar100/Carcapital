@@ -5,7 +5,7 @@ import { Check, ChevronsUpDown, ExternalLink, Shield } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 import { useAuth } from "@/contexts/auth-context";
 import { warrantyService } from "@/lib/services/warranty-service";
 import { vehicleService } from "@/lib/services/vehicle-service";

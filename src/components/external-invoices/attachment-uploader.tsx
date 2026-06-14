@@ -9,7 +9,7 @@ import {
   type AttachmentUploadResult,
 } from "@/lib/services/external-invoice-service";
 import type { UUID } from "@/lib/types";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 interface Props {
   companyId: UUID;
