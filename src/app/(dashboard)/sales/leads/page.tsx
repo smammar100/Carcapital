@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, UserPlus } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -12,6 +12,7 @@ import { leadChannelService } from "@/lib/services/lead-channel-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { authService } from "@/lib/services/auth-service";
 import { appointmentService } from "@/lib/services/appointment-service";
+import { salesService } from "@/lib/services/sales-service";
 import type {
   Lead,
   LeadChannel,
@@ -57,7 +58,7 @@ import {
   useRowGroups,
   UserCell,
 } from "@/components/data-grid";
-import { toast } from "sonner";
+import { toast } from "@/lib/toast";
 
 const LEAD_STATUS_LABEL: Record<string, string> = {
   new: "New",
@@ -126,6 +127,7 @@ export default function LeadsPage() {
   // The role-based "New Lead" CTA navigates here with ?new=1 — auto-open the
   // create dialog so the CTA lands the user straight in the create flow.
   const searchParams = useSearchParams();
+  const router = useRouter();
   useEffect(() => {
     if (searchParams.get("new") === "1") setCreateOpen(true);
   }, [searchParams]);
@@ -317,6 +319,24 @@ export default function LeadsPage() {
     setLeads(await leadService.getAll(company.id));
     setDrillLead(null);
     appt.reset();
+  }
+
+  // Convert a lead into a Deal (links lead → deal → vehicle) and open the
+  // Pipeline. Requires a linked stock vehicle since a deal is vehicle-scoped.
+  async function handleCreateDeal() {
+    if (!user || !company || !drillLead || !drillLead.vehicleId) return;
+    await salesService.create({
+      companyId: company.id,
+      vehicleId: drillLead.vehicleId,
+      leadId: drillLead.id,
+      customerName: drillLead.customerName,
+      customerPhone: drillLead.customerPhone,
+      customerEmail: drillLead.customerEmail ?? null,
+      sellingAgent: drillLead.assignedTo,
+    });
+    toast.success("Deal created — opening pipeline");
+    setDrillLead(null);
+    router.push("/sales/pipeline");
   }
 
   return (
@@ -590,6 +610,16 @@ export default function LeadsPage() {
                 </Field>
                 <Field label="Notes">{drillLead.notes ?? "—"}</Field>
               </div>
+              {drillLead.vehicleId && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => void handleCreateDeal()}
+                >
+                  <Plus className="mr-1.5 h-4 w-4" /> Create deal in pipeline
+                </Button>
+              )}
               {drillLead.status === "appointment_booked" ? (
                 <p className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
                   Appointment already booked.
