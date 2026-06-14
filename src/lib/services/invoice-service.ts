@@ -274,6 +274,11 @@ interface CreateInput {
   customNote?: string | null;
   saleId?: UUID | null;
   status?: InvoiceStatus;
+  /**
+   * Force the recorded VAT (used by refund/credit invoices to reverse the exact
+   * proportional output VAT of the original sale, so the VAT summary balances).
+   */
+  vatAmountOverride?: number | null;
 }
 
 function round2(n: number): number {
@@ -398,7 +403,8 @@ function buildInvoiceColumns(
     subtotal: isSale ? calc.subtotal : lt.subtotal,
     addons_total: isSale ? calc.paidAddonsTotal : lt.addonsTotal,
     discount_total: isSale ? -calc.discount : lt.discountTotal,
-    vat_amount: isSale ? calc.vatAmount : lt.vatAmount,
+    vat_amount:
+      input.vatAmountOverride ?? (isSale ? calc.vatAmount : lt.vatAmount),
     total: p.grandTotal,
     present_mileage: input.presentMileage ?? null,
     dor_date: input.dorDate ?? null,

@@ -360,6 +360,24 @@ export default function ReturnsPage() {
       toast.error("Enter a valid refund amount");
       return;
     }
+    // Cap at the original sale and reverse the proportional output VAT so the
+    // dealer never over-refunds and the VAT summary balances.
+    let reversalVat = 0;
+    if (resolving.originalInvoiceId) {
+      const orig = await invoiceService.getById(resolving.originalInvoiceId);
+      if (orig) {
+        if (amount > orig.total + 0.01) {
+          toast.error(
+            `Refund can't exceed the original invoice total (${formatCurrency(orig.total)})`,
+          );
+          return;
+        }
+        reversalVat =
+          orig.total > 0
+            ? Math.round(orig.vatAmount * (amount / orig.total) * 100) / 100
+            : 0;
+      }
+    }
     setResolveBusy(true);
     try {
       const ret = await returnService.setStatus(
@@ -405,6 +423,9 @@ export default function ReturnsPage() {
             attachmentUrl: null,
             relatedReturnId: ret.id,
             relatedInvoiceId: ret.originalInvoiceId,
+            // Reverse the proportional output VAT from the original sale. The
+            // VAT summary SUBTRACTS a refund's vat_amount, so store it positive.
+            vatAmountOverride: reversalVat,
           },
           user.id,
         );
