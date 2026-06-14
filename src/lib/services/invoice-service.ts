@@ -367,6 +367,7 @@ async function prepareInvoice(
     input.vatScheme,
     depositAmount,
     financeAmount,
+    vehicleCost,
   );
   const grandTotal = isSale ? calc.grandTotalInclAddons : lt.total;
   const balanceDue = round2(grandTotal - depositAmount - financeAmount);

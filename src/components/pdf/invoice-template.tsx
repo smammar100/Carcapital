@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import type { Invoice, InvoiceLineItem, Vehicle } from "@/lib/types";
-import { formatVatLabel } from "@/lib/vat";
+import { formatVatLabel, normalizeVatScheme } from "@/lib/vat";
 import {
   CAR_CAPITAL_COMPANY as CO,
   CUSTOMER_DECLARATION_TEXT,
@@ -345,10 +345,20 @@ function LegacyInvoice({ invoice, companyName, companyAddress, vatNumber }: Prop
               <Text style={s.totLabel}>SUBTOTAL</Text>
               <Text style={s.totVal}>{money(invoice.subtotal)}</Text>
             </View>
-            <View style={s.totRow}>
-              <Text style={s.totLabel}>VAT ({formatVatLabel(invoice.vatScheme)})</Text>
-              <Text style={s.totVal}>{money(invoice.vatAmount)}</Text>
-            </View>
+            {normalizeVatScheme(invoice.vatScheme) === "standard" ? (
+              <View style={s.totRow}>
+                <Text style={s.totLabel}>VAT (20%)</Text>
+                <Text style={s.totVal}>{money(invoice.vatAmount)}</Text>
+              </View>
+            ) : (
+              // Margin / zero-rated invoices must NOT itemise a VAT amount to
+              // the customer — show the scheme label instead. (The true output
+              // VAT is still recorded on the invoice for the VAT return.)
+              <View style={s.totRow}>
+                <Text style={s.totLabel}>{formatVatLabel(invoice.vatScheme)}</Text>
+                <Text style={s.totVal}>—</Text>
+              </View>
+            )}
             <View style={s.trLast}>
               <Text style={s.totLabel}>TOTAL</Text>
               <Text style={s.totVal}>{money(invoice.total)}</Text>

@@ -453,6 +453,9 @@ function InvoiceGenerationForm() {
     [lines],
   );
 
+  // Vehicle buying price drives margin-scheme VAT on the vehicle line.
+  const vehicleCost = vehicle?.totalBuyingPrice ?? vehicle?.buyingPrice ?? 0;
+
   const totals = useMemo(
     () =>
       computeInvoiceTotals(
@@ -460,8 +463,9 @@ function InvoiceGenerationForm() {
         vatScheme,
         depositAmount,
         financeAmount,
+        vehicleCost,
       ),
-    [calcLines, vatScheme, depositAmount, financeAmount],
+    [calcLines, vatScheme, depositAmount, financeAmount, vehicleCost],
   );
 
   const hasWarrantyAddon = lines.some((l) => l.addonCategory === "warranty");
