@@ -130,6 +130,25 @@ export const inspectionService = {
     const v = await vehicleService.getById(vehicleId);
     if (!v) throw new Error("Vehicle not found");
 
+    // Idempotency: re-completing an inspection (or re-inspecting after Reset)
+    // must not pile up duplicate todos/jobs. Clear the previously auto-generated
+    // items that are still PENDING (anything already started/completed is kept),
+    // then recreate from the current failing checks below.
+    await supabase
+      .from("todo_items")
+      .delete()
+      .eq("vehicle_id", vehicleId)
+      .eq("source", "inspection")
+      .eq("status", "pending");
+    await supabase
+      .from("maintenance_jobs")
+      .delete()
+      .eq("vehicle_id", vehicleId)
+      .eq("status", "pending")
+      .like("notes", "Auto-created from 20-point inspection%");
+    invalidate("todos:");
+    invalidate("maintenance:");
+
     for (const check of failing) {
       const description = check.actionRequired
         ? `${check.checkItem}: ${check.actionRequired}`
