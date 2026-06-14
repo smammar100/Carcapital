@@ -8,6 +8,7 @@ import type {
 } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+import { listingService } from "./listing-service";
 
 const NS = "returns:";
 
@@ -179,6 +180,8 @@ export const returnService = {
 
     invalidate(NS);
     await vehicleService.changeStatus(input.vehicleId, "returned", actorId);
+    // A returned car must not keep advertising — pull its listing off-live.
+    await listingService.setStatusForVehicle(input.vehicleId, "archived");
     const v = await vehicleService.getById(input.vehicleId);
     if (v) {
       await activityService.log({

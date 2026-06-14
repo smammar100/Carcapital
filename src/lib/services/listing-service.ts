@@ -236,4 +236,23 @@ export const listingService = {
     invalidate(NS);
     return data as unknown as Listing;
   },
+
+  /**
+   * Drive a vehicle's listing status from the vehicle lifecycle (sold/returned
+   * /reserved), so adverts stop showing as live once the car leaves the
+   * forecourt. No-op when the vehicle has no listing.
+   */
+  async setStatusForVehicle(
+    vehicleId: UUID,
+    status: ListingStatus,
+  ): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("listings")
+      .update({ status })
+      .eq("vehicle_id", vehicleId)
+      .neq("status", status);
+    if (error) throw error;
+    invalidate(NS);
+  },
 };

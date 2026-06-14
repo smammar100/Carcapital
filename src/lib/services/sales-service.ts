@@ -3,6 +3,7 @@ import { invalidate, withCache } from "@/lib/cache";
 import type { SalesDeal, SalesStage, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
+import { listingService } from "./listing-service";
 
 const NS = "sales:";
 
@@ -141,6 +142,7 @@ export const salesService = {
       });
       if (stage === "completed_sale") {
         await vehicleService.changeStatus(v.id, "sold", actorId);
+        await listingService.setStatusForVehicle(v.id, "sold");
         await activityService.log({
           companyId: v.companyId,
           userId: actorId,
@@ -157,10 +159,12 @@ export const salesService = {
         if (v.status !== "reserved" && v.status !== "sold") {
           await vehicleService.changeStatus(v.id, "reserved", actorId);
         }
+        await listingService.setStatusForVehicle(v.id, "reserved");
       } else if (stage === "lost") {
         // Deal fell through — release the reservation back to the forecourt.
         if (v.status === "reserved") {
           await vehicleService.changeStatus(v.id, "listed", actorId);
+          await listingService.setStatusForVehicle(v.id, "live");
         }
       }
     }
