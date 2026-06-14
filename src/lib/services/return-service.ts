@@ -232,6 +232,20 @@ export const returnService = {
     const ret = normalizeReturn(data);
     invalidate(NS);
     const v = await vehicleService.getById(ret.vehicleId);
+    // Move the vehicle out of the 'returned' dead-end once the case closes:
+    // rejected → customer keeps it (back to sold); resolved → dealer took it
+    // back, re-enters prep for resale.
+    if (v && v.status === "returned") {
+      if (status === "rejected") {
+        await vehicleService.changeStatus(ret.vehicleId, "sold", actorId);
+      } else if (status === "resolved") {
+        await vehicleService.changeStatus(
+          ret.vehicleId,
+          "being_prepared",
+          actorId,
+        );
+      }
+    }
     await activityService.log({
       companyId: ret.companyId,
       userId: actorId,
