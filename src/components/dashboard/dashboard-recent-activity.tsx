@@ -111,20 +111,28 @@ export function DashboardRecentActivity() {
         <ul className="divide-y divide-border">
           {entries.map((e) => {
             const { Icon, tag, tint } = categorize(e.actionType);
+            const href = e.vehicleId
+              ? `/vehicles/${e.vehicleId}`
+              : "/admin/activity";
             return (
-              <li key={e.id} className="flex gap-3 px-4 py-3">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-muted">
-                  <Icon className={cn("h-5 w-5", tint)} />
-                </span>
-                <div className="flex min-w-0 flex-col gap-0.5">
-                  <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span className="font-medium">{tag}</span>
-                    <span>· {timeAgo(e.createdAt)}</span>
+              <li key={e.id}>
+                <Link
+                  href={href}
+                  className="flex gap-3 px-4 py-3 no-underline transition-colors hover:bg-accent/40"
+                >
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-md bg-muted">
+                    <Icon className={cn("h-5 w-5", tint)} />
+                  </span>
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <span className="font-medium">{tag}</span>
+                      <span>· {timeAgo(e.createdAt)}</span>
+                    </div>
+                    <p className="line-clamp-2 text-sm leading-snug text-foreground">
+                      {e.description}
+                    </p>
                   </div>
-                  <p className="line-clamp-2 text-sm leading-snug">
-                    {e.description}
-                  </p>
-                </div>
+                </Link>
               </li>
             );
           })}
