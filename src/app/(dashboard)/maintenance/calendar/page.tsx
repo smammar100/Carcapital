@@ -102,10 +102,7 @@ export default function MaintenanceCalendarPage() {
             Jobs colored by status — click an event to view or edit.
           </p>
         </div>
-        <Button
-          size="sm"
-          onClick={() => calendarRef.current?.openNewEventDialog()}
-        >
+        <Button size="sm" onClick={() => setAddOpen(true)}>
           <Plus className="size-4" />
           New event
         </Button>
