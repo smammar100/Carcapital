@@ -44,7 +44,8 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
-import { toast } from "sonner";
+import { usePostcodeLookup } from "@/hooks/use-postcode-lookup";
+import { toast } from "@/lib/toast";
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -141,6 +142,7 @@ function InvoiceGenerationForm() {
 
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
+  const [vehicleQuery, setVehicleQuery] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [deal, setDeal] = useState<SalesDeal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -150,6 +152,41 @@ function InvoiceGenerationForm() {
   const [buyerPostcode, setBuyerPostcode] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
+
+  const { lookup: lookupPostcode, isLoading: pcLoading } = usePostcodeLookup();
+
+  // Reg-number / stock / model search over the vehicle picker (the stock list
+  // can run to 50+ cars — a plain dropdown isn't navigable).
+  const filteredVehicles = useMemo(() => {
+    const q = vehicleQuery.trim().toLowerCase().replace(/\s+/g, "");
+    const list = vehicles ?? [];
+    if (!q) return list;
+    return list.filter((v) =>
+      `${v.stockId}${v.registration}${v.make}${v.model}`
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .includes(q),
+    );
+  }, [vehicles, vehicleQuery]);
+
+  async function handlePostcodeLookup() {
+    if (!buyerPostcode.trim()) {
+      toast.error("Enter a postcode first");
+      return;
+    }
+    const r = await lookupPostcode(buyerPostcode);
+    if (!r) {
+      toast.error("No address found — enter manually");
+      return;
+    }
+    setBuyerAddress(
+      [r.line1, r.line2, r.line3, r.line4]
+        .filter(Boolean)
+        .join(", ")
+        .toUpperCase(),
+    );
+    toast.success("Address filled — review and adjust");
+  }
 
   const [presentMileage, setPresentMileage] = useState<number>(0);
   const [dorDate, setDorDate] = useState<string>("");
@@ -311,16 +348,7 @@ function InvoiceGenerationForm() {
       if (Array.isArray(d.lines)) setLines(d.lines as DraftLine[]);
       if (d.vatScheme) setVatScheme(d.vatScheme as VatScheme);
       if (d.customNote) setCustomNote(d.customNote as string);
-      toast("Draft restored", {
-        description: "A saved draft for this invoice was loaded.",
-        action: {
-          label: "Discard",
-          onClick: () => {
-            localStorage.removeItem(draftKey);
-            window.location.reload();
-          },
-        },
-      });
+      toast("Draft restored — a saved draft for this invoice was loaded");
     } catch {
       /* ignore corrupt draft */
     }
@@ -573,17 +601,31 @@ function InvoiceGenerationForm() {
         </div>
 
         <Section letter="A" title="Vehicle">
-          <Label>Vehicle</Label>
+          <Label>
+            Vehicle <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={vehicleQuery}
+            onChange={(e) => setVehicleQuery(e.target.value)}
+            placeholder="Search reg, stock ID, make or model…"
+            className="mb-2 mt-1"
+          />
           <Select value={vehicleId} onValueChange={handleVehicleChange}>
-            <SelectTrigger className="mt-1">
+            <SelectTrigger>
               <SelectValue placeholder="Select a vehicle…" />
             </SelectTrigger>
             <SelectContent>
-              {vehicles.map((v) => (
-                <SelectItem key={v.id} value={v.id}>
-                  {v.stockId} — {v.registration} — {v.make} {v.model}
-                </SelectItem>
-              ))}
+              {filteredVehicles.length === 0 ? (
+                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                  No vehicles match that search
+                </div>
+              ) : (
+                filteredVehicles.map((v) => (
+                  <SelectItem key={v.id} value={v.id}>
+                    {v.stockId} — {v.registration} — {v.make} {v.model}
+                  </SelectItem>
+                ))
+              )}
             </SelectContent>
           </Select>
         </Section>
@@ -591,34 +633,54 @@ function InvoiceGenerationForm() {
         <Section letter="B" title="Buyer Details">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Buyer name (e.g. MR JOHN SMITH)</Label>
+              <Label>
+                Buyer name (e.g. MR JOHN SMITH){" "}
+                <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={buyerName}
                 onChange={(e) => setBuyerName(e.target.value.toUpperCase())}
               />
             </div>
             <div>
-              <Label>Phone</Label>
+              <Label>
+                Phone <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={buyerPhone}
                 onChange={(e) => setBuyerPhone(e.target.value)}
               />
             </div>
             <div>
-              <Label>Address line</Label>
+              <Label>
+                Address line <span className="text-destructive">*</span>
+              </Label>
               <Input
                 value={buyerAddress}
                 onChange={(e) => setBuyerAddress(e.target.value.toUpperCase())}
               />
             </div>
             <div>
-              <Label>Post code</Label>
-              <Input
-                value={buyerPostcode}
-                onChange={(e) =>
-                  setBuyerPostcode(e.target.value.toUpperCase())
-                }
-              />
+              <Label>
+                Post code <span className="text-destructive">*</span>
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  value={buyerPostcode}
+                  onChange={(e) =>
+                    setBuyerPostcode(e.target.value.toUpperCase())
+                  }
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handlePostcodeLookup()}
+                  disabled={pcLoading}
+                  className="shrink-0"
+                >
+                  {pcLoading ? "…" : "Lookup"}
+                </Button>
+              </div>
             </div>
             <div>
               <Label>Email (optional)</Label>
