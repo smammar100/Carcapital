@@ -8,12 +8,24 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
   AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Car,
+  Check,
   CheckCircle2,
+  FileText,
   Info,
   Loader2,
   Plus,
+  Receipt,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Tag,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
+import { RegPlate } from "@/components/shared/reg-plate";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -47,9 +59,10 @@ import {
 import { toast } from "@/lib/toast";
 import { cn, formatCurrency, formatRegPlate } from "@/lib/utils";
 
-// v4.1 spec §11.3 — single scrollable Add Vehicle page with 7 sections
-// + sticky cost summary. NO wizard, NO "New Costs"/"Key Tag Number"/
-// "Switch Companies" fields (TC-P1-005).
+// v4.1 spec §11.3 — Add Vehicle arrival form. Reorganised into a guided
+// 5-step wizard (Variation E) with a left step rail + a live cost-summary
+// receipt. The form stays a single <form> with one onSubmit; sections are
+// grouped into steps and RHF keeps field values across step changes.
 
 const SOURCE_OPTIONS = [
   { value: "auction", label: "Auction" },
@@ -75,6 +88,14 @@ const TRANSMISSION_OPTIONS = [
   { value: "manual", label: "Manual" },
   { value: "automatic", label: "Automatic" },
 ] as const;
+
+const STEPS: { id: string; title: string; icon: LucideIcon; hint: string }[] = [
+  { id: "identity", title: "Vehicle Identity", icon: Car, hint: "Reg lookup + specs" },
+  { id: "source", title: "Source & Docs", icon: FileText, hint: "Seller, paperwork" },
+  { id: "costs", title: "Purchase Costs", icon: Receipt, hint: "Price, fees, VAT" },
+  { id: "finish", title: "Receiving & Pricing", icon: Tag, hint: "Dates, to-dos, price" },
+  { id: "review", title: "Review & Submit", icon: ShieldCheck, hint: "Confirm & save" },
+];
 
 const todoSchema = z.object({
   description: z.string().min(1),
@@ -158,6 +179,10 @@ export function ArrivalForm() {
   const { user, company } = useAuth();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
+  // Variation E — guided wizard. Sections are grouped into 5 steps; fields
+  // stay registered across step changes (RHF keeps values, shouldUnregister
+  // is false), so the single onSubmit still validates the whole form.
+  const [step, setStep] = useState(0);
   // dvlaState drives the inline status shown under the registration field.
   //  - idle         : nothing has been looked up yet
   //  - loading      : lookup in flight
@@ -696,614 +721,834 @@ export function ArrivalForm() {
   }
 
   const watchedSource = form.watch("purchaseSource");
+  const regClean = (watchAll.registration ?? "").replace(/[^A-Za-z0-9]/g, "");
+  const isLast = step === STEPS.length - 1;
+  const go = (n: number) => setStep(Math.min(STEPS.length - 1, Math.max(0, n)));
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="flex flex-col gap-4"
-      >
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Add Vehicle</h1>
-          <p className="text-sm text-muted-foreground">
-            Single-page arrival form. Typing the registration auto-checks your
-            stock book and pre-fills make / year / colour / fuel from DVLA.
-          </p>
-        </div>
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Add Vehicle</h1>
+        <p className="text-sm text-muted-foreground">
+          Guided arrival form. Typing the registration auto-checks your stock
+          book and pre-fills make / year / colour / fuel from DVLA.
+        </p>
+      </div>
 
-        {Object.keys(errors).length > 0 && (
-          <div className="rounded border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
-            <div className="font-semibold">Please fix these errors:</div>
-            <ul className="mt-1 list-disc pl-5 text-xs">
-              {Object.entries(errors).map(([field, err]) => (
-                <li key={field}>
-                  <span className="font-mono">{field}</span>:{" "}
-                  {(err as { message?: string })?.message ?? "invalid"}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* ── Auto-filled group: identity + compliance + valuation ── */}
-        <div className="flex items-center gap-3 pt-1">
-          <h2 className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Auto-filled from DVLA + AutoTrader
-          </h2>
-          <span className="h-px flex-1 bg-border" aria-hidden />
-        </div>
-
-        {/* Section 1 — Vehicle Identity */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">1 · Vehicle Identity</h2>
-          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label>Registration *</Label>
-              <Input
-                {...form.register("registration")}
-                onBlur={() => void handleDvlaLookup()}
-                placeholder="GK66 6NX"
-              />
-              {dvlaState === "loading" && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Checking DVLA and your stock book
-                  {loadingStartedAt !== null
-                    ? ` (${Math.max(0, Math.round((Date.now() - loadingStartedAt) / 1000))}s)`
-                    : ""}
-                  …
-                </p>
-              )}
-              {dvlaState === "found" && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-emerald-600">
-                  <CheckCircle2 className="h-3 w-3" /> Matched — make / model /
-                  derivative, tax, MOT &amp; valuation auto-filled from DVLA +
-                  AutoTrader.
-                </p>
-              )}
-              {dvlaState === "not_found" && (
-                <p className="mt-1 flex items-center gap-1 text-xs text-amber-600">
-                  <AlertTriangle className="h-3 w-3" /> The number is incorrect
-                  — please try again, or fill the form in manually.
-                </p>
-              )}
-              {dvlaState === "duplicate" && duplicate && (
-                <p className="mt-1 flex flex-wrap items-center gap-1 text-xs text-sky-700 dark:text-sky-400">
-                  <Info className="h-3 w-3" />
-                  <span>
-                    This car is already in your stock book as{" "}
-                    <Link
-                      href={`/vehicles/${duplicate.id}`}
-                      className="font-semibold underline underline-offset-2"
-                    >
-                      {duplicate.stockId}
-                    </Link>
-                    {duplicate.label ? ` (${duplicate.label})` : ""}.
-                  </span>
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Mileage *</Label>
-              <Input type="number" {...form.register("mileage")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Make *</Label>
-              <Input {...form.register("make")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Model *</Label>
-              <Input {...form.register("model")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Variant Name</Label>
-              <Input {...form.register("variantName")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Variant Code</Label>
-              <Input {...form.register("variantCode")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Year</Label>
-              <Input type="number" {...form.register("year")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Colour</Label>
-              <Input {...form.register("colour")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Vehicle Type</Label>
-              <Controller
-                control={form.control}
-                name="vehicleType"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {VEHICLE_TYPE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Body Type</Label>
-              <Controller
-                control={form.control}
-                name="bodyType"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BODY_TYPES.map((b) => (
-                        <SelectItem key={b} value={b} className="capitalize">
-                          {b}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Fuel Type</Label>
-              <Controller
-                control={form.control}
-                name="fuelType"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FUEL_TYPES.map((f) => (
-                        <SelectItem key={f} value={f} className="capitalize">
-                          {f}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Transmission</Label>
-              <Controller
-                control={form.control}
-                name="transmission"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {TRANSMISSION_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Engine Size CC</Label>
-              <Input type="number" {...form.register("engineSizeCC")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>MOT Expiry</Label>
-              <Input type="date" {...form.register("motExpiry")} />
-            </div>
-          </div>
-        </Card>
-
-        {/* Compliance & Verification (DVLA + DVSA) — auto-filled from lookup */}
-        <ComplianceCard
-          value={compliance}
-          onChange={(next) =>
-            setCompliance((curr) => ({ ...curr, ...next }))
-          }
-          onRefetch={() => {
-            // Allow the user to force a re-fetch even if the registration
-            // hasn't changed since the last lookup.
-            lastLookupRegRef.current = "";
-            void handleDvlaLookup();
-          }}
-          refetching={dvlaState === "loading"}
-          verifiedAt={verifiedAt}
-          sources={complianceSources}
-          motSource={motSource}
-        />
-
-        {/* AutoTrader valuation strip — auto-filled when a retail valuation came
-            back. "Use as listing price" sets the section-7 listing price. */}
-        {atData.retailValuation != null && (
-          <Card className="flex flex-col gap-3 p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="text-sm font-semibold">
-                AutoTrader valuation
-              </h2>
-              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Based on {Number(form.getValues("mileage")).toLocaleString()} mi
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              <ValuationCell label="Retail" value={atData.retailValuation} highlight />
-              <ValuationCell label="Trade" value={atData.tradeValuation} />
-              <ValuationCell label="Part-ex" value={atData.partExchangeValuation} />
-              <div className="flex items-end">
-                <Button
+      <div className="grid gap-6 lg:grid-cols-[220px_1fr_300px]">
+        {/* Step rail */}
+        <nav className="hidden lg:block">
+          <div className="sticky top-4 flex flex-col gap-1">
+            {STEPS.map((s, i) => {
+              const Icon = s.icon;
+              const on = i === step;
+              const done = i < step;
+              return (
+                <button
+                  key={s.id}
                   type="button"
-                  size="sm"
-                  variant="outline"
-                  className="w-full"
-                  onClick={() => {
-                    if (atData.retailValuation != null) {
-                      form.setValue("listingPrice", atData.retailValuation);
-                      toast.success(
-                        `Listing price set to ${formatCurrency(atData.retailValuation)}`,
-                      );
-                    }
-                  }}
+                  onClick={() => go(i)}
+                  className={cn(
+                    "flex items-start gap-3 rounded-lg border-l-2 px-3 py-2.5 text-left transition-colors",
+                    on ? "border-primary bg-muted/60" : "border-transparent hover:bg-muted/40",
+                  )}
                 >
-                  Use as listing price
-                </Button>
-              </div>
-            </div>
-          </Card>
-        )}
-
-        {/* ── Manual-entry group: source, docs, costs, receiving, pricing ── */}
-        <div className="flex items-center gap-3 pt-3">
-          <h2 className="shrink-0 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Your details — entered manually
-          </h2>
-          <span className="h-px flex-1 bg-border" aria-hidden />
-        </div>
-
-        {/* Section 2 — Source / Seller */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">2 · Source / Seller</h2>
-          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label>Seller Name *</Label>
-              <Input {...form.register("sellerName")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Seller Phone</Label>
-              <Input {...form.register("sellerPhone")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Source Type</Label>
-              <Controller
-                control={form.control}
-                name="purchaseSource"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SOURCE_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            {watchedSource === "dealer" && (
-              <div className="flex flex-col gap-2">
-                <Label>Dealer Partner</Label>
-                <Select
-                  value={selectedPartnerId}
-                  onValueChange={setSelectedPartnerId}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select dealer partner…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {partners.length === 0 ? (
-                      <SelectItem value="__none" disabled>
-                        No dealer partners
-                      </SelectItem>
-                    ) : (
-                      partners.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.companyName ?? p.name}
-                          {p.companyName ? ` (${p.name})` : ""}
-                        </SelectItem>
-                      ))
+                  <span
+                    className={cn(
+                      "mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold",
+                      on
+                        ? "bg-primary text-primary-foreground"
+                        : done
+                          ? "bg-emerald-500 text-white"
+                          : "bg-muted text-muted-foreground",
                     )}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Label>Local or Import</Label>
-              <Controller
-                control={form.control}
-                name="localOrImport"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="local">Local</SelectItem>
-                      <SelectItem value="import">Import</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            {watchedSource === "auction" && (
-              <div className="flex flex-col gap-2">
-                <Label>Auction House</Label>
-                <Controller
-                  control={form.control}
-                  name="auctionHouse"
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Pick an auction house" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {AUCTION_HOUSES.map((h) => (
-                          <SelectItem key={h} value={h}>
-                            {h}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-            )}
-            <div className="flex flex-col gap-2">
-              <Label>Owned By</Label>
-              <Input {...form.register("ownedBy")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Invoice Date</Label>
-              <Input type="date" {...form.register("invoiceDate")} />
-            </div>
-          </div>
-        </Card>
-
-        {/* Section 3 — Documentation */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">3 · Documentation</h2>
-          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label>V5 Received</Label>
-              <div className="flex h-9 items-center rounded-md border bg-background px-3">
-                <Controller
-                  control={form.control}
-                  name="v5Received"
-                  render={({ field }) => (
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  )}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Service History</Label>
-              <Controller
-                control={form.control}
-                name="serviceHistory"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SERVICE_HISTORY_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value}>
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Number of Keys</Label>
-              <Input
-                type="number"
-                min={1}
-                max={4}
-                {...form.register("numKeys")}
-              />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Lock Nut</Label>
-              <div className="flex h-9 items-center rounded-md border bg-background px-3">
-                <Controller
-                  control={form.control}
-                  name="lockNut"
-                  render={({ field }) => (
-                    <Switch checked={field.value} onCheckedChange={field.onChange} />
-                  )}
-                />
-              </div>
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Finance Provider</Label>
-              <Controller
-                control={form.control}
-                name="financeProvider"
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FINANCE_PROVIDERS.map((p) => (
-                        <SelectItem key={p.value} value={p.value}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-          </div>
-        </Card>
-
-        {/* Section 4 — Purchase Cost Breakdown */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">4 · Purchase Cost Breakdown</h2>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b text-left text-xs text-muted-foreground">
-                <th className="py-1.5 pr-2 font-medium">Cost Item</th>
-                <th className="py-1.5 pr-2 text-right font-medium">VAT 20%</th>
-                <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
-              </tr>
-            </thead>
-            <tbody>
-              <CostRow label="Buying Price *" name="buyingPrice" form={form} showVat />
-              <CostRow label="Buyer's Fee" name="buyersFee" form={form} showVat />
-              <CostRow label="Inspection Charge" name="inspectionCharge" form={form} />
-              <CostRow label="Collection Fee" name="collectionFee" form={form} />
-              <CostRow label="Delivery / Transport" name="deliveryFee" form={form} showVat />
-              <CostRow label="Late Storage" name="lateStorageFee" form={form} />
-              <CostRow label="Other Charges" name="otherCharges" form={form} />
-              <tr className="border-t bg-muted/30">
-                <td className="py-2 pr-2 font-semibold">Total Buying Price</td>
-                <td />
-                <td className="py-2 pr-2 text-right font-semibold tabular-nums">
-                  {formatCurrency(totalBuyingPrice)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </Card>
-
-        {/* Section 5 — Receiving */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">5 · Receiving</h2>
-          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-2">
-              <Label>Received Date *</Label>
-              <Input type="date" {...form.register("receivedDate")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Received By</Label>
-              <Input value={user?.name ?? "—"} readOnly disabled />
-            </div>
-          </div>
-        </Card>
-
-        {/* Section 6 — Things to Do (optional) */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">6 · Things to Do (optional)</h2>
-          {todos.length > 0 && (
-            <div className="flex flex-col gap-1">
-              {todos.map((t, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
-                >
-                  <span className="flex-1">{t.description}</span>
-                  <span className="tabular-nums">{formatCurrency(t.cost)}</span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6"
-                    onClick={() => removeTodo(i)}
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="flex items-end gap-2">
-            <div className="flex flex-1 flex-col gap-2">
-              <Label>Description</Label>
-              <Input
-                value={newTodo.description}
-                onChange={(e) => setNewTodo((p) => ({ ...p, description: e.target.value }))}
-              />
-            </div>
-            <div className="flex w-24 flex-col gap-2">
-              <Label>Cost £</Label>
-              <Input
-                type="number"
-                step="0.01"
-                value={newTodo.cost}
-                onChange={(e) => setNewTodo((p) => ({ ...p, cost: Number(e.target.value) || 0 }))}
-              />
-            </div>
-            <Button type="button" size="sm" variant="outline" onClick={addTodo}>
-              <Plus className="mr-1 h-3 w-3" />
-              Add Item
-            </Button>
+                    {done ? <Check className="size-3.5" /> : i + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span className={cn("flex items-center gap-1.5 text-sm", on ? "font-semibold" : "font-medium")}>
+                      <Icon className="size-3.5" />
+                      {s.title}
+                    </span>
+                    <span className="block text-xs text-muted-foreground">{s.hint}</span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
-        </Card>
+        </nav>
 
-        {/* Section 7 — Pricing (optional) */}
-        <Card className="flex flex-col gap-3 p-5">
-          <h2 className="text-sm font-semibold">7 · Pricing (optional)</h2>
-          <div className="grid gap-x-4 gap-y-4 sm:grid-cols-3">
-            <div className="flex flex-col gap-2">
-              <Label>Warranty Cost £</Label>
-              <Input type="number" step="0.01" {...form.register("warrantyCost")} />
+        {/* Center: form */}
+        <form onSubmit={form.handleSubmit(onSubmit)} className="flex min-w-0 flex-col gap-3">
+          <div className="rounded-xl border bg-card p-5">
+            {/* Mobile step indicator */}
+            <div className="mb-4 flex items-center gap-2 text-sm font-medium lg:hidden">
+              <span className="grid size-6 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
+                {step + 1}
+              </span>
+              {STEPS[step].title}
+              <span className="text-muted-foreground">· {step + 1} of {STEPS.length}</span>
             </div>
-            <div className="flex flex-col gap-2">
-              <Label>Minimum Sale Price £</Label>
-              <Input type="number" step="0.01" {...form.register("minimumSalePrice")} />
-            </div>
-            <div className="flex flex-col gap-2">
-              <Label>Listing Price £</Label>
-              <Input type="number" step="0.01" {...form.register("listingPrice")} />
-            </div>
-          </div>
-        </Card>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" disabled={submitting}>
-            Save as Draft
-          </Button>
-          <Button type="submit" disabled={submitting}>
-            {submitting ? (
-              <>
-                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                Submitting…
-              </>
-            ) : (
-              "Submit Vehicle"
+            {/* Validation summary (surfaced on the review step) */}
+            {isLast && Object.keys(errors).length > 0 && (
+              <div className="mb-4 rounded border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                <div className="font-semibold">Please fix these errors:</div>
+                <ul className="mt-1 list-disc pl-5 text-xs">
+                  {Object.entries(errors).map(([field, err]) => (
+                    <li key={field}>
+                      <span className="font-mono">{field}</span>:{" "}
+                      {(err as { message?: string })?.message ?? "invalid"}
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
-          </Button>
-        </div>
-      </form>
 
-      {/* Sticky Cost Summary Panel */}
-      <div className="lg:sticky lg:top-4 lg:self-start">
-        <CostSummaryReceipt
-          buyingPrice={buyingPrice}
-          feesAndCharges={fees}
-          stockingCharges={0}
-          prepCosts={prepCosts}
-          warranty={warrantyCost}
-          listingPrice={Number(watchAll.listingPrice) || null}
-        />
+            {/* ───────────────────────────── STEP 1 — Identity ── */}
+            {step === 0 && (
+              <div className="flex flex-col gap-5">
+                {/* Reg lookup hero */}
+                <div className="rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-4 sm:p-5">
+                  <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
+                    <div className="min-w-0">
+                      <Label>Registration *</Label>
+                      <div className="mt-1.5 flex items-center gap-2">
+                        <div className="relative w-[200px]">
+                          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                          <Input
+                            {...form.register("registration")}
+                            onBlur={() => void handleDvlaLookup()}
+                            placeholder="GK66 6NX"
+                            className="pl-9 font-mono uppercase tracking-wider"
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          onClick={() => void handleDvlaLookup()}
+                          disabled={dvlaState === "loading"}
+                          className="shrink-0 gap-1.5"
+                        >
+                          {dvlaState === "loading" ? (
+                            <Loader2 className="size-4 animate-spin" />
+                          ) : (
+                            <Sparkles className="size-4" />
+                          )}
+                          Fetch DVLA
+                        </Button>
+                      </div>
+                    </div>
+                    {regClean.length >= 4 && (
+                      <RegPlate
+                        registration={watchAll.registration ?? ""}
+                        size="lg"
+                        className="ml-auto"
+                      />
+                    )}
+                  </div>
+                  <div className="mt-2 min-h-[1rem]">
+                    {dvlaState === "loading" && (
+                      <p className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        Checking DVLA and your stock book
+                        {loadingStartedAt !== null
+                          ? ` (${Math.max(0, Math.round((Date.now() - loadingStartedAt) / 1000))}s)`
+                          : ""}
+                        …
+                      </p>
+                    )}
+                    {dvlaState === "found" && (
+                      <p className="flex items-center gap-1 text-xs text-emerald-600">
+                        <CheckCircle2 className="h-3 w-3" /> Matched — make / model /
+                        derivative, tax, MOT &amp; valuation auto-filled from DVLA +
+                        AutoTrader.
+                      </p>
+                    )}
+                    {dvlaState === "not_found" && (
+                      <p className="flex items-center gap-1 text-xs text-amber-600">
+                        <AlertTriangle className="h-3 w-3" /> The number is incorrect
+                        — please try again, or fill the form in manually.
+                      </p>
+                    )}
+                    {dvlaState === "duplicate" && duplicate && (
+                      <p className="flex flex-wrap items-center gap-1 text-xs text-sky-700 dark:text-sky-400">
+                        <Info className="h-3 w-3" />
+                        <span>
+                          This car is already in your stock book as{" "}
+                          <Link
+                            href={`/vehicles/${duplicate.id}`}
+                            className="font-semibold underline underline-offset-2"
+                          >
+                            {duplicate.stockId}
+                          </Link>
+                          {duplicate.label ? ` (${duplicate.label})` : ""}.
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Identity fields */}
+                <div>
+                  <StepHeader icon={Car} title="Vehicle Identity" hint="Auto-filled from DVLA + AutoTrader" />
+                  <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label>Mileage *</Label>
+                      <Input type="number" {...form.register("mileage")} />
+                    </div>
+                    <FieldShell label="Make *" auto={dvlaState === "found"}>
+                      <Input {...form.register("make")} />
+                    </FieldShell>
+                    <FieldShell label="Model *" auto={dvlaState === "found"}>
+                      <Input {...form.register("model")} />
+                    </FieldShell>
+                    <div className="flex flex-col gap-2">
+                      <Label>Variant Name</Label>
+                      <Input {...form.register("variantName")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Variant Code</Label>
+                      <Input {...form.register("variantCode")} />
+                    </div>
+                    <FieldShell label="Year" auto={dvlaState === "found"}>
+                      <Input type="number" {...form.register("year")} />
+                    </FieldShell>
+                    <FieldShell label="Colour" auto={dvlaState === "found"}>
+                      <Input {...form.register("colour")} />
+                    </FieldShell>
+                    <div className="flex flex-col gap-2">
+                      <Label>Vehicle Type</Label>
+                      <Controller
+                        control={form.control}
+                        name="vehicleType"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {VEHICLE_TYPE_OPTIONS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Body Type</Label>
+                      <Controller
+                        control={form.control}
+                        name="bodyType"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {BODY_TYPES.map((b) => (
+                                <SelectItem key={b} value={b} className="capitalize">
+                                  {b}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <FieldShell label="Fuel Type" auto={dvlaState === "found"}>
+                      <Controller
+                        control={form.control}
+                        name="fuelType"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FUEL_TYPES.map((f) => (
+                                <SelectItem key={f} value={f} className="capitalize">
+                                  {f}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </FieldShell>
+                    <div className="flex flex-col gap-2">
+                      <Label>Transmission</Label>
+                      <Controller
+                        control={form.control}
+                        name="transmission"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {TRANSMISSION_OPTIONS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Engine Size CC</Label>
+                      <Input type="number" {...form.register("engineSizeCC")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>MOT Expiry</Label>
+                      <Input type="date" {...form.register("motExpiry")} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Compliance & Verification (DVLA + DVSA) */}
+                <ComplianceCard
+                  value={compliance}
+                  onChange={(next) => setCompliance((curr) => ({ ...curr, ...next }))}
+                  onRefetch={() => {
+                    lastLookupRegRef.current = "";
+                    void handleDvlaLookup();
+                  }}
+                  refetching={dvlaState === "loading"}
+                  verifiedAt={verifiedAt}
+                  sources={complianceSources}
+                  motSource={motSource}
+                />
+
+                {/* AutoTrader valuation strip */}
+                {atData.retailValuation != null && (
+                  <Card className="flex flex-col gap-3 p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <h2 className="text-sm font-semibold">AutoTrader valuation</h2>
+                      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                        Based on {Number(form.getValues("mileage")).toLocaleString()} mi
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <ValuationCell label="Retail" value={atData.retailValuation} highlight />
+                      <ValuationCell label="Trade" value={atData.tradeValuation} />
+                      <ValuationCell label="Part-ex" value={atData.partExchangeValuation} />
+                      <div className="flex items-end">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="w-full"
+                          onClick={() => {
+                            if (atData.retailValuation != null) {
+                              form.setValue("listingPrice", atData.retailValuation);
+                              toast.success(
+                                `Listing price set to ${formatCurrency(atData.retailValuation)}`,
+                              );
+                            }
+                          }}
+                        >
+                          Use as listing price
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                )}
+              </div>
+            )}
+
+            {/* ───────────────────────────── STEP 2 — Source & Docs ── */}
+            {step === 1 && (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <StepHeader icon={FileText} title="Source / Seller" hint="Where the car came from" />
+                  <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label>Seller Name *</Label>
+                      <Input {...form.register("sellerName")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Seller Phone</Label>
+                      <Input {...form.register("sellerPhone")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Source Type</Label>
+                      <Controller
+                        control={form.control}
+                        name="purchaseSource"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SOURCE_OPTIONS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    {watchedSource === "dealer" && (
+                      <div className="flex flex-col gap-2">
+                        <Label>Dealer Partner</Label>
+                        <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select dealer partner…" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {partners.length === 0 ? (
+                              <SelectItem value="__none" disabled>
+                                No dealer partners
+                              </SelectItem>
+                            ) : (
+                              partners.map((p) => (
+                                <SelectItem key={p.id} value={p.id}>
+                                  {p.companyName ?? p.name}
+                                  {p.companyName ? ` (${p.name})` : ""}
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <Label>Local or Import</Label>
+                      <Controller
+                        control={form.control}
+                        name="localOrImport"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="local">Local</SelectItem>
+                              <SelectItem value="import">Import</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    {watchedSource === "auction" && (
+                      <div className="flex flex-col gap-2">
+                        <Label>Auction House</Label>
+                        <Controller
+                          control={form.control}
+                          name="auctionHouse"
+                          render={({ field }) => (
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <SelectTrigger className="w-full">
+                                <SelectValue placeholder="Pick an auction house" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {AUCTION_HOUSES.map((h) => (
+                                  <SelectItem key={h} value={h}>
+                                    {h}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-col gap-2">
+                      <Label>Owned By</Label>
+                      <Input {...form.register("ownedBy")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Invoice Date</Label>
+                      <Input type="date" {...form.register("invoiceDate")} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <StepHeader icon={FileText} title="Documentation" hint="Paperwork & keys" />
+                  <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label>V5 Received</Label>
+                      <div className="flex h-9 items-center rounded-md border bg-background px-3">
+                        <Controller
+                          control={form.control}
+                          name="v5Received"
+                          render={({ field }) => (
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          )}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Service History</Label>
+                      <Controller
+                        control={form.control}
+                        name="serviceHistory"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {SERVICE_HISTORY_OPTIONS.map((o) => (
+                                <SelectItem key={o.value} value={o.value}>
+                                  {o.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Number of Keys</Label>
+                      <Input type="number" min={1} max={4} {...form.register("numKeys")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Lock Nut</Label>
+                      <div className="flex h-9 items-center rounded-md border bg-background px-3">
+                        <Controller
+                          control={form.control}
+                          name="lockNut"
+                          render={({ field }) => (
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          )}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Finance Provider</Label>
+                      <Controller
+                        control={form.control}
+                        name="financeProvider"
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {FINANCE_PROVIDERS.map((p) => (
+                                <SelectItem key={p.value} value={p.value}>
+                                  {p.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ───────────────────────────── STEP 3 — Costs ── */}
+            {step === 2 && (
+              <div>
+                <StepHeader icon={Receipt} title="Purchase Cost Breakdown" hint="VAT auto-calculated at 20%" />
+                <table className="mt-4 w-full text-sm">
+                  <thead>
+                    <tr className="border-b text-left text-xs text-muted-foreground">
+                      <th className="py-1.5 pr-2 font-medium">Cost Item</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">VAT 20%</th>
+                      <th className="py-1.5 pr-2 text-right font-medium">Amount £</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <CostRow label="Buying Price *" name="buyingPrice" form={form} showVat />
+                    <CostRow label="Buyer's Fee" name="buyersFee" form={form} showVat />
+                    <CostRow label="Inspection Charge" name="inspectionCharge" form={form} />
+                    <CostRow label="Collection Fee" name="collectionFee" form={form} />
+                    <CostRow label="Delivery / Transport" name="deliveryFee" form={form} showVat />
+                    <CostRow label="Late Storage" name="lateStorageFee" form={form} />
+                    <CostRow label="Other Charges" name="otherCharges" form={form} />
+                    <tr className="border-t bg-muted/30">
+                      <td className="py-2 pr-2 font-semibold">Total Buying Price</td>
+                      <td />
+                      <td className="py-2 pr-2 text-right font-semibold tabular-nums">
+                        {formatCurrency(totalBuyingPrice)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* ───────────────────────────── STEP 4 — Receiving & Pricing ── */}
+            {step === 3 && (
+              <div className="flex flex-col gap-6">
+                <div>
+                  <StepHeader icon={Tag} title="Receiving" hint="When the car arrived" />
+                  <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <Label>Received Date *</Label>
+                      <Input type="date" {...form.register("receivedDate")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Received By</Label>
+                      <Input value={user?.name ?? "—"} readOnly disabled />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <StepHeader icon={Plus} title="Things to Do" hint="Optional prep tasks" />
+                  {todos.length > 0 && (
+                    <div className="mt-4 flex flex-col gap-1">
+                      {todos.map((t, i) => (
+                        <div
+                          key={i}
+                          className="flex items-center justify-between gap-2 rounded border p-2 text-xs"
+                        >
+                          <span className="flex-1">{t.description}</span>
+                          <span className="tabular-nums">{formatCurrency(t.cost)}</span>
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6"
+                            onClick={() => removeTodo(i)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-4 flex items-end gap-2">
+                    <div className="flex flex-1 flex-col gap-2">
+                      <Label>Description</Label>
+                      <Input
+                        value={newTodo.description}
+                        onChange={(e) => setNewTodo((p) => ({ ...p, description: e.target.value }))}
+                      />
+                    </div>
+                    <div className="flex w-24 flex-col gap-2">
+                      <Label>Cost £</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={newTodo.cost}
+                        onChange={(e) => setNewTodo((p) => ({ ...p, cost: Number(e.target.value) || 0 }))}
+                      />
+                    </div>
+                    <Button type="button" size="sm" variant="outline" onClick={addTodo}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      Add Item
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="border-t pt-6">
+                  <StepHeader icon={Tag} title="Pricing" hint="Optional — can set later" />
+                  <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-3">
+                    <div className="flex flex-col gap-2">
+                      <Label>Warranty Cost £</Label>
+                      <Input type="number" step="0.01" {...form.register("warrantyCost")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Minimum Sale Price £</Label>
+                      <Input type="number" step="0.01" {...form.register("minimumSalePrice")} />
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <Label>Listing Price £</Label>
+                      <Input type="number" step="0.01" {...form.register("listingPrice")} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ───────────────────────────── STEP 5 — Review ── */}
+            {step === 4 && (
+              <div className="flex flex-col gap-4">
+                <StepHeader icon={ShieldCheck} title="Review & Submit" hint="Check the details, then submit" />
+                <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-900 dark:bg-emerald-950/30">
+                  <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+                  Review the summary below. The cost receipt on the right reflects
+                  what will be saved.
+                </div>
+
+                <ReviewCard
+                  title="Vehicle"
+                  onEdit={() => go(0)}
+                  rows={[
+                    ["Registration", formatRegPlate(watchAll.registration ?? "") || "—"],
+                    ["Make / Model", `${watchAll.make || "—"} ${watchAll.model || ""}`.trim()],
+                    ["Year", String(watchAll.year ?? "—")],
+                    ["Mileage", `${Number(watchAll.mileage || 0).toLocaleString()} mi`],
+                    ["Fuel", String(watchAll.fuelType ?? "—")],
+                    ["Colour", String(watchAll.colour || "—")],
+                  ]}
+                />
+                <ReviewCard
+                  title="Source & Documentation"
+                  onEdit={() => go(1)}
+                  rows={[
+                    ["Seller", String(watchAll.sellerName || "—")],
+                    ["Source", String(watchAll.purchaseSource ?? "—")],
+                    ["Local / Import", String(watchAll.localOrImport ?? "—")],
+                    ["V5 received", watchAll.v5Received ? "Yes" : "No"],
+                    ["Service history", String(watchAll.serviceHistory ?? "—")],
+                    ["Keys", String(watchAll.numKeys ?? "—")],
+                  ]}
+                />
+                <ReviewCard
+                  title="Costs & Pricing"
+                  onEdit={() => go(2)}
+                  rows={[
+                    ["Buying price", formatCurrency(buyingPrice)],
+                    ["Fees & charges", formatCurrency(fees)],
+                    ["Total buying", formatCurrency(totalBuyingPrice)],
+                    ["Prep (to-dos)", formatCurrency(prepCosts)],
+                    ["Base cost", formatCurrency(baseCost)],
+                    ["Listing price", formatCurrency(Number(watchAll.listingPrice) || null)],
+                  ]}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* Sticky action bar */}
+          <div className="sticky bottom-0 flex items-center justify-between gap-2 rounded-xl border bg-card/85 px-4 py-3 backdrop-blur">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={step === 0}
+              onClick={() => go(step - 1)}
+              className="gap-1.5"
+            >
+              <ArrowLeft className="size-4" /> Back
+            </Button>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" disabled={submitting}>
+                Save as Draft
+              </Button>
+              {!isLast ? (
+                <Button type="button" onClick={() => go(step + 1)} className="gap-1.5">
+                  Continue <ArrowRight className="size-4" />
+                </Button>
+              ) : (
+                <Button type="submit" disabled={submitting} className="gap-1.5">
+                  {submitting ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" /> Submitting…
+                    </>
+                  ) : (
+                    <>
+                      <Check className="size-4" /> Submit Vehicle
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
+          </div>
+        </form>
+
+        {/* Live cost-summary receipt */}
+        <aside className="hidden lg:block">
+          <div className="sticky top-4 flex flex-col gap-3">
+            <CostSummaryReceipt
+              buyingPrice={buyingPrice}
+              feesAndCharges={fees}
+              stockingCharges={0}
+              prepCosts={prepCosts}
+              warranty={warrantyCost}
+              listingPrice={Number(watchAll.listingPrice) || null}
+            />
+            <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+              Updates live as you enter costs. VAT is calculated at 20% per line.
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
+
+function StepHeader({
+  icon: Icon,
+  title,
+  hint,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint?: string;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+        <Icon className="size-4" />
+      </span>
+      <div>
+        <h2 className="text-sm font-semibold">{title}</h2>
+        {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      </div>
+    </div>
+  );
+}
+
+/** Field wrapper that shows a small "DVLA" pill above auto-filled fields. */
+function FieldShell({
+  label,
+  auto,
+  children,
+}: {
+  label: string;
+  auto?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="relative flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        {auto && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+            <Sparkles className="size-2.5" /> DVLA
+          </span>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function ReviewCard({
+  title,
+  onEdit,
+  rows,
+}: {
+  title: string;
+  onEdit: () => void;
+  rows: [string, string][];
+}) {
+  return (
+    <div className="rounded-lg border border-border p-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-sm font-medium">{title}</span>
+        <button
+          type="button"
+          onClick={onEdit}
+          className="text-xs text-primary hover:underline"
+        >
+          Edit
+        </button>
+      </div>
+      <div className="grid grid-cols-1 gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+        {rows.map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-2">
+            <span className="text-muted-foreground">{k}</span>
+            <span className="truncate text-right">{v}</span>
+          </div>
+        ))}
       </div>
     </div>
   );

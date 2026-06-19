@@ -2,142 +2,152 @@
 
 import { useState } from "react";
 import {
+  LayoutGrid,
+  FileText,
   MapPin,
-  Search,
-  Download,
-  MoveRight,
+  Coins,
+  ListChecks,
+  ShieldCheck,
+  Camera,
+  Megaphone,
+  CalendarDays,
+  Activity,
+  ChevronLeft,
+  PanelLeftClose,
+  Gauge,
   Warehouse,
-  ParkingSquare,
+  Receipt,
+  Users,
   Wrench,
-  UserRound,
+  PoundSterling,
   Clock,
-  ArrowRight,
-  Plus,
+  TrendingUp,
   type LucideIcon,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { RegPlate } from "@/components/shared/reg-plate";
+import { KpiCard, Pill } from "@/components/vehicle-detail/primitives";
 
 /**
- * /prototype — design comparison surface (auth-free).
- *
- * Current feature: LOCATIONS (/admin/locations). 5 variations stacked
- * vertically. Mock data mirrors the real page (stock id, reg, make/model,
- * status, days here, off-site context, Move action). References (Mobbin, web):
- *   A — Deel "Assets": summary stats + location distribution bar + table.
- *   B — Asana dashboard: location metric cards act as the active filter.
- *   C — ClickUp / Programa board: one column per location, cars as cards.
- *   D — Neon / StackAI: split master–detail, location rail + detail table.
- *   E — Shopify / Uvodo: minimal segmented control + refined list rows.
+ * /prototype — Vehicle Detail LEFT-TAB options, designed to coexist with the
+ * app's existing main left navbar (so the page can show TWO left rails).
+ * Refs (Mobbin): Qatalog / GitBook (grouped secondary nav), Zendesk / Circle
+ * (secondary rail + back), Mailchimp (collapsible groups), Revolut (panel).
  */
 
-type Loc = "forecourt" | "yard" | "garage" | "staff";
-type Status = "listed" | "reserved" | "being_prepared" | "ready" | "sold";
+const V = { reg: "EK18 FUT", title: "2023 Ford Fiesta", variant: "ST-Line", stockId: "CC-0118", status: "Received" };
 
-const LOC_META: Record<
-  Loc,
-  { label: string; icon: LucideIcon; tint: string; dot: string; offsite: boolean }
-> = {
-  forecourt: {
-    label: "Forecourt",
-    icon: Warehouse,
-    tint: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
-    dot: "bg-emerald-500",
-    offsite: false,
-  },
-  yard: {
-    label: "Yard",
-    icon: ParkingSquare,
-    tint: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300",
-    dot: "bg-sky-500",
-    offsite: false,
-  },
-  garage: {
-    label: "Garage",
-    icon: Wrench,
-    tint: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
-    dot: "bg-rose-500",
-    offsite: true,
-  },
-  staff: {
-    label: "Staff",
-    icon: UserRound,
-    tint: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
-    dot: "bg-amber-500",
-    offsite: true,
-  },
-};
+type CheckState = "warn" | "miss";
+type Tab = { key: string; label: string; icon: LucideIcon; badge?: string; dot?: CheckState };
+const TABS: Tab[] = [
+  { key: "overview", label: "Overview", icon: LayoutGrid },
+  { key: "details", label: "Details", icon: FileText },
+  { key: "location", label: "Location", icon: MapPin },
+  { key: "financials", label: "Financials", icon: Coins },
+  { key: "todo", label: "Things to Do", icon: ListChecks, badge: "3" },
+  { key: "inspection", label: "Inspection", icon: ShieldCheck, dot: "warn" },
+  { key: "photos", label: "Photos", icon: Camera, badge: "0", dot: "miss" },
+  { key: "listing", label: "Listing", icon: Megaphone, dot: "miss" },
+  { key: "appointments", label: "Appointments", icon: CalendarDays, badge: "2" },
+  { key: "activity", label: "Activity", icon: Activity },
+];
+const GROUPS: { label: string; keys: string[] }[] = [
+  { label: "Vehicle", keys: ["overview", "details", "location"] },
+  { label: "Commercial", keys: ["financials", "listing"] },
+  { label: "Operations", keys: ["todo", "inspection", "photos", "appointments"] },
+  { label: "History", keys: ["activity"] },
+];
+const DOT: Record<CheckState, string> = { warn: "bg-amber-500", miss: "bg-rose-500" };
 
-const STATUS_TONE: Record<Status, string> = {
-  listed: "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300",
-  reserved: "bg-pink-50 text-pink-700 dark:bg-pink-950/30 dark:text-pink-300",
-  being_prepared:
-    "bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300",
-  ready: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300",
-  sold: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
-};
-const STATUS_LABEL: Record<Status, string> = {
-  listed: "Listed",
-  reserved: "Reserved",
-  being_prepared: "Being Prepared",
-  ready: "Ready",
-  sold: "Sold",
-};
-
-type Row = {
-  id: string;
-  stockId: string;
-  reg: string;
-  make: string;
-  model: string;
-  status: Status;
-  loc: Loc;
-  days: string;
-  context?: string; // workshop / staff name for off-site
-};
-
-const ROWS: Row[] = [
-  { id: "1", stockId: "CC-0004", reg: "SA17WUV", make: "Audi", model: "A3", status: "listed", loc: "forecourt", days: "14w 5d" },
-  { id: "2", stockId: "CC-0013", reg: "LG68OCH", make: "BMW", model: "3 Series", status: "listed", loc: "forecourt", days: "15w 6d" },
-  { id: "3", stockId: "CC-0017", reg: "MT67RLZ", make: "BMW", model: "X1", status: "ready", loc: "forecourt", days: "16w 3d" },
-  { id: "4", stockId: "CC-0022", reg: "R500HNT", make: "Fiat", model: "500", status: "reserved", loc: "forecourt", days: "8w 3d" },
-  { id: "5", stockId: "CC-0041", reg: "SL68NYZ", make: "Land Rover", model: "RR Evoque", status: "being_prepared", loc: "yard", days: "3w 1d" },
-  { id: "6", stockId: "CC-0042", reg: "YF16CUY", make: "Land Rover", model: "RR Evoque", status: "ready", loc: "yard", days: "5d" },
-  { id: "7", stockId: "CC-0049", reg: "LW15JGV", make: "Mercedes-Benz", model: "B-Class", status: "being_prepared", loc: "garage", days: "12d", context: "Premier Bodyworks" },
-  { id: "8", stockId: "CC-0054", reg: "EX68EYK", make: "Mercedes-Benz", model: "CLA", status: "reserved", loc: "staff", days: "2d", context: "Sikander Ali" },
+/* ---- faux MAIN navbar (the existing app sidebar) ---- */
+const MAIN = [
+  { label: "Dashboard", icon: Gauge },
+  { label: "Master Sheet", icon: FileText },
+  { label: "Vehicles", icon: Warehouse, active: true },
+  { label: "Locations", icon: MapPin },
+  { label: "Invoicing", icon: Receipt },
+  { label: "Vendors", icon: Users },
+  { label: "Workshop", icon: Wrench },
 ];
 
-const COUNTS: Record<Loc, number> = { forecourt: 108, yard: 2, garage: 0, staff: 2 };
-const TOTAL = 112;
-const LOCS: Loc[] = ["forecourt", "yard", "garage", "staff"];
+function MainNav() {
+  return (
+    <div className="hidden w-[180px] shrink-0 flex-col gap-0.5 rounded-l-xl border-r border-border bg-background p-2 md:flex">
+      <div className="mb-2 flex items-center gap-2 px-2 py-1">
+        <span className="grid size-7 place-items-center rounded-md bg-primary text-2xs font-bold text-primary-foreground">CC</span>
+        <span className="text-sm font-semibold">Car Capital</span>
+      </div>
+      {MAIN.map((m) => (
+        <div key={m.label} className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm", m.active ? "bg-muted font-medium text-foreground" : "text-muted-foreground")}>
+          <m.icon className="size-4 shrink-0" /> <span className="truncate">{m.label}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* ---- shared content stub (the active tab body) ---- */
+function ContentStub({ pad = true }: { pad?: boolean }) {
+  return (
+    <div className={cn("flex min-w-0 flex-1 flex-col gap-4", pad && "p-5")}>
+      <div className="flex flex-wrap items-center gap-3">
+        <RegPlate registration={V.reg} size="md" />
+        <div>
+          <div className="text-base font-semibold leading-tight">{V.title}</div>
+          <div className="text-xs text-muted-foreground">{V.variant} · {V.stockId}</div>
+        </div>
+        <Pill tone="info">{V.status}</Pill>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard icon={PoundSterling} label="Web Price" value={formatCurrency(16995)} hint="Floor £14,500" />
+        <KpiCard icon={Clock} label="Days in Stock" value={23} hint="£12 / day" />
+        <KpiCard icon={TrendingUp} label="AT Retail" value={formatCurrency(17400)} hint="Within market" />
+        <KpiCard icon={Coins} label="Net Profit" value={formatCurrency(2946)} hint="Margin scheme" />
+      </div>
+      <div className="rounded-xl border border-border bg-background p-4">
+        <div className="text-sm font-semibold">Advert Completeness</div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full w-[43%] rounded-full bg-emerald-500" /></div>
+        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+          {["Make / Model", "Photos", "Description", "Pricing", "MOT", "Channels"].map((x) => (
+            <div key={x} className="rounded-md border border-border px-2 py-1.5">{x}</div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PageFrame({ children }: { children: React.ReactNode }) {
+  return <div className="flex overflow-hidden rounded-xl border border-border bg-muted/20">{children}</div>;
+}
+
+/* ============================================================ page */
 
 export default function PrototypePage() {
   return (
     <div className="min-h-screen bg-muted/30 p-6 text-foreground">
       <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight">
-          Prototype — Locations · 5 variations
-        </h1>
+        <h1 className="text-xl font-semibold tracking-tight">Prototype — Vehicle Detail left tabs (with the main navbar)</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Pick a winner (A–E). Mock data; CarCap tokens + components +
-          Mobbin-referenced layouts. Toggle OS dark mode to preview both themes.
+          Each option shows the existing <strong>main navbar</strong> (left) + the vehicle-detail
+          tab rail beside it, so you can judge the two-rail balance. Pick L-A…L-E.
         </p>
       </header>
 
       <div className="flex flex-col gap-10">
-        <Frame label="A — Overview + distribution bar + table" sub="Deel Assets — summary stats, a 'where everything is' bar, then a filterable table">
+        <Frame label="L-A — Nested secondary rail" sub="Qatalog / GitBook — slim second column with a back link + vehicle context on top, then the tab list">
           <VariationA />
         </Frame>
-        <Frame label="B — Location metric cards as filters" sub="Asana dashboard — big count cards double as the active-location selector">
+        <Frame label="L-B — Grouped secondary rail" sub="GitBook / Qatalog — tabs grouped under section headers (Vehicle / Commercial / Operations / History) to tame the long list">
           <VariationB />
         </Frame>
-        <Frame label="C — Board view (column per location)" sub="ClickUp / Programa — each location is a column, cars are draggable cards with a Move affordance">
+        <Frame label="L-C — In-content tab card (single full-height rail)" sub="Avoids a 2nd full-height rail: tabs live as a sticky card INSIDE the content, so only the main navbar is a true rail">
           <VariationC />
         </Frame>
-        <Frame label="D — Split master–detail" sub="Neon / StackAI — location rail on the left with counts + mini bar, detail table on the right">
+        <Frame label="L-D — Icon-only rail, expands on hover" sub="Zendesk-style — second rail is icon-only to save width next to the main nav; labels on hover/pin">
           <VariationD />
         </Frame>
-        <Frame label="E — Minimal segmented list" sub="Shopify / Uvodo — segmented control, prominent search, refined rows with reg plates">
+        <Frame label="L-E — Context rail (recommended)" sub="Second rail leads with reg plate + photo + status + quick actions, then the tabs — turns the rail into a useful context panel, not just nav">
           <VariationE />
         </Frame>
       </div>
@@ -145,453 +155,145 @@ export default function PrototypePage() {
   );
 }
 
-/* ----------------------------------------------------------------- chrome */
-
 function Frame({ label, sub, children }: { label: string; sub: string; children: React.ReactNode }) {
   return (
     <section>
-      <div className="mb-3">
-        <h2 className="text-sm font-semibold">{label}</h2>
-        <p className="text-xs text-muted-foreground">{sub}</p>
-      </div>
-      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">{children}</div>
+      <div className="mb-3"><h2 className="text-sm font-semibold">{label}</h2><p className="text-xs text-muted-foreground">{sub}</p></div>
+      {children}
     </section>
   );
 }
 
-function PageHead({ trailing }: { trailing?: React.ReactNode }) {
+function TabBtn({ t, active, onClick }: { t: Tab; active: boolean; onClick: () => void }) {
   return (
-    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        <h3 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">
-          <MapPin className="size-5" /> Locations
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Every car has exactly one location.
-        </p>
-      </div>
-      {trailing ?? (
-        <span className="text-xs text-muted-foreground">{TOTAL} total active</span>
-      )}
-    </div>
-  );
-}
-
-function StatusPill({ s }: { s: Status }) {
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", STATUS_TONE[s])}>
-      {STATUS_LABEL[s]}
-    </span>
-  );
-}
-
-function LocChip({ loc }: { loc: Loc }) {
-  const m = LOC_META[loc];
-  return (
-    <span className={cn("inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium", m.tint)}>
-      <span className={cn("size-1.5 rounded-full", m.dot)} /> {m.label}
-    </span>
-  );
-}
-
-function MoveBtn({ ghost }: { ghost?: boolean }) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-        ghost
-          ? "text-muted-foreground hover:bg-muted hover:text-foreground"
-          : "border border-border bg-background hover:bg-muted",
-      )}
-    >
-      Move <MoveRight className="size-3.5" />
+    <button onClick={onClick}
+      className={cn("flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
+        active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
+      <t.icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
+      <span className="truncate">{t.label}</span>
+      {t.badge && <span className={cn("ml-auto rounded-full px-1.5 text-2xs font-medium tabular-nums", active ? "bg-background" : "bg-muted text-muted-foreground")}>{t.badge}</span>}
+      {t.dot && !t.badge && <span className={cn("ml-auto size-1.5 rounded-full", DOT[t.dot])} />}
     </button>
   );
 }
 
-function SearchBox({ placeholder = "Search reg or stock ID…", w = "w-64" }: { placeholder?: string; w?: string }) {
-  return (
-    <div className={cn("relative", w)}>
-      <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-      <div className="flex h-9 items-center rounded-md border border-border bg-background pl-8 pr-3 text-sm text-muted-foreground">
-        {placeholder}
-      </div>
-    </div>
-  );
-}
-
-function ExportBtn() {
-  return (
-    <button type="button" className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-background px-3 text-sm font-medium hover:bg-muted">
-      <Download className="size-3.5" /> Export CSV
-    </button>
-  );
-}
-
-/* ---------- shared distribution bar ---------- */
-function DistributionBar({ className }: { className?: string }) {
-  return (
-    <div className={className}>
-      <div className="flex h-2.5 w-full overflow-hidden rounded-full">
-        {LOCS.map((l) => {
-          const pct = (COUNTS[l] / TOTAL) * 100;
-          if (pct === 0) return null;
-          return <span key={l} className={LOC_META[l].dot} style={{ width: `${pct}%` }} />;
-        })}
-      </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-        {LOCS.map((l) => (
-          <span key={l} className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-            <span className={cn("size-2 rounded-full", LOC_META[l].dot)} />
-            {LOC_META[l].label}
-            <span className="font-medium text-foreground tabular-nums">{COUNTS[l]}</span>
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ============================================ A · overview + distribution */
-
+/* ---------------------------------------------------------------- A */
 function VariationA() {
-  const [active, setActive] = useState<Loc>("forecourt");
-  const rows = ROWS.filter((r) => r.loc === active);
+  const [a, setA] = useState("overview");
   return (
-    <div>
-      <PageHead />
-
-      {/* summary stat row */}
-      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {LOCS.map((l) => {
-          const m = LOC_META[l];
-          const Icon = m.icon;
-          return (
-            <div key={l} className="flex items-center gap-3 rounded-lg border border-border bg-background px-4 py-3">
-              <span className={cn("grid size-9 shrink-0 place-items-center rounded-lg", m.tint)}>
-                <Icon className="size-4" />
-              </span>
-              <div>
-                <div className="text-xs text-muted-foreground">{m.label}{m.offsite ? " · off-site" : ""}</div>
-                <div className="text-lg font-semibold tabular-nums">{COUNTS[l]}</div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* distribution overview */}
-      <div className="mb-4 rounded-lg border border-border bg-background px-4 py-3">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">Where everything is · {TOTAL} active</div>
-        <DistributionBar />
-      </div>
-
-      {/* tab chips + table */}
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        {LOCS.map((l) => (
-          <button
-            key={l}
-            type="button"
-            onClick={() => setActive(l)}
-            className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm transition-colors",
-              active === l ? "border-foreground/30 bg-foreground/5 font-medium" : "border-border text-muted-foreground hover:bg-muted",
-            )}
-          >
-            {LOC_META[l].label}
-            <span className="rounded-full bg-muted px-1.5 text-xs tabular-nums">{COUNTS[l]}</span>
-          </button>
-        ))}
-        <div className="ml-auto flex items-center gap-2">
-          <SearchBox />
-          <ExportBtn />
+    <PageFrame>
+      <MainNav />
+      <div className="w-[208px] shrink-0 border-r border-border bg-background/60 p-2">
+        <button className="mb-2 flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" /> Back to inventory</button>
+        <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 py-2">
+          <RegPlate registration={V.reg} size="sm" />
+          <div className="min-w-0"><div className="truncate text-xs font-semibold">{V.title}</div><div className="text-2xs text-muted-foreground">{V.stockId}</div></div>
         </div>
+        <nav className="flex flex-col gap-0.5">{TABS.map((t) => <TabBtn key={t.key} t={t} active={a === t.key} onClick={() => setA(t.key)} />)}</nav>
       </div>
-
-      <TableCard rows={rows} showContext={LOC_META[active].offsite} />
-    </div>
+      <ContentStub />
+    </PageFrame>
   );
 }
 
-/* ============================================ B · metric cards as filters */
-
+/* ---------------------------------------------------------------- B */
 function VariationB() {
-  const [active, setActive] = useState<Loc>("forecourt");
-  const rows = ROWS.filter((r) => r.loc === active);
+  const [a, setA] = useState("overview");
   return (
-    <div>
-      <PageHead />
-      <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {LOCS.map((l) => {
-          const m = LOC_META[l];
-          const Icon = m.icon;
-          const on = active === l;
-          return (
-            <button
-              key={l}
-              type="button"
-              onClick={() => setActive(l)}
-              className={cn(
-                "group rounded-xl border bg-background p-4 text-left transition-all",
-                on ? "border-foreground/40 ring-2 ring-foreground/10" : "border-border hover:border-foreground/20 hover:shadow-sm",
-              )}
-            >
-              <div className="flex items-center justify-between">
-                <span className={cn("grid size-9 place-items-center rounded-lg", m.tint)}>
-                  <Icon className="size-4" />
-                </span>
-                {m.offsite && <span className={cn("size-2 rounded-full", m.dot)} title="Off-site" />}
+    <PageFrame>
+      <MainNav />
+      <div className="w-[208px] shrink-0 border-r border-border bg-background/60 p-2">
+        <button className="mb-2 flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" /> Back to inventory</button>
+        <nav className="flex flex-col gap-3">
+          {GROUPS.map((g) => (
+            <div key={g.label}>
+              <div className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</div>
+              <div className="flex flex-col gap-0.5">
+                {g.keys.map((k) => { const t = TABS.find((x) => x.key === k)!; return <TabBtn key={k} t={t} active={a === k} onClick={() => setA(k)} />; })}
               </div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums">{COUNTS[l]}</div>
-              <div className="mt-0.5 text-sm text-muted-foreground">{m.label}</div>
-            </button>
-          );
-        })}
+            </div>
+          ))}
+        </nav>
       </div>
-
-      <div className="mb-3 flex items-center gap-2">
-        <h4 className="text-sm font-semibold">{LOC_META[active].label}</h4>
-        <span className="text-xs text-muted-foreground">{COUNTS[active]} cars</span>
-        <div className="ml-auto flex items-center gap-2">
-          <SearchBox w="w-56" />
-          <ExportBtn />
-        </div>
-      </div>
-      <TableCard rows={rows} showContext={LOC_META[active].offsite} />
-    </div>
+      <ContentStub />
+    </PageFrame>
   );
 }
 
-/* ============================================ C · board view */
-
+/* ---------------------------------------------------------------- C */
 function VariationC() {
+  const [a, setA] = useState("overview");
   return (
-    <div>
-      <PageHead
-        trailing={
-          <div className="flex items-center gap-2">
-            <SearchBox w="w-56" />
-            <ExportBtn />
+    <PageFrame>
+      <MainNav />
+      {/* No 2nd full-height rail — tabs are a card inside the content */}
+      <div className="flex min-w-0 flex-1 gap-4 p-5">
+        <aside className="hidden w-[200px] shrink-0 lg:block">
+          <div className="sticky top-4 rounded-xl border border-border bg-background p-2">
+            <nav className="flex flex-col gap-0.5">{TABS.map((t) => <TabBtn key={t.key} t={t} active={a === t.key} onClick={() => setA(t.key)} />)}</nav>
           </div>
-        }
-      />
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {LOCS.map((l) => {
-          const m = LOC_META[l];
-          const Icon = m.icon;
-          const cards = ROWS.filter((r) => r.loc === l);
-          return (
-            <div key={l} className="flex flex-col rounded-xl border border-border bg-muted/30">
-              <div className="flex items-center gap-2 border-b border-border px-3 py-2.5">
-                <span className={cn("grid size-6 place-items-center rounded-md", m.tint)}>
-                  <Icon className="size-3.5" />
-                </span>
-                <span className="text-sm font-semibold">{m.label}</span>
-                <span className="rounded-full bg-background px-1.5 text-xs font-medium tabular-nums text-muted-foreground">{COUNTS[l]}</span>
-                {m.offsite && <span className={cn("ml-auto size-2 rounded-full", m.dot)} title="Off-site" />}
-              </div>
-              <div className="flex flex-col gap-2 p-2">
-                {cards.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-border px-3 py-8 text-center text-xs italic text-muted-foreground">
-                    No cars here
-                  </div>
-                ) : (
-                  cards.map((r) => (
-                    <div key={r.id} className="group rounded-lg border border-border bg-card p-3 shadow-sm">
-                      <div className="flex items-center justify-between">
-                        <RegPlate registration={r.reg} size="sm" />
-                        <span className="inline-flex items-center gap-1 text-2xs text-muted-foreground">
-                          <Clock className="size-3" />{r.days}
-                        </span>
-                      </div>
-                      <div className="mt-2 text-sm font-medium leading-tight">{r.make} {r.model}</div>
-                      <div className="text-xs text-muted-foreground">{r.stockId}</div>
-                      {r.context && <div className="mt-1 text-xs text-muted-foreground">{r.context}</div>}
-                      <div className="mt-2 flex items-center justify-between">
-                        <StatusPill s={r.status} />
-                        <button type="button" className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100">
-                          Move <ArrowRight className="size-3" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-                <button type="button" className="inline-flex items-center justify-center gap-1 rounded-lg border border-dashed border-border py-2 text-xs font-medium text-muted-foreground hover:bg-background">
-                  <Plus className="size-3.5" /> Move car here
-                </button>
-              </div>
-            </div>
-          );
-        })}
+        </aside>
+        <ContentStub pad={false} />
       </div>
-    </div>
+    </PageFrame>
   );
 }
 
-/* ============================================ D · split master–detail */
-
+/* ---------------------------------------------------------------- D */
 function VariationD() {
-  const [active, setActive] = useState<Loc>("forecourt");
-  const rows = ROWS.filter((r) => r.loc === active);
-  const m = LOC_META[active];
+  const [a, setA] = useState("overview");
   return (
-    <div>
-      <PageHead />
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[260px_1fr]">
-        {/* rail */}
-        <div className="flex flex-col gap-3">
-          <div className="rounded-xl border border-border bg-background p-3">
-            <div className="mb-2 text-xs font-medium text-muted-foreground">Distribution</div>
-            <DistributionBar />
-          </div>
-          <div className="overflow-hidden rounded-xl border border-border bg-background">
-            {LOCS.map((l) => {
-              const lm = LOC_META[l];
-              const Icon = lm.icon;
-              const on = active === l;
-              return (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setActive(l)}
-                  className={cn(
-                    "flex w-full items-center gap-3 border-l-2 px-3 py-2.5 text-left transition-colors",
-                    on ? "border-foreground bg-muted/60" : "border-transparent hover:bg-muted/40",
-                  )}
-                >
-                  <span className={cn("grid size-8 place-items-center rounded-lg", lm.tint)}>
-                    <Icon className="size-4" />
-                  </span>
-                  <span className={cn("text-sm", on ? "font-semibold" : "font-medium")}>{lm.label}</span>
-                  {lm.offsite && <span className={cn("size-1.5 rounded-full", lm.dot)} />}
-                  <span className="ml-auto text-sm tabular-nums text-muted-foreground">{COUNTS[l]}</span>
-                </button>
-              );
-            })}
-          </div>
+    <PageFrame>
+      <MainNav />
+      <div className="group/rail w-[56px] shrink-0 overflow-hidden border-r border-border bg-background/60 p-2 transition-[width] duration-200 hover:w-[208px]">
+        <div className="mb-2 flex h-7 items-center gap-1.5 px-1.5 text-muted-foreground">
+          <PanelLeftClose className="size-4 shrink-0" />
+          <span className="whitespace-nowrap text-2xs opacity-0 transition-opacity group-hover/rail:opacity-100">Sections</span>
         </div>
-
-        {/* detail */}
-        <div>
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className={cn("grid size-7 place-items-center rounded-lg", m.tint)}>
-              <m.icon className="size-4" />
-            </span>
-            <h4 className="text-base font-semibold">{m.label}</h4>
-            <span className="text-xs text-muted-foreground">{COUNTS[active]} cars</span>
-            <div className="ml-auto flex items-center gap-2">
-              <SearchBox w="w-52" />
-              <ExportBtn />
-            </div>
-          </div>
-          <TableCard rows={rows} showContext={m.offsite} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ============================================ E · minimal segmented list */
-
-function VariationE() {
-  const [active, setActive] = useState<Loc>("forecourt");
-  const rows = ROWS.filter((r) => r.loc === active);
-  return (
-    <div>
-      <PageHead />
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        {/* segmented control */}
-        <div className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5">
-          {LOCS.map((l) => {
-            const on = active === l;
+        <nav className="flex flex-col gap-0.5">
+          {TABS.map((t) => {
+            const on = a === t.key;
             return (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setActive(l)}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors",
-                  on ? "bg-background font-medium shadow-sm" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {LOC_META[l].label}
-                <span className={cn("rounded-full px-1.5 text-xs tabular-nums", on ? "bg-muted" : "bg-background/60")}>{COUNTS[l]}</span>
+              <button key={t.key} onClick={() => setA(t.key)} title={t.label}
+                className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm", on ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50")}>
+                <span className="relative shrink-0">
+                  <t.icon className={cn("size-4", on ? "text-primary" : "text-muted-foreground")} />
+                  {t.dot && <span className={cn("absolute -right-0.5 -top-0.5 size-1.5 rounded-full", DOT[t.dot])} />}
+                </span>
+                <span className="truncate whitespace-nowrap opacity-0 transition-opacity group-hover/rail:opacity-100">{t.label}</span>
+                {t.badge && <span className="ml-auto whitespace-nowrap rounded-full bg-muted px-1.5 text-2xs opacity-0 transition-opacity group-hover/rail:opacity-100">{t.badge}</span>}
               </button>
             );
           })}
-        </div>
-        <div className="flex items-center gap-2">
-          <SearchBox w="w-56" />
-          <ExportBtn />
-        </div>
+        </nav>
       </div>
-
-      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
-        {rows.length === 0 ? (
-          <li className="px-4 py-10 text-center text-sm italic text-muted-foreground">No cars at {LOC_META[active].label}.</li>
-        ) : (
-          rows.map((r) => (
-            <li key={r.id} className="flex items-center gap-4 px-4 py-3 hover:bg-muted/30">
-              <RegPlate registration={r.reg} size="sm" />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{r.make} {r.model}</div>
-                <div className="text-xs text-muted-foreground">
-                  {r.stockId}{r.context ? ` · ${r.context}` : ""}
-                </div>
-              </div>
-              <StatusPill s={r.status} />
-              <span className="inline-flex w-16 items-center justify-end gap-1 text-xs tabular-nums text-muted-foreground">
-                <Clock className="size-3" />{r.days}
-              </span>
-              <MoveBtn ghost />
-            </li>
-          ))
-        )}
-      </ul>
-    </div>
+      <ContentStub />
+    </PageFrame>
   );
 }
 
-/* ---------- shared table card (A / B / D) ---------- */
-
-function TableCard({ rows, showContext }: { rows: Row[]; showContext: boolean }) {
+/* ---------------------------------------------------------------- E */
+function VariationE() {
+  const [a, setA] = useState("overview");
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <table className="w-full border-collapse text-sm">
-        <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left font-medium">Stock ID</th>
-            <th className="px-3 py-2 text-left font-medium">Reg</th>
-            <th className="px-3 py-2 text-left font-medium">Make / Model</th>
-            {showContext && <th className="px-3 py-2 text-left font-medium">Workshop / Staff</th>}
-            <th className="px-3 py-2 text-left font-medium">Status</th>
-            <th className="px-3 py-2 text-right font-medium">Days here</th>
-            <th className="px-3 py-2 text-right font-medium">Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.length === 0 ? (
-            <tr>
-              <td colSpan={showContext ? 7 : 6} className="px-3 py-8 text-center text-sm italic text-muted-foreground">
-                No cars here.
-              </td>
-            </tr>
-          ) : (
-            rows.map((r) => (
-              <tr key={r.id} className="border-t transition-colors hover:bg-muted/30">
-                <td className="px-3 py-2.5 font-medium">{r.stockId}</td>
-                <td className="px-3 py-2.5"><RegPlate registration={r.reg} size="sm" /></td>
-                <td className="px-3 py-2.5">{r.make} {r.model}</td>
-                {showContext && <td className="px-3 py-2.5 text-muted-foreground">{r.context ?? "—"}</td>}
-                <td className="px-3 py-2.5"><StatusPill s={r.status} /></td>
-                <td className="px-3 py-2.5 text-right tabular-nums">{r.days}</td>
-                <td className="px-3 py-2.5 text-right"><MoveBtn ghost /></td>
-              </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+    <PageFrame>
+      <MainNav />
+      <div className="w-[230px] shrink-0 border-r border-border bg-background/60">
+        {/* pinned context */}
+        <div className="border-b border-border p-3">
+          <button className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" /> Inventory</button>
+          <div className="grid h-24 w-full place-items-center rounded-lg bg-muted text-muted-foreground"><Camera className="size-5" /></div>
+          <div className="mt-2 flex items-center gap-2"><RegPlate registration={V.reg} size="sm" /><Pill tone="info">{V.status}</Pill></div>
+          <div className="mt-1 text-sm font-semibold leading-tight">{V.title}</div>
+          <div className="text-2xs text-muted-foreground">{V.variant} · {V.stockId}</div>
+          <div className="mt-2 grid grid-cols-2 gap-1.5">
+            <button className="rounded-md border border-border bg-background px-2 py-1 text-2xs font-medium hover:bg-muted">Advert</button>
+            <button className="rounded-md bg-primary px-2 py-1 text-2xs font-medium text-primary-foreground hover:bg-primary/90">Inspect</button>
+          </div>
+        </div>
+        <nav className="flex flex-col gap-0.5 p-2">{TABS.map((t) => <TabBtn key={t.key} t={t} active={a === t.key} onClick={() => setA(t.key)} />)}</nav>
+      </div>
+      <ContentStub />
+    </PageFrame>
   );
 }
