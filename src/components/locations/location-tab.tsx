@@ -2,22 +2,59 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Download, MoveRight, Search } from "lucide-react";
+import { Clock, Download, MoveRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { RegPlate } from "@/components/shared/reg-plate";
 import { cn } from "@/lib/utils";
 import {
   VEHICLE_LOCATION_LABELS,
   type UUID,
-  type Vehicle,
   type VehicleLocation,
+  type VehicleStatus,
   type Vendor,
   type User,
 } from "@/lib/types";
 import { locationService } from "@/lib/services/location-service";
 import { exportCsv } from "@/components/data-grid";
 import { LocationBadge } from "./location-badge";
+
+// Flat status pill tones — kept in sync with the Master Sheet / All
+// Vehicles grids so a car's status reads identically across inventory.
+const STATUS_TONE: Record<VehicleStatus, string> = {
+  received: "bg-blue-50 text-blue-700 dark:bg-blue-950/30 dark:text-blue-300",
+  inspection_pending:
+    "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300",
+  being_prepared:
+    "bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300",
+  photos_pending:
+    "bg-yellow-50 text-yellow-700 dark:bg-yellow-950/30 dark:text-yellow-300",
+  photos_ready:
+    "bg-lime-50 text-lime-700 dark:bg-lime-950/30 dark:text-lime-300",
+  ready: "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-300",
+  listed:
+    "bg-violet-50 text-violet-700 dark:bg-violet-950/30 dark:text-violet-300",
+  reserved: "bg-pink-50 text-pink-700 dark:bg-pink-950/30 dark:text-pink-300",
+  sold: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300",
+  returned: "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-300",
+};
+
+function StatusPill({ status }: { status: string }) {
+  const tone =
+    STATUS_TONE[status as VehicleStatus] ??
+    "bg-muted text-muted-foreground";
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium",
+        tone,
+      )}
+    >
+      {statusLabel(status)}
+    </span>
+  );
+}
 
 interface LocationTabProps {
   location: VehicleLocation;
@@ -238,109 +275,71 @@ export function LocationTab({
         </Button>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border bg-card">
-        <table className="w-full border-collapse text-sm">
-          <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-3 py-2 text-left font-medium">Stock ID</th>
-              <th className="px-3 py-2 text-left font-medium">Reg</th>
-              <th className="px-3 py-2 text-left font-medium">Make / Model</th>
-              <th className="px-3 py-2 text-left font-medium">Status</th>
-              {location === "staff" ? (
-                <th className="px-3 py-2 text-left font-medium">Expected back</th>
-              ) : null}
-              <th className="px-3 py-2 text-right font-medium">Days here</th>
-              <th className="px-3 py-2 text-right font-medium">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows === null ? (
-              <SkeletonRows colCount={location === "staff" ? 7 : 6} />
-            ) : filteredRows.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={location === "staff" ? 7 : 6}
-                  className="px-3 py-8 text-center text-sm italic text-muted-foreground"
-                >
-                  No cars at {VEHICLE_LOCATION_LABELS[location]}.
-                </td>
-              </tr>
-            ) : (
-              filteredRows.map((r) => (
-                <tr
-                  key={r.id}
-                  className="border-t transition-colors hover:bg-muted/30"
-                >
-                  <td className="px-3 py-2 align-top">
-                    <Link
-                      href={`/vehicles/${r.id}`}
-                      className="font-medium text-foreground hover:underline"
-                    >
-                      {r.stockId}
-                    </Link>
-                    {/* Secondary line: workshop / staff name (Garage / Staff tabs) */}
-                    {r.externalVendorId ? (
-                      <div className="text-xs text-muted-foreground">
-                        {vendorById[r.externalVendorId]?.name ?? "Unknown vendor"}
-                      </div>
-                    ) : r.staffUserId ? (
-                      <div className="text-xs text-muted-foreground">
-                        {userById[r.staffUserId]?.name ?? "Unknown staff"}
-                      </div>
-                    ) : null}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
-                    {r.registration}
-                  </td>
-                  <td className="px-3 py-2">
+      {/* List (Variation E) */}
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+        {rows === null ? (
+          <ListSkeleton />
+        ) : filteredRows.length === 0 ? (
+          <li className="px-4 py-10 text-center text-sm italic text-muted-foreground">
+            No cars at {VEHICLE_LOCATION_LABELS[location]}.
+          </li>
+        ) : (
+          filteredRows.map((r) => {
+            const context = r.externalVendorId
+              ? (vendorById[r.externalVendorId]?.name ?? "Unknown vendor")
+              : r.staffUserId
+                ? (userById[r.staffUserId]?.name ?? "Unknown staff")
+                : null;
+            const back =
+              location === "staff" && r.expectedReturnAt
+                ? formatBack(r.expectedReturnAt)
+                : null;
+            return (
+              <li
+                key={r.id}
+                className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-muted/30"
+              >
+                <RegPlate registration={r.registration} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/vehicles/${r.id}`}
+                    className="block truncate text-sm font-medium hover:underline"
+                  >
                     {r.make} {r.model}
-                  </td>
-                  <td className="px-3 py-2 text-xs text-muted-foreground">
-                    {statusLabel(r.status)}
-                    {r.outForTestDrive ? (
-                      <div className="mt-1">
-                        <LocationBadge
-                          location={r.currentLocation}
-                          outForTestDrive
-                          testDriveExpectedBackAt={r.testDriveExpectedBackAt}
-                          compact
-                        />
-                      </div>
-                    ) : null}
-                  </td>
-                  {location === "staff" ? (
-                    <td className="px-3 py-2 text-xs text-muted-foreground">
-                      {r.expectedReturnAt
-                        ? new Date(r.expectedReturnAt).toLocaleString(undefined, {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "—"}
-                    </td>
-                  ) : null}
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {daysSince(r.locationSince)}
-                  </td>
-                  <td className="px-3 py-2 text-right">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="gap-1"
-                      onClick={() => onRequestMove(r.id)}
-                    >
-                      Move <MoveRight className="size-3.5" />
-                    </Button>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+                  </Link>
+                  <div className="truncate text-xs text-muted-foreground">
+                    {r.stockId}
+                    {context ? ` · ${context}` : ""}
+                    {back ? ` · back ${back}` : ""}
+                  </div>
+                </div>
+                {r.outForTestDrive ? (
+                  <LocationBadge
+                    location={r.currentLocation}
+                    outForTestDrive
+                    testDriveExpectedBackAt={r.testDriveExpectedBackAt}
+                    compact
+                  />
+                ) : null}
+                <StatusPill status={r.status} />
+                <span className="inline-flex w-20 shrink-0 items-center justify-end gap-1 text-xs tabular-nums text-muted-foreground">
+                  <Clock className="size-3" />
+                  {daysSince(r.locationSince)}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  className="shrink-0 gap-1"
+                  onClick={() => onRequestMove(r.id)}
+                >
+                  Move <MoveRight className="size-3.5" />
+                </Button>
+              </li>
+            );
+          })
+        )}
+      </ul>
 
       {rows !== null ? (
         <div className="text-xs text-muted-foreground">
@@ -353,17 +352,30 @@ export function LocationTab({
   );
 }
 
-function SkeletonRows({ colCount }: { colCount: number }) {
+/** Expected-back timestamp for the staff sub-line ("· back 21 Jun, 14:30"). */
+function formatBack(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function ListSkeleton() {
   return (
     <>
       {Array.from({ length: 6 }).map((_, i) => (
-        <tr key={i} className="border-t">
-          {Array.from({ length: colCount }).map((__, j) => (
-            <td key={j} className="px-3 py-3">
-              <Skeleton className="h-3 w-full" />
-            </td>
-          ))}
-        </tr>
+        <li key={i} className="flex items-center gap-4 px-4 py-3">
+          <Skeleton className="h-5 w-16 shrink-0 rounded" />
+          <div className="min-w-0 flex-1 space-y-1.5">
+            <Skeleton className="h-3 w-40" />
+            <Skeleton className="h-2.5 w-24" />
+          </div>
+          <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+          <Skeleton className="h-3 w-10 shrink-0" />
+          <Skeleton className="h-7 w-16 shrink-0 rounded-md" />
+        </li>
       ))}
     </>
   );

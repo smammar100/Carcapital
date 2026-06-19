@@ -18,7 +18,7 @@ import { locationService } from "@/lib/services/location-service";
 import { vendorService } from "@/lib/services/vendor-service";
 import { teamService } from "@/lib/services/team-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LocationTab } from "@/components/locations/location-tab";
 import { MoveDialog } from "@/components/locations/move-dialog";
 
@@ -135,37 +135,26 @@ export default function LocationsPage() {
         </div>
       </header>
 
-      {/* Tab row with live counts */}
-      <div className="flex flex-wrap items-end gap-1 border-b">
-        {VEHICLE_LOCATIONS.map((loc) => {
-          const active = loc === activeTab;
-          const count = counts?.[loc] ?? null;
-          return (
-            <button
-              key={loc}
-              type="button"
-              onClick={() => setTab(loc)}
-              className={cn(
-                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm transition-colors",
-                active
-                  ? "border-foreground font-semibold text-foreground"
-                  : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
-              aria-pressed={active}
-            >
-              <span>{VEHICLE_LOCATION_LABELS[loc]}</span>
-              <span
-                className={cn(
-                  "rounded-full px-1.5 py-0.5 text-xs tabular-nums",
-                  active ? "bg-foreground/10" : "bg-muted",
-                )}
-              >
-                {count ?? "·"}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Location tabs — shared design-system Tabs (matches Invoicing etc.),
+          with a live count badge per tab. */}
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => setTab(v as VehicleLocation)}
+      >
+        <TabsList>
+          {VEHICLE_LOCATIONS.map((loc) => {
+            const count = counts?.[loc] ?? null;
+            return (
+              <TabsTrigger key={loc} value={loc} className="group">
+                {VEHICLE_LOCATION_LABELS[loc]}
+                <span className="rounded-full bg-background px-1.5 text-xs tabular-nums text-muted-foreground group-data-[active]:bg-muted">
+                  {count ?? "·"}
+                </span>
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+      </Tabs>
 
       {/* Tab pane */}
       <LocationTab

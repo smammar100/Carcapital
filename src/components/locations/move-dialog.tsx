@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  Check,
+  ParkingSquare,
+  UserRound,
+  Warehouse,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -33,6 +42,13 @@ import {
   type Vendor,
 } from "@/lib/types";
 import { locationService } from "@/lib/services/location-service";
+
+const LOCATION_ICON: Record<VehicleLocation, LucideIcon> = {
+  forecourt: Warehouse,
+  yard: ParkingSquare,
+  garage: Wrench,
+  staff: UserRound,
+};
 
 interface MoveDialogProps {
   open: boolean;
@@ -179,30 +195,50 @@ export function MoveDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <DialogPanel className="space-y-4">
           {/* Destination radio group */}
           <fieldset className="space-y-2">
             <legend className="text-sm font-medium">Move to</legend>
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-2">
               {VEHICLE_LOCATIONS.map((loc) => {
                 const isCurrent = loc === vehicle.currentLocation;
                 const isActive = destination === loc;
+                const Icon = LOCATION_ICON[loc];
                 return (
                   <button
                     key={loc}
                     type="button"
                     disabled={isCurrent}
                     onClick={() => setDestination(loc)}
+                    aria-pressed={isActive}
                     className={cn(
-                      "flex items-center justify-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors",
-                      isActive
-                        ? "border-foreground/40 bg-muted text-foreground"
-                        : "border-transparent text-muted-foreground hover:bg-muted/60",
-                      isCurrent && "cursor-not-allowed opacity-50 hover:bg-transparent",
+                      "relative flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left text-sm font-medium transition-colors",
+                      isCurrent
+                        ? "cursor-not-allowed border-dashed border-border bg-muted/40 text-muted-foreground"
+                        : isActive
+                          ? "border-primary bg-primary/5 text-foreground ring-1 ring-primary"
+                          : "border-border text-foreground hover:border-foreground/30 hover:bg-muted/50",
                     )}
                   >
-                    {VEHICLE_LOCATION_LABELS[loc]}
-                    {isCurrent ? " (current)" : ""}
+                    <Icon
+                      className={cn(
+                        "size-4 shrink-0",
+                        isActive ? "text-primary" : "text-muted-foreground",
+                      )}
+                    />
+                    <span className="flex min-w-0 flex-col leading-tight">
+                      <span className="truncate">
+                        {VEHICLE_LOCATION_LABELS[loc]}
+                      </span>
+                      {isCurrent ? (
+                        <span className="text-xs font-normal text-muted-foreground">
+                          Current
+                        </span>
+                      ) : null}
+                    </span>
+                    {isActive ? (
+                      <Check className="ml-auto size-4 shrink-0 text-primary" />
+                    ) : null}
                   </button>
                 );
               })}
@@ -286,7 +322,7 @@ export function MoveDialog({
               placeholder="Reason for the move (optional)…"
             />
           </div>
-        </div>
+        </DialogPanel>
 
         <DialogFooter className="gap-2 sm:gap-2">
           <Button
