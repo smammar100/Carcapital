@@ -1,125 +1,102 @@
 "use client";
 
-import { useState } from "react";
 import {
-  LayoutGrid,
-  FileText,
-  MapPin,
-  Coins,
-  ListChecks,
-  ShieldCheck,
-  Camera,
-  Megaphone,
-  CalendarDays,
-  Activity,
-  ChevronLeft,
-  PanelLeftClose,
+  Car,
+  Tag,
+  Calendar,
+  Palette,
   Gauge,
-  Warehouse,
-  Receipt,
+  Cog,
+  Fuel,
+  Hash,
+  Truck,
   Users,
+  ShieldCheck,
+  KeyRound,
+  Lock,
+  FileText,
   Wrench,
-  PoundSterling,
-  Clock,
-  TrendingUp,
+  Leaf,
+  BadgeCheck,
+  CalendarClock,
   type LucideIcon,
 } from "lucide-react";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { RegPlate } from "@/components/shared/reg-plate";
-import { KpiCard, Pill } from "@/components/vehicle-detail/primitives";
+import { Pill } from "@/components/vehicle-detail/primitives";
 
 /**
- * /prototype — Vehicle Detail LEFT-TAB options, designed to coexist with the
- * app's existing main left navbar (so the page can show TWO left rails).
- * Refs (Mobbin): Qatalog / GitBook (grouped secondary nav), Zendesk / Circle
- * (secondary rail + back), Mailchimp (collapsible groups), Revolut (panel).
+ * /prototype — Vehicle Detail "Details" tab redesign. 5 progressively-better
+ * variations. Refs (Mobbin): HODINKEE watch-details (zebra spec table),
+ * HODINKEE Omega (grouped category columns), Stripe (technical specs rows).
  */
 
-const V = { reg: "EK18 FUT", title: "2023 Ford Fiesta", variant: "ST-Line", stockId: "CC-0118", status: "Received" };
+const V = {
+  reg: "SA17 WUV",
+  makeModel: "Audi A3",
+  variant: "1.4 TFSI CoD Sport Sportback 5dr Petrol S Tronic Euro 6 (s/s) (150 ps)",
+  year: "2017",
+  colour: "Grey",
+  body: "Hatchback",
+  fuel: "Petrol",
+  transmission: "Automatic",
+  engine: "—",
+  mileage: "32,900 mi",
+  stockId: "CC-0004",
+  received: "08 Mar 2026",
+  seller: "BCA Auction · 07700900000",
+  source: "Auction (BCA Auction)",
+  serviceHistory: "Partial",
+  v5: "Yes",
+  keys: "2",
+  lockNut: "Present",
+  motExpiry: "14 Dec 2026",
+  motStatus: "Valid",
+  taxStatus: "Untaxed",
+  taxDue: "12 Dec 2025",
+  co2: "114 g/km",
+  euro: "—",
+  wheelplan: "2 Axle Rigid Body",
+  firstReg: "01 Mar 2017",
+  lastV5c: "12 Feb 2023",
+};
 
-type CheckState = "warn" | "miss";
-type Tab = { key: string; label: string; icon: LucideIcon; badge?: string; dot?: CheckState };
-const TABS: Tab[] = [
-  { key: "overview", label: "Overview", icon: LayoutGrid },
-  { key: "details", label: "Details", icon: FileText },
-  { key: "location", label: "Location", icon: MapPin },
-  { key: "financials", label: "Financials", icon: Coins },
-  { key: "todo", label: "Things to Do", icon: ListChecks, badge: "3" },
-  { key: "inspection", label: "Inspection", icon: ShieldCheck, dot: "warn" },
-  { key: "photos", label: "Photos", icon: Camera, badge: "0", dot: "miss" },
-  { key: "listing", label: "Listing", icon: Megaphone, dot: "miss" },
-  { key: "appointments", label: "Appointments", icon: CalendarDays, badge: "2" },
-  { key: "activity", label: "Activity", icon: Activity },
+type Row = { label: string; value: string; icon?: LucideIcon; pill?: "good" | "warn" | "bad" };
+
+const IDENTITY: Row[] = [
+  { label: "Make / Model", value: V.makeModel, icon: Car },
+  { label: "Variant", value: V.variant, icon: Tag },
+  { label: "Year", value: V.year, icon: Calendar },
+  { label: "Colour", value: V.colour, icon: Palette },
+  { label: "Mileage", value: V.mileage, icon: Gauge },
+  { label: "Engine", value: V.engine, icon: Cog },
+  { label: "Body", value: V.body, icon: Car },
+  { label: "Fuel", value: V.fuel, icon: Fuel },
+  { label: "Transmission", value: V.transmission, icon: Cog },
 ];
-const GROUPS: { label: string; keys: string[] }[] = [
-  { label: "Vehicle", keys: ["overview", "details", "location"] },
-  { label: "Commercial", keys: ["financials", "listing"] },
-  { label: "Operations", keys: ["todo", "inspection", "photos", "appointments"] },
-  { label: "History", keys: ["activity"] },
+const ACQUISITION: Row[] = [
+  { label: "Stock ID", value: V.stockId, icon: Hash },
+  { label: "Received", value: V.received, icon: Calendar },
+  { label: "Seller", value: V.seller, icon: Users },
+  { label: "Purchase Source", value: V.source, icon: Truck },
+  { label: "Service History", value: V.serviceHistory, icon: Wrench },
 ];
-const DOT: Record<CheckState, string> = { warn: "bg-amber-500", miss: "bg-rose-500" };
-
-/* ---- faux MAIN navbar (the existing app sidebar) ---- */
-const MAIN = [
-  { label: "Dashboard", icon: Gauge },
-  { label: "Master Sheet", icon: FileText },
-  { label: "Vehicles", icon: Warehouse, active: true },
-  { label: "Locations", icon: MapPin },
-  { label: "Invoicing", icon: Receipt },
-  { label: "Vendors", icon: Users },
-  { label: "Workshop", icon: Wrench },
+const DOCS: Row[] = [
+  { label: "V5 Received", value: V.v5, icon: FileText },
+  { label: "Keys", value: V.keys, icon: KeyRound },
+  { label: "Lock Nut", value: V.lockNut, icon: Lock },
+  { label: "MOT Expiry", value: V.motExpiry, icon: CalendarClock },
 ];
-
-function MainNav() {
-  return (
-    <div className="hidden w-[180px] shrink-0 flex-col gap-0.5 rounded-l-xl border-r border-border bg-background p-2 md:flex">
-      <div className="mb-2 flex items-center gap-2 px-2 py-1">
-        <span className="grid size-7 place-items-center rounded-md bg-primary text-2xs font-bold text-primary-foreground">CC</span>
-        <span className="text-sm font-semibold">Car Capital</span>
-      </div>
-      {MAIN.map((m) => (
-        <div key={m.label} className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm", m.active ? "bg-muted font-medium text-foreground" : "text-muted-foreground")}>
-          <m.icon className="size-4 shrink-0" /> <span className="truncate">{m.label}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/* ---- shared content stub (the active tab body) ---- */
-function ContentStub({ pad = true }: { pad?: boolean }) {
-  return (
-    <div className={cn("flex min-w-0 flex-1 flex-col gap-4", pad && "p-5")}>
-      <div className="flex flex-wrap items-center gap-3">
-        <RegPlate registration={V.reg} size="md" />
-        <div>
-          <div className="text-base font-semibold leading-tight">{V.title}</div>
-          <div className="text-xs text-muted-foreground">{V.variant} · {V.stockId}</div>
-        </div>
-        <Pill tone="info">{V.status}</Pill>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard icon={PoundSterling} label="Web Price" value={formatCurrency(16995)} hint="Floor £14,500" />
-        <KpiCard icon={Clock} label="Days in Stock" value={23} hint="£12 / day" />
-        <KpiCard icon={TrendingUp} label="AT Retail" value={formatCurrency(17400)} hint="Within market" />
-        <KpiCard icon={Coins} label="Net Profit" value={formatCurrency(2946)} hint="Margin scheme" />
-      </div>
-      <div className="rounded-xl border border-border bg-background p-4">
-        <div className="text-sm font-semibold">Advert Completeness</div>
-        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted"><div className="h-full w-[43%] rounded-full bg-emerald-500" /></div>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-muted-foreground sm:grid-cols-3">
-          {["Make / Model", "Photos", "Description", "Pricing", "MOT", "Channels"].map((x) => (
-            <div key={x} className="rounded-md border border-border px-2 py-1.5">{x}</div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function PageFrame({ children }: { children: React.ReactNode }) {
-  return <div className="flex overflow-hidden rounded-xl border border-border bg-muted/20">{children}</div>;
-}
+const COMPLIANCE: Row[] = [
+  { label: "MOT Status", value: V.motStatus, icon: ShieldCheck, pill: "good" },
+  { label: "Tax Status", value: V.taxStatus, icon: BadgeCheck, pill: "warn" },
+  { label: "Tax Due", value: V.taxDue, icon: CalendarClock },
+  { label: "CO₂ Emissions", value: V.co2, icon: Leaf },
+  { label: "Euro Status", value: V.euro, icon: Leaf },
+  { label: "Wheelplan", value: V.wheelplan, icon: Car },
+  { label: "First Registered", value: V.firstReg, icon: Calendar },
+  { label: "Last V5C Issued", value: V.lastV5c, icon: FileText },
+];
 
 /* ============================================================ page */
 
@@ -127,27 +104,25 @@ export default function PrototypePage() {
   return (
     <div className="min-h-screen bg-muted/30 p-6 text-foreground">
       <header className="mb-6">
-        <h1 className="text-xl font-semibold tracking-tight">Prototype — Vehicle Detail left tabs (with the main navbar)</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Prototype — Vehicle Detail “Details” tab · 5 variations</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Each option shows the existing <strong>main navbar</strong> (left) + the vehicle-detail
-          tab rail beside it, so you can judge the two-rail balance. Pick L-A…L-E.
+          Pick a winner (A–E). CarCap tokens + components, Mobbin-referenced (HODINKEE / Stripe spec sheets). Toggle OS dark mode to preview both.
         </p>
       </header>
-
       <div className="flex flex-col gap-10">
-        <Frame label="L-A — Nested secondary rail" sub="Qatalog / GitBook — slim second column with a back link + vehicle context on top, then the tab list">
+        <Frame label="A — Zebra spec tables" sub="HODINKEE watch details — tidy striped key/value rows; smallest jump from today">
           <VariationA />
         </Frame>
-        <Frame label="L-B — Grouped secondary rail" sub="GitBook / Qatalog — tabs grouped under section headers (Vehicle / Commercial / Operations / History) to tame the long list">
+        <Frame label="B — Grouped category columns" sub="HODINKEE Omega — a category rail on the left, attributes in columns; editorial + dense">
           <VariationB />
         </Frame>
-        <Frame label="L-C — In-content tab card (single full-height rail)" sub="Avoids a 2nd full-height rail: tabs live as a sticky card INSIDE the content, so only the main navbar is a true rail">
+        <Frame label="C — Icon-led definition cards" sub="Stripe specs — each attribute is an icon + label + value tile; compliance carries status pills">
           <VariationC />
         </Frame>
-        <Frame label="L-D — Icon-only rail, expands on hover" sub="Zendesk-style — second rail is icon-only to save width next to the main nav; labels on hover/pin">
+        <Frame label="D — Identity hero + grouped sections" sub="Adds hierarchy: a reg/identity strip on top, then compact grouped cards with status pills">
           <VariationD />
         </Frame>
-        <Frame label="L-E — Context rail (recommended)" sub="Second rail leads with reg plate + photo + status + quick actions, then the tabs — turns the rail into a useful context panel, not just nav">
+        <Frame label="E — Hero + spec sheet + status-forward compliance (recommended)" sub="Hero strip · grouped spec rails · compliance as a colour-coded status panel · DVLA/AutoTrader provenance footer">
           <VariationE />
         </Frame>
       </div>
@@ -159,141 +134,222 @@ function Frame({ label, sub, children }: { label: string; sub: string; children:
   return (
     <section>
       <div className="mb-3"><h2 className="text-sm font-semibold">{label}</h2><p className="text-xs text-muted-foreground">{sub}</p></div>
-      {children}
+      <div className="rounded-xl border border-border bg-card p-5 shadow-sm">{children}</div>
     </section>
   );
 }
 
-function TabBtn({ t, active, onClick }: { t: Tab; active: boolean; onClick: () => void }) {
+function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <button onClick={onClick}
-      className={cn("flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
-        active ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50 hover:text-foreground")}>
-      <t.icon className={cn("size-4 shrink-0", active ? "text-primary" : "text-muted-foreground")} />
-      <span className="truncate">{t.label}</span>
-      {t.badge && <span className={cn("ml-auto rounded-full px-1.5 text-2xs font-medium tabular-nums", active ? "bg-background" : "bg-muted text-muted-foreground")}>{t.badge}</span>}
-      {t.dot && !t.badge && <span className={cn("ml-auto size-1.5 rounded-full", DOT[t.dot])} />}
-    </button>
+    <div className="mb-3 flex items-center gap-3">
+      <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{children}</span>
+      <div className="h-px flex-1 bg-border" />
+    </div>
   );
 }
 
+function ValuePill({ row }: { row: Row }) {
+  if (row.pill) return <Pill tone={row.pill}>{row.value}</Pill>;
+  return <span className="text-sm tabular-nums">{row.value}</span>;
+}
+
 /* ---------------------------------------------------------------- A */
-function VariationA() {
-  const [a, setA] = useState("overview");
+function ZebraTable({ rows }: { rows: Row[] }) {
   return (
-    <PageFrame>
-      <MainNav />
-      <div className="w-[208px] shrink-0 border-r border-border bg-background/60 p-2">
-        <button className="mb-2 flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" /> Back to inventory</button>
-        <div className="mb-2 flex items-center gap-2 rounded-lg bg-muted/60 px-2.5 py-2">
-          <RegPlate registration={V.reg} size="sm" />
-          <div className="min-w-0"><div className="truncate text-xs font-semibold">{V.title}</div><div className="text-2xs text-muted-foreground">{V.stockId}</div></div>
-        </div>
-        <nav className="flex flex-col gap-0.5">{TABS.map((t) => <TabBtn key={t.key} t={t} active={a === t.key} onClick={() => setA(t.key)} />)}</nav>
-      </div>
-      <ContentStub />
-    </PageFrame>
+    <div className="overflow-hidden rounded-xl border border-border bg-background">
+      <table className="w-full text-sm">
+        <tbody>
+          {rows.map((r, i) => (
+            <tr key={r.label} className={cn(i % 2 === 1 && "bg-muted/40")}>
+              <th scope="row" className="w-2/5 px-4 py-2.5 text-left align-top font-medium text-muted-foreground">{r.label}</th>
+              <td className="px-4 py-2.5"><ValuePill row={r} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+function VariationA() {
+  return (
+    <div className="grid gap-6 lg:grid-cols-2">
+      <div><SectionLabel>Vehicle Details</SectionLabel><ZebraTable rows={[...IDENTITY, ...ACQUISITION, ...DOCS]} /></div>
+      <div><SectionLabel>Registration & Compliance</SectionLabel><ZebraTable rows={COMPLIANCE} /></div>
+    </div>
   );
 }
 
 /* ---------------------------------------------------------------- B */
-function VariationB() {
-  const [a, setA] = useState("overview");
+function GroupBlock({ label, rows, cols = 3 }: { label: string; rows: Row[]; cols?: number }) {
   return (
-    <PageFrame>
-      <MainNav />
-      <div className="w-[208px] shrink-0 border-r border-border bg-background/60 p-2">
-        <button className="mb-2 flex items-center gap-1.5 px-2 py-1 text-xs text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" /> Back to inventory</button>
-        <nav className="flex flex-col gap-3">
-          {GROUPS.map((g) => (
-            <div key={g.label}>
-              <div className="px-2.5 pb-1 text-2xs font-semibold uppercase tracking-wide text-muted-foreground">{g.label}</div>
-              <div className="flex flex-col gap-0.5">
-                {g.keys.map((k) => { const t = TABS.find((x) => x.key === k)!; return <TabBtn key={k} t={t} active={a === k} onClick={() => setA(k)} />; })}
-              </div>
-            </div>
-          ))}
-        </nav>
+    <div className="grid gap-4 border-t border-border py-5 first:border-t-0 first:pt-0 md:grid-cols-[140px_1fr]">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className={cn("grid gap-x-8 gap-y-4 sm:grid-cols-2", cols === 3 && "lg:grid-cols-3")}>
+        {rows.map((r) => (
+          <div key={r.label}>
+            <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{r.label}</div>
+            <div className="mt-1"><ValuePill row={r} /></div>
+          </div>
+        ))}
       </div>
-      <ContentStub />
-    </PageFrame>
+    </div>
+  );
+}
+function VariationB() {
+  return (
+    <div className="rounded-xl border border-border bg-background p-5">
+      <GroupBlock label="Identity" rows={IDENTITY} />
+      <GroupBlock label="Acquisition" rows={ACQUISITION} />
+      <GroupBlock label="Documentation" rows={DOCS} />
+      <GroupBlock label="Compliance" rows={COMPLIANCE} />
+    </div>
   );
 }
 
 /* ---------------------------------------------------------------- C */
-function VariationC() {
-  const [a, setA] = useState("overview");
+function IconTile({ r }: { r: Row }) {
+  const Icon = r.icon ?? Car;
   return (
-    <PageFrame>
-      <MainNav />
-      {/* No 2nd full-height rail — tabs are a card inside the content */}
-      <div className="flex min-w-0 flex-1 gap-4 p-5">
-        <aside className="hidden w-[200px] shrink-0 lg:block">
-          <div className="sticky top-4 rounded-xl border border-border bg-background p-2">
-            <nav className="flex flex-col gap-0.5">{TABS.map((t) => <TabBtn key={t.key} t={t} active={a === t.key} onClick={() => setA(t.key)} />)}</nav>
-          </div>
-        </aside>
-        <ContentStub pad={false} />
+    <div className="flex items-start gap-3 rounded-lg border border-border bg-background p-3">
+      <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"><Icon className="size-4" /></span>
+      <div className="min-w-0">
+        <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{r.label}</div>
+        <div className="mt-0.5 truncate text-sm"><ValuePill row={r} /></div>
       </div>
-    </PageFrame>
+    </div>
+  );
+}
+function VariationC() {
+  return (
+    <div className="flex flex-col gap-6">
+      <div><SectionLabel>Vehicle Details</SectionLabel>
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">{[...IDENTITY, ...ACQUISITION, ...DOCS].map((r) => <IconTile key={r.label} r={r} />)}</div>
+      </div>
+      <div><SectionLabel>Registration & Compliance</SectionLabel>
+        <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">{COMPLIANCE.map((r) => <IconTile key={r.label} r={r} />)}</div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------- D + E shared hero */
+function IdentityHero({ compact }: { compact?: boolean }) {
+  return (
+    <div className={cn("flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-border bg-gradient-to-br from-primary/5 to-transparent p-4", !compact && "sm:p-5")}>
+      <div className="flex items-center gap-3">
+        <RegPlate registration={V.reg} size="lg" />
+        <div>
+          <div className="text-lg font-semibold leading-tight">{V.year} {V.makeModel}</div>
+          <div className="max-w-md text-xs text-muted-foreground">{V.variant}</div>
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Pill tone="neutral">{V.stockId}</Pill>
+        <Pill tone="neutral">{V.mileage}</Pill>
+        <Pill tone="neutral">{V.fuel}</Pill>
+        <Pill tone="neutral">{V.transmission}</Pill>
+        <Pill tone="neutral">{V.colour}</Pill>
+      </div>
+    </div>
   );
 }
 
 /* ---------------------------------------------------------------- D */
-function VariationD() {
-  const [a, setA] = useState("overview");
+function MiniCard({ title, icon: Icon, rows }: { title: string; icon: LucideIcon; rows: Row[] }) {
   return (
-    <PageFrame>
-      <MainNav />
-      <div className="group/rail w-[56px] shrink-0 overflow-hidden border-r border-border bg-background/60 p-2 transition-[width] duration-200 hover:w-[208px]">
-        <div className="mb-2 flex h-7 items-center gap-1.5 px-1.5 text-muted-foreground">
-          <PanelLeftClose className="size-4 shrink-0" />
-          <span className="whitespace-nowrap text-2xs opacity-0 transition-opacity group-hover/rail:opacity-100">Sections</span>
-        </div>
-        <nav className="flex flex-col gap-0.5">
-          {TABS.map((t) => {
-            const on = a === t.key;
-            return (
-              <button key={t.key} onClick={() => setA(t.key)} title={t.label}
-                className={cn("flex items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm", on ? "bg-muted font-medium text-foreground" : "text-muted-foreground hover:bg-muted/50")}>
-                <span className="relative shrink-0">
-                  <t.icon className={cn("size-4", on ? "text-primary" : "text-muted-foreground")} />
-                  {t.dot && <span className={cn("absolute -right-0.5 -top-0.5 size-1.5 rounded-full", DOT[t.dot])} />}
-                </span>
-                <span className="truncate whitespace-nowrap opacity-0 transition-opacity group-hover/rail:opacity-100">{t.label}</span>
-                {t.badge && <span className="ml-auto whitespace-nowrap rounded-full bg-muted px-1.5 text-2xs opacity-0 transition-opacity group-hover/rail:opacity-100">{t.badge}</span>}
-              </button>
-            );
-          })}
-        </nav>
+    <div className="rounded-xl border border-border bg-background">
+      <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+        <Icon className="size-4 text-muted-foreground" /><span className="text-sm font-semibold">{title}</span>
       </div>
-      <ContentStub />
-    </PageFrame>
+      <div className="grid gap-x-6 gap-y-3 p-4 sm:grid-cols-2">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-center justify-between gap-3">
+            <span className="text-xs text-muted-foreground">{r.label}</span>
+            <span className="text-right text-sm"><ValuePill row={r} /></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function VariationD() {
+  return (
+    <div className="flex flex-col gap-4">
+      <IdentityHero />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <MiniCard title="Identity" icon={Car} rows={IDENTITY} />
+        <MiniCard title="Acquisition" icon={Truck} rows={ACQUISITION} />
+        <MiniCard title="Documentation" icon={FileText} rows={DOCS} />
+        <MiniCard title="Registration & Compliance" icon={ShieldCheck} rows={COMPLIANCE} />
+      </div>
+    </div>
   );
 }
 
 /* ---------------------------------------------------------------- E */
-function VariationE() {
-  const [a, setA] = useState("overview");
+function SpecRail({ label, rows }: { label: string; rows: Row[] }) {
   return (
-    <PageFrame>
-      <MainNav />
-      <div className="w-[230px] shrink-0 border-r border-border bg-background/60">
-        {/* pinned context */}
-        <div className="border-b border-border p-3">
-          <button className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"><ChevronLeft className="size-3.5" /> Inventory</button>
-          <div className="grid h-24 w-full place-items-center rounded-lg bg-muted text-muted-foreground"><Camera className="size-5" /></div>
-          <div className="mt-2 flex items-center gap-2"><RegPlate registration={V.reg} size="sm" /><Pill tone="info">{V.status}</Pill></div>
-          <div className="mt-1 text-sm font-semibold leading-tight">{V.title}</div>
-          <div className="text-2xs text-muted-foreground">{V.variant} · {V.stockId}</div>
-          <div className="mt-2 grid grid-cols-2 gap-1.5">
-            <button className="rounded-md border border-border bg-background px-2 py-1 text-2xs font-medium hover:bg-muted">Advert</button>
-            <button className="rounded-md bg-primary px-2 py-1 text-2xs font-medium text-primary-foreground hover:bg-primary/90">Inspect</button>
+    <div className="grid gap-3 border-t border-border py-4 first:border-t-0 first:pt-0 md:grid-cols-[120px_1fr]">
+      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="grid gap-x-8 gap-y-3 sm:grid-cols-2">
+        {rows.map((r) => (
+          <div key={r.label} className="flex items-baseline justify-between gap-3 border-b border-dashed border-border/70 pb-1.5">
+            <span className="text-xs text-muted-foreground">{r.label}</span>
+            <span className="text-right text-sm"><ValuePill row={r} /></span>
           </div>
-        </div>
-        <nav className="flex flex-col gap-0.5 p-2">{TABS.map((t) => <TabBtn key={t.key} t={t} active={a === t.key} onClick={() => setA(t.key)} />)}</nav>
+        ))}
       </div>
-      <ContentStub />
-    </PageFrame>
+    </div>
+  );
+}
+function ComplianceStatus() {
+  const tone = (p?: "good" | "warn" | "bad") => p ?? ("neutral" as const);
+  return (
+    <div className="rounded-xl border border-border bg-background">
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold"><ShieldCheck className="size-4 text-muted-foreground" /> Registration & Compliance</span>
+        <span className="text-2xs text-muted-foreground">via DVLA + DVSA</span>
+      </div>
+      {/* status row */}
+      <div className="grid grid-cols-2 gap-3 border-b border-border p-4 sm:grid-cols-4">
+        {[
+          { k: "MOT", v: V.motStatus, p: "good" as const },
+          { k: "Tax", v: V.taxStatus, p: "warn" as const },
+          { k: "CO₂", v: V.co2, p: undefined },
+          { k: "Euro", v: V.euro, p: undefined },
+        ].map((s) => (
+          <div key={s.k} className="rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <div className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{s.k}</div>
+            <div className="mt-1"><Pill tone={tone(s.p)}>{s.v}</Pill></div>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-x-8 gap-y-3 p-4 sm:grid-cols-2">
+        {[
+          ["Tax Due", V.taxDue], ["Wheelplan", V.wheelplan],
+          ["First Registered", V.firstReg], ["Last V5C Issued", V.lastV5c],
+        ].map(([k, v]) => (
+          <div key={k} className="flex items-baseline justify-between gap-3 border-b border-dashed border-border/70 pb-1.5">
+            <span className="text-xs text-muted-foreground">{k}</span><span className="text-sm tabular-nums">{v}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+function VariationE() {
+  return (
+    <div className="flex flex-col gap-4">
+      <IdentityHero />
+      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+        <div className="rounded-xl border border-border bg-background p-5">
+          <SpecRail label="Identity" rows={IDENTITY} />
+          <SpecRail label="Acquisition" rows={ACQUISITION} />
+          <SpecRail label="Documents" rows={DOCS} />
+        </div>
+        <ComplianceStatus />
+      </div>
+      <p className="text-2xs text-muted-foreground">Spec captured at intake from DVLA + AutoTrader · last verified 19 Jun 2026.</p>
+    </div>
   );
 }

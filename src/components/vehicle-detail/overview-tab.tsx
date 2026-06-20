@@ -118,6 +118,7 @@ export function OverviewTab({ vehicle, onVehiclePatch }: OverviewTabProps) {
               MarketplacePanel anchors the bottom. */}
           <ValuationPanel
             vehicle={vehicle}
+            webPrice={webPrice}
             onVehiclePatch={onVehiclePatch}
           />
           <VehicleLocationSection vehicle={vehicle} />
@@ -279,9 +280,11 @@ function updatedLabel(iso: string | null | undefined): string {
 
 function ValuationPanel({
   vehicle,
+  webPrice,
   onVehiclePatch,
 }: {
   vehicle: Vehicle;
+  webPrice: number;
   onVehiclePatch?: (patch: Partial<Vehicle>) => void;
 }) {
   const [refreshing, setRefreshing] = useState(false);
@@ -380,7 +383,70 @@ function ValuationPanel({
           highlight
         />
       </div>
+      <PriceMeter
+        webPrice={webPrice}
+        trade={vehicle.atTradeValuation ?? null}
+        retail={vehicle.atRetailValuation ?? null}
+      />
     </Panel>
+  );
+}
+
+/**
+ * Price-vs-market meter folded into the valuation card — shows where our web
+ * price sits on the Trade→Retail band with a marker + a tone-coded verdict
+ * chip. Hidden until we have both AutoTrader bounds and a web price.
+ */
+function PriceMeter({
+  webPrice,
+  trade,
+  retail,
+}: {
+  webPrice: number;
+  trade: number | null;
+  retail: number | null;
+}) {
+  if (!webPrice || trade == null || retail == null || retail <= trade) {
+    return null;
+  }
+  const pos = Math.max(0, Math.min(1, (webPrice - trade) / (retail - trade))) * 100;
+  const ratio = webPrice / retail;
+  const verdict =
+    ratio <= 0.97
+      ? { label: "Below market", cls: "bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300" }
+      : ratio <= 1.03
+        ? { label: "Within market", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" }
+        : { label: "Above market", cls: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300" };
+
+  return (
+    <div className="border-t px-4 pb-4 pt-3">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Your price vs market
+        </span>
+        <span
+          className={cn(
+            "rounded-full px-2 py-0.5 text-2xs font-medium",
+            verdict.cls,
+          )}
+        >
+          {verdict.label}
+        </span>
+      </div>
+      <div className="relative h-2 rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400">
+        <div
+          className="absolute -top-1 size-4 -translate-x-1/2 rounded-full border-2 border-background bg-foreground shadow"
+          style={{ left: `${pos}%` }}
+        />
+      </div>
+      <div className="mt-2 flex justify-between text-2xs tabular-nums text-muted-foreground">
+        <span>Trade {formatCurrency(trade)}</span>
+        <span className="font-semibold text-foreground">
+          You {formatCurrency(webPrice)}
+        </span>
+        <span>Retail {formatCurrency(retail)}</span>
+      </div>
+    </div>
   );
 }
 
