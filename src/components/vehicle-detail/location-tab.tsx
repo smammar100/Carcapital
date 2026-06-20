@@ -2,13 +2,24 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "@/lib/toast";
-import { ArrowRight, Clock, MapPin } from "lucide-react";
+import {
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  MapPin,
+  ParkingSquare,
+  UserRound,
+  Warehouse,
+  Wrench,
+  type LucideIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import {
+  VEHICLE_LOCATIONS,
   VEHICLE_LOCATION_LABELS,
   type LocationMovement,
   type UUID,
@@ -22,12 +33,25 @@ import { vendorService } from "@/lib/services/vendor-service";
 import { teamService } from "@/lib/services/team-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { MoveDialog } from "@/components/locations/move-dialog";
-import { EmptyState } from "@/components/shared/empty-state";
 import {
   Timeline,
   TimelineItem,
   type TimelineTone,
 } from "@/components/shared/timeline";
+
+const LOCATION_ICON: Record<VehicleLocation, LucideIcon> = {
+  forecourt: Warehouse,
+  yard: ParkingSquare,
+  garage: Wrench,
+  staff: UserRound,
+};
+
+const OFF_SITE: Record<VehicleLocation, boolean> = {
+  forecourt: false,
+  yard: false,
+  garage: true,
+  staff: true,
+};
 
 const TO_LOCATION_TONE: Record<VehicleLocation, TimelineTone> = {
   forecourt: "emerald",
@@ -243,7 +267,37 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
         ) : null}
       </div>
 
-      {/* Full chronological timeline */}
+      {/* Presence strip — the 4 locations, current marked "Here now" */}
+      <div className="flex flex-wrap gap-2">
+        {VEHICLE_LOCATIONS.map((loc) => {
+          const meta = LOCATION_TONE[loc];
+          const Icon = LOCATION_ICON[loc];
+          const on = loc === vehicle.currentLocation;
+          return (
+            <div
+              key={loc}
+              className={cn(
+                "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm",
+                on
+                  ? cn("border-transparent ring-1", meta.surface, meta.ring, meta.text)
+                  : "border-border text-muted-foreground",
+              )}
+            >
+              <Icon className="size-4" />
+              {VEHICLE_LOCATION_LABELS[loc]}
+              {on ? (
+                <span className="rounded-full bg-background/70 px-1.5 text-2xs font-medium">
+                  Here now
+                </span>
+              ) : OFF_SITE[loc] ? (
+                <span className={cn("size-1.5 rounded-full", meta.dot)} aria-hidden />
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Full chronological timeline — always anchored by the arrival node */}
       <section>
         <h3 className="mb-3 text-sm font-medium">Movement history</h3>
 
@@ -253,12 +307,6 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
               <Skeleton key={i} className="h-20 w-full" />
             ))}
           </div>
-        ) : movements.length === 0 ? (
-          <EmptyState
-            icon={MapPin}
-            title="No movements recorded yet"
-            description="This vehicle hasn't moved since arrival. Use Move to relocate it."
-          />
         ) : (
           <Timeline>
             {movements.map((m) => {
@@ -350,6 +398,27 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
                 </TimelineItem>
               );
             })}
+
+            {/* Arrival anchor — always the origin of the timeline, so the
+                tab never reads as empty even before the first move. */}
+            <TimelineItem
+              icon={CheckCircle2}
+              tone="slate"
+              timestamp={
+                <>
+                  {new Date(vehicle.receivedDate).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                  {staffNames[vehicle.receivedBy]
+                    ? ` · ${staffNames[vehicle.receivedBy]}`
+                    : ""}
+                </>
+              }
+            >
+              <span className="font-medium">Arrived in stock</span>
+            </TimelineItem>
           </Timeline>
         )}
       </section>
