@@ -133,8 +133,8 @@ export default function ExternalWarrantiesPage() {
             External Warranties
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Third-party warranties sold with vehicles. Track which need
-            purchasing from providers.
+            Third-party warranties sold alongside vehicles. See which still need
+            purchasing from the provider.
           </p>
         </div>
         <Button type="button" onClick={() => setNewWarrantyOpen(true)}>

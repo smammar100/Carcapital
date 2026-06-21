@@ -99,7 +99,8 @@ export default function MaintenanceCalendarPage() {
             Maintenance Calendar
           </h1>
           <p className="text-sm text-muted-foreground">
-            Jobs colored by status — click an event to view or edit.
+            All maintenance and inspection jobs on one calendar, colour-coded by
+            status. Click an event to view or edit it.
           </p>
         </div>
         <Button size="sm" onClick={() => setAddOpen(true)}>

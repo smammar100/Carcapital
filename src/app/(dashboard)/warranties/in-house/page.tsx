@@ -131,8 +131,8 @@ export default function InHouseWarrantiesPage() {
             In-House Warranties
           </h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Warranties Car Capital provides directly to buyers. Track active
-            coverage, expirations, and claims.
+            Warranties Car Capital provides to buyers directly. Track active
+            cover, expiry dates, and any claims.
           </p>
         </div>
         <Button type="button" onClick={() => setNewWarrantyOpen(true)}>

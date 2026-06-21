@@ -90,8 +90,8 @@ export default function MaintenanceInspectionListPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Inspection Queue</h1>
         <p className="text-sm text-muted-foreground">
-          Pending vehicles need a 20-point inspection; completed ones move across
-          automatically. Click a row to open the inspection side panel.
+          Vehicles waiting on their 20-point inspection. Run a check and cars
+          move through automatically once it is done.
         </p>
       </div>
 

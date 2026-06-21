@@ -302,7 +302,8 @@ export default function InvoicingPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Invoicing</h1>
           <p className="text-sm text-muted-foreground">
-            Sales + refunds, purchase invoices, and external-job invoices.
+            Every invoice in one place: customer sales and refunds, supplier
+            purchase invoices, and external job bills.
           </p>
         </div>
         {topTab === "sales" ? (

@@ -133,8 +133,8 @@ export default function PhotoProcessingPage() {
           Photo Processing
         </h1>
         <p className="text-sm text-muted-foreground">
-          Mock background-removal toggle, 10 backdrop swatches, and AI image
-          generation (cars + backdrops) via OpenAI <code>gpt-image-1</code>.
+          Prepare vehicle photos for advertising. Remove backgrounds, apply
+          backdrops, and generate AI images.
         </p>
       </div>
       {!vehicles ? (

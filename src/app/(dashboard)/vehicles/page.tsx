@@ -101,8 +101,8 @@ export default function VehiclesPage() {
       title="All Vehicles"
       helper={
         <PageHelper>
-          Every car since the business opened. Sold, unsold, returned, all of
-          them. For historical analysis and reporting.
+          Every vehicle you have taken in, sold or unsold, in one wide grid.
+          Open any car to manage it end to end.
         </PageHelper>
       }
       cols={COLS}

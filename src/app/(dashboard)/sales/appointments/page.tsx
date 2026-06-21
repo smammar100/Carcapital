@@ -161,7 +161,8 @@ export default function AppointmentsPage() {
               Appointments
             </h1>
             <p className="text-sm text-muted-foreground">
-              Customer test drives and viewings.
+              All booked customer test drives and viewings. Schedule new ones
+              and see what is coming up.
             </p>
           </div>
           <div className="flex items-center gap-2">

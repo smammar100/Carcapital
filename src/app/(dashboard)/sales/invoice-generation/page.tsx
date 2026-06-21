@@ -606,7 +606,8 @@ function InvoiceGenerationForm() {
             {editing ? "Edit Invoice" : "Generate Invoice"}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Two-page legal sales invoice. Draft auto-saves every 10s.
+            Create a legal, two-page sales invoice for a deal. Your draft saves
+            automatically as you go.
           </p>
         </div>
 

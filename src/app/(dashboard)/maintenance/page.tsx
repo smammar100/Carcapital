@@ -130,8 +130,8 @@ export default function MaintenancePage() {
             Maintenance Pipeline
           </h1>
           <p className="text-sm text-muted-foreground">
-            {totalJobs} {totalJobs === 1 ? "job" : "jobs"} across{" "}
-            {MAINTENANCE_STATUSES.length} stages.
+            Track every repair and prep job through its stages, from booked to
+            completed, across all your stock.
           </p>
         </div>
         <div className="flex gap-2">

@@ -81,7 +81,8 @@ export default function SalesPipelinePage() {
             Sales Pipeline
           </h1>
           <p className="text-sm text-muted-foreground">
-            8 stages from new lead to completed sale (+ lost).
+            Track every deal from new lead to completed sale across eight
+            stages, plus anything lost.
           </p>
         </div>
         <Select

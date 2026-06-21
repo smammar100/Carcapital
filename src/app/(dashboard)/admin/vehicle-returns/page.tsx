@@ -474,8 +474,8 @@ export default function ReturnsPage() {
             Vehicle Returns
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter a sold vehicle&apos;s registration to auto-fetch its sale
-            invoice + customer, then resolve to generate a refund invoice.
+            Process a sold car coming back. Enter its registration to pull the
+            original sale, then resolve it to raise a refund invoice.
           </p>
         </div>
         <Dialog

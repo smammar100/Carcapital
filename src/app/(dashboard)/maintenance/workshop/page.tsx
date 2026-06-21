@@ -134,7 +134,8 @@ export default function WorkshopPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Workshop</h1>
           <p className="text-sm text-muted-foreground">
-            External walk-in service jobs (separate from internal stock prep).
+            External, walk-in customer service jobs, kept separate from internal
+            stock preparation.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

@@ -127,7 +127,8 @@ export default function LocationsPage() {
             <MapPin className="size-5" /> Locations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Every car has exactly one location. Click a tab to view what&apos;s where.
+            See where every car physically is right now. Each vehicle sits in
+            exactly one location; use the tabs to view each.
           </p>
         </div>
         <div className="text-xs text-muted-foreground">

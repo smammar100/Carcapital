@@ -388,7 +388,8 @@ export default function ListingsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Work List</h1>
           <p className="text-sm text-muted-foreground">
-            {filtered ? `${filtered.length} listings` : "Loading…"}
+            Vehicles ready to advertise. Build each advert, set pricing, and
+            publish it to your sales channels.
           </p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>

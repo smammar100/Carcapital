@@ -35,7 +35,8 @@ export default function ListingsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Live Listings</h1>
         <p className="text-sm text-muted-foreground">
-          Vehicles currently advertised. Manage drafts and archive from the{" "}
+          Every vehicle currently advertised across your channels. Manage drafts
+          and archive from the{" "}
           <Link href="/advert/work-list" className="text-primary hover:underline">
             Work List
           </Link>

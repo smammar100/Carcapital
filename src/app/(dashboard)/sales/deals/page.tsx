@@ -44,7 +44,7 @@ export default function DealsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Closed Deals</h1>
         <p className="text-sm text-muted-foreground">
-          Completed sales — for active deals see{" "}
+          Your completed sales history. For deals still in progress, see the{" "}
           <Link href="/sales/pipeline" className="text-primary hover:underline">
             Sales Pipeline
           </Link>

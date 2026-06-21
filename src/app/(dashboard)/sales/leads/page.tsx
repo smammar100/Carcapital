@@ -352,7 +352,8 @@ export default function LeadsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Leads</h1>
           <p className="text-sm text-muted-foreground">
-            {filtered ? `${filtered.length} matching` : "Loading…"}
+            Every new buyer enquiry in one list. Capture, assign, and follow up
+            so no lead goes cold.
           </p>
         </div>
         <Dialog open={createOpen} onOpenChange={setCreateOpen}>

@@ -33,8 +33,8 @@ export default function TeamAndSecurityPage() {
           Team and security
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Toggle individual capabilities per member. Changes are batched —
-          save or discard them from the bar at the bottom.
+          Manage who is on your team and exactly what each person can access.
+          Toggle capabilities per member, then save or discard your changes.
         </p>
       </div>
 

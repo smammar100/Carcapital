@@ -137,8 +137,8 @@ export default function ClaimsPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Claims</h1>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Customer claims against active warranties. Track status and
-            resolution.
+            Customer claims raised against active warranties. Track each one from
+            raised through to resolution.
           </p>
         </div>
         <Button type="button" onClick={() => setNewClaimOpen(true)}>

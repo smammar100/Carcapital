@@ -87,8 +87,8 @@ export default function VendorsPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Vendors</h1>
         <p className="text-sm text-muted-foreground">
-          Service garages you use, and the trade partners who supply your
-          stock.
+          Your suppliers in one place: the service garages you send work to and
+          the trade partners who supply your stock.
         </p>
       </div>
       <Tabs

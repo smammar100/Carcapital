@@ -198,7 +198,8 @@ export default function ActivityLogPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Activity Log</h1>
         <p className="text-sm text-muted-foreground">
-          {filtered ? `${filtered.length} entries` : "Loading…"}
+          A company-wide audit trail of every action taken across the system.
+          Filter by category, user, or date.
         </p>
       </div>
 
