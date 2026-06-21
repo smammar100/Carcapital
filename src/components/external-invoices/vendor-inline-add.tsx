@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -130,8 +131,8 @@ export function VendorInlineAdd({
         <DialogHeader>
           <DialogTitle>New vendor</DialogTitle>
         </DialogHeader>
-        <div className="grid gap-3">
-          <div>
+        <DialogPanel className="grid gap-4">
+          <div className="grid gap-1.5">
             <Label>Name *</Label>
             <Input
               value={name}
@@ -140,10 +141,10 @@ export function VendorInlineAdd({
               autoFocus
             />
           </div>
-          <div>
+          <div className="grid gap-1.5">
             <Label>Speciality</Label>
             <Select value={speciality} onValueChange={setSpeciality}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -155,7 +156,7 @@ export function VendorInlineAdd({
               </SelectContent>
             </Select>
           </div>
-          <div>
+          <div className="grid gap-1.5">
             <Label>Phone (optional)</Label>
             <Input
               value={phone}
@@ -164,7 +165,7 @@ export function VendorInlineAdd({
               inputMode="tel"
             />
           </div>
-        </div>
+        </DialogPanel>
         <DialogFooter>
           <Button
             type="button"

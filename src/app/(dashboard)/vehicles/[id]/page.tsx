@@ -12,7 +12,6 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VehicleHeaderCard } from "@/components/vehicle-detail/vehicle-header-card";
 import { VehicleDetailShell } from "@/components/vehicle-detail/vehicle-detail-shell";
-import { InspectionSidePanel } from "@/components/inspection/inspection-side-panel";
 import { toast } from "@/lib/toast";
 
 /**
@@ -30,16 +29,12 @@ export default function VehicleDetailPage({
   const { user, company } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null | undefined>(undefined);
   const [exporting, setExporting] = useState(false);
-  const [inspectionOpen, setInspectionOpen] = useState(false);
+  // Active detail tab — lifted so the header "Open Inspection" can jump to it.
+  const [tab, setTab] = useState("overview");
 
   useEffect(() => {
     void vehicleService.getById(id).then(setVehicle);
   }, [id]);
-
-  async function refreshVehicle() {
-    const v = await vehicleService.getById(id);
-    setVehicle(v);
-  }
 
   /** Merge fresh fields into the displayed vehicle without a re-fetch — used
    *  by the Overview AutoTrader valuation refresh (the server already
@@ -117,24 +112,18 @@ export default function VehicleDetailPage({
 
       <VehicleHeaderCard
         vehicle={vehicle}
-        exporting={exporting}
-        onOpenInspection={() => setInspectionOpen(true)}
         onStatusChange={(s) => void handleStatusChange(s)}
         onRemoveFromWebsite={() => void handleRemoveFromWebsite()}
-        onExportPdf={() => void handleExportPdf()}
+        onNavigate={setTab}
       />
 
       <VehicleDetailShell
         vehicle={vehicle}
-        onOpenInspection={() => setInspectionOpen(true)}
+        value={tab}
+        onValueChange={setTab}
         onVehiclePatch={patchVehicle}
-      />
-
-      <InspectionSidePanel
-        vehicle={vehicle}
-        open={inspectionOpen}
-        onOpenChange={setInspectionOpen}
-        onComplete={() => void refreshVehicle()}
+        exporting={exporting}
+        onExportPdf={() => void handleExportPdf()}
       />
     </div>
   );

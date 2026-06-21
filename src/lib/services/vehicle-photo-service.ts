@@ -99,6 +99,18 @@ export const vehiclePhotoService = {
     return mapRow(data);
   },
 
+  /** Persist a new display order. Pass the photo ids in their desired order. */
+  async reorder(orderedIds: UUID[]): Promise<void> {
+    const supabase = createClient() as any;
+    for (let i = 0; i < orderedIds.length; i++) {
+      const { error } = await supabase
+        .from("vehicle_photos")
+        .update({ order: i })
+        .eq("id", orderedIds[i]);
+      if (error) throw error;
+    }
+  },
+
   /** Delete the row + best-effort purge of the Storage object. */
   async remove(photo: VehiclePhoto): Promise<void> {
     const supabase = createClient() as any;

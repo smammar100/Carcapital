@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   Check,
   ChevronLeft,
-  Eye,
   Loader2,
   Save,
   Sparkles,
@@ -72,6 +72,7 @@ export function AdvertEditor({
   photoUrl,
 }: AdvertEditorProps) {
   const { user, company } = useAuth();
+  const router = useRouter();
 
   const [advert, setAdvert] = useState<AdvertData>(() => {
     const saved = (listing?.advertData ?? {}) as Partial<AdvertData>;
@@ -109,14 +110,6 @@ export function AdvertEditor({
     photoCount,
   );
   const { done, total, pct } = advertCompleteness(checks);
-
-  const overLimit =
-    advert.attentionGrabber.length > LIMITS.attentionGrabber ||
-    advert.keySellingPoint.length > LIMITS.keySellingPoint ||
-    description.length > LIMITS.description ||
-    advert.strapline.length > LIMITS.strapline ||
-    advert.subtitle.length > LIMITS.subtitle ||
-    advert.highlights.some((h) => h.length > LIMITS.highlight);
 
   const status = savedListing?.status ?? "draft";
 
@@ -191,6 +184,7 @@ export function AdvertEditor({
       });
       setSavedListing(updated);
       toast.success("Advert saved");
+      router.push(`/vehicles/${vehicle.id}`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save advert");
     } finally {
@@ -228,16 +222,7 @@ export function AdvertEditor({
         </div>
 
         <div className="flex items-center gap-2">
-          <Pill tone={overLimit ? "bad" : "good"}>
-            {overLimit ? "Over character limit" : "Limits OK"}
-          </Pill>
           <Pill tone={status === "live" ? "good" : "neutral"}>{status}</Pill>
-          <Button asChild variant="outline" size="sm">
-            <a href="#preview">
-              <Eye className="mr-1.5 h-4 w-4" />
-              Preview
-            </a>
-          </Button>
           <Button size="sm" onClick={() => void save()} disabled={saving}>
             {saving ? (
               <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
@@ -487,7 +472,7 @@ export function AdvertEditor({
                     Advertised Price
                   </label>
                   <div className="relative mt-1">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                    <span className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-sm text-muted-foreground">
                       £
                     </span>
                     <Input

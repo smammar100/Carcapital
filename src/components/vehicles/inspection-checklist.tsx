@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, Plus } from "lucide-react";
+import { Check, ClipboardCheck, Loader2, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { inspectionService } from "@/lib/services/inspection-service";
 import { inspectionNoteService } from "@/lib/services/inspection-note-service";
@@ -44,13 +43,18 @@ interface Props {
 
 export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
   const { user } = useAuth();
-  const router = useRouter();
   const [checks, setChecks] = useState<InspectionCheck[] | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState<InspectionNote[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  // Per-field autosave indicator + a post-complete banner so the "saved"
+  // and "completed" states are visible (the form has no manual Save).
+  const [saving, setSaving] = useState(false);
+  const [lastCompleted, setLastCompleted] = useState<{ flagged: number } | null>(
+    null,
+  );
 
   useEffect(() => {
     void inspectionService.getForVehicle(vehicle.id).then(setChecks);
@@ -83,30 +87,38 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
 
   async function handleStatusChange(num: number, status: string) {
     if (!user) return;
-    const existing = checks?.find((c) => c.checkNumber === num);
-    await inspectionService.saveCheck({
-      vehicleId: vehicle.id,
-      checkNumber: num,
-      status,
-      actionRequired: existing?.actionRequired ?? null,
-      carriedOutBy: user.id,
-    });
-    const fresh = await inspectionService.getForVehicle(vehicle.id);
-    setChecks(fresh);
+    setSaving(true);
+    try {
+      const existing = checks?.find((c) => c.checkNumber === num);
+      await inspectionService.saveCheck({
+        vehicleId: vehicle.id,
+        checkNumber: num,
+        status,
+        actionRequired: existing?.actionRequired ?? null,
+        carriedOutBy: user.id,
+      });
+      setChecks(await inspectionService.getForVehicle(vehicle.id));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleActionChange(num: number, action: string) {
     if (!user) return;
-    const existing = checks?.find((c) => c.checkNumber === num);
-    await inspectionService.saveCheck({
-      vehicleId: vehicle.id,
-      checkNumber: num,
-      status: existing?.status ?? "",
-      actionRequired: action || null,
-      carriedOutBy: user.id,
-    });
-    const fresh = await inspectionService.getForVehicle(vehicle.id);
-    setChecks(fresh);
+    setSaving(true);
+    try {
+      const existing = checks?.find((c) => c.checkNumber === num);
+      await inspectionService.saveCheck({
+        vehicleId: vehicle.id,
+        checkNumber: num,
+        status: existing?.status ?? "",
+        actionRequired: action || null,
+        carriedOutBy: user.id,
+      });
+      setChecks(await inspectionService.getForVehicle(vehicle.id));
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleComplete() {
@@ -114,16 +126,13 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
     setSubmitting(true);
     try {
       const result = await inspectionService.complete(vehicle.id, user.id);
+      setLastCompleted({ flagged: result.flagged });
       toast.success(
         result.flagged > 0
           ? `Inspection complete — ${result.flagged} item${result.flagged === 1 ? "" : "s"} added to Things to Do`
           : "Inspection complete — all items pass",
       );
-      if (onComplete) {
-        onComplete();
-      } else {
-        router.push(`/vehicles/${vehicle.id}`);
-      }
+      onComplete?.();
     } finally {
       setSubmitting(false);
     }
@@ -140,11 +149,16 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
 
   if (checks.length === 0) {
     return (
-      <Card className="p-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          No inspection has been started for this vehicle yet.
+      <Card className="flex flex-col items-center gap-2 p-10 text-center">
+        <span className="grid size-11 place-items-center rounded-full bg-muted text-muted-foreground">
+          <ClipboardCheck className="size-5" />
+        </span>
+        <div className="text-base font-semibold">No inspection yet</div>
+        <p className="max-w-sm text-sm text-muted-foreground">
+          Run a 20-point inspection to surface issues and auto-generate Things
+          to Do. Your answers save automatically as you go.
         </p>
-        <Button onClick={handleStart} className="mt-4">
+        <Button onClick={handleStart} className="mt-2">
           Start Inspection
         </Button>
       </Card>
@@ -160,11 +174,21 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
       <Card className="flex flex-col gap-3 p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="text-sm">
-            <div className="font-semibold">
-              Inspector: {inspector}
-            </div>
-            <div className="text-xs text-muted-foreground">
-              {completed}/{total} items completed ({percent}%)
+            <div className="font-semibold">Inspector: {inspector}</div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <span>
+                {completed}/{total} items completed ({percent}%)
+              </span>
+              <span aria-hidden>·</span>
+              {saving ? (
+                <span className="inline-flex items-center gap-1">
+                  <Loader2 className="size-3 animate-spin" /> Saving…
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                  <Check className="size-3" /> All changes saved
+                </span>
+              )}
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -191,6 +215,19 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
           />
         </div>
       </Card>
+
+      {lastCompleted ? (
+        <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm dark:border-emerald-900/40 dark:bg-emerald-950/20">
+          <Check className="size-4 shrink-0 text-emerald-600" />
+          <span>
+            Inspection completed
+            {lastCompleted.flagged > 0
+              ? ` — ${lastCompleted.flagged} item${lastCompleted.flagged === 1 ? "" : "s"} sent to Things to Do.`
+              : " — all items pass."}{" "}
+            You can still update any answer below; changes save automatically.
+          </span>
+        </div>
+      ) : null}
 
       <Card className="overflow-hidden p-0">
         <Table>

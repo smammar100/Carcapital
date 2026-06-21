@@ -1,33 +1,27 @@
 "use client";
 
-import { DollarSign } from "lucide-react";
+import { ChevronRight, DollarSign } from "lucide-react";
 import type { Vehicle } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrency, formatDate } from "@/lib/utils";
-import {
-  Field,
-  FieldGrid,
-  InfoCard,
-  Panel,
-  Pill,
-  SectionDivider,
-} from "./primitives";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { Field, FieldGrid, Panel, Pill } from "./primitives";
 import { ExternalInvoicesSection } from "./external-invoices-section";
-import { cn } from "@/lib/utils";
 
 interface FinancialsTabProps {
   vehicle: Vehicle;
 }
 
+interface LedgerEntry {
+  name: string;
+  amount: number;
+}
+
 /**
- * Financials tab — the dealership's profit-and-loss surface for a single
- * vehicle. Lays out four sub-sections:
- *   1. "Why this tab exists" info card
- *   2. Profit summary strip (purchase / retail / margin VAT / net)
- *   3. Purchase information card
- *   4. Dual ledger (expense vs additional revenue) — coloured headers, neutral bodies
- *   5. VAT margin scheme calculator
+ * Financials tab — Variation B ("money-in vs money-out"). The full cost
+ * ledger and the full revenue ledger sit side-by-side and meet at a
+ * centred "= Net profit" result, followed by the AutoTrader market
+ * position, purchase information, external invoices, and the HMRC
+ * margin-scheme breakdown. HMRC margin-scheme aware throughout.
  */
 export function FinancialsTab({ vehicle }: FinancialsTabProps) {
   const purchase = vehicle.totalBuyingPrice;
@@ -52,121 +46,69 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
   ];
   const expenseTotal = expenses.reduce((acc, e) => acc + e.amount, 0);
 
+  // Add-on revenue lines (markups / commissions / fees). Not yet modelled on
+  // the vehicle record — shown as the capture taxonomy with 0 until wired.
+  const addons: LedgerEntry[] = [
+    "Accessories", "Warranty (markup)", "Paint Protection", "Admin Fee",
+    "GAP Insurance", "Service Plan", "Smart Insurance", "Finance Commission",
+    "Bonus", "Discount", "Writedown", "Commission Adj.",
+  ].map((name) => ({ name, amount: 0 }));
+  const addonTotal = addons.reduce((acc, r) => acc + r.amount, 0);
+
   const revenue: LedgerEntry[] = [
-    { name: "Accessories", amount: 0 },
-    { name: "Warranty (markup)", amount: 0 },
-    { name: "Paint Protection", amount: 0 },
-    { name: "Admin Fee", amount: 0 },
-    { name: "GAP Insurance", amount: 0 },
-    { name: "Service Plan", amount: 0 },
-    { name: "Smart Insurance", amount: 0 },
-    { name: "Finance Commission", amount: 0 },
-    { name: "Bonus", amount: 0 },
-    { name: "Discount", amount: 0 },
-    { name: "Writedown", amount: 0 },
-    { name: "Commission Adj.", amount: 0 },
+    { name: "Retail (web price)", amount: retail },
+    ...addons,
   ];
-  const revenueTotal = revenue.reduce((acc, r) => acc + r.amount, 0);
+  const revenueTotal = retail + addonTotal;
 
   return (
     <div className="flex flex-col gap-4">
-      <InfoCard
-        icon={<DollarSign className="h-4 w-4" />}
-        title="Every penny in, every penny out"
-      >
-        UK used-car dealers don&apos;t just earn the gap between buying and
-        selling — there&apos;s a whole second revenue stream from{" "}
-        <strong>add-on products</strong> (warranty markup, GAP insurance, paint
-        protection, finance commission, admin fees). This tab tracks both: the{" "}
-        <strong>cost ledger</strong> on the left, and the{" "}
-        <strong>revenue ledger</strong> on the right. The VAT calculation below
-        uses HMRC&apos;s <strong>Margin Scheme</strong> — VAT is owed only on
-        the profit margin, not the full sale price.
-      </InfoCard>
+      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <DollarSign className="size-3.5 shrink-0" />
+        Every cost and every add-on revenue for this car. VAT uses HMRC&apos;s{" "}
+        <strong className="font-medium text-foreground">Margin Scheme</strong> —
+        owed only on the profit margin, not the full sale price.
+      </p>
 
-      {/* Profit summary strip */}
-      <Card size="sm">
-        <CardContent>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-4 sm:divide-x">
-            <ProfitCell
-              label="Purchase Price"
-              value={purchase}
-              hint={
-                vehicle.sellerName ? `From ${vehicle.sellerName}` : undefined
-              }
-            />
-            <ProfitCell
-              label="Retail Price"
-              value={retail}
-              hint={retail ? "Web price" : "Not listed"}
-            />
-            <ProfitCell
-              label="Margin VAT"
-              value={marginVat}
-              hint="gross × 0.20 / 1.20"
-            />
-            <ProfitCell
-              label="Net Profit"
-              value={net}
-              hint="post-VAT"
-              tone="good"
-            />
-          </div>
-        </CardContent>
-      </Card>
+      {/* Money out ↔ money in */}
+      <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr]">
+        <LedgerCard
+          title="Money out · Expenses"
+          subtitle="UK dealer cost taxonomy"
+          rows={expenses}
+          total={expenseTotal}
+          tone="bad"
+        />
+        <div className="hidden items-center justify-center lg:flex">
+          <span className="grid size-12 place-items-center rounded-full border bg-card text-muted-foreground">
+            <ChevronRight className="size-5" />
+          </span>
+        </div>
+        <LedgerCard
+          title="Money in · Revenue"
+          subtitle={`Retail ${formatCurrency(retail)} + add-ons`}
+          rows={revenue}
+          total={revenueTotal}
+          tone="good"
+        />
+      </div>
 
-      {/* AutoTrader market value — reference row (migration 0018). Only shows
-          when a valuation was captured at intake. Compares our retail price
-          to AutoTrader's retail valuation so the operator can sanity-check. */}
+      {/* Net result */}
+      <div className="rounded-2xl border border-emerald-200 bg-emerald-50/60 p-5 text-center dark:border-emerald-900/40 dark:bg-emerald-500/5">
+        <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Net profit after margin VAT
+        </div>
+        <div className="mt-1 text-3xl font-semibold tabular-nums text-emerald-700 dark:text-emerald-400">
+          {net > 0 ? formatCurrency(Math.round(net)) : "—"}
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          Gross {formatCurrency(gross)} − margin VAT {formatCurrency(marginVat)}
+        </div>
+      </div>
+
+      {/* AutoTrader market value */}
       {vehicle.atRetailValuation != null && (
-        <Panel
-          title="AutoTrader market value"
-          subtitle={`${retail > 0 ? `Your price ${formatCurrency(retail)} · ` : ""}${
-            vehicle.atValuationAt
-              ? `valued ${formatDate(vehicle.atValuationAt)}`
-              : "captured at intake"
-          } · ${vehicle.mileage.toLocaleString()} mi`}
-          action={
-            retail > 0 ? (
-              <Pill
-                tone={
-                  retail <= vehicle.atRetailValuation * 0.97
-                    ? "good"
-                    : retail <= vehicle.atRetailValuation * 1.03
-                      ? "info"
-                      : "warn"
-                }
-              >
-                {retail <= vehicle.atRetailValuation * 0.97
-                  ? "Priced to sell"
-                  : retail <= vehicle.atRetailValuation * 1.03
-                    ? "At market"
-                    : "Above market"}
-              </Pill>
-            ) : null
-          }
-        >
-          <FieldGrid cols={4}>
-            <Field label="Retail" numeric>
-              {formatCurrency(vehicle.atRetailValuation)}
-            </Field>
-            <Field label="Trade" numeric>
-              {vehicle.atTradeValuation != null
-                ? formatCurrency(vehicle.atTradeValuation)
-                : "—"}
-            </Field>
-            <Field label="Part-exchange" numeric>
-              {vehicle.atPartExchangeValuation != null
-                ? formatCurrency(vehicle.atPartExchangeValuation)
-                : "—"}
-            </Field>
-            <Field label="Private" numeric>
-              {vehicle.atPrivateValuation != null
-                ? formatCurrency(vehicle.atPrivateValuation)
-                : "—"}
-            </Field>
-          </FieldGrid>
-        </Panel>
+        <AutoTraderCard vehicle={vehicle} retail={retail} />
       )}
 
       {/* Purchase information */}
@@ -205,28 +147,7 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
         </FieldGrid>
       </Panel>
 
-      {/* Profit & loss */}
-      <div>
-        <SectionDivider label="Profit & Loss" />
-        <div className="grid gap-4 lg:grid-cols-2">
-          <LedgerCard
-            variant="expense"
-            title="Expenses"
-            subtitle="UK dealer cost taxonomy"
-            rows={expenses}
-            total={expenseTotal}
-          />
-          <LedgerCard
-            variant="revenue"
-            title="Additional Profit"
-            subtitle="Markups, commissions, fees"
-            rows={revenue}
-            total={revenueTotal}
-          />
-        </div>
-      </div>
-
-      {/* External invoices (Module D) — purchase-side + external-job spend */}
+      {/* External invoices (Module D) — live data + add dialogs */}
       <ExternalInvoicesSection vehicleId={vehicle.id} />
 
       {/* VAT margin scheme */}
@@ -236,88 +157,29 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
         action={<Pill tone="info">Margin Scheme</Pill>}
       >
         <FieldGrid cols={4}>
-          <VatStat
-            label="Gross Profit"
-            value={gross}
-            formula="retail − purchase"
-            tone="good"
-          />
-          <VatStat
-            label="Margin VAT"
-            value={marginVat}
-            formula="gross × 0.20 / 1.20"
-          />
-          <VatStat
-            label="Car Margin"
-            value={net}
-            formula="gross − VAT"
-            tone="good"
-          />
-          <VatStat
-            label="Net Profit (SIV)"
-            value={net + revenueTotal}
-            formula="+ additional profit"
-            tone="good"
-          />
+          <VatStat label="Gross Profit" value={gross} formula="retail − purchase" tone="good" />
+          <VatStat label="Margin VAT" value={marginVat} formula="gross × 0.20 / 1.20" />
+          <VatStat label="Car Margin" value={net} formula="gross − VAT" tone="good" />
+          <VatStat label="Net Profit (SIV)" value={net + addonTotal} formula="+ additional profit" tone="good" />
         </FieldGrid>
       </Panel>
     </div>
   );
 }
 
-interface LedgerEntry {
-  name: string;
-  amount: number;
-}
-
-function ProfitCell({
-  label,
-  value,
-  hint,
-  tone,
-}: {
-  label: string;
-  value: number;
-  hint?: string;
-  tone?: "good";
-}) {
-  return (
-    <div className="px-2 sm:px-4 sm:first:pl-0 sm:last:pr-0">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={cn(
-          "mt-1 text-2xl font-semibold tabular-nums",
-          tone === "good" && "text-emerald-700 dark:text-emerald-400",
-        )}
-      >
-        {value > 0 ? formatCurrency(Math.round(value)) : "—"}
-      </div>
-      {hint && (
-        <div className="mt-1 text-xs text-muted-foreground">{hint}</div>
-      )}
-    </div>
-  );
-}
-
 function LedgerCard({
-  variant,
   title,
   subtitle,
   rows,
   total,
+  tone,
 }: {
-  variant: "expense" | "revenue";
   title: string;
   subtitle: string;
   rows: LedgerEntry[];
   total: number;
+  tone: "bad" | "good";
 }) {
-  const visibleRows = rows.slice(0, 12);
-  const overflow = rows.length - visibleRows.length;
-  const tone: React.ComponentProps<typeof Pill>["tone"] =
-    variant === "expense" ? "bad" : "good";
   return (
     <Panel
       title={title}
@@ -325,19 +187,40 @@ function LedgerCard({
       action={<Pill tone={tone}>{formatCurrency(total)}</Pill>}
       flush
     >
-      <div className="divide-y">
-        {visibleRows.map((r) => (
-          <LedgerRow key={r.name} entry={r} />
-        ))}
-        {overflow > 0 && (
-          <div className="px-4 py-3 text-center text-xs italic text-muted-foreground">
-            + {overflow} more categories
-          </div>
-        )}
+      <div className="divide-y border-t">
+        {rows.map((r) => {
+          const has = r.amount > 0;
+          return (
+            <div
+              key={r.name}
+              className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm"
+            >
+              <span className="flex items-center gap-2.5">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    has ? "bg-foreground" : "bg-muted-foreground/40",
+                  )}
+                />
+                <span className={cn(has ? "font-medium" : "text-muted-foreground")}>
+                  {r.name}
+                </span>
+              </span>
+              <span
+                className={cn(
+                  "tabular-nums",
+                  has ? "font-medium" : "text-muted-foreground",
+                )}
+              >
+                {formatCurrency(r.amount)}
+              </span>
+            </div>
+          );
+        })}
       </div>
       <div className="flex items-center justify-between border-t bg-muted/40 px-4 py-3">
         <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {variant === "expense" ? "Total expenses" : "Total additional"}
+          {tone === "bad" ? "Total expenses" : "Total revenue"}
         </span>
         <span className="text-base font-semibold tabular-nums">
           {formatCurrency(total)}
@@ -347,30 +230,70 @@ function LedgerCard({
   );
 }
 
-function LedgerRow({ entry }: { entry: LedgerEntry }) {
-  const has = entry.amount > 0;
+function AutoTraderCard({
+  vehicle,
+  retail,
+}: {
+  vehicle: Vehicle;
+  retail: number;
+}) {
+  const atRetail = vehicle.atRetailValuation ?? 0;
+  const atTrade = vehicle.atTradeValuation ?? 0;
+  const ratio = retail > 0 && atRetail > 0 ? retail / atRetail : null;
+  const showBar = retail > 0 && atRetail > atTrade;
+  const pos = showBar
+    ? Math.max(0, Math.min(1, (retail - atTrade) / (atRetail - atTrade))) * 100
+    : 0;
+
   return (
-    <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
-      <div className="flex items-center gap-2.5">
-        <span
-          className={cn(
-            "h-1.5 w-1.5 rounded-full",
-            has ? "bg-foreground" : "bg-muted-foreground/40",
-          )}
-        />
-        <span className={cn(has ? "font-medium" : "text-muted-foreground")}>
-          {entry.name}
-        </span>
-      </div>
-      <span
-        className={cn(
-          "tabular-nums",
-          has ? "font-medium" : "text-muted-foreground",
-        )}
-      >
-        {formatCurrency(entry.amount)}
-      </span>
-    </div>
+    <Panel
+      title="AutoTrader market value"
+      subtitle={`${retail > 0 ? `Your price ${formatCurrency(retail)} · ` : ""}${
+        vehicle.atValuationAt
+          ? `valued ${formatDate(vehicle.atValuationAt)}`
+          : "captured at intake"
+      } · ${vehicle.mileage.toLocaleString()} mi`}
+      action={
+        ratio != null ? (
+          <Pill tone={ratio <= 0.97 ? "good" : ratio <= 1.03 ? "info" : "warn"}>
+            {ratio <= 0.97
+              ? "Priced to sell"
+              : ratio <= 1.03
+                ? "At market"
+                : "Above market"}
+          </Pill>
+        ) : null
+      }
+    >
+      {showBar && (
+        <div className="relative mb-3 mt-1 h-2 rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-rose-400">
+          <div
+            className="absolute -top-1 size-4 -translate-x-1/2 rounded-full border-2 border-background bg-foreground shadow"
+            style={{ left: `${pos}%` }}
+          />
+        </div>
+      )}
+      <FieldGrid cols={4}>
+        <Field label="Retail" numeric>
+          {formatCurrency(vehicle.atRetailValuation)}
+        </Field>
+        <Field label="Trade" numeric>
+          {vehicle.atTradeValuation != null
+            ? formatCurrency(vehicle.atTradeValuation)
+            : "—"}
+        </Field>
+        <Field label="Part-exchange" numeric>
+          {vehicle.atPartExchangeValuation != null
+            ? formatCurrency(vehicle.atPartExchangeValuation)
+            : "—"}
+        </Field>
+        <Field label="Private" numeric>
+          {vehicle.atPrivateValuation != null
+            ? formatCurrency(vehicle.atPrivateValuation)
+            : "—"}
+        </Field>
+      </FieldGrid>
+    </Panel>
   );
 }
 

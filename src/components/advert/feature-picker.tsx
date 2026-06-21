@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus, Search, X } from "lucide-react";
+import { Check, Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import {
@@ -17,68 +17,172 @@ interface FeaturePickerProps {
   onChange: (next: string[]) => void;
 }
 
+/** Catalogue names grouped by category (static reference data). */
+const CAT_ITEMS: Record<FeatureCategory, string[]> = FEATURE_CATEGORIES.reduce(
+  (acc, cat) => {
+    acc[cat] = VEHICLE_FEATURES.filter((f) => f.category === cat).map(
+      (f) => f.name,
+    );
+    return acc;
+  },
+  {} as Record<FeatureCategory, string[]>,
+);
+
 /**
- * Equipment picker for the Advert tool — selected chips (removable) above a
- * searchable, category-colour-coded catalogue. Mirrors the AutoTrader "This
- * car comes with…" picker. Clicking an available feature adds it; the × on a
- * selected chip removes it.
+ * Equipment picker for the Advert tool — one category at a time. A segmented
+ * tab bar (with selected-count badges) switches between Comfort / Exterior /
+ * Interior / Safety & Security / Other; each shows a searchable two-column
+ * checklist with a Select-all-in-view shortcut. A running selected summary sits
+ * below. Mirrors the AutoTrader "This car comes with…" taxonomy.
  */
 export function FeaturePicker({ selected, onChange }: FeaturePickerProps) {
   const [query, setQuery] = useState("");
+  const [active, setActive] = useState<FeatureCategory>(FEATURE_CATEGORIES[0]);
+
   const selectedSet = useMemo(
     () => new Set(selected.map((s) => s.toLowerCase())),
     [selected],
   );
+  const has = (name: string) => selectedSet.has(name.toLowerCase());
 
-  const add = (name: string) => {
-    if (selectedSet.has(name.toLowerCase())) return;
-    onChange([...selected, name]);
+  const toggle = (name: string) =>
+    has(name)
+      ? onChange(selected.filter((s) => s.toLowerCase() !== name.toLowerCase()))
+      : onChange([...selected, name]);
+
+  const addMany = (names: string[]) => {
+    const missing = names.filter((n) => !has(n));
+    if (missing.length) onChange([...selected, ...missing]);
   };
-  const remove = (name: string) =>
-    onChange(selected.filter((s) => s.toLowerCase() !== name.toLowerCase()));
+  const removeMany = (names: string[]) => {
+    const drop = new Set(names.map((n) => n.toLowerCase()));
+    onChange(selected.filter((s) => !drop.has(s.toLowerCase())));
+  };
+
+  const selectedInCat = (cat: FeatureCategory) =>
+    CAT_ITEMS[cat].filter((n) => has(n)).length;
 
   const q = query.trim().toLowerCase();
-  const availableByCategory = useMemo(() => {
-    const map = new Map<FeatureCategory, string[]>();
-    for (const cat of FEATURE_CATEGORIES) map.set(cat, []);
-    for (const f of VEHICLE_FEATURES) {
-      if (selectedSet.has(f.name.toLowerCase())) continue;
-      if (q && !f.name.toLowerCase().includes(q)) continue;
-      map.get(f.category)!.push(f.name);
-    }
-    return map;
-  }, [q, selectedSet]);
-
-  const noResults =
-    !!q &&
-    FEATURE_CATEGORIES.every(
-      (cat) => (availableByCategory.get(cat) ?? []).length === 0,
-    );
+  const items = useMemo(
+    () => CAT_ITEMS[active].filter((n) => n.toLowerCase().includes(q)),
+    [active, q],
+  );
+  const allInViewOn = items.length > 0 && items.every((n) => has(n));
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* Selected */}
-      <div>
-        <div className="mb-2 flex items-center justify-between">
-          <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            Selected ({selected.length})
-          </span>
-          {selected.length > 0 && (
+    <div className="flex flex-col gap-3">
+      {/* Header: count + clear all */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {selected.length} feature{selected.length === 1 ? "" : "s"} selected
+        </span>
+        {selected.length > 0 && (
+          <button
+            type="button"
+            onClick={() => onChange([])}
+            className="text-xs text-muted-foreground transition hover:text-foreground"
+          >
+            Clear all
+          </button>
+        )}
+      </div>
+
+      {/* Category tabs with selected-count badges */}
+      <div className="flex flex-wrap gap-1 rounded-lg bg-muted/50 p-1">
+        {FEATURE_CATEGORIES.map((cat) => {
+          const n = selectedInCat(cat);
+          return (
             <button
+              key={cat}
               type="button"
-              onClick={() => onChange([])}
-              className="text-xs text-muted-foreground transition hover:text-foreground"
+              onClick={() => {
+                setActive(cat);
+                setQuery("");
+              }}
+              className={cn(
+                "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition",
+                active === cat
+                  ? "bg-background shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
             >
-              Clear all
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full",
+                  FEATURE_CATEGORY_TONE[cat].dot,
+                )}
+              />
+              {cat}
+              {n > 0 && (
+                <span className="rounded-full bg-primary/15 px-1.5 text-2xs font-semibold text-primary">
+                  {n}
+                </span>
+              )}
             </button>
-          )}
+          );
+        })}
+      </div>
+
+      {/* Search (scoped to active category) + select-all-in-view */}
+      <div className="flex items-center justify-between gap-2">
+        <div className="relative w-full sm:w-64">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 z-10 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={`Search ${active}…`}
+            className="h-9 pl-8"
+          />
         </div>
-        {selected.length === 0 ? (
-          <div className="rounded-md border border-dashed px-3 py-4 text-center text-xs text-muted-foreground">
-            No features selected — add from the catalogue below.
+        {items.length > 0 && (
+          <button
+            type="button"
+            onClick={() => (allInViewOn ? removeMany(items) : addMany(items))}
+            className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs font-medium transition hover:bg-muted"
+          >
+            {allInViewOn ? "Clear all in view" : "Select all in view"}
+          </button>
+        )}
+      </div>
+
+      {/* Two-column checklist for the active category */}
+      <div className="grid max-h-72 grid-cols-1 gap-x-4 gap-y-0.5 overflow-y-auto pr-1 sm:grid-cols-2">
+        {items.length === 0 ? (
+          <div className="col-span-full px-2 py-6 text-center text-xs text-muted-foreground">
+            No {active} features match “{query}”.
           </div>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
+          items.map((name) => {
+            const on = has(name);
+            return (
+              <button
+                key={name}
+                type="button"
+                onClick={() => toggle(name)}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-sm transition hover:bg-muted/60",
+                  on && "bg-muted/40",
+                )}
+              >
+                <Checkbox on={on} />
+                <span className="truncate">{name}</span>
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {/* Running selected summary */}
+      <div className="border-t border-border pt-3">
+        <div className="mb-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+          Selected ({selected.length})
+        </div>
+        {selected.length === 0 ? (
+          <div className="rounded-md border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">
+            No features selected — pick from the categories above.
+          </div>
+        ) : (
+          <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">
             {selected.map((name) => {
               const tone = FEATURE_CATEGORY_TONE[categoryForFeature(name)];
               return (
@@ -93,7 +197,7 @@ export function FeaturePicker({ selected, onChange }: FeaturePickerProps) {
                   {name}
                   <button
                     type="button"
-                    onClick={() => remove(name)}
+                    onClick={() => toggle(name)}
                     className="ml-0.5 rounded text-muted-foreground transition hover:text-foreground"
                     aria-label={`Remove ${name}`}
                   >
@@ -105,69 +209,21 @@ export function FeaturePicker({ selected, onChange }: FeaturePickerProps) {
           </div>
         )}
       </div>
-
-      {/* Search + category key */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative sm:w-64">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search features…"
-            className="h-9 pl-8"
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-          {FEATURE_CATEGORIES.map((cat) => (
-            <span key={cat} className="inline-flex items-center gap-1.5">
-              <span
-                className={cn(
-                  "h-2 w-2 rounded-full",
-                  FEATURE_CATEGORY_TONE[cat].dot,
-                )}
-              />
-              {cat}
-            </span>
-          ))}
-        </div>
-      </div>
-
-      {/* Available catalogue, grouped */}
-      <div className="flex flex-col gap-3">
-        {FEATURE_CATEGORIES.map((cat) => {
-          const items = availableByCategory.get(cat) ?? [];
-          if (items.length === 0) return null;
-          const tone = FEATURE_CATEGORY_TONE[cat];
-          return (
-            <div key={cat}>
-              <div className="mb-1.5 text-xs font-medium text-muted-foreground">
-                {cat}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {items.map((name) => (
-                  <button
-                    key={name}
-                    type="button"
-                    onClick={() => add(name)}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-full border bg-background px-2.5 py-1 text-xs transition hover:bg-muted/60",
-                      tone.chip,
-                    )}
-                  >
-                    <Plus className="h-3 w-3 opacity-60" />
-                    {name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        {noResults && (
-          <div className="text-xs text-muted-foreground">
-            No features match “{query}”.
-          </div>
-        )}
-      </div>
     </div>
+  );
+}
+
+function Checkbox({ on }: { on: boolean }) {
+  return (
+    <span
+      className={cn(
+        "grid h-4 w-4 shrink-0 place-items-center rounded border transition",
+        on
+          ? "border-primary bg-primary text-primary-foreground"
+          : "border-muted-foreground/40",
+      )}
+    >
+      {on && <Check className="h-3 w-3" strokeWidth={3} />}
+    </span>
   );
 }

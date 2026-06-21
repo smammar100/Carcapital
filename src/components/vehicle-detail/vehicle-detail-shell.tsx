@@ -23,9 +23,14 @@ import { ActivityTab } from "./activity-tab";
 
 interface VehicleDetailShellProps {
   vehicle: Vehicle;
-  onOpenInspection?: () => void;
+  /** Controlled active tab (so the page header can jump to e.g. Inspection). */
+  value?: string;
+  onValueChange?: (v: string) => void;
   /** Merge fresh fields into the page's Vehicle state (Overview valuation refresh). */
   onVehiclePatch?: (patch: Partial<Vehicle>) => void;
+  /** Job Card PDF export — surfaced on the Things to Do tab (the job sheet). */
+  onExportPdf?: () => void;
+  exporting?: boolean;
 }
 
 /**
@@ -36,11 +41,18 @@ interface VehicleDetailShellProps {
  */
 export function VehicleDetailShell({
   vehicle,
-  onOpenInspection,
+  value,
+  onValueChange,
   onVehiclePatch,
+  onExportPdf,
+  exporting,
 }: VehicleDetailShellProps) {
   const [todoCount, setTodoCount] = useState<number | null>(null);
   const [enquiryCount, setEnquiryCount] = useState<number | null>(null);
+  // Uncontrolled fallback when the page doesn't drive the active tab.
+  const [internalTab, setInternalTab] = useState("overview");
+  const activeTab = value ?? internalTab;
+  const setActiveTab = onValueChange ?? setInternalTab;
 
   useEffect(() => {
     void todoService
@@ -54,7 +66,7 @@ export function VehicleDetailShell({
   }, [vehicle.id]);
 
   return (
-    <Tabs defaultValue="overview" className="gap-4">
+    <Tabs value={activeTab} onValueChange={setActiveTab} className="gap-4">
       {/* Original grey-pill (`default` variant) but full-width: the
           shadcn TabsTrigger already has `flex-1`, so a `w-full` list
           spreads all 8 tabs to equal widths across the whole content
@@ -83,7 +95,11 @@ export function VehicleDetailShell({
       </TabsList>
 
       <TabsContent value="overview">
-        <OverviewTab vehicle={vehicle} onVehiclePatch={onVehiclePatch} />
+        <OverviewTab
+          vehicle={vehicle}
+          onVehiclePatch={onVehiclePatch}
+          onNavigate={setActiveTab}
+        />
       </TabsContent>
       <TabsContent value="details">
         <DetailsTab vehicle={vehicle} />
@@ -95,10 +111,14 @@ export function VehicleDetailShell({
         <FinancialsTab vehicle={vehicle} />
       </TabsContent>
       <TabsContent value="todo">
-        <TodoTab vehicleId={vehicle.id} />
+        <TodoTab
+          vehicleId={vehicle.id}
+          onExportPdf={onExportPdf}
+          exporting={exporting}
+        />
       </TabsContent>
       <TabsContent value="inspection">
-        <InspectionTab vehicle={vehicle} onOpenInspection={onOpenInspection} />
+        <InspectionTab vehicle={vehicle} />
       </TabsContent>
       <TabsContent value="photos">
         <PhotosTab vehicle={vehicle} />

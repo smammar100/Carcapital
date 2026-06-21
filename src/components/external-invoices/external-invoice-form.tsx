@@ -12,8 +12,10 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { RegPlate } from "@/components/shared/reg-plate";
 import {
   Select,
   SelectContent,
@@ -172,6 +174,11 @@ export function ExternalInvoiceForm({
   }, [open, editing, defaultKind, fixedVehicleId]);
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const selectedVehicle = useMemo(
+    () => vehicles.find((v) => v.id === vehicleId) ?? null,
+    [vehicles, vehicleId],
+  );
+
   const totalPence = useMemo(() => poundsToPence(total), [total]);
   const vatPence = useMemo(() => poundsToPence(vat), [vat]);
   const preVatPence = Math.max(0, totalPence - vatPence);
@@ -295,7 +302,7 @@ export function ExternalInvoiceForm({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3">
+        <DialogPanel className="grid gap-4">
           {/* Kind toggle */}
           <div className="grid gap-1">
             <Label>Kind</Label>
@@ -352,27 +359,46 @@ export function ExternalInvoiceForm({
             </div>
           </div>
 
-          {/* Vehicle */}
-          <div className="grid gap-1">
+          {/* Vehicle — read-only chip when locked to one car, else a picker */}
+          <div className="grid gap-1.5">
             <Label>
               Vehicle <span className="text-destructive">*</span>
             </Label>
-            <Select
-              value={vehicleId}
-              onValueChange={setVehicleId}
-              disabled={!!fixedVehicleId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Pick a vehicle…" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                {vehicles.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.stockId} · {v.registration} — {v.make} {v.model}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {fixedVehicleId ? (
+              <div className="flex items-center gap-2.5 rounded-md border bg-muted/30 px-3 py-2">
+                {selectedVehicle ? (
+                  <>
+                    <RegPlate registration={selectedVehicle.registration} size="sm" />
+                    <span className="text-sm font-medium">
+                      {selectedVehicle.make} {selectedVehicle.model}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      · {selectedVehicle.stockId}
+                    </span>
+                    <span className="ml-auto text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+                      Locked
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    Loading vehicle…
+                  </span>
+                )}
+              </div>
+            ) : (
+              <Select value={vehicleId} onValueChange={setVehicleId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Pick a vehicle…" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {vehicles.map((v) => (
+                    <SelectItem key={v.id} value={v.id}>
+                      {v.stockId} · {v.registration} — {v.make} {v.model}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </div>
 
           {/* Invoice number + date */}
@@ -470,7 +496,7 @@ export function ExternalInvoiceForm({
               disabled={submitting}
             />
           </div>
-        </div>
+        </DialogPanel>
 
         <DialogFooter>
           <Button

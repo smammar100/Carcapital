@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   FileText,
+  Gavel,
   Image as ImageIcon,
   Paperclip,
   Plus,
+  Receipt,
   Trash2,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -116,52 +120,52 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
     <Panel
       title="External Invoices"
       subtitle="Auction-purchase + external-job spend logged against this vehicle"
-      action={<Pill tone="info">{formatCurrency(grandTotal / 100)}</Pill>}
+      action={
+        canCreate ? (
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => openNew("auction_purchase")}
+            >
+              <Plus className="mr-1 size-3.5" /> Purchase
+            </Button>
+            <Button type="button" size="sm" onClick={() => openNew("external_job")}>
+              <Plus className="mr-1 size-3.5" /> External Job
+            </Button>
+          </div>
+        ) : (
+          <Pill tone="info">{formatCurrency(grandTotal / 100)}</Pill>
+        )
+      }
       flush
     >
-      {/* Totals strip */}
-      <div className="grid grid-cols-1 gap-0 border-b sm:grid-cols-3 sm:divide-x">
-        <KindCell
+      {/* Summary tiles */}
+      <div className="grid gap-3 px-4 pb-3 sm:grid-cols-3">
+        <InvoiceStat
+          icon={Gavel}
           label="Auction Purchase"
           total={totalsByKind.auction_purchase}
           count={(rows ?? []).filter((r) => r.invoiceKind === "auction_purchase").length}
         />
-        <KindCell
+        <InvoiceStat
+          icon={Wrench}
           label="External Jobs"
           total={totalsByKind.external_job}
           count={(rows ?? []).filter((r) => r.invoiceKind === "external_job").length}
         />
-        <div className="flex items-center justify-end gap-2 px-4 py-3">
-          {canCreate ? (
-            <>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={() => openNew("auction_purchase")}
-              >
-                <Plus className="mr-1 size-3.5" />
-                Purchase
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                onClick={() => openNew("external_job")}
-              >
-                <Plus className="mr-1 size-3.5" />
-                External Job
-              </Button>
-            </>
-          ) : (
-            <span className="text-xs italic text-muted-foreground">
-              Permission required to add
-            </span>
-          )}
-        </div>
+        <InvoiceStat
+          icon={Receipt}
+          label="Total Logged"
+          total={grandTotal}
+          count={(rows ?? []).length}
+          accent
+        />
       </div>
 
       {/* Rows */}
-      <div className="divide-y">
+      <div className="divide-y border-t">
         {rows === null ? (
           <>
             {Array.from({ length: 2 }).map((_, i) => (
@@ -176,8 +180,10 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
             ))}
           </>
         ) : rows.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm italic text-muted-foreground">
-            No external invoices logged for this vehicle yet.
+          <div className="px-4 py-4 text-xs text-muted-foreground">
+            No external invoices logged yet — use{" "}
+            <span className="font-medium text-foreground">Purchase</span> or{" "}
+            <span className="font-medium text-foreground">External Job</span> above to add one.
           </div>
         ) : (
           rows.map((r) => {
@@ -300,24 +306,36 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
   );
 }
 
-function KindCell({
+function InvoiceStat({
+  icon: Icon,
   label,
   total,
   count,
+  accent,
 }: {
+  icon: LucideIcon;
   label: string;
   total: number;
   count: number;
+  accent?: boolean;
 }) {
   return (
-    <div className="px-4 py-3">
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
+    <div
+      className={cn(
+        "rounded-xl border border-border bg-background p-4",
+        accent && "bg-muted/30",
+      )}
+    >
+      <div className="flex items-center justify-between">
+        <span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">
+          {label}
+        </span>
+        <Icon className="size-4 text-muted-foreground" />
       </div>
-      <div className="mt-1 text-base font-semibold tabular-nums">
+      <div className="mt-1 text-xl font-semibold tabular-nums">
         {formatCurrency(total / 100)}
       </div>
-      <div className="text-xs text-muted-foreground">
+      <div className="text-2xs text-muted-foreground">
         {count} invoice{count === 1 ? "" : "s"}
       </div>
     </div>

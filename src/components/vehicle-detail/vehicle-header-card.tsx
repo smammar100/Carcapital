@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import {
-  Calendar,
-  ClipboardCheck,
-  Download,
+  Camera,
+  ClipboardList,
   EyeOff,
-  Loader2,
   Megaphone,
+  PoundSterling,
+  Undo2,
+  Users,
+  Wrench,
+  type LucideIcon,
 } from "lucide-react";
 import type { Vehicle, VehicleStatus } from "@/lib/types";
 import { VehicleImage } from "@/components/shared/vehicle-image";
@@ -31,28 +33,45 @@ import { formatDate } from "@/lib/utils";
 
 interface VehicleHeaderCardProps {
   vehicle: Vehicle;
-  exporting: boolean;
-  onOpenInspection: () => void;
   onStatusChange: (status: VehicleStatus) => void;
   onRemoveFromWebsite: () => void;
-  onExportPdf: () => void;
+  /** Jump to a detail tab (the primary CTA opens where the next work happens). */
+  onNavigate: (tab: string) => void;
 }
+
+/**
+ * The vehicle's next logical step in the prep → sale lifecycle. The header's
+ * primary CTA reflects the current stage and, when clicked, jumps to the tab
+ * where that work is done — so the most useful destination is always one click
+ * away. `null` = a terminal state (sold) with no outstanding step.
+ */
+const NEXT_STEP: Record<VehicleStatus, { label: string; tab: string; icon: LucideIcon } | null> = {
+  received: { label: "Start Inspection", tab: "inspection", icon: ClipboardList },
+  inspection_pending: { label: "Open Inspection", tab: "inspection", icon: ClipboardList },
+  being_prepared: { label: "Prep & Repairs", tab: "todo", icon: Wrench },
+  photos_pending: { label: "Add Photos", tab: "photos", icon: Camera },
+  photos_ready: { label: "Build Advert", tab: "listing", icon: Megaphone },
+  ready: { label: "Publish Listing", tab: "listing", icon: Megaphone },
+  listed: { label: "View Enquiries", tab: "appointments", icon: Users },
+  reserved: { label: "Complete Sale", tab: "financials", icon: PoundSterling },
+  sold: null,
+  returned: { label: "Re-prep Vehicle", tab: "todo", icon: Undo2 },
+};
 
 /**
  * Vehicle hero card. Reuses the app's existing shared components
  * (`RegPlate`, `VehicleStatusBadge`, `DaysInStockChip`, `VehicleImage`)
  * so styling stays consistent with `/vehicles` and the dashboard.
  *
- * Status pill doubles as a dropdown to change vehicle status without
- * leaving the page.
+ * Actions: a single state-aware primary CTA (advance the lifecycle) plus a
+ * ⋯ menu for the genuine non-tab actions (Job Card PDF, remove from website).
+ * The status pill is itself a dropdown to jump to any status directly.
  */
 export function VehicleHeaderCard({
   vehicle,
-  exporting,
-  onOpenInspection,
   onStatusChange,
   onRemoveFromWebsite,
-  onExportPdf,
+  onNavigate,
 }: VehicleHeaderCardProps) {
   // Prefer the first real uploaded photo for the hero; fall back to the
   // AI/placeholder VehicleImage when none has been uploaded yet.
@@ -67,6 +86,10 @@ export function VehicleHeaderCard({
       active = false;
     };
   }, [vehicle.id]);
+
+  const nextStep = NEXT_STEP[vehicle.status];
+  const canRemoveFromWebsite =
+    vehicle.status === "sold" && vehicle.removedFromWebsiteAt === null;
 
   return (
     <Card size="sm">
@@ -128,37 +151,22 @@ export function VehicleHeaderCard({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" variant="outline" onClick={onOpenInspection}>
-            <ClipboardCheck className="mr-1.5 h-4 w-4" />
-            Open Inspection
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href={`/vehicles/${vehicle.id}/advert`}>
-              <Megaphone className="mr-1.5 h-4 w-4" />
-              Advert
-            </Link>
-          </Button>
-          <Button asChild size="sm" variant="outline">
-            <Link href="/sales/appointments">
-              <Calendar className="mr-1.5 h-4 w-4" />
-              Book Appt.
-            </Link>
-          </Button>
-          {vehicle.status === "sold" &&
-            vehicle.removedFromWebsiteAt === null && (
-              <Button size="sm" variant="outline" onClick={onRemoveFromWebsite}>
-                <EyeOff className="mr-1.5 h-4 w-4" />
-                Remove from Website
-              </Button>
-            )}
-          <Button size="sm" disabled={exporting} onClick={onExportPdf}>
-            {exporting ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <Download className="mr-1.5 h-4 w-4" />
-            )}
-            Job Card PDF
-          </Button>
+          {nextStep && (
+            <Button size="sm" onClick={() => onNavigate(nextStep.tab)}>
+              <nextStep.icon className="mr-1.5 h-4 w-4" />
+              {nextStep.label}
+            </Button>
+          )}
+          {canRemoveFromWebsite && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onRemoveFromWebsite}
+            >
+              <EyeOff className="mr-1.5 h-4 w-4" />
+              Remove from Website
+            </Button>
+          )}
         </div>
       </CardContent>
     </Card>

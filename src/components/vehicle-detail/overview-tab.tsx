@@ -4,13 +4,16 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
   AlertCircle,
+  Camera,
   Check,
+  ClipboardCheck,
   Clock,
   Coins,
   Globe,
   Pencil,
   PoundSterling,
   RefreshCw,
+  Rocket,
   TrendingUp,
   X,
 } from "lucide-react";
@@ -34,6 +37,8 @@ interface OverviewTabProps {
   /** Merge fresh fields into the page's Vehicle state (e.g. after a
    *  live AutoTrader valuation refresh). */
   onVehiclePatch?: (patch: Partial<Vehicle>) => void;
+  /** Jump to a detail tab (empty-state CTAs route the first actions). */
+  onNavigate?: (tab: string) => void;
 }
 
 /**
@@ -41,7 +46,7 @@ interface OverviewTabProps {
  * Four KPIs up top, advert completeness on the left, valuation + marketplace
  * on the right, then a full field grid of vehicle details underneath.
  */
-export function OverviewTab({ vehicle, onVehiclePatch }: OverviewTabProps) {
+export function OverviewTab({ vehicle, onVehiclePatch, onNavigate }: OverviewTabProps) {
   const [listing, setListing] = useState<Listing | null | undefined>(undefined);
 
   useEffect(() => {
@@ -49,6 +54,17 @@ export function OverviewTab({ vehicle, onVehiclePatch }: OverviewTabProps) {
   }, [vehicle.id]);
 
   const webPrice = listing?.price ?? vehicle.listingPrice ?? 0;
+
+  // A brand-new vehicle has nothing to glance at yet (no valuation, no price,
+  // no photos). Rather than a wall of "—" cards, guide the first action.
+  const isNew =
+    listing !== undefined &&
+    vehicle.atRetailValuation == null &&
+    webPrice <= 0 &&
+    (vehicle.imagesCount ?? 0) === 0;
+  if (isNew) {
+    return <EmptyOverview vehicleId={vehicle.id} onNavigate={onNavigate} />;
+  }
   const floor = vehicle.minimumSalePrice ?? 0;
   const stockingBurn = vehicle.dailyChargeRate ?? 0;
   const grossProfit =
@@ -126,6 +142,52 @@ export function OverviewTab({ vehicle, onVehiclePatch }: OverviewTabProps) {
         </div>
       </div>
 
+    </div>
+  );
+}
+
+// ============================================================
+// Empty state — a brand-new vehicle with nothing set up yet
+// ============================================================
+
+function EmptyOverview({
+  vehicleId,
+  onNavigate,
+}: {
+  vehicleId: string;
+  onNavigate?: (tab: string) => void;
+}) {
+  return (
+    <div className="grid place-items-center rounded-xl border border-dashed bg-card px-6 py-16 text-center">
+      <span className="grid h-14 w-14 place-items-center rounded-2xl bg-primary/10 text-primary">
+        <Rocket className="h-7 w-7" />
+      </span>
+      <div className="mt-4 text-lg font-semibold">
+        New to stock — let&apos;s get it sale-ready
+      </div>
+      <p className="mt-1 max-w-md text-sm text-muted-foreground">
+        There&apos;s no advert, valuation or pricing yet. The first step is a
+        quick inspection — everything else follows from what it finds.
+      </p>
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+        <Button size="sm" onClick={() => onNavigate?.("inspection")}>
+          <ClipboardCheck className="mr-1.5 h-4 w-4" />
+          Start Inspection
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => onNavigate?.("photos")}>
+          <Camera className="mr-1.5 h-4 w-4" />
+          Add Photos
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/vehicles/${vehicleId}/advert`}>
+            <PoundSterling className="mr-1.5 h-4 w-4" />
+            Set Price
+          </Link>
+        </Button>
+      </div>
+      <div className="mt-6 text-2xs text-muted-foreground">
+        Then: prep &amp; repairs → photos → price → advert → list
+      </div>
     </div>
   );
 }
