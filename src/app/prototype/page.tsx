@@ -2,303 +2,386 @@
 
 import { useState } from "react";
 import {
-  ChevronLeft,
-  ChevronRight,
-  ClipboardCheck,
-  Wrench,
-  Camera,
-  PoundSterling,
-  Megaphone,
-  Check,
-  ArrowRight,
-  Sparkles,
-  Gauge,
-  MapPin,
-  Rocket,
-  type LucideIcon,
+  Plus,
+  Phone,
+  CalendarClock,
+  Car,
+  User as UserIcon,
+  ChevronDown,
+  CircleDot,
+  PhoneCall,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * /prototype — Vehicle Detail "Overview" EMPTY STATE (a brand-new vehicle with
- * no advert, no AutoTrader valuation, no KPIs). 5 variations that answer "what
- * should I do first?" Refs (Mobbin): Oyster / Mailchimp (numbered getting-started
- * steps with per-step CTAs + progress), Steep (centered hero + one CTA),
- * Amplitude/Mixpanel (empty widgets with inline CTAs). Presentational only.
+ * /prototype — "Workshop" gallery. 5 layouts for external walk-in jobs.
+ * Each keeps every field: customer, phone, vehicle (reg + desc), job, schedule
+ * (date · time), cost, status, assignee, + the Add Workshop Job action.
+ * Refs (Mobbin): Walmart Auto Care booking cards, KAYAK/Booking summaries.
  */
 
-const V = { reg: "LN73 KFA", title: "2020 BMW 1 Series", derivative: "118i M Sport 5dr Step Auto", stock: "CC-0119", received: "Received today" };
+type Status = "pending" | "in_progress" | "completed" | "stalled";
 
-interface Step { n: number; title: string; desc: string; cta: string; icon: LucideIcon }
-const STEPS: Step[] = [
-  { n: 1, title: "Inspect the vehicle", desc: "Run the 20-point check to surface faults before prep starts.", cta: "Start Inspection", icon: ClipboardCheck },
-  { n: 2, title: "Log prep & repairs", desc: "Turn inspection findings into prep and repair jobs.", cta: "Open Things to Do", icon: Wrench },
-  { n: 3, title: "Add photos", desc: "Upload 8+ photos so the advert is complete.", cta: "Add Photos", icon: Camera },
-  { n: 4, title: "Check valuation & price", desc: "Review the AutoTrader valuation, then set your price + floor.", cta: "Set Price", icon: PoundSterling },
-  { n: 5, title: "Build the advert", desc: "Write the description, highlights and pick channels.", cta: "Build Advert", icon: Megaphone },
+interface Job {
+  customer: string;
+  phone: string;
+  reg: string;
+  vehicle: string;
+  job: string;
+  date: string;
+  time: string;
+  cost: number | null;
+  status: Status;
+  assignee: string | null;
+}
+
+const JOBS: Job[] = [
+  { customer: "Tom Khan", phone: "07655 443322", reg: "TU16 VWX", vehicle: "Audi A1 2016", job: "Tyre replacement x2 (outsourced to Quick Tyres)", date: "27 Apr 2026", time: "4:00pm", cost: 195, status: "completed", assignee: "Kami" },
+  { customer: "Priya Singh", phone: "07900 112233", reg: "OP18 QRS", vehicle: "VW Polo 2018", job: "Full service", date: "29 Apr 2026", time: "11:00am", cost: 175, status: "completed", assignee: "Sam" },
+  { customer: "John Smith", phone: "07712 345678", reg: "AB12 CDE", vehicle: "Vauxhall Corsa 2014", job: "AC re-gas + cabin filter", date: "01 May 2026", time: "2:30pm", cost: 90, status: "in_progress", assignee: "Kami" },
+  { customer: "Sarah Patel", phone: "07798 765432", reg: "EF63 GHI", vehicle: "Honda Civic 2013", job: "Brake pads front + rear", date: "02 May 2026", time: "10:00am", cost: 220, status: "pending", assignee: "Sam" },
+  { customer: "Mark Lewis", phone: "07811 223344", reg: "JK19 LMN", vehicle: "Ford Focus 2019", job: "Diagnostic — engine light", date: "03 May 2026", time: "9:30am", cost: 60, status: "pending", assignee: null },
+  { customer: "Walk-in", phone: "", reg: "MV17 HFJ", vehicle: "Audi Q2", job: "Workshop visit", date: "28 May 2026", time: "3:00pm", cost: null, status: "pending", assignee: null },
 ];
 
-const primaryBtn = "inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground hover:bg-primary/90";
-const ghostBtn = "inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm font-medium hover:bg-muted";
+const STATUS_META: Record<Status, { label: string; cls: string; dot: string }> = {
+  pending: { label: "Pending", cls: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300", dot: "bg-amber-500" },
+  in_progress: { label: "In Progress", cls: "bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-300", dot: "bg-blue-500" },
+  completed: { label: "Completed", cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300", dot: "bg-emerald-500" },
+  stalled: { label: "Stalled", cls: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300", dot: "bg-rose-500" },
+};
 
-/* ============================================================ carousel page */
+const fmtCost = (c: number | null) => (c == null ? "—" : `£${c.toFixed(2)}`);
+const initials = (n: string) =>
+  n === "Walk-in" ? "WI" : n.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
 
-const VARIATIONS: { id: string; label: string; sub: string; render: () => React.ReactNode }[] = [
-  { id: "A", label: "Guided checklist (recommended)", sub: "Oyster/Mailchimp — a 'get this car sale-ready' card: numbered steps, per-step CTAs, progress, step 1 highlighted", render: () => <VariationA /> },
-  { id: "B", label: "Centered hero", sub: "Steep — one friendly empty state with a single primary action (Start Inspection) + quick links", render: () => <VariationB /> },
-  { id: "C", label: "Empty widgets in place", sub: "Keep the Overview layout — each KPI / valuation / advert card shows its own inline empty state + CTA", render: () => <VariationC /> },
-  { id: "D", label: "Journey stepper", sub: "A prep → sale pipeline with 'You are here' at the start and the first action surfaced", render: () => <VariationD /> },
-  { id: "E", label: "Hybrid", sub: "Getting-started checklist up top + slim contextual empty cards (valuation, location) so it still reads as Overview", render: () => <VariationE /> },
-];
+/* -------------------------------------------------------------- shared bits */
 
-export default function PrototypePage() {
-  const [i, setI] = useState(0);
-  const cur = VARIATIONS[i];
-  const go = (n: number) => setI((n + VARIATIONS.length) % VARIATIONS.length);
+function Plate({ reg }: { reg: string }) {
   return (
-    <div className="min-h-screen bg-muted/30 p-6 text-foreground">
-      <header className="mb-4">
-        <h1 className="text-xl font-semibold tracking-tight">Prototype — Overview empty state (new vehicle)</h1>
-        <p className="mt-1 text-sm text-muted-foreground">No advert, no valuation, no KPIs yet — guide the user to the first action. Toggle OS dark mode.</p>
-      </header>
-      <div className="sticky top-0 z-10 -mx-6 mb-4 flex flex-wrap items-center gap-2 border-b border-border bg-muted/30 px-6 py-2.5 backdrop-blur">
-        <button onClick={() => go(i - 1)} className="grid size-8 place-items-center rounded-md border border-border bg-background hover:bg-muted" aria-label="Previous"><ChevronLeft className="size-4" /></button>
-        <div className="flex flex-wrap gap-1">
-          {VARIATIONS.map((v, n) => (
-            <button key={v.id} onClick={() => setI(n)} className={cn("inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm transition-colors", n === i ? "bg-primary text-primary-foreground" : "border border-border bg-background hover:bg-muted")}>
-              <span className="font-semibold">{v.id}</span><span className="hidden sm:inline">{v.label}</span>
-            </button>
-          ))}
-        </div>
-        <button onClick={() => go(i + 1)} className="grid size-8 place-items-center rounded-md border border-border bg-background hover:bg-muted" aria-label="Next"><ChevronRight className="size-4" /></button>
-        <span className="ml-auto text-xs text-muted-foreground tabular-nums">{i + 1} / {VARIATIONS.length}</span>
-      </div>
-      <section>
-        <div className="mb-3"><h2 className="text-sm font-semibold">{cur.id} — {cur.label}</h2><p className="text-xs text-muted-foreground">{cur.sub}</p></div>
-        <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <HeaderStrip />
-          <Tabs />
-          <div className="mt-4">{cur.render()}</div>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------- shared bits */
-
-function HeaderStrip() {
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background p-3">
-      <div className="flex items-center gap-3">
-        <div className="grid h-16 w-24 shrink-0 place-items-center rounded-md border border-dashed border-border bg-muted/40 text-2xs text-muted-foreground">No photos</div>
-        <div>
-          <span className="rounded bg-amber-300 px-2 py-0.5 font-mono text-xs font-bold text-black">{V.reg}</span>
-          <div className="mt-1 text-lg font-semibold leading-tight">{V.title}</div>
-          <div className="text-2xs text-muted-foreground">{V.derivative} · {V.stock}</div>
-          <div className="mt-1 flex items-center gap-2 text-2xs">
-            <span className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 font-medium text-blue-700 dark:bg-blue-500/15 dark:text-blue-300">Received</span>
-            <span className="text-muted-foreground">{V.received}</span>
-          </div>
-        </div>
-      </div>
-      <button className={primaryBtn}><ClipboardCheck className="size-4" /> Start Inspection</button>
-    </div>
-  );
-}
-
-const TAB_NAMES = ["Overview", "Details", "Location", "Financials", "Things to Do", "Inspection", "Photos", "Listing", "Appointments", "Activity"];
-function Tabs() {
-  return (
-    <div className="mt-3 flex gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1 text-sm">
-      {TAB_NAMES.map((t, i) => (
-        <span key={t} className={cn("shrink-0 rounded-md px-3 py-1.5", i === 0 ? "bg-background font-medium shadow-sm" : "text-muted-foreground")}>{t}</span>
-      ))}
-    </div>
-  );
-}
-
-function StepIcon({ icon: Icon, done, active }: { icon: LucideIcon; done?: boolean; active?: boolean }) {
-  return (
-    <span className={cn("grid size-9 shrink-0 place-items-center rounded-full", done ? "bg-emerald-500 text-white" : active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground")}>
-      {done ? <Check className="size-4" strokeWidth={3} /> : <Icon className="size-4" />}
+    <span className="inline-block rounded-[3px] border border-yellow-700/40 bg-[#FFD400] px-2 py-0.5 font-mono text-xs font-bold uppercase tracking-[0.08em] text-black">
+      {reg}
     </span>
   );
 }
-
-/* ---------------------------------------------------------------- A: guided checklist */
-function VariationA() {
+function StatusPill({ status }: { status: Status }) {
+  const m = STATUS_META[status];
   return (
-    <div className="grid gap-4 lg:grid-cols-[1fr_300px]">
-      <div className="rounded-xl border border-border bg-background p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="text-base font-semibold">Let&apos;s get this car sale-ready</div>
-            <p className="mt-0.5 text-sm text-muted-foreground">5 steps from arrival to live listing. Work top-down — start with the inspection.</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">0 of 5 done</span>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", m.cls)}>
+      <span className={cn("size-1.5 rounded-full", m.dot)} />
+      {m.label}
+    </span>
+  );
+}
+function StatusSelect({ status }: { status: Status }) {
+  const m = STATUS_META[status];
+  return (
+    <div className="inline-flex h-8 items-center justify-between gap-2 rounded-md border bg-background px-2 text-xs">
+      <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", m.cls)}>
+        <span className={cn("size-1.5 rounded-full", m.dot)} />
+        {m.label}
+      </span>
+      <ChevronDown className="size-3.5 text-muted-foreground" />
+    </div>
+  );
+}
+function Avatar({ name, lg }: { name: string | null; lg?: boolean }) {
+  if (!name)
+    return (
+      <span className={cn("grid shrink-0 place-items-center rounded-full border border-dashed border-border text-muted-foreground", lg ? "size-9 text-xs" : "size-7 text-2xs")} title="Unassigned">?</span>
+    );
+  return (
+    <span className={cn("grid shrink-0 place-items-center rounded-full bg-primary/10 font-semibold text-primary", lg ? "size-9 text-xs" : "size-7 text-2xs")} title={name}>
+      {initials(name)}
+    </span>
+  );
+}
+function Cta() {
+  return (
+    <button className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+      <Plus className="size-4" /> Add Workshop Job
+    </button>
+  );
+}
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border bg-background p-5">
+      <div className="mb-4 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-semibold tracking-tight">Workshop</h2>
+          <p className="text-sm text-muted-foreground">
+            External, walk-in customer service jobs, kept separate from internal stock preparation.
+          </p>
         </div>
-        <div className="mt-4 flex flex-col">
-          {STEPS.map((s, i) => (
-            <div key={s.n} className={cn("flex items-center gap-3 rounded-lg border px-3 py-3", i === 0 ? "border-primary/40 bg-primary/5" : "border-transparent")}>
-              <StepIcon icon={s.icon} active={i === 0} />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2 text-sm font-medium">{s.title}{i === 0 && <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-2xs font-semibold text-primary">Start here</span>}</div>
-                <p className="text-xs text-muted-foreground">{s.desc}</p>
-              </div>
-              <button className={cn(i === 0 ? primaryBtn : ghostBtn, "shrink-0")}>{s.cta} {i === 0 && <ArrowRight className="size-3.5" />}</button>
+        <Cta />
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/* ----------------------------------------------------------------- gallery */
+
+const VARIATIONS = [
+  { id: "A", label: "Refined table", sub: "Familiar table + customer avatar, status pill, cleaner money column", render: () => <A /> },
+  { id: "B", label: "Booking cards", sub: "A card per job — customer, vehicle, schedule, cost, quick call", render: () => <B /> },
+  { id: "C", label: "Status board", sub: "Pending → In progress → Completed lanes, drag-ready cards", render: () => <C /> },
+  { id: "D", label: "Day agenda", sub: "Grouped by date like a workshop diary — schedule-forward", render: () => <D /> },
+  { id: "E", label: "List + detail", sub: "Compact list with a full booking detail panel beside it", render: () => <E /> },
+];
+
+export default function PrototypePage() {
+  return (
+    <div className="min-h-screen bg-muted/30 p-6 text-foreground">
+      <header className="mb-5">
+        <h1 className="text-xl font-semibold tracking-tight">Prototype — Workshop (5 variations)</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Each keeps every field: customer, phone, vehicle, job, schedule, cost, status, assignee. Toggle OS dark mode.
+        </p>
+      </header>
+      <div className="flex flex-col gap-8">
+        {VARIATIONS.map((v) => (
+          <section key={v.id} className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-2">
+              <span className="grid size-5 place-items-center rounded bg-foreground text-2xs font-bold text-background">{v.id}</span>
+              <span className="text-sm font-semibold">{v.label}</span>
+              <span className="text-xs text-muted-foreground">{v.sub}</span>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="flex flex-col gap-4">
-        <EmptyValuation />
-        <EmptyLocation />
+            <div className="rounded-xl bg-muted/40 p-4">{v.render()}</div>
+          </section>
+        ))}
       </div>
     </div>
   );
 }
 
-/* ---------------------------------------------------------------- B: centered hero */
-function VariationB() {
+/* ----------------------------------------------------------- A: refined table */
+function A() {
   return (
-    <div className="grid place-items-center rounded-xl border border-dashed border-border bg-background px-6 py-14 text-center">
-      <span className="grid size-14 place-items-center rounded-2xl bg-primary/10 text-primary"><Rocket className="size-7" /></span>
-      <div className="mt-4 text-lg font-semibold">New to stock — let&apos;s get it sale-ready</div>
-      <p className="mt-1 max-w-md text-sm text-muted-foreground">There&apos;s no advert, valuation or pricing yet. The first step is a quick inspection — everything else follows from what it finds.</p>
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <button className={primaryBtn}><ClipboardCheck className="size-4" /> Start Inspection</button>
-        <button className={ghostBtn}><Camera className="size-4" /> Add Photos</button>
-        <button className={ghostBtn}><PoundSterling className="size-4" /> Set Price</button>
-      </div>
-      <div className="mt-6 text-2xs text-muted-foreground">Then: prep &amp; repairs → photos → price → advert → list</div>
-    </div>
-  );
-}
-
-/* ---------------------------------------------------------------- C: empty widgets in place */
-function EmptyKpi({ label, hint, icon: Icon }: { label: string; hint: string; icon: LucideIcon }) {
-  return (
-    <div className="rounded-xl border border-border bg-background p-4">
-      <div className="flex items-center justify-between"><span className="text-2xs font-medium uppercase tracking-wide text-muted-foreground">{label}</span><Icon className="size-4 text-muted-foreground/50" /></div>
-      <div className="mt-1 text-2xl font-semibold text-muted-foreground/40">—</div>
-      <div className="text-2xs text-muted-foreground">{hint}</div>
-    </div>
-  );
-}
-function VariationC() {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid gap-3 sm:grid-cols-4">
-        <EmptyKpi label="Web Price" hint="Set a price to start" icon={PoundSterling} />
-        <EmptyKpi label="Days in Stock" hint="From today" icon={Gauge} />
-        <EmptyKpi label="AT Retail Avg" hint="Run valuation" icon={Sparkles} />
-        <EmptyKpi label="Net Profit (live)" hint="Needs price + costs" icon={PoundSterling} />
-      </div>
-      <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-        <div className="rounded-xl border border-border bg-background p-5">
-          <div className="text-sm font-semibold">Advert completeness</div>
-          <div className="text-xs text-muted-foreground">Nothing set yet — here&apos;s the path to a live listing.</div>
-          <div className="mt-3 flex flex-col gap-1.5">
-            {STEPS.map((s, i) => (
-              <div key={s.n} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-muted/40">
-                <StepIcon icon={s.icon} active={i === 0} />
-                <div className="min-w-0 flex-1"><div className="text-sm font-medium">{s.title}</div><div className="text-2xs text-muted-foreground">{s.desc}</div></div>
-                <button className={cn(i === 0 ? primaryBtn : "text-xs text-primary hover:underline", "shrink-0")}>{i === 0 ? s.cta : "Open →"}</button>
-              </div>
+    <Shell>
+      <div className="overflow-hidden rounded-xl border">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40 text-left text-xs text-muted-foreground">
+              <th className="px-4 py-2.5 font-medium">Customer</th>
+              <th className="px-4 py-2.5 font-medium">Vehicle</th>
+              <th className="px-4 py-2.5 font-medium">Job</th>
+              <th className="px-4 py-2.5 font-medium">Scheduled</th>
+              <th className="px-4 py-2.5 text-right font-medium">Cost</th>
+              <th className="px-4 py-2.5 font-medium">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {JOBS.map((j) => (
+              <tr key={j.reg} className="border-b last:border-0 hover:bg-muted/30">
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={j.assignee ?? j.customer} />
+                    <div className="leading-tight">
+                      <div className="font-medium">{j.customer}</div>
+                      <div className="text-xs text-muted-foreground">{j.phone || "No phone"}</div>
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <Plate reg={j.reg} />
+                  <div className="mt-1 text-xs text-muted-foreground">{j.vehicle}</div>
+                </td>
+                <td className="max-w-[220px] truncate px-4 py-3">{j.job}</td>
+                <td className="px-4 py-3 text-muted-foreground">{j.date}<span className="text-foreground"> · {j.time}</span></td>
+                <td className="px-4 py-3 text-right font-semibold tabular-nums">{fmtCost(j.cost)}</td>
+                <td className="px-4 py-3"><StatusSelect status={j.status} /></td>
+              </tr>
             ))}
-          </div>
-        </div>
-        <div className="flex flex-col gap-4"><EmptyValuation /><EmptyLocation /></div>
+          </tbody>
+        </table>
       </div>
-    </div>
+    </Shell>
   );
 }
 
-/* ---------------------------------------------------------------- D: journey stepper */
-function VariationD() {
-  const journey = [
-    { label: "Received", icon: Check, state: "done" as const },
-    { label: "Inspect", icon: ClipboardCheck, state: "active" as const },
-    { label: "Prep", icon: Wrench, state: "todo" as const },
-    { label: "Photos", icon: Camera, state: "todo" as const },
-    { label: "Price", icon: PoundSterling, state: "todo" as const },
-    { label: "Advert", icon: Megaphone, state: "todo" as const },
-  ];
+/* ------------------------------------------------------------- B: booking cards */
+function B() {
   return (
-    <div className="rounded-xl border border-border bg-background p-6">
-      <div className="text-base font-semibold">This car&apos;s journey to sold</div>
-      <p className="mt-0.5 text-sm text-muted-foreground">It just arrived. Next up: the inspection.</p>
-      <div className="mt-6 flex items-start gap-1 overflow-x-auto pb-2">
-        {journey.map((j, i) => (
-          <div key={j.label} className="flex items-start gap-1">
-            <div className="flex w-24 flex-col items-center gap-1.5 text-center">
-              <span className={cn("grid size-10 place-items-center rounded-full", j.state === "done" ? "bg-emerald-500 text-white" : j.state === "active" ? "bg-primary text-primary-foreground ring-4 ring-primary/15" : "bg-muted text-muted-foreground")}><j.icon className="size-4" /></span>
-              <span className={cn("text-xs font-medium", j.state === "todo" && "text-muted-foreground")}>{j.label}</span>
-              {j.state === "active" && <span className="text-2xs font-semibold text-primary">You are here</span>}
+    <Shell>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        {JOBS.map((j) => (
+          <div key={j.reg} className="flex flex-col gap-3 rounded-xl border bg-background p-4">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex items-center gap-2.5">
+                <Avatar name={j.assignee ?? j.customer} lg />
+                <div className="leading-tight">
+                  <div className="font-medium">{j.customer}</div>
+                  <div className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                    <Phone className="size-3" />{j.phone || "Walk-in"}
+                  </div>
+                </div>
+              </div>
+              <StatusPill status={j.status} />
             </div>
-            {i < journey.length - 1 && <div className={cn("mt-5 h-0.5 w-8 shrink-0 rounded", j.state === "done" ? "bg-emerald-500" : "bg-border")} />}
+            <div className="rounded-lg bg-muted/40 p-2.5">
+              <div className="flex items-center justify-between">
+                <Plate reg={j.reg} />
+                <span className="text-xs text-muted-foreground">{j.vehicle}</span>
+              </div>
+              <div className="mt-2 text-sm font-medium leading-snug">{j.job}</div>
+            </div>
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="inline-flex items-center gap-1.5"><CalendarClock className="size-3.5" />{j.date} · {j.time}</span>
+              <span className="text-base font-semibold tabular-nums text-foreground">{fmtCost(j.cost)}</span>
+            </div>
           </div>
         ))}
       </div>
-      <div className="mt-6 flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 p-4">
-        <div className="flex items-center gap-3">
-          <StepIcon icon={ClipboardCheck} active />
-          <div><div className="text-sm font-medium">Start with the inspection</div><p className="text-xs text-muted-foreground">A 20-point check surfaces faults so prep, pricing and the advert are accurate.</p></div>
-        </div>
-        <button className={cn(primaryBtn, "shrink-0")}>Start Inspection <ArrowRight className="size-3.5" /></button>
-      </div>
-    </div>
+    </Shell>
   );
 }
 
-/* ---------------------------------------------------------------- E: hybrid */
-function VariationE() {
+/* --------------------------------------------------------------- C: board */
+function C() {
+  const lanes: { key: Status; label: string }[] = [
+    { key: "pending", label: "Pending" },
+    { key: "in_progress", label: "In Progress" },
+    { key: "completed", label: "Completed" },
+  ];
   return (
-    <div className="flex flex-col gap-4">
-      <div className="rounded-xl border border-border bg-background p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div><div className="text-base font-semibold">Get this car sale-ready</div><p className="mt-0.5 text-sm text-muted-foreground">Nothing set up yet — follow the steps from the inspection onward.</p></div>
-          <span className="shrink-0 rounded-full bg-muted px-2.5 py-1 text-xs font-medium tabular-nums text-muted-foreground">0 / 5</span>
-        </div>
-        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          {STEPS.map((s, i) => (
-            <div key={s.n} className={cn("flex items-start gap-2.5 rounded-lg border p-3", i === 0 ? "border-primary/40 bg-primary/5" : "border-border")}>
-              <StepIcon icon={s.icon} active={i === 0} />
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{s.title}</div>
-                <p className="mb-2 text-2xs text-muted-foreground">{s.desc}</p>
-                <button className={cn(i === 0 ? primaryBtn : "text-xs text-primary hover:underline")}>{i === 0 ? s.cta : s.cta}</button>
+    <Shell>
+      <div className="grid gap-3 lg:grid-cols-3">
+        {lanes.map((lane) => {
+          const list = JOBS.filter((j) => j.status === lane.key);
+          return (
+            <div key={lane.key} className="flex flex-col gap-2 rounded-xl bg-muted/40 p-2.5">
+              <div className="flex items-center gap-1.5 border-b border-border/60 pb-2">
+                <CircleDot className={cn("size-3.5", STATUS_META[lane.key].dot.replace("bg-", "text-"))} />
+                <h3 className="text-sm font-semibold">{lane.label}</h3>
+                <span className="rounded-full bg-background px-1.5 text-xs font-medium tabular-nums text-muted-foreground">{list.length}</span>
               </div>
+              {list.map((j) => (
+                <div key={j.reg} className="flex flex-col gap-2 rounded-lg border bg-background p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">{j.customer}</span>
+                    <span className="text-sm font-semibold tabular-nums">{fmtCost(j.cost)}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Plate reg={j.reg} />
+                    <span className="truncate text-xs text-muted-foreground">{j.vehicle}</span>
+                  </div>
+                  <div className="text-sm leading-snug">{j.job}</div>
+                  <div className="flex items-center justify-between border-t pt-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1.5"><CalendarClock className="size-3.5" />{j.date} · {j.time}</span>
+                    <Avatar name={j.assignee} />
+                  </div>
+                </div>
+              ))}
             </div>
+          );
+        })}
+      </div>
+    </Shell>
+  );
+}
+
+/* --------------------------------------------------------------- D: day agenda */
+function D() {
+  const byDate = JOBS.reduce<Record<string, Job[]>>((acc, j) => {
+    (acc[j.date] ??= []).push(j);
+    return acc;
+  }, {});
+  return (
+    <Shell>
+      <div className="flex flex-col gap-4">
+        {Object.entries(byDate).map(([date, list]) => (
+          <div key={date} className="flex gap-4">
+            <div className="w-24 shrink-0 pt-1 text-sm font-semibold text-muted-foreground">{date}</div>
+            <div className="flex flex-1 flex-col gap-2">
+              {list.map((j) => (
+                <div key={j.reg} className="flex items-center gap-4 rounded-lg border bg-background p-3">
+                  <div className="w-16 shrink-0 text-sm font-semibold tabular-nums">{j.time}</div>
+                  <Avatar name={j.assignee ?? j.customer} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{j.customer}</span>
+                      <Plate reg={j.reg} />
+                    </div>
+                    <div className="truncate text-xs text-muted-foreground">{j.job} · {j.vehicle}</div>
+                  </div>
+                  <span className="hidden shrink-0 text-sm font-semibold tabular-nums sm:block">{fmtCost(j.cost)}</span>
+                  <StatusPill status={j.status} />
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Shell>
+  );
+}
+
+/* --------------------------------------------------------------- E: list + detail */
+function E() {
+  const [sel, setSel] = useState(0);
+  const j = JOBS[sel];
+  return (
+    <Shell>
+      <div className="grid gap-4 lg:grid-cols-[300px_1fr]">
+        <div className="flex flex-col gap-1.5">
+          {JOBS.map((job, i) => (
+            <button
+              key={job.reg}
+              onClick={() => setSel(i)}
+              className={cn(
+                "flex items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors",
+                i === sel ? "border-primary bg-primary/5" : "hover:bg-muted/40",
+              )}
+            >
+              <Avatar name={job.assignee ?? job.customer} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-sm font-medium">{job.customer}</span>
+                  <span className={cn("size-2 shrink-0 rounded-full", STATUS_META[job.status].dot)} />
+                </div>
+                <div className="truncate text-xs text-muted-foreground">{job.reg} · {job.time}</div>
+              </div>
+            </button>
           ))}
         </div>
+        <div className="rounded-xl border bg-background p-5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold">{j.customer}</h3>
+              <a className="mt-0.5 inline-flex items-center gap-1.5 text-sm text-muted-foreground">
+                <Phone className="size-3.5" />{j.phone || "Walk-in"}
+              </a>
+            </div>
+            <StatusSelect status={j.status} />
+          </div>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <Field icon={Car} label="Vehicle">
+              <Plate reg={j.reg} /> <span className="ml-1 text-sm text-muted-foreground">{j.vehicle}</span>
+            </Field>
+            <Field icon={CalendarClock} label="Scheduled">{j.date} · {j.time}</Field>
+            <Field icon={UserIcon} label="Assigned to">{j.assignee ?? "Unassigned"}</Field>
+            <Field icon={PhoneCall} label="Cost"><span className="font-semibold tabular-nums">{fmtCost(j.cost)}</span></Field>
+            <div className="sm:col-span-2">
+              <Field icon={CircleDot} label="Job">{j.job}</Field>
+            </div>
+          </div>
+          <div className="mt-4 flex justify-end gap-2 border-t pt-4">
+            <button className="rounded-md border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:bg-muted">Edit</button>
+            <button className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground">Mark complete</button>
+          </div>
+        </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2"><EmptyValuation /><EmptyLocation /></div>
-    </div>
+    </Shell>
   );
 }
-
-/* ---------------------------------------------------------------- shared empty cards */
-function EmptyValuation() {
+function Field({ icon: Icon, label, children }: { icon: React.ComponentType<{ className?: string }>; label: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-border bg-background p-4">
-      <div className="flex items-center justify-between"><span className="text-sm font-semibold">AutoTrader Valuation</span><Sparkles className="size-4 text-muted-foreground" /></div>
-      <div className="mt-3 grid place-items-center rounded-lg border border-dashed border-border py-6 text-center">
-        <Sparkles className="size-6 text-muted-foreground/40" />
-        <div className="mt-2 text-sm font-medium">No valuation yet</div>
-        <p className="mt-0.5 max-w-[14rem] text-2xs text-muted-foreground">Pull live trade, part-ex and retail prices for this reg.</p>
-        <button className={cn(ghostBtn, "mt-3")}><Sparkles className="size-3.5" /> Run valuation</button>
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Icon className="size-3.5" />{label}
       </div>
-    </div>
-  );
-}
-function EmptyLocation() {
-  return (
-    <div className="rounded-xl border border-border bg-background p-4">
-      <div className="flex items-center gap-2"><MapPin className="size-4 text-muted-foreground" /><span className="text-sm font-semibold">Location</span></div>
-      <div className="mt-2 text-sm">Currently at: <span className="font-medium">Forecourt</span></div>
-      <div className="text-2xs text-muted-foreground">Since today · no movements yet</div>
+      <div className="text-sm">{children}</div>
     </div>
   );
 }

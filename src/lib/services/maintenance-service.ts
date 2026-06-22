@@ -121,6 +121,7 @@ export const maintenanceService = {
         | "description"
         | "estimatedDurationHours"
         | "estimatedCost"
+        | "actualCost"
         | "startDate"
         | "dueDate"
         | "notes"
@@ -138,6 +139,8 @@ export const maintenanceService = {
       updates.estimated_duration_hours = patch.estimatedDurationHours;
     if (patch.estimatedCost !== undefined)
       updates.estimated_cost = patch.estimatedCost;
+    if (patch.actualCost !== undefined)
+      updates.actual_cost = patch.actualCost;
     if (patch.startDate !== undefined) updates.start_date = patch.startDate;
     if (patch.dueDate !== undefined) updates.due_date = patch.dueDate;
     if (patch.notes !== undefined) updates.notes = patch.notes;
@@ -159,6 +162,18 @@ export const maintenanceService = {
       content: `Job updated (${Object.keys(patch).join(", ")})`,
     });
     return data as unknown as MaintenanceJob;
+  },
+
+  /** Permanently delete a job and its notes. */
+  async remove(id: UUID): Promise<void> {
+    const supabase = createClient();
+    await supabase.from("maintenance_job_notes").delete().eq("job_id", id);
+    const { error } = await supabase
+      .from("maintenance_jobs")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    invalidate(NS);
   },
 
   async updateStatus(

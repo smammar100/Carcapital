@@ -163,4 +163,15 @@ export const workshopService = {
     invalidate(NS);
     return data as unknown as WorkshopJob;
   },
+
+  /** Permanently delete a workshop job. */
+  async remove(id: UUID): Promise<void> {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("workshop_jobs")
+      .delete()
+      .eq("id", id);
+    if (error) throw error;
+    invalidate(NS);
+  },
 };

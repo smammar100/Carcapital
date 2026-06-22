@@ -6,6 +6,7 @@ import {
   Car,
   Clock,
   FileText,
+  Search,
   Tag,
   Trash2,
   User,
@@ -16,12 +17,13 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxInput,
+  ComboboxPopup,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { useAuth } from "@/contexts/auth-context";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { workshopService } from "@/lib/services/workshop-service";
@@ -148,6 +150,9 @@ export function AddEventSheet({
     }
     return vehicles;
   }, [vehicles, kind]);
+
+  const selectedVehicle =
+    vehicles.find((v) => v.id === vehicleId) ?? null;
 
   async function handleSave() {
     if (!user || !company) return;
@@ -281,18 +286,32 @@ export function AddEventSheet({
 
             {/* Vehicle */}
             <FieldRow icon={Car}>
-              <Select value={vehicleId} onValueChange={setVehicleId}>
-                <SelectTrigger className="h-10 w-full">
-                  <SelectValue placeholder="Select a vehicle" />
-                </SelectTrigger>
-                <SelectContent>
-                  {eligibleVehicles.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.registration} — {v.make} {v.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Combobox
+                items={eligibleVehicles}
+                value={selectedVehicle}
+                onValueChange={(v: Vehicle | null) =>
+                  setVehicleId(v?.id ?? "")
+                }
+                itemToStringLabel={(v: Vehicle) =>
+                  `${v.registration} — ${v.make} ${v.model}`
+                }
+              >
+                <ComboboxInput
+                  placeholder="Search registration…"
+                  startAddon={<Search />}
+                  className="w-full"
+                />
+                <ComboboxPopup>
+                  <ComboboxEmpty>No vehicles match.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(v: Vehicle) => (
+                      <ComboboxItem key={v.id} value={v}>
+                        {v.registration} — {v.make} {v.model}
+                      </ComboboxItem>
+                    )}
+                  </ComboboxList>
+                </ComboboxPopup>
+              </Combobox>
             </FieldRow>
 
             {/* Date */}

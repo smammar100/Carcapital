@@ -1,12 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { inspectionService } from "@/lib/services/inspection-service";
 import { authService } from "@/lib/services/auth-service";
-import type { User, Vehicle } from "@/lib/types";
+import { INSPECTION_ITEMS, NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
+import type { InspectionCheck, User, Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -25,16 +26,33 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { InspectionSidePanel } from "@/components/inspection/inspection-side-panel";
-import { formatDate } from "@/lib/utils";
+import { cn, formatDate, getInitials } from "@/lib/utils";
 
 interface Row {
   vehicle: Vehicle;
+  checks: InspectionCheck[];
   progress: number;
   total: number;
 }
+
+type SquareKind = "pass" | "flag" | "empty";
+
+/** Per-point square state across all 20 items: passed / flagged / not done. */
+function buildSquares(checks: InspectionCheck[]): SquareKind[] {
+  return INSPECTION_ITEMS.map((item) => {
+    const c = checks.find((x) => x.checkNumber === item.number);
+    if (!c || !c.status) return "empty";
+    return NEGATIVE_INSPECTION_STATUSES.has(c.status) ? "flag" : "pass";
+  });
+}
+
+const flaggedCount = (checks: InspectionCheck[]): number =>
+  checks.filter((c) => c.status && NEGATIVE_INSPECTION_STATUSES.has(c.status))
+    .length;
 
 // Lifecycle states relevant to inspection: awaiting/in-progress + the two
 // post-inspection states (being_prepared = done with faults, ready = done clean).
@@ -62,7 +80,7 @@ export default function MaintenanceInspectionListPage() {
     for (const v of scope) {
       const checks = await inspectionService.getForVehicle(v.id);
       const progress = checks.filter((c) => c.status).length;
-      out.push({ vehicle: v, progress, total: 20 });
+      out.push({ vehicle: v, checks, progress, total: INSPECTION_ITEMS.length });
     }
     setRows(out);
     setUsers(u);
@@ -162,6 +180,67 @@ export default function MaintenanceInspectionListPage() {
   );
 }
 
+/** Days a vehicle has been waiting, with an urgency tone past 14 / 30 days. */
+function waitInfo(receivedDate: string): {
+  days: number;
+  cls: string;
+  urgent: boolean;
+} {
+  const days = Math.max(
+    0,
+    Math.floor((Date.now() - new Date(receivedDate).getTime()) / 86_400_000),
+  );
+  if (days > 30)
+    return {
+      days,
+      cls: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+      urgent: true,
+    };
+  if (days > 14)
+    return {
+      days,
+      cls: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+      urgent: true,
+    };
+  return { days, cls: "bg-muted text-muted-foreground", urgent: false };
+}
+
+const SQUARE_TONE: Record<SquareKind, string> = {
+  pass: "bg-emerald-500",
+  flag: "bg-rose-500",
+  empty: "bg-muted",
+};
+
+/** 20-point progress as squares: green = passed, red = flagged, grey = not done. */
+function ProgressSquares({
+  squares,
+  progress,
+  total,
+}: {
+  squares: SquareKind[];
+  progress: number;
+  total: number;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <div
+        className="flex flex-wrap gap-[3px]"
+        title={`${progress} of ${total} points recorded`}
+      >
+        {squares.map((kind, i) => (
+          <span
+            key={i}
+            className={cn("h-2.5 w-2.5 rounded-[2px]", SQUARE_TONE[kind])}
+          />
+        ))}
+      </div>
+      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+        {progress}/{total}
+      </span>
+    </div>
+  );
+}
+
 function QueueTable({
   rows,
   users,
@@ -180,58 +259,90 @@ function QueueTable({
         <TableHeader>
           <TableRow>
             <TableHead>Reg</TableHead>
-            <TableHead>Make / Model</TableHead>
-            <TableHead>Received</TableHead>
+            <TableHead>Vehicle</TableHead>
+            <TableHead>Waiting</TableHead>
             <TableHead>Inspector</TableHead>
             <TableHead>Progress</TableHead>
+            <TableHead>Flagged</TableHead>
             <TableHead className="text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {rows.map(({ vehicle, progress, total }) => (
-            <TableRow key={vehicle.id}>
-              <TableCell>
-                <RegPlate registration={vehicle.registration} size="sm" />
-              </TableCell>
-              <TableCell>
-                <div className="flex flex-col leading-tight">
-                  <span className="font-medium">
-                    {vehicle.make} {vehicle.model}
+          {rows.map(({ vehicle, checks, progress, total }) => {
+            const wait = waitInfo(vehicle.receivedDate);
+            const squares = buildSquares(checks);
+            const flagged = flaggedCount(checks);
+            return (
+              <TableRow key={vehicle.id}>
+                <TableCell>
+                  <RegPlate registration={vehicle.registration} size="sm" />
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-col leading-tight">
+                    <span className="font-medium">
+                      {vehicle.make} {vehicle.model}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {vehicle.stockId} · {formatDate(vehicle.receivedDate)}
+                    </span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+                      wait.cls,
+                    )}
+                  >
+                    {wait.urgent && <AlertTriangle className="size-3" />}
+                    {wait.days}d waiting
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {vehicle.stockId}
-                  </span>
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {formatDate(vehicle.receivedDate)}
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {inspector?.name ?? "—"}
-              </TableCell>
-              <TableCell>
-                <Badge
-                  variant={mode === "completed" ? "secondary" : "outline"}
-                  className="tabular-nums"
-                >
-                  {progress}/{total}
-                </Badge>
-              </TableCell>
-              <TableCell className="text-right">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => onOpen(vehicle)}
-                >
-                  {mode === "completed"
-                    ? "View"
-                    : progress > 0
-                      ? "Continue"
-                      : "Start"}
-                </Button>
-              </TableCell>
-            </TableRow>
-          ))}
+                </TableCell>
+                <TableCell>
+                  {inspector ? (
+                    <span className="inline-flex items-center gap-2 text-muted-foreground">
+                      <Avatar size="sm" title={inspector.name}>
+                        <AvatarFallback>
+                          {getInitials(inspector.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      {inspector.name}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">—</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <ProgressSquares squares={squares} progress={progress} total={total} />
+                </TableCell>
+                <TableCell>
+                  {flagged > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                      <AlertTriangle className="size-3" />
+                      {flagged}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-xs font-medium tabular-nums text-muted-foreground">
+                      0
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    size="sm"
+                    variant={mode === "completed" ? "outline" : "default"}
+                    onClick={() => onOpen(vehicle)}
+                  >
+                    {mode === "completed"
+                      ? "View"
+                      : progress > 0
+                        ? "Continue"
+                        : "Start"}
+                  </Button>
+                </TableCell>
+              </TableRow>
+            );
+          })}
         </TableBody>
       </Table>
     </Card>

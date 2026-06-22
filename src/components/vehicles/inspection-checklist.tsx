@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, ClipboardCheck, Loader2, Plus } from "lucide-react";
+import { Check, ClipboardCheck, Loader2, Plus, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { inspectionService } from "@/lib/services/inspection-service";
 import { inspectionNoteService } from "@/lib/services/inspection-note-service";
@@ -22,14 +22,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -39,6 +31,35 @@ interface Props {
   inspector: string;
   /** When provided, called after the inspection completes instead of navigating. */
   onComplete?: () => void;
+}
+
+/** Compact circular progress indicator for the summary header. */
+function ProgressRing({ percent }: { percent: number }) {
+  const size = 44;
+  const stroke = 4;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  return (
+    <div className="relative shrink-0" style={{ width: size, height: size }}>
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" strokeWidth={stroke} className="stroke-muted" />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          strokeWidth={stroke}
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c - (percent / 100) * c}
+          className="stroke-emerald-500 transition-[stroke-dashoffset]"
+        />
+      </svg>
+      <span className="absolute inset-0 grid place-items-center text-2xs font-semibold tabular-nums">
+        {percent}%
+      </span>
+    </div>
+  );
 }
 
 export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
@@ -168,17 +189,27 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
   const completed = checks.filter((c) => c.status).length;
   const total = INSPECTION_ITEMS.length;
   const percent = Math.round((completed / total) * 100);
+  const flagged = checks.filter(
+    (c) => c.status && NEGATIVE_INSPECTION_STATUSES.has(c.status),
+  ).length;
 
   return (
     <div className="flex flex-col gap-4">
-      <Card className="flex flex-col gap-3 p-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <Card className="flex-row flex-wrap items-center justify-between gap-3 p-4">
+        <div className="flex items-center gap-3">
+          <ProgressRing percent={percent} />
           <div className="text-sm">
-            <div className="font-semibold">Inspector: {inspector}</div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>
-                {completed}/{total} items completed ({percent}%)
-              </span>
+            <div className="flex flex-wrap items-center gap-2 font-medium">
+              <span>{completed}/{total} completed</span>
+              {flagged > 0 && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
+                  <AlertTriangle className="size-3" />
+                  {flagged} flagged
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 flex items-center gap-2 text-xs text-muted-foreground">
+              <span>Inspector: {inspector}</span>
               <span aria-hidden>·</span>
               {saving ? (
                 <span className="inline-flex items-center gap-1">
@@ -191,28 +222,18 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={handleStart}
-              disabled={submitting}
-            >
-              Reset
-            </Button>
-            <Button
-              onClick={handleComplete}
-              disabled={submitting || completed === 0}
-            >
-              {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
-              Complete Inspection
-            </Button>
-          </div>
         </div>
-        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-          <div
-            className="h-full bg-emerald-500 transition-[width]"
-            style={{ width: `${percent}%` }}
-          />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={handleStart} disabled={submitting}>
+            Reset
+          </Button>
+          <Button
+            onClick={handleComplete}
+            disabled={submitting || completed === 0}
+          >
+            {submitting && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+            Complete Inspection
+          </Button>
         </div>
       </Card>
 
@@ -230,68 +251,70 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
       ) : null}
 
       <Card className="overflow-hidden p-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12">#</TableHead>
-              <TableHead>Item</TableHead>
-              <TableHead className="w-44">Status</TableHead>
-              <TableHead>Action required</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {INSPECTION_ITEMS.map((item) => {
-              const check = checks.find((c) => c.checkNumber === item.number);
-              const isNegative =
-                check && NEGATIVE_INSPECTION_STATUSES.has(check.status);
-              return (
-                <TableRow
-                  key={item.number}
-                  className={cn(
-                    isNegative && "bg-rose-50/60 dark:bg-rose-950/20",
-                  )}
-                >
-                  <TableCell className="tabular-nums">{item.number}</TableCell>
-                  <TableCell className="font-medium">{item.item}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={check?.status ?? ""}
-                      onValueChange={(v) => handleStatusChange(item.number, v)}
-                    >
-                      <SelectTrigger className="h-8 w-full text-xs">
-                        <SelectValue placeholder="Select…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {item.statusOptions.map((s) => (
-                          <SelectItem key={s} value={s}>
-                            {s}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      defaultValue={check?.actionRequired ?? ""}
-                      placeholder={
-                        isNegative
-                          ? "Describe what needs doing…"
-                          : "(optional)"
-                      }
-                      onBlur={(e) =>
-                        handleActionChange(item.number, e.target.value)
-                      }
-                      className={cn(
-                        "h-8 text-xs",
-                        isNegative && "border-rose-300 dark:border-rose-800",
-                      )}
-                    />
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+        <div className="divide-y">
+          {INSPECTION_ITEMS.map((item) => {
+            const check = checks.find((c) => c.checkNumber === item.number);
+            const status = check?.status ?? "";
+            const isNegative = !!status && NEGATIVE_INSPECTION_STATUSES.has(status);
+            const dot = !status
+              ? "bg-muted-foreground/30"
+              : isNegative
+                ? "bg-rose-500"
+                : "bg-emerald-500";
+            return (
+              <div
+                key={item.number}
+                className={cn(
+                  "flex items-center gap-3 px-4 py-2",
+                  isNegative && "bg-rose-50/60 dark:bg-rose-950/20",
+                )}
+              >
+                <span
+                  className={cn("size-2.5 shrink-0 rounded-full", dot)}
+                  title={status || "Not checked"}
+                />
+                <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">
+                  {item.number}
+                </span>
+                <span className="w-40 shrink-0 truncate text-sm font-medium">
+                  {item.item}
+                </span>
+                <div className="w-36 shrink-0">
+                  <Select
+                    value={status}
+                    onValueChange={(v) => handleStatusChange(item.number, v)}
+                  >
+                    <SelectTrigger className="h-8 w-full text-xs">
+                      <SelectValue placeholder="Select…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {item.statusOptions.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="min-w-0 flex-1">
+                  <Input
+                    defaultValue={check?.actionRequired ?? ""}
+                    placeholder={
+                      isNegative ? "Describe what needs doing…" : "(optional)"
+                    }
+                    onBlur={(e) =>
+                      handleActionChange(item.number, e.target.value)
+                    }
+                    className={cn(
+                      "h-8 text-xs",
+                      isNegative && "border-rose-300 dark:border-rose-800",
+                    )}
+                  />
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </Card>
 
       {/* Inspection Notes — v4.1 §11.5 / Gap 4: append-only sub-entity */}
