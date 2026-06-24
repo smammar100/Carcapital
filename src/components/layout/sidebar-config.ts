@@ -5,7 +5,7 @@ import {
   ClipboardCheck,
   Calendar as CalendarIcon,
   Megaphone,
-  Image as ImageIcon,
+  // Image as ImageIcon, // restore with the Photo Processing nav item
   UserPlus,
   CalendarCheck,
   TrendingUp,
@@ -172,18 +172,15 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         icon: Megaphone,
         requiredAnyOf: ["advert:create", "advert:edit"],
       },
-      {
-        label: "Photo Processing",
-        href: "/advert/photo-processing",
-        icon: ImageIcon,
-        requiredAnyOf: ["photos:process"],
-      },
-      {
-        label: "Listings",
-        href: "/advert/listings",
-        icon: Megaphone,
-        requiredAnyOf: ["advert:create", "advert:edit", "listing:publish_autotrader"],
-      },
+      // Hidden for now (per request) — restore this block to bring back the
+      // Photo Processing nav item. Also re-enable the `Image as ImageIcon`
+      // import above when restoring.
+      // {
+      //   label: "Photo Processing",
+      //   href: "/advert/photo-processing",
+      //   icon: ImageIcon,
+      //   requiredAnyOf: ["photos:process"],
+      // },
       {
         label: "Performance",
         href: "/advert/performance",

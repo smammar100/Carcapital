@@ -25,16 +25,19 @@ Permissions: `advert:create`, `advert:publish`, `advert:unpublish`, `photo:uploa
 
 | Route | Page file | Primary component | What it shows |
 |---|---|---|---|
-| `/advert/work-list` | `src/app/(dashboard)/advert/work-list/page.tsx` | `AdvertWorkList` | Vehicles needing advert prep, grouped by what's missing |
-| `/advert/photo-processing` | `src/app/(dashboard)/advert/photo-processing/page.tsx` | `PhotoProcessing` queue | Upload + OpenAI image-gen pipeline |
-| `/advert/listings` | `src/app/(dashboard)/advert/listings/page.tsx` | `ListingsList` | All listings with status + actions |
+| `/advert/work-list` | `src/app/(dashboard)/advert/work-list/page.tsx` | `AdvertWorkList` | Master-detail of every listing (all statuses) — build, price, toggle channels, publish, push to AutoTrader, delete |
+| `/advert/photo-processing` | `src/app/(dashboard)/advert/photo-processing/page.tsx` | `PhotoProcessing` queue | Upload + OpenAI image-gen pipeline (nav item currently hidden) |
 | `/advert/performance` | `src/app/(dashboard)/advert/performance/page.tsx` | (stub) | Placeholder for view metrics |
+
+> The standalone `/advert/listings` page was merged into the Work List (it only
+> showed a read-only live subset the Work List already covers). The route now
+> redirects to `/advert/work-list`.
 
 ## Components  *(developer + AI)*
 
 Shared: `src/components/shared/vehicle-image.tsx` (carousel + lightbox), `empty-state.tsx`, `coming-soon.tsx` (used on Performance).
 
-Module-specific advert components are sparse — most logic is inline in the page files. The Listings page reuses `Card` + `Table` + `Badge` primitives.
+Module-specific advert components are sparse — most logic is inline in the page files. The Work List is a master-detail layout (searchable listing list + advert preview panel) reusing `reg-plate`, `vehicle-image`, `days-in-stock-chip`, the data-grid `AtIndicatorCell`, and the `Dialog` primitives.
 
 ## Services & data  *(developer + AI)*
 
@@ -59,10 +62,10 @@ flowchart LR
   D --> E[Save to Supabase Storage]
   E --> F[Photos linked to vehicle]
   B -->|Photos done| G[Create listing draft]
-  G --> H[/advert/listings]
+  G --> H[Work List detail panel]
   H -->|Publish| I[Listing status=active<br/>Vehicle status=listed]
   I --> J[Visible on website]
-  H -->|Unpublish<br/>e.g. reserved| K[Listing status=archived]
+  H -->|Delete advert| K[Listing removed<br/>Vehicle status=ready]
 ```
 
 ## Edge cases & gotchas  *(developer)*

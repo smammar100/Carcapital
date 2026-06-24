@@ -140,6 +140,10 @@ export default function MaintenanceJobDetailPage({
           <div className="flex flex-wrap items-center gap-3">
             {vehicle && <RegPlate registration={vehicle.registration} />}
             <Select
+              items={{
+                none: "Unassigned",
+                ...Object.fromEntries(users.map((u) => [u.id, u.name])),
+              }}
               value={job.assignedTo ?? "none"}
               onValueChange={(v) => void handleAssign(v)}
             >

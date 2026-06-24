@@ -48,7 +48,7 @@ This document is structured for cold-read ingestion. If a row says "owns X", tha
 | `/maintenance/jobs/[id]` | `src/app/(dashboard)/maintenance/jobs/[id]/page.tsx` | Maintenance |
 | `/advert/work-list` | `src/app/(dashboard)/advert/work-list/page.tsx` | Advert |
 | `/advert/photo-processing` | `src/app/(dashboard)/advert/photo-processing/page.tsx` | Advert |
-| `/advert/listings` | `src/app/(dashboard)/advert/listings/page.tsx` | Advert |
+| `/advert/listings` | redirect → `/advert/work-list` (merged into Work List) | Advert |
 | `/advert/performance` | `src/app/(dashboard)/advert/performance/page.tsx` | Advert |
 | `/sales` | `src/app/(dashboard)/sales/page.tsx` | Sales |
 | `/sales/leads` | `src/app/(dashboard)/sales/leads/page.tsx` | Sales |

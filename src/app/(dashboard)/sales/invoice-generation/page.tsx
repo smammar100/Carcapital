@@ -2,13 +2,27 @@
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ChevronDown, Plus, Trash2, ShieldX } from "lucide-react";
+import {
+  ChevronDown,
+  Plus,
+  Trash2,
+  ShieldX,
+  Car,
+  User,
+  FileText,
+  Percent,
+  CreditCard,
+  ShieldCheck,
+  ClipboardCheck,
+  StickyNote,
+  type LucideIcon,
+} from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { salesService } from "@/lib/services/sales-service";
-import { openBlobInNewTab, pdfService } from "@/lib/services/pdf-service";
+import { downloadBlob, pdfService } from "@/lib/services/pdf-service";
 import type {
   AddonCategory,
   DepositMethod,
@@ -91,6 +105,17 @@ const emptyPdc = (v: Vehicle | null): PreDeliveryCheck => ({
 
 const defaultWarranty = (): WarrantyDeclaration => ({ ...WARRANTY_DEFAULTS });
 
+const SECTION_ICON: Record<string, LucideIcon> = {
+  A: Car,
+  B: User,
+  C: FileText,
+  D: Percent,
+  E: CreditCard,
+  F: ShieldCheck,
+  G: ClipboardCheck,
+  H: StickyNote,
+};
+
 function Section({
   title,
   letter,
@@ -101,6 +126,7 @@ function Section({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
+  const Icon = SECTION_ICON[letter];
   return (
     <Card className="p-0">
       <button
@@ -108,8 +134,11 @@ function Section({
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between px-4 py-3 text-left"
       >
-        <span className="text-sm font-semibold">
-          <span className="text-muted-foreground">{letter}.</span> {title}
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          {Icon ? <Icon className="size-4 text-muted-foreground" /> : null}
+          <span>
+            <span className="text-muted-foreground">{letter}.</span> {title}
+          </span>
         </span>
         <ChevronDown
           className={cn("h-4 w-4 transition-transform", !open && "-rotate-90")}
@@ -573,7 +602,7 @@ function InvoiceGenerationForm() {
         vatNumber: company.vatNumber,
         vehicle,
       });
-      openBlobInNewTab(blob);
+      downloadBlob(blob, `Invoice-${invoice.invoiceNumber}.pdf`);
       router.push("/admin/invoicing");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to create invoice");
@@ -621,7 +650,16 @@ function InvoiceGenerationForm() {
             placeholder="Search reg, stock ID, make or model…"
             className="mb-2 mt-1"
           />
-          <Select value={vehicleId} onValueChange={handleVehicleChange}>
+          <Select
+            items={Object.fromEntries(
+              vehicles.map((v) => [
+                v.id,
+                `${v.stockId} — ${v.registration} — ${v.make} ${v.model}`,
+              ]),
+            )}
+            value={vehicleId}
+            onValueChange={handleVehicleChange}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select a vehicle…" />
             </SelectTrigger>

@@ -331,7 +331,11 @@ export function ExternalInvoiceForm({
               Vendor <span className="text-destructive">*</span>
             </Label>
             <div className="flex gap-2">
-              <Select value={vendorId} onValueChange={setVendorId}>
+              <Select
+                items={Object.fromEntries(vendors.map((v) => [v.id, v.name]))}
+                value={vendorId}
+                onValueChange={setVendorId}
+              >
                 <SelectTrigger className="flex-1">
                   <SelectValue placeholder="Pick a vendor…" />
                 </SelectTrigger>
@@ -386,7 +390,16 @@ export function ExternalInvoiceForm({
                 )}
               </div>
             ) : (
-              <Select value={vehicleId} onValueChange={setVehicleId}>
+              <Select
+                items={Object.fromEntries(
+                  vehicles.map((v) => [
+                    v.id,
+                    `${v.stockId} · ${v.registration} — ${v.make} ${v.model}`,
+                  ]),
+                )}
+                value={vehicleId}
+                onValueChange={setVehicleId}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Pick a vehicle…" />
                 </SelectTrigger>

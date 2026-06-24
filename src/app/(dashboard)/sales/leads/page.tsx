@@ -1,8 +1,19 @@
 "use client";
 
-import { Fragment, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Plus, UserPlus } from "lucide-react";
+import {
+  Plus,
+  UserPlus,
+  Search,
+  Phone,
+  Mail,
+  Car,
+  CalendarPlus,
+  Clock,
+  User as UserIcon,
+  ArrowRight,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -27,12 +38,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
@@ -45,30 +59,29 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
-import {
-  type ColumnDef,
-  DataGridFooterRow,
-  DataGridGroupHeaderRow,
-  DataGridHeaderRow,
-  DataGridRow,
-  DataGridShell,
-  DataGridSkeletonRows,
-  DataGridTable,
-  DataGridTotalsRow,
-  useRowGroups,
-  UserCell,
-} from "@/components/data-grid";
+import { LeadStatusCell } from "@/components/data-grid";
+import { cn, getInitials } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
-const LEAD_STATUS_LABEL: Record<string, string> = {
+const LEAD_STATUS_LABEL: Record<LeadStatus, string> = {
   new: "New",
   contacted: "Contacted",
   appointment_booked: "Appointment Booked",
   lost: "Lost",
 };
-// Stable refs so useRowGroups' memo doesn't recompute every render.
-const leadGroupBy = (l: Lead) => l.status;
-const leadGroupLabel = (k: string) => LEAD_STATUS_LABEL[k] ?? k;
+// Pipeline order for the list + group separators.
+const STATUS_ORDER: LeadStatus[] = [
+  "new",
+  "contacted",
+  "appointment_booked",
+  "lost",
+];
+const STATUS_DOT: Record<LeadStatus, string> = {
+  new: "bg-blue-500",
+  contacted: "bg-violet-500",
+  appointment_booked: "bg-amber-500",
+  lost: "bg-rose-500",
+};
 
 interface LeadRow extends Lead {
   assigneeName: string;
@@ -91,13 +104,7 @@ const createSchema = z.object({
   customerEmail: z.string().optional(),
   vehicleInterest: z.string().min(1),
   vehicleId: z.string(),
-  /**
-   * Module C · Phase 1 — required channel FK. The legacy `source` enum
-   * is derived from the picked channel's slug on submit so existing
-   * filters / activity log still work.
-   */
   leadChannelId: z.string().min(1, "Please pick a channel"),
-  /** Free-text clarification shown only when channel slug is "other". */
   channelOtherReason: z.string().optional(),
   assignedTo: z.string().min(1),
   notes: z.string().optional(),
@@ -105,13 +112,51 @@ const createSchema = z.object({
 type CreateInput = z.input<typeof createSchema>;
 type CreateOutput = z.output<typeof createSchema>;
 
-const apptSchema = z.object({
-  date: z.string().min(1),
-  time: z.string().min(1),
-  specialRequirements: z.string().optional(),
-});
-type ApptInput = z.input<typeof apptSchema>;
-type ApptOutput = z.output<typeof apptSchema>;
+// Allowed status targets shown in the Update-status dialog, with a short hint.
+const STATUS_TARGETS: { value: LeadStatus; label: string; hint: string }[] = [
+  { value: "new", label: "New", hint: "Fresh enquiry, not yet actioned" },
+  { value: "contacted", label: "Contacted", hint: "Reached out — awaiting next step" },
+  { value: "appointment_booked", label: "Appointment Booked", hint: "Schedules a test-drive on the calendar" },
+  { value: "lost", label: "Lost", hint: "Dead lead — requires a reason" },
+];
+
+const normReg = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+/**
+ * Best-effort match of a stock vehicle from a lead's free-text vehicle interest.
+ * Tries the registration embedded in the text first (e.g. "Audi A3 (LX66 CZK)"),
+ * then a unique make+model match. Returns the vehicle id or null. Only considers
+ * vehicles that can still be advertised (listed / ready).
+ */
+function matchVehicleFromInterest(
+  interest: string,
+  vehicles: Vehicle[],
+): string | null {
+  if (!interest) return null;
+  const eligible = vehicles.filter(
+    (v) => v.status === "listed" || v.status === "ready",
+  );
+  const niReg = normReg(interest);
+  const byReg = eligible.find(
+    (v) => v.registration && niReg.includes(normReg(v.registration)),
+  );
+  if (byReg) return byReg.id;
+  const ni = interest.toUpperCase();
+  const byMakeModel = eligible.filter((v) =>
+    ni.includes(`${v.make} ${v.model}`.toUpperCase()),
+  );
+  return byMakeModel.length === 1 ? byMakeModel[0].id : null;
+}
+
+// Pull a human-readable message out of an unknown thrown value (Error,
+// Supabase PostgrestError, or anything else) — avoids "[object Object]".
+function errMsg(e: unknown): string {
+  if (e instanceof Error) return e.message;
+  if (e && typeof e === "object" && "message" in e) {
+    return String((e as { message: unknown }).message);
+  }
+  return String(e);
+}
 
 export default function LeadsPage() {
   const { user, company } = useAuth();
@@ -121,9 +166,13 @@ export default function LeadsPage() {
   const [channels, setChannels] = useState<LeadChannel[]>([]);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
   const [sourceFilter, setSourceFilter] = useState<LeadSource | "all">("all");
+  const [search, setSearch] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
-  const [drillLead, setDrillLead] = useState<Lead | null>(null);
+  // Master-detail selection (replaces the old drill modal).
+  const [selectedId, setSelectedId] = useState<UUID | null>(null);
   const [creatingDeal, setCreatingDeal] = useState(false);
+  // Stable "now" captured at load — keeps the age memo pure.
+  const [nowTs, setNowTs] = useState<number | null>(null);
 
   // The role-based "New Lead" CTA navigates here with ?new=1 — auto-open the
   // create dialog so the CTA lands the user straight in the create flow.
@@ -148,14 +197,16 @@ export default function LeadsPage() {
     },
   });
 
-  const appt = useForm<ApptInput, unknown, ApptOutput>({
-    resolver: zodResolver(apptSchema),
-    defaultValues: {
-      date: new Date().toISOString().slice(0, 10),
-      time: "10:00",
-      specialRequirements: "",
-    },
-  });
+  // ── Update-status dialog state ──────────────────────────────────────────
+  const [statusOpen, setStatusOpen] = useState(false);
+  const [stTarget, setStTarget] = useState<LeadStatus>("contacted");
+  const [stDate, setStDate] = useState(new Date().toISOString().slice(0, 10));
+  const [stTime, setStTime] = useState("10:00");
+  const [stSpecial, setStSpecial] = useState("");
+  const [stVehicleId, setStVehicleId] = useState("none");
+  const [stReason, setStReason] = useState("");
+  const [stBusy, setStBusy] = useState(false);
+  const [stError, setStError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!company) return;
@@ -169,94 +220,91 @@ export default function LeadsPage() {
       setVehicles(v);
       setUsers(u);
       setChannels(c);
+      setNowTs(Date.now());
       const sales = u.find((x) => x.role === "sales");
       if (sales) create.setValue("assignedTo", sales.id);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company]);
 
+  // Filter (status + source + search) then order by pipeline status + recency.
   const filtered = useMemo<LeadRow[] | null>(() => {
     if (!leads) return null;
-    let out = [...leads];
-    if (statusFilter !== "all") out = out.filter((l) => l.status === statusFilter);
-    if (sourceFilter !== "all") out = out.filter((l) => l.source === sourceFilter);
+    const q = search.trim().toLowerCase();
+    let out = leads.filter((l) => {
+      if (statusFilter !== "all" && l.status !== statusFilter) return false;
+      if (sourceFilter !== "all" && l.source !== sourceFilter) return false;
+      if (q) {
+        const hay =
+          `${l.customerName} ${l.customerPhone} ${l.vehicleInterest}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    out = [...out].sort((a, b) => {
+      const s =
+        STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status);
+      if (s !== 0) return s;
+      return b.createdAt.localeCompare(a.createdAt);
+    });
     return out.map((l) => ({
       ...l,
       assigneeName: users.find((u) => u.id === l.assignedTo)?.name ?? "—",
     }));
-  }, [leads, statusFilter, sourceFilter, users]);
+  }, [leads, statusFilter, sourceFilter, search, users]);
 
-  // Resolve channel by id for the Channel cell renderer.
+  // Keep selection valid as filters/data change.
+  useEffect(() => {
+    if (!filtered) return;
+    if (filtered.length === 0) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !filtered.some((l) => l.id === selectedId)) {
+      setSelectedId(filtered[0].id);
+    }
+  }, [filtered, selectedId]);
+
+  const selected = useMemo<LeadRow | null>(
+    () => filtered?.find((l) => l.id === selectedId) ?? null,
+    [filtered, selectedId],
+  );
+
   const channelById = useMemo<Map<UUID, LeadChannel>>(
     () => new Map(channels.map((c) => [c.id, c])),
     [channels],
   );
 
-  const cols = useMemo<ColumnDef<LeadRow>[]>(
-    () => [
-      {
-        key: "customerName",
-        label: "Customer",
-        type: "text",
-        sticky: true,
-        width: 180,
-      },
-      { key: "customerPhone", label: "Phone", type: "phone", width: 140 },
-      {
-        key: "vehicleInterest",
-        label: "Vehicle interest",
-        type: "text",
-        width: 240,
-      },
-      {
-        key: "leadChannelId",
-        label: "Channel",
-        type: "custom",
-        width: 150,
-        render: (l) => {
-          const ch = l.leadChannelId ? channelById.get(l.leadChannelId) : null;
-          if (ch) return <ChannelChip channel={ch} compact />;
-          // Legacy fallback — lead created before Module C; render the
-          // raw `source` value muted so the row still has context.
-          return (
-            <span className="text-xs capitalize text-muted-foreground">
-              {l.source.replace("_", " ")}
-            </span>
-          );
-        },
-      },
-      { key: "status", label: "Status", type: "leadStatus", width: 150 },
-      {
-        key: "assignedTo",
-        label: "Assigned",
-        type: "user",
-        width: 160,
-        render: (l) => <UserCell name={l.assigneeName} />,
-      },
-      {
-        key: "createdAt",
-        label: "Created",
-        type: "date",
-        width: 120,
-        get: (l) => l.createdAt.slice(0, 10),
-      },
-    ],
-    [channelById],
+  // Vehicles that can still be advertised — the pickable set for the status
+  // dialog. `items` lets the Select render the friendly label for a *preset*
+  // value (base-ui can't resolve it from an unopened list otherwise).
+  const eligibleVehicles = useMemo(
+    () => vehicles.filter((v) => v.status === "listed" || v.status === "ready"),
+    [vehicles],
+  );
+  const vehicleItems = useMemo<Record<string, string>>(
+    () => ({
+      none: "Pick a vehicle…",
+      ...Object.fromEntries(
+        eligibleVehicles.map((v) => [
+          v.id,
+          `${v.registration} — ${v.make} ${v.model}`,
+        ]),
+      ),
+    }),
+    [eligibleVehicles],
   );
 
-  // Collapsible grouping by lead status (ClickUp-style pipeline view).
-  const { groups, isCollapsed, toggle } = useRowGroups(
-    filtered ?? undefined,
-    leadGroupBy,
-    leadGroupLabel,
-  );
+  function ageOf(createdAt: string): string {
+    if (nowTs === null) return "";
+    const d = Math.floor(
+      (nowTs - new Date(createdAt).getTime()) / 86_400_000,
+    );
+    return d <= 0 ? "today" : `${d}d`;
+  }
 
   async function onCreate(values: CreateOutput) {
     if (!user || !company) return;
-
-    // Derive the legacy lead.source enum from the picked channel's
-    // slug so existing filters / activity-log strings keep working.
-    // Non-matching slugs (e.g. "repeat_customer") collapse to "other".
     const channel = channels.find((c) => c.id === values.leadChannelId);
     const LEGACY_SOURCES: readonly LeadSource[] = [
       "website",
@@ -274,7 +322,6 @@ export default function LeadsPage() {
         ? slugAsSource
         : "other";
 
-    // If "Other" was picked with a clarification, prefix it onto notes.
     const reason = values.channelOtherReason?.trim();
     const notes =
       channel?.slug === "other" && reason
@@ -302,49 +349,138 @@ export default function LeadsPage() {
     create.reset();
   }
 
-  async function onBookAppt(values: ApptOutput) {
-    if (!user || !company || !drillLead || !drillLead.vehicleId) return;
-    await appointmentService.create({
-      companyId: company.id,
-      vehicleId: drillLead.vehicleId,
-      leadId: drillLead.id,
-      customerName: drillLead.customerName,
-      customerPhone: drillLead.customerPhone,
-      customerEmail: drillLead.customerEmail ?? "",
-      date: values.date,
-      time: values.time,
-      specialRequirements: values.specialRequirements || null,
-      createdBy: user.id,
-    });
-    toast.success("Appointment booked — WhatsApp + email sent ✓");
-    setLeads(await leadService.getAll(company.id));
-    setDrillLead(null);
-    appt.reset();
+  function openStatusDialog() {
+    if (!selected) return;
+    // Default to the natural next step from the current status.
+    const next: Record<LeadStatus, LeadStatus> = {
+      new: "contacted",
+      contacted: "appointment_booked",
+      appointment_booked: "appointment_booked",
+      lost: "contacted",
+    };
+    setStTarget(next[selected.status]);
+    setStDate(new Date().toISOString().slice(0, 10));
+    setStTime("10:00");
+    setStSpecial("");
+    // Pre-fill the stock vehicle from the lead's known vehicle of interest so
+    // the user doesn't re-pick what we already know.
+    setStVehicleId(
+      selected.vehicleId ??
+        matchVehicleFromInterest(selected.vehicleInterest, vehicles) ??
+        "none",
+    );
+    setStReason("");
+    setStError(null);
+    setStatusOpen(true);
   }
 
-  // Convert a lead into a Deal (links lead → deal → vehicle) and open the
-  // Pipeline. Requires a linked stock vehicle since a deal is vehicle-scoped.
+  async function submitStatus() {
+    if (!user || !company || !selected || stBusy) return;
+    setStError(null);
+
+    // ── Appointment Booked → schedule a real appointment (auto-adds to the
+    // Sales appointment calendar) which also flips the lead to that status. ──
+    if (stTarget === "appointment_booked") {
+      const vehicleId =
+        selected.vehicleId ?? (stVehicleId !== "none" ? stVehicleId : null);
+      if (!vehicleId) {
+        setStError("Pick a stock vehicle — an appointment is booked against a car.");
+        return;
+      }
+      if (!stDate || !stTime) {
+        setStError("Date and time are required to book the appointment.");
+        return;
+      }
+      setStBusy(true);
+      try {
+        // Link the vehicle to the lead first if it wasn't already.
+        if (!selected.vehicleId) {
+          await leadService.update(selected.id, { vehicleId });
+        }
+        await appointmentService.create({
+          companyId: company.id,
+          vehicleId,
+          leadId: selected.id,
+          customerName: selected.customerName,
+          customerPhone: selected.customerPhone,
+          customerEmail: selected.customerEmail ?? "",
+          date: stDate,
+          time: stTime,
+          specialRequirements: stSpecial || null,
+          createdBy: user.id,
+        });
+        toast.success("Appointment booked — added to the calendar ✓");
+        setLeads(await leadService.getAll(company.id));
+        setStatusOpen(false);
+      } catch (e) {
+        setStError(`Couldn't book the appointment: ${errMsg(e)}`);
+      } finally {
+        setStBusy(false);
+      }
+      return;
+    }
+
+    // ── Lost → require a full reason (kept on record). ──
+    if (stTarget === "lost") {
+      const reason = stReason.trim();
+      if (reason.length < 5) {
+        setStError("Please enter a full reason (at least a few words) for the record.");
+        return;
+      }
+      setStBusy(true);
+      try {
+        await leadService.changeStatus(selected.id, "lost", user.id, {
+          lostReason: reason,
+        });
+        toast.success("Lead marked Lost — reason saved");
+        setLeads(await leadService.getAll(company.id));
+        setStatusOpen(false);
+      } catch (e) {
+        setStError(`Couldn't update status: ${errMsg(e)}`);
+      } finally {
+        setStBusy(false);
+      }
+      return;
+    }
+
+    // ── New / Contacted → simple audited status change. ──
+    setStBusy(true);
+    try {
+      await leadService.changeStatus(selected.id, stTarget, user.id);
+      toast.success(`Lead moved to ${stTarget === "new" ? "New" : "Contacted"}`);
+      setLeads(await leadService.getAll(company.id));
+      setStatusOpen(false);
+    } catch (e) {
+      setStError(`Couldn't update status: ${errMsg(e)}`);
+    } finally {
+      setStBusy(false);
+    }
+  }
+
   async function handleCreateDeal() {
-    if (!user || !company || !drillLead || !drillLead.vehicleId) return;
+    if (!user || !company || !selected || !selected.vehicleId) return;
     if (creatingDeal) return;
     setCreatingDeal(true);
     try {
       await salesService.create({
         companyId: company.id,
-        vehicleId: drillLead.vehicleId,
-        leadId: drillLead.id,
-        customerName: drillLead.customerName,
-        customerPhone: drillLead.customerPhone,
-        customerEmail: drillLead.customerEmail ?? null,
-        sellingAgent: drillLead.assignedTo,
+        vehicleId: selected.vehicleId,
+        leadId: selected.id,
+        customerName: selected.customerName,
+        customerPhone: selected.customerPhone,
+        customerEmail: selected.customerEmail ?? null,
+        sellingAgent: selected.assignedTo,
       });
       toast.success("Deal ready — opening pipeline");
-      setDrillLead(null);
       router.push("/sales/pipeline");
     } finally {
       setCreatingDeal(false);
     }
   }
+
+  const selectedVehicle = selected?.vehicleId
+    ? vehicles.find((v) => v.id === selected.vehicleId) ?? null
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -364,95 +500,107 @@ export default function LeadsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-md">
-            <DialogHeader>
-              <DialogTitle>Create Lead</DialogTitle>
-            </DialogHeader>
-            <form
-              onSubmit={create.handleSubmit(onCreate)}
-              className="grid gap-3"
-            >
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Name</Label>
-                  <Input {...create.register("customerName")} />
+            <form onSubmit={create.handleSubmit(onCreate)} className="contents">
+              <DialogHeader>
+                <DialogTitle>Create Lead</DialogTitle>
+                <DialogDescription>
+                  Capture a new buyer enquiry and assign it for follow-up.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogPanel className="grid gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Name</Label>
+                    <Input {...create.register("customerName")} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Phone</Label>
+                    <Input {...create.register("customerPhone")} />
+                  </div>
                 </div>
-                <div>
-                  <Label>Phone</Label>
-                  <Input {...create.register("customerPhone")} />
+                <div className="grid gap-1.5">
+                  <Label>Email</Label>
+                  <Input type="email" {...create.register("customerEmail")} />
                 </div>
-              </div>
-              <div>
-                <Label>Email</Label>
-                <Input type="email" {...create.register("customerEmail")} />
-              </div>
-              <div>
-                <Label>Vehicle</Label>
-                <Select
-                  value={create.watch("vehicleId")}
-                  onValueChange={(v) => {
-                    create.setValue("vehicleId", v);
-                    if (v !== "none") {
-                      const veh = vehicles.find((x) => x.id === v);
-                      if (veh)
-                        create.setValue(
-                          "vehicleInterest",
-                          `${veh.make} ${veh.model} (${veh.registration})`,
-                        );
+                <div className="grid gap-1.5">
+                  <Label>Vehicle</Label>
+                  <Select
+                    items={{
+                      none: "None / free text",
+                      ...Object.fromEntries(
+                        vehicles.map((v) => [
+                          v.id,
+                          `${v.registration} — ${v.make} ${v.model}`,
+                        ]),
+                      ),
+                    }}
+                    value={create.watch("vehicleId")}
+                    onValueChange={(v) => {
+                      create.setValue("vehicleId", v);
+                      if (v !== "none") {
+                        const veh = vehicles.find((x) => x.id === v);
+                        if (veh)
+                          create.setValue(
+                            "vehicleInterest",
+                            `${veh.make} ${veh.model} (${veh.registration})`,
+                          );
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pick a stock vehicle (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">None / free text</SelectItem>
+                      {vehicles
+                        .filter(
+                          (v) => v.status === "listed" || v.status === "ready",
+                        )
+                        .map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.registration} — {v.make} {v.model}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Vehicle interest</Label>
+                  <Input {...create.register("vehicleInterest")} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>
+                    Lead Channel <span className="text-destructive">*</span>
+                  </Label>
+                  <ChannelDropdown
+                    channels={channels}
+                    value={create.watch("leadChannelId") || undefined}
+                    onValueChange={(id) =>
+                      create.setValue("leadChannelId", id, {
+                        shouldValidate: true,
+                      })
                     }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pick a stock vehicle (optional)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None / free text</SelectItem>
-                    {vehicles
-                      .filter((v) => v.status === "listed" || v.status === "ready")
-                      .map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.registration} — {v.make} {v.model}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Vehicle interest</Label>
-                <Input {...create.register("vehicleInterest")} />
-              </div>
-              <div>
-                <Label>
-                  Lead Channel <span className="text-destructive">*</span>
-                </Label>
-                <ChannelDropdown
-                  channels={channels}
-                  value={create.watch("leadChannelId") || undefined}
-                  onValueChange={(id) =>
-                    create.setValue("leadChannelId", id, { shouldValidate: true })
-                  }
-                  placeholder="Where did this lead come from?"
-                  invalid={!!create.formState.errors.leadChannelId}
-                />
-                {create.formState.errors.leadChannelId ? (
-                  <p className="mt-1 text-xs text-destructive">
-                    {create.formState.errors.leadChannelId.message}
-                  </p>
-                ) : null}
-                {/* "Other" clarification — appears only when "other" is picked */}
-                {channels.find(
-                  (c) => c.id === create.watch("leadChannelId"),
-                )?.slug === "other" ? (
-                  <Input
-                    {...create.register("channelOtherReason")}
-                    placeholder="How did they hear about us?"
-                    className="mt-2"
+                    placeholder="Where did this lead come from?"
+                    invalid={!!create.formState.errors.leadChannelId}
                   />
-                ) : null}
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
+                  {create.formState.errors.leadChannelId ? (
+                    <p className="text-xs text-destructive">
+                      {create.formState.errors.leadChannelId.message}
+                    </p>
+                  ) : null}
+                  {channels.find(
+                    (c) => c.id === create.watch("leadChannelId"),
+                  )?.slug === "other" ? (
+                    <Input
+                      {...create.register("channelOtherReason")}
+                      placeholder="How did they hear about us?"
+                    />
+                  ) : null}
+                </div>
+                <div className="grid gap-1.5">
                   <Label>Assign to</Label>
                   <Select
+                    items={Object.fromEntries(users.map((u) => [u.id, u.name]))}
                     value={create.watch("assignedTo")}
                     onValueChange={(v) => create.setValue("assignedTo", v)}
                   >
@@ -468,11 +616,11 @@ export default function LeadsPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div>
-                <Label>Notes</Label>
-                <Textarea {...create.register("notes")} className="min-h-16" />
-              </div>
+                <div className="grid gap-1.5">
+                  <Label>Notes</Label>
+                  <Textarea {...create.register("notes")} className="min-h-16" />
+                </div>
+              </DialogPanel>
               <DialogFooter>
                 <Button
                   type="button"
@@ -488,194 +636,385 @@ export default function LeadsPage() {
         </Dialog>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-sm">
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as LeadStatus | "all")}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="new">New</SelectItem>
-            <SelectItem value="contacted">Contacted</SelectItem>
-            <SelectItem value="appointment_booked">Appointment booked</SelectItem>
-            <SelectItem value="lost">Lost</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={sourceFilter}
-          onValueChange={(v) => setSourceFilter(v as LeadSource | "all")}
-        >
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Source" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All sources</SelectItem>
-            {SOURCES.map((s) => (
-              <SelectItem key={s} value={s} className="capitalize">
-                {s.replace("_", " ")}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
       {!filtered ? (
-        // Row-aware skeleton matching the table's column structure.
-        <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
-            <tbody>
-              <DataGridSkeletonRows columns={cols} rows={6} />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={UserPlus}
-          title="No leads"
-          description="When new enquiries land, they'll appear here."
-        />
+        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+          <Skeleton className="h-[480px] rounded-xl" />
+          <Skeleton className="h-[480px] rounded-xl" />
+        </div>
       ) : (
-        <DataGridShell>
-          <DataGridTable cols={cols}>
-            <DataGridHeaderRow cols={cols} />
-            <tbody>
-              {(groups ?? []).map((g) => (
-                <Fragment key={g.key}>
-                  <DataGridGroupHeaderRow
-                    label={g.label}
-                    count={g.rows.length}
-                    collapsed={isCollapsed(g.key)}
-                    onToggle={() => toggle(g.key)}
-                    span={cols.length}
-                  />
-                  {!isCollapsed(g.key) &&
-                    g.rows.map((l, i) => (
-                      <DataGridRow
-                        key={l.id}
-                        row={l}
-                        cols={cols}
-                        index={i}
-                        onClick={(row) => setDrillLead(row)}
-                      />
+        <div className="grid gap-4 lg:grid-cols-[320px_1fr] lg:items-start">
+          {/* LEFT — search, status + source filters, scrollable lead list */}
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search name, phone or vehicle…"
+                  aria-label="Search leads"
+                  className="pl-8"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select
+                  value={statusFilter}
+                  onValueChange={(v) =>
+                    setStatusFilter(v as LeadStatus | "all")
+                  }
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All statuses</SelectItem>
+                    {STATUS_ORDER.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {LEAD_STATUS_LABEL[s]}
+                      </SelectItem>
                     ))}
-                </Fragment>
-              ))}
-              <DataGridTotalsRow
-                cols={cols}
-                total={(c) =>
-                  c.key === "customerName"
-                    ? `${filtered.length} lead${filtered.length === 1 ? "" : "s"}`
-                    : null
-                }
+                  </SelectContent>
+                </Select>
+                <Select
+                  value={sourceFilter}
+                  onValueChange={(v) => setSourceFilter(v as LeadSource | "all")}
+                >
+                  <SelectTrigger className="flex-1">
+                    <SelectValue placeholder="Source" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All sources</SelectItem>
+                    {SOURCES.map((s) => (
+                      <SelectItem key={s} value={s} className="capitalize">
+                        {s.replace("_", " ")}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {filtered.length === 0 ? (
+              <EmptyState
+                icon={UserPlus}
+                title="No leads"
+                description="Adjust your filters, or capture a new enquiry."
               />
-              <DataGridFooterRow
-                label="New lead"
-                span={cols.length}
-                onClick={() => setCreateOpen(true)}
-              />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
+            ) : (
+              <div
+                role="listbox"
+                aria-label="Leads"
+                className="flex max-h-[calc(100dvh-15rem)] flex-col gap-1.5 overflow-y-auto pr-1"
+              >
+                {filtered.map((l) => {
+                  const isActive = l.id === selectedId;
+                  const ch = l.leadChannelId
+                    ? channelById.get(l.leadChannelId)
+                    : null;
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => setSelectedId(l.id)}
+                      className={cn(
+                        "flex w-full shrink-0 items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors",
+                        isActive
+                          ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                          : "border-border hover:bg-muted/50",
+                      )}
+                    >
+                      <Avatar size="sm">
+                        <AvatarFallback className="text-2xs">
+                          {getInitials(l.customerName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-sm font-medium">
+                            {l.customerName}
+                          </span>
+                          <span
+                            className={cn(
+                              "size-2 shrink-0 rounded-full",
+                              STATUS_DOT[l.status],
+                            )}
+                          />
+                        </div>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {l.vehicleInterest}
+                        </span>
+                        <div className="mt-0.5 flex items-center justify-between gap-2">
+                          {ch ? (
+                            <ChannelChip channel={ch} compact />
+                          ) : (
+                            <span className="text-2xs capitalize text-muted-foreground">
+                              {l.source.replace("_", " ")}
+                            </span>
+                          )}
+                          <span className="shrink-0 text-2xs text-muted-foreground">
+                            {ageOf(l.createdAt)}
+                          </span>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* RIGHT — full follow-up panel for the selected lead */}
+          <div className="lg:sticky lg:top-4">
+            {!selected ? (
+              <div className="flex h-[320px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-card text-center text-muted-foreground">
+                <UserPlus className="size-6" />
+                <p className="text-sm">Select a lead to follow up.</p>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm">
+                {/* Header */}
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <Avatar size="lg">
+                      <AvatarFallback>
+                        {getInitials(selected.customerName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <h2 className="text-lg font-semibold leading-tight">
+                        {selected.customerName}
+                      </h2>
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+                        <a
+                          href={`tel:${selected.customerPhone.replace(/\s+/g, "")}`}
+                          className="inline-flex items-center gap-1.5 hover:text-foreground"
+                        >
+                          <Phone className="size-3.5" />
+                          {selected.customerPhone}
+                        </a>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Mail className="size-3.5" />
+                          {selected.customerEmail ?? "no email"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <LeadStatusCell status={selected.status} />
+                </div>
+
+                {selectedVehicle ? (
+                  <VehicleImage
+                    vehicle={selectedVehicle}
+                    variant="card"
+                    className="w-full max-w-[260px]"
+                  />
+                ) : null}
+
+                {/* Fields */}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field icon={Car} label="Vehicle of interest">
+                    {selected.vehicleInterest}
+                  </Field>
+                  <Field icon={ArrowRight} label="Channel">
+                    {(() => {
+                      const ch = selected.leadChannelId
+                        ? channelById.get(selected.leadChannelId)
+                        : null;
+                      return ch ? (
+                        <ChannelChip channel={ch} compact />
+                      ) : (
+                        <span className="capitalize">
+                          {selected.source.replace("_", " ")}
+                        </span>
+                      );
+                    })()}
+                  </Field>
+                  <Field icon={UserIcon} label="Assigned to">
+                    {selected.assigneeName}
+                  </Field>
+                  <Field icon={Clock} label="Created">
+                    {selected.createdAt.slice(0, 10)}
+                    {ageOf(selected.createdAt)
+                      ? ` · ${ageOf(selected.createdAt)} ago`
+                      : ""}
+                  </Field>
+                  <div className="sm:col-span-2">
+                    <Field icon={Mail} label="Notes">
+                      {selected.notes ?? "—"}
+                    </Field>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex flex-col gap-3 border-t pt-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button type="button" onClick={openStatusDialog}>
+                      <ArrowRight className="mr-1.5 size-4" />
+                      Update status
+                    </Button>
+                    {selected.vehicleId ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={creatingDeal}
+                        onClick={() => void handleCreateDeal()}
+                      >
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        {creatingDeal ? "Opening…" : "Create deal in pipeline"}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {selected.status === "appointment_booked" ? (
+                    <p className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      <CalendarPlus className="size-3.5" />
+                      Appointment booked — see the Appointments calendar.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
-      {/* Drill modal */}
+      {/* Update lead status — drives new → contacted → appointment → lost */}
       <Dialog
-        open={drillLead !== null}
+        open={statusOpen}
         onOpenChange={(o) => {
-          if (!o) setDrillLead(null);
+          if (!o && !stBusy) setStatusOpen(false);
         }}
       >
         <DialogContent className="max-w-md">
-          {drillLead && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{drillLead.customerName}</DialogTitle>
-                <DialogDescription>
-                  {drillLead.customerPhone} ·{" "}
-                  {drillLead.customerEmail ?? "no email"}
-                </DialogDescription>
-              </DialogHeader>
-              {drillLead.vehicleId &&
-                (() => {
-                  const v = vehicles.find((x) => x.id === drillLead.vehicleId);
-                  return v ? (
-                    <VehicleImage vehicle={v} variant="card" />
-                  ) : null;
-                })()}
-              <div className="grid gap-2 text-sm">
-                <Field label="Vehicle of interest">
-                  {drillLead.vehicleInterest}
-                </Field>
-                <Field label="Source" capitalize>
-                  {drillLead.source.replace("_", " ")}
-                </Field>
-                <Field label="Status" capitalize>
-                  {drillLead.status.replace("_", " ")}
-                </Field>
-                <Field label="Notes">{drillLead.notes ?? "—"}</Field>
-              </div>
-              {drillLead.vehicleId && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="w-full"
-                  disabled={creatingDeal}
-                  onClick={() => void handleCreateDeal()}
-                >
-                  <Plus className="mr-1.5 h-4 w-4" />{" "}
-                  {creatingDeal ? "Opening…" : "Create deal in pipeline"}
-                </Button>
-              )}
-              {drillLead.status === "appointment_booked" ? (
-                <p className="rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
-                  Appointment already booked.
-                </p>
-              ) : drillLead.vehicleId ? (
-                <form
-                  onSubmit={appt.handleSubmit(onBookAppt)}
-                  className="grid gap-3 border-t pt-3"
-                >
-                  <h4 className="text-sm font-semibold">Schedule Test Drive</h4>
-                  <p className="-mt-2 text-xs text-muted-foreground">
-                    Books a test-drive appointment + adds the event to the
-                    Master Calendar (v4.1 §11.13).
-                  </p>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <Label>Date</Label>
-                      <Input type="date" {...appt.register("date")} />
-                    </div>
-                    <div>
-                      <Label>Time</Label>
-                      <Input type="time" {...appt.register("time")} />
-                    </div>
-                  </div>
-                  <div>
-                    <Label>Special requirements</Label>
-                    <Input {...appt.register("specialRequirements")} />
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setDrillLead(null)}
-                    >
-                      Close
-                    </Button>
-                    <Button type="submit">Book</Button>
-                  </DialogFooter>
-                </form>
-              ) : (
+          <DialogHeader>
+            <DialogTitle>Update lead status</DialogTitle>
+            <DialogDescription>
+              {selected
+                ? `${selected.customerName} — currently ${LEAD_STATUS_LABEL[selected.status]}`
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogPanel className="grid gap-4">
+            {/* Target status picker */}
+            <div className="grid gap-2">
+              {STATUS_TARGETS.map((t) => {
+                const isCurrent = selected?.status === t.value;
+                const active = stTarget === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => {
+                      setStTarget(t.value);
+                      setStError(null);
+                    }}
+                    className={cn(
+                      "flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors",
+                      active
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border hover:bg-muted/40",
+                    )}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className={cn("size-2.5 rounded-full", STATUS_DOT[t.value])} />
+                      <span className="text-sm font-medium">{t.label}</span>
+                      {isCurrent ? (
+                        <span className="rounded-full bg-muted px-1.5 py-0.5 text-2xs text-muted-foreground">
+                          current
+                        </span>
+                      ) : null}
+                    </span>
+                    <span className="text-2xs text-muted-foreground">{t.hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Conditional: Appointment Booked → date/time (+ vehicle if none) */}
+            {stTarget === "appointment_booked" ? (
+              <div className="grid gap-3 rounded-lg border bg-muted/20 p-3">
                 <p className="text-xs text-muted-foreground">
-                  Link this lead to a stock vehicle (via Edit) to book an appointment.
+                  Books a test-drive appointment and adds it to the Appointments
+                  calendar.
                 </p>
-              )}
-            </>
-          )}
+                {selected && !selected.vehicleId ? (
+                  <div className="grid gap-1.5">
+                    <Label>Stock vehicle <span className="text-destructive">*</span></Label>
+                    <Select
+                      items={vehicleItems}
+                      value={stVehicleId}
+                      onValueChange={setStVehicleId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Link a stock vehicle" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Pick a vehicle…</SelectItem>
+                        {eligibleVehicles.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.registration} — {v.make} {v.model}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : null}
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Date</Label>
+                    <Input type="date" value={stDate} onChange={(e) => setStDate(e.target.value)} />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>Time</Label>
+                    <Input type="time" value={stTime} onChange={(e) => setStTime(e.target.value)} />
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Special requirements</Label>
+                  <Input value={stSpecial} onChange={(e) => setStSpecial(e.target.value)} />
+                </div>
+              </div>
+            ) : null}
+
+            {/* Conditional: Lost → required reason */}
+            {stTarget === "lost" ? (
+              <div className="grid gap-1.5">
+                <Label>
+                  Reason lost <span className="text-destructive">*</span>
+                </Label>
+                <Textarea
+                  value={stReason}
+                  onChange={(e) => setStReason(e.target.value)}
+                  placeholder="e.g. Bought elsewhere — found a cheaper Q3 at a rival dealer."
+                  className="min-h-20"
+                />
+                <p className="text-2xs text-muted-foreground">
+                  Saved to the lead record and the activity log.
+                </p>
+              </div>
+            ) : null}
+
+            {stError ? (
+              <p className="rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {stError}
+              </p>
+            ) : null}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button type="button" variant="outline" onClick={() => setStatusOpen(false)} disabled={stBusy}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={() => void submitStatus()} disabled={stBusy}>
+              {stBusy
+                ? "Saving…"
+                : stTarget === "appointment_booked"
+                  ? "Book appointment"
+                  : stTarget === "lost"
+                    ? "Mark as Lost"
+                    : "Update status"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
@@ -683,20 +1022,21 @@ export default function LeadsPage() {
 }
 
 function Field({
+  icon: Icon,
   label,
   children,
-  capitalize,
 }: {
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   children: React.ReactNode;
-  capitalize?: boolean;
 }) {
   return (
-    <div>
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="mb-1 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <Icon className="size-3.5" />
         {label}
       </div>
-      <div className={capitalize ? "capitalize" : undefined}>{children}</div>
+      <div className="text-sm">{children}</div>
     </div>
   );
 }

@@ -238,6 +238,45 @@ export const listingService = {
   },
 
   /**
+   * Delete a listing row entirely (the advert), reverting the vehicle from
+   * "listed" back to "ready" so it returns to the Work List as available to
+   * advertise again. The vehicle and its photos are untouched.
+   */
+  async delete(id: UUID, actorId: UUID): Promise<void> {
+    const supabase = createClient();
+    // Capture vehicle context before the row is gone.
+    const { data: row } = await supabase
+      .from("listings")
+      .select("vehicle_id, company_id")
+      .eq("id", id)
+      .maybeSingle();
+    const { error } = await supabase.from("listings").delete().eq("id", id);
+    if (error) throw error;
+    invalidate(NS);
+    const ctx = row as { vehicle_id: UUID; company_id: UUID } | null;
+    if (!ctx) return;
+    const v = await vehicleService.getById(ctx.vehicle_id);
+    if (!v) return;
+    // Audit log is best-effort — don't let a logging failure surface as a
+    // failed delete or skip the status revert below.
+    try {
+      await activityService.log({
+        companyId: ctx.company_id,
+        userId: actorId,
+        vehicleId: v.id,
+        actionType: "listing_deleted",
+        description: `Listing deleted for ${v.registration}`,
+        metadata: { listingId: id },
+      });
+    } catch (e) {
+      console.warn("[listing-service] delete activity log failed", e);
+    }
+    if (v.status === "listed") {
+      await vehicleService.changeStatus(v.id, "ready", actorId);
+    }
+  },
+
+  /**
    * Drive a vehicle's listing status from the vehicle lifecycle (sold/returned
    * /reserved), so adverts stop showing as live once the car leaves the
    * forecourt. No-op when the vehicle has no listing.

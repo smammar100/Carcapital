@@ -251,7 +251,14 @@ function AddRow({
         placeholder="What needs doing?"
         className="h-8 min-w-[200px] flex-1 text-sm"
       />
-      <Select value={vendorId} onValueChange={setVendorId}>
+      <Select
+        items={{
+          none: "No vendor",
+          ...Object.fromEntries(vendors.map((v) => [v.id, v.name])),
+        }}
+        value={vendorId}
+        onValueChange={setVendorId}
+      >
         <SelectTrigger className="h-8 w-40 text-sm">
           <SelectValue placeholder="Vendor (optional)" />
         </SelectTrigger>

@@ -64,41 +64,48 @@ export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
       }}
     >
       <h2 slot="header">Add a vehicle</h2>
+      <p slot="header" className="text-sm font-normal text-muted-foreground">
+        Start a new stock record — look it up automatically or enter it by hand.
+      </p>
 
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
           Enter the registration and mileage — we&apos;ll pull make, model,
           derivative, tax, MOT and an AutoTrader valuation automatically.
         </p>
-        <nord-input
-          ref={regInputRef}
-          label="Registration"
-          value={reg}
-          onInput={(e) =>
-            setReg((e.target as HTMLInputElement).value.toUpperCase())
-          }
-          onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === "Enter" && canLookup) go(true);
-          }}
-          placeholder="EK18 FUT"
-          autocomplete="off"
-          spellCheck={false}
-          className="font-mono uppercase"
-          suppressHydrationWarning
-        />
-        <nord-input
-          label="Mileage"
-          type="number"
-          inputmode="numeric"
-          hint="Needed for an accurate AutoTrader valuation."
-          value={mileage}
-          onInput={(e) => setMileage((e.target as HTMLInputElement).value)}
-          onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === "Enter" && canLookup) go(true);
-          }}
-          placeholder="e.g. 45000"
-          suppressHydrationWarning
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <nord-input
+            ref={regInputRef}
+            label="Registration"
+            expand
+            value={reg}
+            onInput={(e) =>
+              setReg((e.target as HTMLInputElement).value.toUpperCase())
+            }
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === "Enter" && canLookup) go(true);
+            }}
+            placeholder="EK18 FUT"
+            autocomplete="off"
+            spellCheck={false}
+            className="font-mono uppercase"
+            suppressHydrationWarning
+          />
+          <nord-input
+            label="Mileage"
+            type="number"
+            inputmode="numeric"
+            expand
+            hint="Needed for an accurate AutoTrader valuation."
+            value={mileage}
+            onInput={(e) => setMileage((e.target as HTMLInputElement).value)}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === "Enter" && canLookup) go(true);
+            }}
+            placeholder="e.g. 45000"
+            suppressHydrationWarning
+          />
+        </div>
       </div>
 
       <nord-button

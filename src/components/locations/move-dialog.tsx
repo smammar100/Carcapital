@@ -251,7 +251,11 @@ export function MoveDialog({
               <Label htmlFor="move-vendor">
                 Workshop <span className="text-destructive">*</span>
               </Label>
-              <Select value={vendorId} onValueChange={(v) => setVendorId(v as UUID)}>
+              <Select
+                items={Object.fromEntries(activeVendors.map((v) => [v.id, v.name]))}
+                value={vendorId}
+                onValueChange={(v) => setVendorId(v as UUID)}
+              >
                 <SelectTrigger id="move-vendor" className="h-10 w-full">
                   <SelectValue placeholder="Select workshop" />
                 </SelectTrigger>

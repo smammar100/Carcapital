@@ -1,9 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Megaphone, Plus, Send } from "lucide-react";
+import {
+  Car,
+  CalendarClock,
+  Check,
+  Megaphone,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Search,
+  Send,
+  Trash2,
+  TriangleAlert,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,32 +42,100 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
+  DialogPanel,
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
-import {
-  type ColumnDef,
-  ChannelsCell,
-  DataGridColumnsButton,
-  DataGridDensityToggle,
-  DataGridHeaderRow,
-  DataGridRow,
-  DataGridSearchBar,
-  DataGridShell,
-  DataGridSkeletonRows,
-  DataGridTable,
-  VehicleCell,
-  useColumnVisibility,
-  useDensity,
-} from "@/components/data-grid";
+import { RegPlate } from "@/components/shared/reg-plate";
+import { VehicleImage } from "@/components/shared/vehicle-image";
+import { AtIndicatorCell } from "@/components/data-grid";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn, formatCurrency } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
 const CHANNELS = ["website", "autotrader", "ebay", "facebook"] as const;
 type Channel = (typeof CHANNELS)[number];
+
+const CHANNEL_LABELS: Record<Channel, string> = {
+  website: "Website",
+  autotrader: "AutoTrader",
+  ebay: "eBay",
+  facebook: "Facebook",
+};
+
+// Listing-status tone pills — mirrors the status colours used across the app
+// so a draft/live/reserved/sold/archived advert reads the same here as in the
+// Master Sheet. (No context lost from the original Status column.)
+const LISTING_STATUS_META: Record<
+  ListingStatus,
+  { label: string; cls: string; dot: string }
+> = {
+  draft: {
+    label: "Draft",
+    cls: "bg-slate-100 text-slate-600 dark:bg-slate-500/15 dark:text-slate-300",
+    dot: "bg-slate-400",
+  },
+  live: {
+    label: "Live",
+    cls: "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+  },
+  reserved: {
+    label: "Reserved",
+    cls: "bg-pink-100 text-pink-700 dark:bg-pink-500/15 dark:text-pink-300",
+    dot: "bg-pink-500",
+  },
+  sold: {
+    label: "Sold",
+    cls: "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300",
+    dot: "bg-gray-400",
+  },
+  archived: {
+    label: "Archived",
+    cls: "bg-muted text-muted-foreground",
+    dot: "bg-muted-foreground/50",
+  },
+};
+
+function ListingStatusPill({ status }: { status: ListingStatus }) {
+  const m = LISTING_STATUS_META[status] ?? LISTING_STATUS_META.draft;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium",
+        m.cls,
+      )}
+    >
+      <span className={cn("size-1.5 rounded-full", m.dot)} />
+      {m.label}
+    </span>
+  );
+}
+
+function PreviewStat({
+  icon: Icon,
+  label,
+  children,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="mb-1.5 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="size-3.5" />
+        {label}
+      </div>
+      <div className="text-base font-semibold">{children}</div>
+    </div>
+  );
+}
 
 interface ListingRow extends Listing {
   vehicle: Vehicle | null;
@@ -88,9 +167,14 @@ export default function ListingsPage() {
   const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
+  // Master-detail selection — the listing shown in the right-hand preview.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   // AutoTrader publish confirm — set to the row pending live publish.
   const [atConfirm, setAtConfirm] = useState<ListingRow | null>(null);
   const [atBusy, setAtBusy] = useState(false);
+  // Delete confirm — set to the listing pending deletion.
+  const [deleteTarget, setDeleteTarget] = useState<ListingRow | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -159,120 +243,23 @@ export default function ListingsPage() {
     }));
   }, [listings, statusFilter, channelFilter, search, vehicles]);
 
-  const cols = useMemo<ColumnDef<ListingRow>[]>(
-    () => [
-      {
-        key: "stockId",
-        label: "Stock ID",
-        type: "text",
-        sticky: true,
-        width: 100,
-        render: (l) => (
-          <span className="font-mono text-xs font-medium">
-            {l.vehicle?.stockId ?? "—"}
-          </span>
-        ),
-      },
-      {
-        key: "vehicle",
-        label: "Vehicle",
-        type: "vehicle",
-        width: 200,
-        render: (l) => <VehicleCell vehicle={l.vehicle} />,
-      },
-      { key: "title", label: "Title", type: "text", width: 240 },
-      { key: "price", label: "Web price", type: "currency", width: 120 },
-      {
-        key: "atPriceIndicator",
-        label: "AT",
-        type: "atIndicator",
-        width: 130,
-      },
-      {
-        key: "channels",
-        label: "Channels",
-        type: "channels",
-        width: 200,
-        render: (l) => (
-          <ChannelsCell
-            channels={l.channels as unknown as Record<string, boolean>}
-            onToggle={(c) => void handleToggleChannel(l.id, c as Channel)}
-          />
-        ),
-      },
-      {
-        key: "daysListed",
-        label: "Days",
-        type: "custom",
-        width: 80,
-        render: (l) =>
-          l.vehicle ? <DaysInStockChip days={l.vehicle.daysInStock} /> : null,
-      },
-      { key: "enquiriesCount", label: "Enq.", type: "number", width: 80 },
-      { key: "status", label: "Status", type: "select", width: 110 },
-      {
-        key: "atSync",
-        label: "AutoTrader",
-        type: "custom",
-        width: 140,
-        render: (l) =>
-          l.atStockId ? (
-            <span className="inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-xs font-medium text-emerald-800">
-              Synced #{l.atStockId.slice(0, 8)}
-            </span>
-          ) : l.atLastError ? (
-            <span
-              className="inline-flex items-center rounded-md bg-rose-100 px-1.5 py-0.5 text-xs font-medium text-rose-800"
-              title={l.atLastError}
-            >
-              Error
-            </span>
-          ) : l.channels.autotrader && canPublishAT ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                setAtConfirm(l);
-              }}
-            >
-              <Send className="mr-1 size-3" />
-              Publish to AT
-            </Button>
-          ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          ),
-      },
-      {
-        key: "action",
-        label: " ",
-        type: "custom",
-        width: 100,
-        align: "right",
-        render: (l) =>
-          l.status === "draft" ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={(e) => {
-                e.stopPropagation();
-                void handlePublish(l.id);
-              }}
-            >
-              Publish
-            </Button>
-          ) : (
-            <span className="text-xs text-muted-foreground">Live</span>
-          ),
-      },
-    ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [canPublishAT],
-  );
+  // Keep the selection valid as filters/data change: fall back to the first
+  // row when the selected listing drops out of the filtered set.
+  useEffect(() => {
+    if (!filtered) return;
+    if (filtered.length === 0) {
+      if (selectedId !== null) setSelectedId(null);
+      return;
+    }
+    if (!selectedId || !filtered.some((l) => l.id === selectedId)) {
+      setSelectedId(filtered[0].id);
+    }
+  }, [filtered, selectedId]);
 
-  const { density, setDensity } = useDensity();
-  const { hiddenKeys, setHiddenKeys, visibleCols } = useColumnVisibility(cols);
-  const lockedKeys = useMemo(() => new Set(["stockId"]), []);
+  const selected = useMemo<ListingRow | null>(
+    () => filtered?.find((l) => l.id === selectedId) ?? null,
+    [filtered, selectedId],
+  );
 
   const watchedVehicle = form.watch("vehicleId");
   const selectedVehicle = useMemo(
@@ -382,6 +369,22 @@ export default function ListingsPage() {
     }
   }
 
+  async function confirmDelete() {
+    if (!deleteTarget || !user || !company) return;
+    setDeleteBusy(true);
+    try {
+      await listingService.delete(deleteTarget.id, user.id);
+      setListings(await listingService.getAll(company.id));
+      if (selectedId === deleteTarget.id) setSelectedId(null);
+      toast.success("Listing deleted");
+    } catch (e) {
+      toast.error(`Couldn't delete listing: ${String(e)}`);
+    } finally {
+      setDeleteBusy(false);
+      setDeleteTarget(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -399,113 +402,126 @@ export default function ListingsPage() {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg">
-            <DialogHeader>
-              <DialogTitle>Create Listing</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-3">
-              <div>
-                <Label>Vehicle</Label>
-                <Select
-                  value={form.watch("vehicleId")}
-                  onValueChange={(v) => form.setValue("vehicleId", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pick a ready / listed vehicle" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {readyVehicles.length === 0 ? (
-                      <SelectItem value="__none" disabled>
-                        No vehicles available
-                      </SelectItem>
-                    ) : (
-                      readyVehicles.map((v) => (
-                        <SelectItem key={v.id} value={v.id}>
-                          {v.registration} — {v.make} {v.model}
-                        </SelectItem>
-                      ))
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Title</Label>
-                <Input {...form.register("title")} />
-              </div>
-              <div>
-                <Label>Description</Label>
-                <Textarea
-                  {...form.register("description")}
-                  className="min-h-24"
-                />
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div>
-                  <Label>Price</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    {...form.register("price")}
-                  />
-                  {selectedVehicle?.atRetailValuation != null && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        form.setValue(
-                          "price",
-                          selectedVehicle.atRetailValuation as number,
-                        )
-                      }
-                      className="mt-1 text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
-                    >
-                      AutoTrader retail: £
-                      {selectedVehicle.atRetailValuation.toLocaleString()} — use
-                    </button>
-                  )}
-                </div>
-                <div>
-                  <Label>AT indicator</Label>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="contents">
+              <DialogHeader>
+                <DialogTitle>Create Listing</DialogTitle>
+                <DialogDescription>
+                  Build the advert and choose where it publishes. Saved as a
+                  draft.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogPanel className="grid gap-4">
+                <div className="grid gap-1.5">
+                  <Label>Vehicle</Label>
                   <Select
-                    value={form.watch("atPriceIndicator")}
-                    onValueChange={(v) =>
-                      form.setValue(
-                        "atPriceIndicator",
-                        v as Listing["atPriceIndicator"],
-                      )
-                    }
+                    items={Object.fromEntries(
+                      readyVehicles.map((v) => [
+                        v.id,
+                        `${v.registration} — ${v.make} ${v.model}`,
+                      ]),
+                    )}
+                    value={form.watch("vehicleId")}
+                    onValueChange={(v) => form.setValue("vehicleId", v)}
                   >
                     <SelectTrigger>
-                      <SelectValue />
+                      <SelectValue placeholder="Pick a ready / listed vehicle" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="great">Great</SelectItem>
-                      <SelectItem value="good">Good</SelectItem>
-                      <SelectItem value="above_average">Above Avg</SelectItem>
-                      <SelectItem value="unrated">Unrated</SelectItem>
+                      {readyVehicles.length === 0 ? (
+                        <SelectItem value="__none" disabled>
+                          No vehicles available
+                        </SelectItem>
+                      ) : (
+                        readyVehicles.map((v) => (
+                          <SelectItem key={v.id} value={v.id}>
+                            {v.registration} — {v.make} {v.model}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div>
-                <Label>Special features</Label>
-                <Input {...form.register("specialFeatures")} />
-              </div>
-              <div className="grid gap-2">
-                <Label>Publish channels</Label>
-                <div className="flex flex-wrap gap-3">
-                  {CHANNELS.map((c) => (
-                    <label
-                      key={c}
-                      className="flex items-center gap-2 text-sm capitalize"
-                    >
-                      <Switch
-                        checked={form.watch(c)}
-                        onCheckedChange={(v) => form.setValue(c, v)}
-                      />
-                      {c}
-                    </label>
-                  ))}
+                <div className="grid gap-1.5">
+                  <Label>Title</Label>
+                  <Input {...form.register("title")} />
                 </div>
-              </div>
+                <div className="grid gap-1.5">
+                  <Label>Description</Label>
+                  <Textarea
+                    {...form.register("description")}
+                    className="min-h-24"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid gap-1.5">
+                    <Label>Price</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      {...form.register("price")}
+                    />
+                    {selectedVehicle?.atRetailValuation != null && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          form.setValue(
+                            "price",
+                            selectedVehicle.atRetailValuation as number,
+                          )
+                        }
+                        className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+                      >
+                        AutoTrader retail: £
+                        {selectedVehicle.atRetailValuation.toLocaleString()} —
+                        use
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label>AT indicator</Label>
+                    <Select
+                      value={form.watch("atPriceIndicator")}
+                      onValueChange={(v) =>
+                        form.setValue(
+                          "atPriceIndicator",
+                          v as Listing["atPriceIndicator"],
+                        )
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="great">Great</SelectItem>
+                        <SelectItem value="good">Good</SelectItem>
+                        <SelectItem value="above_average">Above Avg</SelectItem>
+                        <SelectItem value="unrated">Unrated</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label>Special features</Label>
+                  <Input {...form.register("specialFeatures")} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Publish channels</Label>
+                  <div className="flex flex-wrap gap-x-5 gap-y-2.5">
+                    {CHANNELS.map((c) => (
+                      <label
+                        key={c}
+                        className="flex items-center gap-2 text-sm"
+                      >
+                        <Switch
+                          checked={form.watch(c)}
+                          onCheckedChange={(v) => form.setValue(c, v)}
+                        />
+                        {CHANNEL_LABELS[c]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </DialogPanel>
               <DialogFooter>
                 <Button
                   type="button"
@@ -521,92 +537,306 @@ export default function ListingsPage() {
         </Dialog>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-card p-3 shadow-sm">
-        <DataGridSearchBar
-          value={search}
-          onChange={setSearch}
-          placeholder="Search title, reg, stock…"
-          className="w-full max-w-xs"
-        />
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as ListingStatus | "all")}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
-            <SelectItem value="live">Live</SelectItem>
-            <SelectItem value="reserved">Reserved</SelectItem>
-            <SelectItem value="sold">Sold</SelectItem>
-            <SelectItem value="archived">Archived</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={channelFilter}
-          onValueChange={(v) => setChannelFilter(v as Channel | "all")}
-        >
-          <SelectTrigger className="w-36">
-            <SelectValue placeholder="Channel" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All channels</SelectItem>
-            {CHANNELS.map((c) => (
-              <SelectItem key={c} value={c} className="capitalize">
-                {c}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <div className="ml-auto flex items-center gap-2">
-          <DataGridColumnsButton
-            columns={cols}
-            hiddenKeys={hiddenKeys}
-            onChange={setHiddenKeys}
-            lockedKeys={lockedKeys}
-          />
-          <DataGridDensityToggle density={density} onChange={setDensity} />
+      {/* Master-detail: searchable listing list (left) + advert preview (right) */}
+      <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)] lg:items-start">
+        {/* LEFT — reg search, filters, and the scrollable listing list */}
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2 rounded-lg border bg-card p-3 shadow-sm">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by reg, stock or title…"
+                aria-label="Search listings by registration, stock ID or title"
+                className="pl-8"
+              />
+            </div>
+            <div className="flex gap-2">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  setStatusFilter(v as ListingStatus | "all")
+                }
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All statuses</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="live">Live</SelectItem>
+                  <SelectItem value="reserved">Reserved</SelectItem>
+                  <SelectItem value="sold">Sold</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={channelFilter}
+                onValueChange={(v) => setChannelFilter(v as Channel | "all")}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All channels</SelectItem>
+                  {CHANNELS.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {CHANNEL_LABELS[c]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {!filtered ? (
+            <div className="flex flex-col gap-1.5">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="h-[78px] rounded-lg" />
+              ))}
+            </div>
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              icon={Megaphone}
+              title="No listings yet"
+              description="Mark a vehicle as ready, then create a listing."
+            />
+          ) : (
+            <div
+              role="listbox"
+              aria-label="Listings"
+              className="flex max-h-[calc(100dvh-15rem)] flex-col gap-1.5 overflow-y-auto pr-1"
+            >
+              {filtered.map((l) => {
+                const isActive = l.id === selectedId;
+                return (
+                  <button
+                    key={l.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    onClick={() => setSelectedId(l.id)}
+                    className={cn(
+                      "flex w-full shrink-0 gap-3 rounded-lg border p-3 text-left transition-colors",
+                      isActive
+                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        : "border-border hover:bg-muted/50",
+                    )}
+                  >
+                    {l.vehicle ? (
+                      <VehicleImage
+                        vehicle={l.vehicle}
+                        variant="thumb"
+                        className="h-14 w-[72px] shrink-0 self-center rounded-md"
+                      />
+                    ) : (
+                      <span className="grid h-14 w-[72px] shrink-0 self-center place-items-center rounded-md bg-muted text-muted-foreground/50">
+                        <Car className="size-5" />
+                      </span>
+                    )}
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      {/* Meta row — stock ID + status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-mono text-2xs text-muted-foreground">
+                          {l.vehicle?.stockId ?? "—"}
+                        </span>
+                        <ListingStatusPill status={l.status} />
+                      </div>
+                      {/* Title */}
+                      <span className="mt-0.5 truncate text-sm font-medium">
+                        {l.title}
+                      </span>
+                      {/* Price + enquiries · days */}
+                      <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <span className="text-sm font-semibold tabular-nums">
+                          {formatCurrency(l.price)}
+                        </span>
+                        <span className="inline-flex shrink-0 items-center gap-1 text-2xs text-muted-foreground">
+                          <MessageSquare className="size-3" />
+                          {l.enquiriesCount}
+                          {l.vehicle ? ` · ${l.vehicle.daysInStock}d` : ""}
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT — full advert preview for the selected listing */}
+        <div className="lg:sticky lg:top-4">
+          {!filtered ? (
+            <Skeleton className="h-[460px] rounded-xl" />
+          ) : !selected ? (
+            <div className="flex h-[320px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed bg-card text-center text-muted-foreground">
+              <Megaphone className="size-6" />
+              <p className="text-sm">Select a listing to preview its advert.</p>
+            </div>
+          ) : (
+            (() => {
+              const channelsOn = CHANNELS.filter(
+                (c) => selected.channels[c],
+              ).length;
+              const canPushAT =
+                selected.channels.autotrader &&
+                canPublishAT &&
+                !selected.atStockId;
+              return (
+                <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 shadow-sm">
+                  {/* Header — plate, stock, status, title, price, AT indicator */}
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {selected.vehicle ? (
+                          <RegPlate
+                            registration={selected.vehicle.registration}
+                            size="sm"
+                          />
+                        ) : null}
+                        <span className="font-mono text-xs text-muted-foreground">
+                          {selected.vehicle?.stockId ?? "—"}
+                        </span>
+                        <ListingStatusPill status={selected.status} />
+                      </div>
+                      <h2 className="mt-1.5 text-lg font-semibold leading-snug">
+                        {selected.title}
+                      </h2>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-semibold tabular-nums">
+                        {formatCurrency(selected.price)}
+                      </div>
+                      <div className="mt-1 flex justify-end">
+                        <AtIndicatorCell
+                          indicator={selected.atPriceIndicator}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stats — days in stock, enquiries, channel coverage */}
+                  <div className="grid grid-cols-3 gap-3">
+                    <PreviewStat icon={CalendarClock} label="Days in stock">
+                      {selected.vehicle ? (
+                        <DaysInStockChip days={selected.vehicle.daysInStock} />
+                      ) : (
+                        "—"
+                      )}
+                    </PreviewStat>
+                    <PreviewStat icon={MessageSquare} label="Enquiries">
+                      <span className="tabular-nums">
+                        {selected.enquiriesCount}
+                      </span>
+                    </PreviewStat>
+                    <PreviewStat icon={Megaphone} label="Channels">
+                      <span className="tabular-nums">{channelsOn}/4</span>
+                    </PreviewStat>
+                  </div>
+
+                  {/* Publish channels — wired to the live toggle service */}
+                  <div>
+                    <div className="mb-2 text-xs font-medium text-muted-foreground">
+                      Publish channels
+                    </div>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      {CHANNELS.map((c) => {
+                        const on = selected.channels[c];
+                        return (
+                          <div
+                            key={c}
+                            className={cn(
+                              "flex items-center justify-between rounded-lg border px-3 py-2.5",
+                              on
+                                ? "border-primary/30 bg-primary/5"
+                                : "bg-muted/20",
+                            )}
+                          >
+                            <span className="text-sm font-medium">
+                              {CHANNEL_LABELS[c]}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {c === "autotrader" && selected.atStockId ? (
+                                <span className="inline-flex items-center gap-1 text-2xs font-medium text-emerald-600 dark:text-emerald-400">
+                                  <Check className="size-3" /> Synced
+                                </span>
+                              ) : null}
+                              <Switch
+                                checked={on}
+                                onCheckedChange={() =>
+                                  void handleToggleChannel(selected.id, c)
+                                }
+                                aria-label={`${CHANNEL_LABELS[c]} ${on ? "on" : "off"}`}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* AutoTrader sync state — preserves Synced #id / Error */}
+                  {selected.atStockId ? (
+                    <div className="inline-flex items-center gap-1.5 rounded-md bg-emerald-100 px-2.5 py-1.5 text-xs font-medium text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+                      <Check className="size-3.5" />
+                      Synced to AutoTrader · Stock ID{" "}
+                      {selected.atStockId.slice(0, 8)}
+                    </div>
+                  ) : selected.atLastError ? (
+                    <div
+                      className="inline-flex items-start gap-1.5 rounded-md bg-rose-100 px-2.5 py-1.5 text-xs font-medium text-rose-800 dark:bg-rose-500/15 dark:text-rose-300"
+                      title={selected.atLastError}
+                    >
+                      <TriangleAlert className="mt-px size-3.5 shrink-0" />
+                      <span className="line-clamp-2">
+                        AutoTrader error: {selected.atLastError}
+                      </span>
+                    </div>
+                  ) : null}
+
+                  {/* Actions — delete, edit, publish (draft→live), push to AT */}
+                  <div className="mt-1 flex flex-wrap items-center gap-2 border-t pt-4">
+                    <Button
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleteTarget(selected)}
+                    >
+                      <Trash2 className="mr-1.5 size-4" />
+                      Delete
+                    </Button>
+                    <div className="ml-auto flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() =>
+                          selected.vehicleId &&
+                          router.push(`/vehicles/${selected.vehicleId}/advert`)
+                        }
+                      >
+                        <Pencil className="mr-1.5 size-4" />
+                        Edit advert
+                      </Button>
+                      {selected.status === "draft" ? (
+                        <Button onClick={() => void handlePublish(selected.id)}>
+                          <Send className="mr-1.5 size-4" />
+                          Publish
+                        </Button>
+                      ) : null}
+                      {canPushAT ? (
+                        <Button onClick={() => setAtConfirm(selected)}>
+                          <Send className="mr-1.5 size-4" />
+                          Push to AutoTrader
+                        </Button>
+                      ) : null}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()
+          )}
         </div>
       </div>
-
-      {!filtered ? (
-        // Row-aware skeleton matching the table's column structure.
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
-            <tbody>
-              <DataGridSkeletonRows columns={visibleCols} rows={6} />
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
-      ) : filtered.length === 0 ? (
-        <EmptyState
-          icon={Megaphone}
-          title="No listings yet"
-          description="Mark a vehicle as ready, then create a listing."
-        />
-      ) : (
-        <DataGridShell>
-          <DataGridTable cols={visibleCols} density={density}>
-            <DataGridHeaderRow cols={visibleCols} />
-            <tbody>
-              {filtered.map((l, i) => (
-                <DataGridRow
-                  key={l.id}
-                  row={l}
-                  cols={visibleCols}
-                  index={i}
-                  onClick={(r) =>
-                    r.vehicleId && router.push(`/vehicles/${r.vehicleId}`)
-                  }
-                />
-              ))}
-            </tbody>
-          </DataGridTable>
-        </DataGridShell>
-      )}
 
       {/* AutoTrader publish confirm — gated live write to the sandbox. */}
       <Dialog
@@ -619,7 +849,7 @@ export default function ListingsPage() {
           <DialogHeader>
             <DialogTitle>Publish to AutoTrader (sandbox)</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 text-sm">
+          <DialogPanel className="space-y-3 text-sm">
             <p>
               This creates a <strong>real advert</strong> on your AutoTrader
               Connect <strong>sandbox</strong> account for{" "}
@@ -642,8 +872,8 @@ export default function ListingsPage() {
                 pending).
               </p>
             ) : null}
-          </div>
-          <DialogFooter>
+          </DialogPanel>
+          <DialogFooter variant="bare">
             <Button
               type="button"
               variant="outline"
@@ -658,6 +888,56 @@ export default function ListingsPage() {
               disabled={atBusy}
             >
               {atBusy ? "Publishing…" : "Publish to AutoTrader"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete listing confirm — removes the advert, keeps the vehicle. */}
+      <Dialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => {
+          if (!o && !deleteBusy) setDeleteTarget(null);
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this listing?</DialogTitle>
+          </DialogHeader>
+          <DialogPanel className="space-y-3 text-sm">
+            <p>
+              This permanently deletes the advert for{" "}
+              <strong>
+                {deleteTarget?.vehicle?.registration ?? deleteTarget?.title}
+              </strong>
+              {deleteTarget?.status === "live" ? " and takes it offline" : ""}.
+              The vehicle and its photos are kept — it returns to the Work List
+              as ready to advertise.
+            </p>
+            {deleteTarget?.atStockId ? (
+              <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                Note: this listing is synced to AutoTrader (Stock ID{" "}
+                {deleteTarget.atStockId.slice(0, 8)}). Deleting here removes the
+                local advert only — remove it on AutoTrader separately.
+              </p>
+            ) : null}
+          </DialogPanel>
+          <DialogFooter variant="bare">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleteBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void confirmDelete()}
+              disabled={deleteBusy}
+            >
+              {deleteBusy ? "Deleting…" : "Delete listing"}
             </Button>
           </DialogFooter>
         </DialogContent>

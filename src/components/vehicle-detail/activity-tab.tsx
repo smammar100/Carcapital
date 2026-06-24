@@ -75,10 +75,14 @@ const FILTER_MATCH: Record<Exclude<FilterKey, "all">, (a: ActivityActionType) =>
     a === "external_invoice_updated" ||
     a === "external_invoice_deleted",
   photos: (a) => a === "photo_uploaded" || a === "photo_processed",
-  listing: (a) => a === "listing_created" || a === "listing_published",
+  listing: (a) =>
+    a === "listing_created" ||
+    a === "listing_published" ||
+    a === "listing_deleted",
   enquiries: (a) =>
     a === "lead_created" ||
     a === "lead_converted" ||
+    a === "lead_status_changed" ||
     a === "appointment_booked" ||
     a === "appointment_completed" ||
     a === "appointment_updated",
@@ -133,8 +137,10 @@ const ACTION_VISUAL: Record<ActivityActionType, { icon: LucideIcon; tone: Tone }
   photo_processed: { icon: ImageIcon, tone: "emerald" },
   listing_created: { icon: Megaphone, tone: "amber" },
   listing_published: { icon: Megaphone, tone: "emerald" },
+  listing_deleted: { icon: Megaphone, tone: "rose" },
   lead_created: { icon: UserPlus, tone: "violet" },
   lead_converted: { icon: ArrowRight, tone: "emerald" },
+  lead_status_changed: { icon: UserPlus, tone: "violet" },
   appointment_booked: { icon: CalendarCheck, tone: "emerald" },
   appointment_updated: { icon: Calendar, tone: "amber" },
   appointment_completed: { icon: CheckCircle2, tone: "emerald" },

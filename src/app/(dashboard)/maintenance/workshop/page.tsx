@@ -249,6 +249,10 @@ export default function WorkshopPage() {
                 <div className="flex flex-col gap-1.5">
                   <Label>Assigned to</Label>
                   <Select
+                    items={{
+                      none: "Unassigned",
+                      ...Object.fromEntries(users.map((u) => [u.id, u.name])),
+                    }}
                     value={form.watch("assignedTo")}
                     onValueChange={(v) => form.setValue("assignedTo", v)}
                   >
