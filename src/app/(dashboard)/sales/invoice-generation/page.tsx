@@ -95,7 +95,10 @@ const emptyPdc = (v: Vehicle | null): PreDeliveryCheck => ({
   lockNut: v?.lockNut ?? true,
   numKeys: v?.numKeys ?? 2,
   serviceHistoryStatus: v
-    ? `${v.serviceHistory[0].toUpperCase()}${v.serviceHistory.slice(1)} - Provided`
+    ? (() => {
+        const sh = v.serviceHistory || "full";
+        return `${sh[0].toUpperCase()}${sh.slice(1)} - Provided`;
+      })()
     : "Full - Provided",
   engineServiceDoneDate: null,
   engineServiceDoneMileage: null,

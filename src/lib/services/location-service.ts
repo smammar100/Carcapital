@@ -143,6 +143,9 @@ export const locationService = {
         )
         .in("vehicle_id", ids)
         .eq("to_location", location)
+        // Ignore movements already marked returned so the resolved current
+        // vendor / staff reflects the live placement, not a closed-out one.
+        .is("actual_return_at", null)
         .order("created_at", { ascending: false });
       if (mErr) throw mErr;
       const latest = new Map<
@@ -182,7 +185,7 @@ export const locationService = {
       const supabase = createClient() as any;
       const { data, error } = await supabase
         .from("vehicles")
-        .select("current_location")
+        .select("current_location, status")
         .eq("company_id", companyId);
       if (error) throw error;
       const counts: LocationCounts = {
@@ -191,7 +194,14 @@ export const locationService = {
         garage: 0,
         staff: 0,
       };
-      for (const row of (data ?? []) as { current_location: VehicleLocation }[]) {
+      // Exclude terminal statuses (sold / returned) so the tab counts and the
+      // "total active" header reflect vehicles still on the books, matching
+      // the dealer-partner active-stock logic.
+      for (const row of (data ?? []) as {
+        current_location: VehicleLocation;
+        status: string;
+      }[]) {
+        if (row.status === "sold" || row.status === "returned") continue;
         counts[row.current_location] = (counts[row.current_location] ?? 0) + 1;
       }
       return counts;
@@ -251,7 +261,10 @@ export const locationService = {
       .single();
     if (mErr) throw mErr;
 
-    // 3. Bump the vehicle's pointer.
+    // 3. Bump the vehicle's pointer. No client-side transaction is available,
+    // so if this fails we compensate by deleting the movement row we just
+    // inserted — otherwise the audit log and the vehicle pointer would
+    // diverge (a phantom move with no matching current_location).
     const { error: uErr } = await supabase
       .from("vehicles")
       .update({
@@ -259,7 +272,13 @@ export const locationService = {
         location_since: new Date().toISOString(),
       })
       .eq("id", input.vehicleId);
-    if (uErr) throw uErr;
+    if (uErr) {
+      await supabase
+        .from("location_movements")
+        .delete()
+        .eq("id", (movement as { id: string }).id);
+      throw uErr;
+    }
 
     invalidate(NS);
     invalidate("vehicles:");
@@ -282,8 +301,18 @@ export const locationService = {
     return movement as LocationMovement;
   },
 
-  /** Stamp a garage / staff movement as returned (sets actual_return_at). */
-  async markReturned(movementId: UUID, actorId: UUID): Promise<LocationMovement> {
+  /**
+   * Stamp a garage / staff movement as returned (sets actual_return_at).
+   *
+   * `companyId` scopes the activity-log entry. When a caller already has it
+   * (e.g. the locations page), pass it through; otherwise it's resolved from
+   * the movement's vehicle so the log is never written with an empty company.
+   */
+  async markReturned(
+    movementId: UUID,
+    actorId: UUID,
+    companyId?: UUID,
+  ): Promise<LocationMovement> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createClient() as any;
     const { data, error } = await supabase
@@ -295,8 +324,19 @@ export const locationService = {
     if (error) throw error;
     const movement = data as LocationMovement;
     invalidate(NS);
+    // Resolve the company from the vehicle when the caller didn't supply it,
+    // so the activity log stays company-scoped instead of orphaned ("").
+    let resolvedCompanyId = companyId ?? "";
+    if (!resolvedCompanyId) {
+      const { data: vehicleRow } = await supabase
+        .from("vehicles")
+        .select("company_id")
+        .eq("id", movement.vehicleId)
+        .single();
+      resolvedCompanyId = (vehicleRow?.company_id as UUID | undefined) ?? "";
+    }
     await activityService.log({
-      companyId: "", // resolved upstream when the caller has it; mock data path passes empty string
+      companyId: resolvedCompanyId,
       userId: actorId,
       vehicleId: movement.vehicleId,
       actionType: "vehicle_moved",

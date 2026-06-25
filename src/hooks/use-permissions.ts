@@ -38,12 +38,23 @@ export function usePermissions(): UsePermissionsResult {
     }
     setIsLoading(true);
     // Effective set = union of role-bundle caps + explicit grants.
-    void permissionService.getForUser(user.id).then((rows) => {
-      const all = capabilitiesForRoles(user.roles);
-      for (const r of rows) all.add(r.capability as Capability);
-      setCapabilities(all);
-      setIsLoading(false);
-    });
+    void permissionService
+      .getForUser(user.id)
+      .then((rows) => {
+        const all = capabilitiesForRoles(user.roles);
+        for (const r of rows) all.add(r.capability as Capability);
+        setCapabilities(all);
+        setIsLoading(false);
+      })
+      .catch((e) => {
+        // A failed grants fetch must NOT wedge isLoading=true forever (that
+        // disables every gated control). Fall back to role-based caps so the
+        // user keeps the authority their roles grant.
+        // eslint-disable-next-line no-console
+        console.warn("[permissions] explicit grants fetch failed:", e);
+        setCapabilities(capabilitiesForRoles(user.roles));
+        setIsLoading(false);
+      });
   }, [user]);
 
   const isSuperUser = user?.isSuperUser ?? false;

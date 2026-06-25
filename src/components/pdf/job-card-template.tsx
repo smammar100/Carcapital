@@ -66,6 +66,8 @@ interface Props {
   todos: TodoItem[];
   preparedBy: string;
   companyName: string;
+  /** Vendor id → name lookup, so the Vendor column shows names not UUIDs. */
+  vendorNames?: Record<string, string>;
 }
 
 function fmtGBP(n: number | null | undefined): string {
@@ -78,6 +80,7 @@ export function JobCardTemplate({
   todos,
   preparedBy,
   companyName,
+  vendorNames,
 }: Props) {
   const grandTotal = todos.reduce((s, t) => s + (t.cost ?? 0), 0);
   return (
@@ -138,7 +141,9 @@ export function JobCardTemplate({
               <View key={t.id} style={styles.tr}>
                 <Text style={[styles.td, styles.small]}>{t.serialNumber}</Text>
                 <Text style={styles.td}>{t.description}</Text>
-                <Text style={[styles.td, styles.med]}>{t.vendorId ?? "—"}</Text>
+                <Text style={[styles.td, styles.med]}>
+                  {(t.vendorId ? vendorNames?.[t.vendorId] : null) ?? "—"}
+                </Text>
                 <Text style={styles.status}>{t.status.replace("_", " ")}</Text>
                 <Text style={styles.cost}>{fmtGBP(t.cost)}</Text>
               </View>

@@ -364,6 +364,22 @@
   }
 }
 
+/* Toast positioning fix.
+   Nord's <nord-toast-group> centers its toasts via a `::slotted(nord-toast)
+   { margin-inline: auto }` rule in the group's shadow root. But every Nord
+   component (including each <nord-toast>) ships a `:host { all: unset }` base
+   reset, and that inner-tree reset zeroes the slotted margin — so cards pin to
+   the inline-start (left) edge of the fixed, full-width toast container,
+   landing directly on top of the left sidebar's lower nav items and swallowing
+   their clicks (pointer-events: auto). A document-level !important rule
+   outranks the shadow `:host` reset and restores the intended centering, which
+   moves the cards clear of the sidebar. */
+@layer base {
+  nord-toast {
+    margin-inline: auto !important;
+  }
+}
+
 @utility container {
   @apply mx-auto max-w-[1416px] px-4 lg:px-6;
 }

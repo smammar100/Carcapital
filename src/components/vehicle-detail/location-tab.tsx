@@ -195,7 +195,7 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
   async function handleMarkReturned(movement: LocationMovement) {
     if (!user?.id) return;
     try {
-      await locationService.markReturned(movement.id, user.id);
+      await locationService.markReturned(movement.id, user.id, company?.id);
       toast.success("Marked returned");
       // Bumping the token re-runs the load effect which also re-pulls
       // the vehicle, so the hero card refreshes alongside the timeline.

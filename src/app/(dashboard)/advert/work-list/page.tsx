@@ -22,6 +22,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { listingService } from "@/lib/services/listing-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import {
+  performanceService,
+  type VehicleEnquiry,
+} from "@/lib/services/performance-service";
 import type {
   Listing,
   ListingStatus,
@@ -147,7 +151,13 @@ const schema = z.object({
   description: z.string().min(1),
   price: z.coerce.number().min(0),
   specialFeatures: z.string(),
-  atPriceIndicator: z.enum(["great", "good", "above_average", "unrated"]),
+  atPriceIndicator: z.enum([
+    "great",
+    "good",
+    "above_average",
+    "high",
+    "unrated",
+  ]),
   website: z.boolean(),
   autotrader: z.boolean(),
   ebay: z.boolean(),
@@ -163,6 +173,12 @@ export default function ListingsPage() {
   const canPublishAT = isSuperUser || can("listing:publish_autotrader");
   const [listings, setListings] = useState<Listing[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  // Live enquiry counts derived from leads — the same single source of truth
+  // the Performance page uses, so the two pages never disagree. The
+  // denormalised `listings.enquiries_count` column is never incremented.
+  const [enquiriesByVehicle, setEnquiriesByVehicle] = useState<
+    Record<string, VehicleEnquiry>
+  >({});
   const [statusFilter, setStatusFilter] = useState<ListingStatus | "all">("all");
   const [channelFilter, setChannelFilter] = useState<Channel | "all">("all");
   const [search, setSearch] = useState("");
@@ -197,19 +213,26 @@ export default function ListingsPage() {
     void Promise.all([
       listingService.getAll(company.id),
       vehicleService.getAll(company.id),
-    ]).then(([l, v]) => {
+      performanceService.getStats(company.id),
+    ]).then(([l, v, stats]) => {
       setListings(l);
       setVehicles(v);
+      setEnquiriesByVehicle(stats.byVehicle);
     });
   }, [company]);
 
   const readyVehicles = useMemo(
     () =>
-      vehicles.filter(
-        (v) =>
-          (v.status === "ready" || v.status === "listed") &&
-          !listings?.some((l) => l.vehicleId === v.id),
-      ),
+      // Gate creation until listings have loaded: while `listings` is null we
+      // can't tell which vehicles already have an advert, so offering any here
+      // risks creating a duplicate listing.
+      listings === null
+        ? []
+        : vehicles.filter(
+            (v) =>
+              (v.status === "ready" || v.status === "listed") &&
+              !listings.some((l) => l.vehicleId === v.id),
+          ),
     [vehicles, listings],
   );
 
@@ -281,9 +304,17 @@ export default function ListingsPage() {
     // Seed the AutoTrader price indicator from the captured valuation.
     if (v.atRetailValuation && v.listingPrice) {
       const ratio = v.listingPrice / v.atRetailValuation;
+      // Clearly over-retail cars get the "high" (overpriced) bucket — never
+      // silently "unrated", which hid overpriced cars before.
       form.setValue(
         "atPriceIndicator",
-        ratio <= 0.96 ? "great" : ratio <= 1.0 ? "good" : ratio <= 1.05 ? "above_average" : "unrated",
+        ratio <= 0.96
+          ? "great"
+          : ratio <= 1.0
+            ? "good"
+            : ratio <= 1.05
+              ? "above_average"
+              : "high",
       );
     }
   }, [watchedVehicle, vehicles, form]);
@@ -495,6 +526,7 @@ export default function ListingsPage() {
                         <SelectItem value="great">Great</SelectItem>
                         <SelectItem value="good">Good</SelectItem>
                         <SelectItem value="above_average">Above Avg</SelectItem>
+                        <SelectItem value="high">Overpriced / High</SelectItem>
                         <SelectItem value="unrated">Unrated</SelectItem>
                       </SelectContent>
                     </Select>
@@ -654,7 +686,7 @@ export default function ListingsPage() {
                         </span>
                         <span className="inline-flex shrink-0 items-center gap-1 text-2xs text-muted-foreground">
                           <MessageSquare className="size-3" />
-                          {l.enquiriesCount}
+                          {enquiriesByVehicle[l.vehicleId]?.total ?? 0}
                           {l.vehicle ? ` · ${l.vehicle.daysInStock}d` : ""}
                         </span>
                       </div>
@@ -728,7 +760,7 @@ export default function ListingsPage() {
                     </PreviewStat>
                     <PreviewStat icon={MessageSquare} label="Enquiries">
                       <span className="tabular-nums">
-                        {selected.enquiriesCount}
+                        {enquiriesByVehicle[selected.vehicleId]?.total ?? 0}
                       </span>
                     </PreviewStat>
                     <PreviewStat icon={Megaphone} label="Channels">

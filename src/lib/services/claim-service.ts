@@ -110,6 +110,8 @@ export const claimService = {
     if (error) throw error;
     const claim = data as unknown as WarrantyClaim;
     invalidate(NS);
+    // Refresh the warranty detail-sheet's claim list too.
+    invalidate("warranties:");
     await activityService.log({
       companyId: input.companyId,
       userId: actorId,
@@ -126,6 +128,9 @@ export const claimService = {
     const updates: TableUpdate<"warranty_claims"> = { status };
     if (status === "resolved" || status === "rejected") {
       updates.resolved_at = new Date().toISOString();
+    } else {
+      // Reopening / moving back to a non-terminal status clears the stamp.
+      updates.resolved_at = null;
     }
     const { data, error } = await supabase
       .from("warranty_claims")
@@ -135,6 +140,8 @@ export const claimService = {
       .single();
     if (error) throw error;
     invalidate(NS);
+    // Refresh the warranty detail-sheet's claim list too.
+    invalidate("warranties:");
     return data as unknown as WarrantyClaim;
   },
 };

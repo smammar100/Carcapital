@@ -1886,6 +1886,7 @@ export type Database = {
           company_id: string
           cost_to_customer: number
           cost_to_dealership: number
+          amount_paid: number | null
           coverage_details: string
           created_at: string
           customer_email: string | null
@@ -1910,6 +1911,7 @@ export type Database = {
           company_id: string
           cost_to_customer?: number
           cost_to_dealership?: number
+          amount_paid?: number | null
           coverage_details: string
           created_at?: string
           customer_email?: string | null
@@ -1934,6 +1936,7 @@ export type Database = {
           company_id?: string
           cost_to_customer?: number
           cost_to_dealership?: number
+          amount_paid?: number | null
           coverage_details?: string
           created_at?: string
           customer_email?: string | null

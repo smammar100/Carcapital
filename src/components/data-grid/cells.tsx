@@ -406,6 +406,7 @@ const AT_INDICATOR_LABEL: Record<string, string> = {
   great: "Great price",
   good: "Good price",
   above_average: "Above avg",
+  high: "Overpriced",
   unrated: "Unrated",
 };
 

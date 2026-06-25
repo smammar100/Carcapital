@@ -14,14 +14,17 @@ const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 /**
- * Quick presence/freshness check on the Supabase auth cookie. When the
- * `sb-<ref>-auth-token` cookie exists and the embedded JWT exp is more than
- * 60s in the future, we can trust the session is still valid and skip the
- * full `supabase.auth.getUser()` round-trip to Supabase. Saves ~150–400 ms
- * of TTFB on every page navigation. The Supabase auto-refresh handler in
- * the browser keeps the cookie fresh well before it actually expires.
+ * Best-effort presence check on the Supabase auth cookie.
  *
- * Returns `true` when a definitely-fresh session cookie is present.
+ * SECURITY: the JWT here is NOT signature-verified, so a positive result must
+ * NEVER be trusted to grant authenticated access — an attacker can forge an
+ * unsigned token with a future `exp`. This is used ONLY to fail-closed: when it
+ * returns `false` we know there is definitely no usable session and can
+ * short-circuit straight to a login redirect, skipping the Supabase round-trip.
+ * A `true` result means "maybe a session" and ALWAYS falls through to the
+ * authoritative `supabase.auth.getUser()` check below.
+ *
+ * Returns `true` when a plausibly-fresh session cookie is present.
  */
 function hasFreshAuthCookie(request: NextRequest): boolean {
   const tokenCookie = request.cookies
@@ -72,10 +75,16 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Fast path: protected page + fresh access-token cookie → trust the
-  // cookie and skip the Supabase round-trip. Cuts TTFB by 150–400 ms.
-  if (!isPublic && pathname !== "/" && hasFreshAuthCookie(request)) {
-    return NextResponse.next({ request });
+  // Fail-closed fast path: protected page with NO plausible session cookie →
+  // we know there's no session, so redirect to /login without the Supabase
+  // round-trip. We must NOT use a positive cookie result to grant access here
+  // (the JWT is unverified and forgeable); a "maybe a session" always falls
+  // through to the authoritative supabase.auth.getUser() check below.
+  if (!isPublic && pathname !== "/" && !hasFreshAuthCookie(request)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/login";
+    url.searchParams.set("next", pathname);
+    return NextResponse.redirect(url);
   }
 
   let response = NextResponse.next({ request });
@@ -112,7 +121,12 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && (pathname === "/login" || pathname === "/")) {
+  // Authenticated user hitting the root → send to the dashboard. We deliberately
+  // do NOT redirect /login→/dashboard here: /login is owned by the client, which
+  // force-signs-out any pre-existing session so account-switchers land on a
+  // usable form. A middleware redirect would race that sign-out and bounce the
+  // user back in as the old account.
+  if (user && pathname === "/") {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     return NextResponse.redirect(url);

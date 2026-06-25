@@ -82,10 +82,13 @@ export const teamService = {
   },
 
   /**
-   * Create a public.users row in the "invited" state. Does NOT create the
-   * matching auth.users record — see the file-level note on the Auth user
-   * lifecycle TODO. The seeded users already have auth accounts; net-new
-   * invitees won't be able to log in until that path lands.
+   * DEPRECATED: do not use — use the /api/team/send-invite server route.
+   *
+   * Inserts a public.users row with a random UUID and NO matching auth.users
+   * record, which orphans the row (the FK to auth.users can never be satisfied
+   * and the invitee can never log in). The live invite flow is the server route
+   * which provisions auth + profile together. Retained only so the pre-existing
+   * resend/revoke pending-invite paths keep compiling.
    */
   async invite(input: {
     companyId: UUID;

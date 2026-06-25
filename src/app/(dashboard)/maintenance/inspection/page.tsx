@@ -98,7 +98,7 @@ export default function MaintenanceInspectionListPage() {
     const c: Row[] = [];
     for (const r of rows ?? []) {
       if (r.progress >= r.total) c.push(r);
-      else if (r.vehicle.status !== "ready") p.push(r);
+      else p.push(r);
     }
     return { pending: p, completed: c };
   }, [rows]);
@@ -252,7 +252,6 @@ function QueueTable({
   mode: "pending" | "completed";
   onOpen: (v: Vehicle) => void;
 }) {
-  const inspector = users.find((u) => u.role === "inspector");
   return (
     <Card className="overflow-hidden p-0">
       <Table>
@@ -272,6 +271,12 @@ function QueueTable({
             const wait = waitInfo(vehicle.receivedDate);
             const squares = buildSquares(checks);
             const flagged = flaggedCount(checks);
+            // The actual person who recorded the checks for THIS vehicle, not a
+            // single global inspector applied to every row.
+            const inspectorId = checks.find((c) => c.carriedOutBy)?.carriedOutBy;
+            const inspector = inspectorId
+              ? users.find((u) => u.id === inspectorId)
+              : undefined;
             return (
               <TableRow key={vehicle.id}>
                 <TableCell>

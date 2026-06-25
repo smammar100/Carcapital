@@ -462,7 +462,7 @@ export default function LeadsPage() {
     if (creatingDeal) return;
     setCreatingDeal(true);
     try {
-      await salesService.create({
+      const { existing } = await salesService.create({
         companyId: company.id,
         vehicleId: selected.vehicleId,
         leadId: selected.id,
@@ -471,7 +471,11 @@ export default function LeadsPage() {
         customerEmail: selected.customerEmail ?? null,
         sellingAgent: selected.assignedTo,
       });
-      toast.success("Deal ready — opening pipeline");
+      if (existing) {
+        toast.info("Deal already exists for this vehicle — opening pipeline");
+      } else {
+        toast.success("Deal ready — opening pipeline");
+      }
       router.push("/sales/pipeline");
     } finally {
       setCreatingDeal(false);

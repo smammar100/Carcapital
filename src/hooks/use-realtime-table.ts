@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { invalidate } from "@/lib/cache";
 
@@ -23,8 +23,26 @@ export function useRealtimeTable(opts: {
   invalidatePrefix?: string;
   /** Called after the cache is invalidated. Use for refetches / refresh. */
   onChange?: () => void;
+  /**
+   * Column to scope the realtime filter on. Defaults to "company_id" so
+   * existing callers are unaffected; tables keyed by user_id (etc.) can
+   * subscribe correctly by passing this. The value matched is always
+   * `companyId`.
+   */
+  filterColumn?: string;
 }) {
-  const { table, companyId, invalidatePrefix, onChange } = opts;
+  const { table, companyId, invalidatePrefix, onChange, filterColumn } = opts;
+
+  // Hold onChange in a ref (updated after each render via an effect, so the
+  // write doesn't happen during render) so inline closures from callers don't
+  // churn the subscription. The subscription effect deps stay stable.
+  const onChangeRef = useRef(onChange);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+  });
+
+  const column = filterColumn ?? "company_id";
+
   useEffect(() => {
     if (!companyId) return;
     const supabase = createClient();
@@ -34,7 +52,7 @@ export function useRealtimeTable(opts: {
 
     const handleEvent = () => {
       if (invalidatePrefix) invalidate(invalidatePrefix);
-      onChange?.();
+      onChangeRef.current?.();
     };
 
     const subscribe = () => {
@@ -47,7 +65,7 @@ export function useRealtimeTable(opts: {
             event: "*",
             schema: "public",
             table,
-            filter: `company_id=eq.${companyId}`,
+            filter: `${column}=eq.${companyId}`,
           },
           handleEvent,
         )
@@ -99,5 +117,5 @@ export function useRealtimeTable(opts: {
       window.removeEventListener("online", onWake);
       if (channel) void supabase.removeChannel(channel);
     };
-  }, [table, companyId, invalidatePrefix, onChange]);
+  }, [table, companyId, invalidatePrefix, column]);
 }

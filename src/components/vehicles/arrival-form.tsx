@@ -171,7 +171,7 @@ function deriveAtPriceIndicator(
   const ratio = listingPrice / retailValuation;
   if (ratio <= 0.96) return "great";
   if (ratio <= 1.0) return "good";
-  if (ratio <= 1.05) return "fair";
+  if (ratio <= 1.05) return "above_average";
   return "high";
 }
 

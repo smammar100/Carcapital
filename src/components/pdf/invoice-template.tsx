@@ -409,6 +409,7 @@ function SalesInvoice({ invoice, vehicle }: Props) {
     : "—";
   const isAuto = vehicle ? vehicle.transmission === "automatic" : false;
   const isLocal = vehicle ? vehicle.localOrImport === "local" : true;
+  const isStandardVat = normalizeVatScheme(invoice.vatScheme) === "standard";
 
   return (
     <Document>
@@ -470,7 +471,9 @@ function SalesInvoice({ invoice, vehicle }: Props) {
           {invoice.lineItems.map((l) => (
             <View style={s.tr} key={l.id}>
               <Text style={s.tdDesc}>{l.description}</Text>
-              <Text style={s.tdVat}> </Text>
+              <Text style={s.tdVat}>
+                {isStandardVat && l.vatAmount > 0 ? money(l.vatAmount) : ""}
+              </Text>
               <Text style={s.tdTotal}>{lineTotalDisplay(l)}</Text>
             </View>
           ))}
@@ -500,6 +503,20 @@ function SalesInvoice({ invoice, vehicle }: Props) {
                 {money(invoice.grandTotalInclAddons)}
               </Text>
             </View>
+            {isStandardVat ? (
+              <View style={s.totRow}>
+                <Text style={s.totLabel}>VAT (20%)</Text>
+                <Text style={s.totVal}>{money(invoice.vatAmount)}</Text>
+              </View>
+            ) : (
+              // Margin / zero-rated sales must NOT itemise a VAT amount to the
+              // customer — show the scheme label instead. (Output VAT is still
+              // recorded on the invoice for the VAT return.)
+              <View style={s.totRow}>
+                <Text style={s.totLabel}>{formatVatLabel(invoice.vatScheme)}</Text>
+                <Text style={s.totVal}>—</Text>
+              </View>
+            )}
             {invoice.depositAmount > 0 ? (
               <View style={s.totRow}>
                 <Text style={s.totLabel}>

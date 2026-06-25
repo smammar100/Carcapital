@@ -1,6 +1,7 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type {
+  ActivityActionType,
   ReturnResolutionPath,
   ReturnStatus,
   UUID,
@@ -246,11 +247,20 @@ export const returnService = {
         );
       }
     }
+    // Distinguish the resolution outcome in the audit trail with first-class
+    // action types so the Activity Log can filter resolutions/rejections apart
+    // from the original return. Non-terminal updates keep vehicle_returned.
+    const actionType: ActivityActionType =
+      status === "resolved"
+        ? "return_resolved"
+        : status === "rejected"
+          ? "return_rejected"
+          : "vehicle_returned";
     await activityService.log({
       companyId: ret.companyId,
       userId: actorId,
       vehicleId: ret.vehicleId,
-      actionType: "vehicle_returned",
+      actionType,
       description: `Return ${v ? v.registration : ret.id} → ${status.replace("_", " ")}`,
       metadata: { returnId: ret.id, status },
     });

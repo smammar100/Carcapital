@@ -165,6 +165,24 @@ export function AdvertEditor({
 
   async function save() {
     if (!company || !user) return;
+    // Block save when any field is over its shown limit — don't silently
+    // persist copy the channels (AutoTrader/website) will reject or truncate.
+    const overLimit: string[] = [];
+    if (advert.attentionGrabber.length > LIMITS.attentionGrabber)
+      overLimit.push("Attention Grabber");
+    if (advert.keySellingPoint.length > LIMITS.keySellingPoint)
+      overLimit.push("Key Selling Point");
+    if (advert.subtitle.length > LIMITS.subtitle) overLimit.push("Subtitle");
+    if (advert.strapline.length > LIMITS.strapline) overLimit.push("Strapline");
+    if (description.length > LIMITS.description) overLimit.push("Description");
+    if (advert.highlights.some((h) => h.length > LIMITS.highlight))
+      overLimit.push("Highlights");
+    if (overLimit.length > 0) {
+      toast.error(
+        `Over the character limit: ${overLimit.join(", ")}. Trim before saving.`,
+      );
+      return;
+    }
     setSaving(true);
     try {
       const base =
@@ -174,8 +192,13 @@ export function AdvertEditor({
         .map((h) => h.trim())
         .filter(Boolean)
         .join(" • ");
+      // Preserve a custom title if the listing already has one — only fall back
+      // to the vehicle-derived default when no title has been set, so editing
+      // the advert never discards a hand-written title.
+      const defaultTitle = `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim();
+      const title = base.title?.trim() ? base.title : defaultTitle;
       const updated = await listingService.update(base.id, {
-        title: `${vehicle.year} ${vehicle.make} ${vehicle.model}`.trim(),
+        title,
         description,
         price,
         specialFeatures: highlightsLine,

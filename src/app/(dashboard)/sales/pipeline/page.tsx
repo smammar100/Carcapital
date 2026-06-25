@@ -91,7 +91,9 @@ export default function SalesPipelinePage() {
       completed_sale: [],
       lost: [],
     };
-    for (const d of filteredDeals) map[d.stage].push(d);
+    // Only bucket known stages into the 8 fixed columns; ignore any
+    // unexpected stage value rather than crashing on an undefined bucket.
+    for (const d of filteredDeals) map[d.stage]?.push(d);
     return map;
   }, [filteredDeals]);
 
@@ -117,7 +119,16 @@ export default function SalesPipelinePage() {
         <Select
           items={{
             all: "All agents",
-            ...Object.fromEntries(users.map((u) => [u.id, u.name])),
+            ...Object.fromEntries(
+              users
+                .filter(
+                  (u) =>
+                    u.role === "sales" ||
+                    u.role === "owner" ||
+                    u.role === "admin",
+                )
+                .map((u) => [u.id, u.name]),
+            ),
           }}
           value={agentFilter}
           onValueChange={(v) => setAgentFilter(v)}

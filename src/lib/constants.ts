@@ -214,6 +214,8 @@ export const INSPECTION_ITEMS: {
 
 export const NEGATIVE_INSPECTION_STATUSES = new Set([
   "Expired",
+  "Expiring Soon",
+  "Low",
   "Poor",
   "Needs Replacing",
   "Contaminated",

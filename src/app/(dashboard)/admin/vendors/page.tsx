@@ -204,7 +204,10 @@ function GaragesTab({
       const sct = stats.get(j.vendorId);
       if (!sct) continue;
       if (j.status !== "completed") sct.activeCount++;
-      sct.totalSpent += j.actualCost ?? j.estimatedCost ?? 0;
+      // "Total spent" is realised cost only: sum actualCost for completed
+      // jobs. In-progress estimates aren't money spent and would inflate the
+      // figure (and change it when jobs later complete).
+      if (j.status === "completed") sct.totalSpent += j.actualCost ?? 0;
     }
     return vendors.map((v) => ({
       ...v,

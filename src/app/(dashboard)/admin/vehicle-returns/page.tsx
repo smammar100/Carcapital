@@ -377,6 +377,16 @@ export default function ReturnsPage() {
             ? Math.round(orig.vatAmount * (amount / orig.total) * 100) / 100
             : 0;
       }
+    } else if (resolving.refundAmount != null && resolving.refundAmount > 0) {
+      // Manual path (no linked sale invoice): there's no invoice total to cap
+      // against, so cap at the return's recorded refund amount to block an
+      // unbounded over-refund.
+      if (amount > resolving.refundAmount + 0.01) {
+        toast.error(
+          `Refund can't exceed the return's recorded amount (${formatCurrency(resolving.refundAmount)})`,
+        );
+        return;
+      }
     }
     setResolveBusy(true);
     try {

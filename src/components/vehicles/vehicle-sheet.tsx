@@ -124,7 +124,10 @@ function matchCond(c: FilterCond, v: Vehicle): boolean {
   if (c.kind === "num") {
     const n = typeof raw === "number" ? raw : Number(raw);
     const fv = Number(c.value);
-    if (Number.isNaN(n) || Number.isNaN(fv)) return true;
+    // An unparseable filter value can't constrain anything — keep the row.
+    if (Number.isNaN(fv)) return true;
+    // A null/NaN row value can't satisfy a numeric comparison — exclude it.
+    if (raw === null || raw === undefined || Number.isNaN(n)) return false;
     if (c.op === "gte") return n >= fv;
     if (c.op === "lte") return n <= fv;
     return n === fv;
@@ -163,10 +166,25 @@ function csvEscape(s: string) {
 
 function rawValue(col: ColDef, v: Vehicle): unknown {
   if (col.format) return col.format(v);
+  if (col.key === "daysInStock") {
+    // The stored column is unreliable (quick-add inserts 0 and it's never
+    // recomputed). For vehicles still in stock, derive it live from the
+    // received date; once sold, trust the stored (frozen) value.
+    const sold = v.status === "sold";
+    if (!sold && v.receivedDate) {
+      const received = new Date(v.receivedDate).getTime();
+      if (!Number.isNaN(received)) {
+        const days = Math.floor((Date.now() - received) / 86_400_000);
+        return Math.max(0, days);
+      }
+    }
+    return v.daysInStock;
+  }
   if (col.key === "profit") {
-    return v.listingPrice !== null
-      ? Math.round(v.listingPrice - v.baseCost)
-      : null;
+    // For sold vehicles the realized selling price is the true top line;
+    // unsold vehicles fall back to the asking (listing) price.
+    const topLine = v.sellingPrice ?? v.listingPrice;
+    return topLine !== null ? Math.round(topLine - v.baseCost) : null;
   }
   return v[col.key as keyof Vehicle];
 }
@@ -610,6 +628,20 @@ export function VehicleSheet({
     });
   }, [vehicles, search, filters]);
 
+  // Keep the selection confined to currently-visible rows. Without this,
+  // "select all" + a later filter/search change would keep counting (and
+  // acting on) rows that are no longer on screen.
+  useEffect(() => {
+    if (!filtered) return;
+    setSelected((prev) => {
+      if (prev.size === 0) return prev;
+      const visibleIds = new Set(filtered.map((v) => v.id));
+      const next = new Set<string>();
+      for (const id of prev) if (visibleIds.has(id)) next.add(id);
+      return next.size === prev.size ? prev : next;
+    });
+  }, [filtered]);
+
   function addFilter() {
     const fld = filterFields.find((f) => f.key === bField);
     if (!fld || !bValue.trim()) return;
@@ -673,9 +705,13 @@ export function VehicleSheet({
 
   function exportCsv() {
     if (!filtered) return;
-    const head = cols.map((c) => csvEscape(c.label)).join(",");
+    // Export every defined column (not just the visible ones) so hidden
+    // columns aren't silently dropped from the data file. cellCsv reads the
+    // raw value, so number/currency columns export bare numerics, not the
+    // formatted display strings.
+    const head = allCols.map((c) => csvEscape(c.label)).join(",");
     const body = filtered
-      .map((v) => cols.map((c) => csvEscape(cellCsv(c, v))).join(","))
+      .map((v) => allCols.map((c) => csvEscape(cellCsv(c, v))).join(","))
       .join("\n");
     const csv = `${head}\n${body}`;
     const blob = new Blob([csv], { type: "text/csv" });

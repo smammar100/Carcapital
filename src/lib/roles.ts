@@ -308,5 +308,9 @@ export function legacyRoleForRoles(roles: RoleValue[]): string {
   if (roles.includes("inventory_manager")) return "inventory_manager";
   if (roles.includes("inspector")) return "inspector";
   if (roles.includes("driver")) return "driver";
+  // Workshop staff are operations, not sales — without this branch they fall
+  // through to "sales" and wrongly appear in salesperson pickers (which filter
+  // on role === "sales"). No picker keys off "workshop", so this value is safe.
+  if (roles.includes("workshop_lead")) return "workshop";
   return "sales";
 }

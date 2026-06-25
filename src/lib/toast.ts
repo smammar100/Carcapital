@@ -12,7 +12,7 @@
  * default variant (nuance carried by the message), errors render as `danger`,
  * and the legacy `retry` action is accepted but not rendered as a toast button.
  */
-import { addToast } from "@/components/nord/nord-toaster";
+import { addToast, removeToast } from "@/components/nord/nord-toaster";
 
 interface ErrorOptions {
   retry?: () => void;
@@ -72,6 +72,9 @@ export const toast = Object.assign(baseToast, {
     notify.warning(message, opts),
   message: (message: string, opts: InfoOptions = {}) =>
     notify.info(message, opts),
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  dismiss: (_id?: string | number): void => {},
+  // Dismisses a toast early by the id returned from a `toast.*` call. A bare
+  // `dismiss()` with no id is a no-op (Nord toasts auto-dismiss on their timer).
+  dismiss: (id?: string | number): void => {
+    if (typeof id === "string") removeToast(id);
+  },
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, Check, ChevronsUpDown } from "lucide-react";
+import { AlertTriangle, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,18 +25,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+  Combobox,
+  ComboboxInput,
+  ComboboxPopup,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 import { cn } from "@/lib/utils";
 
 const schema = z.object({
@@ -66,7 +61,6 @@ export function NewClaimDialog({
 }: NewClaimDialogProps) {
   const { user, company } = useAuth();
   const [warranties, setWarranties] = useState<Warranty[]>([]);
-  const [pickerOpen, setPickerOpen] = useState(false);
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -146,76 +140,54 @@ export function NewClaimDialog({
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-4"
+          className="flex flex-col gap-4 px-6"
         >
           {!warrantyId && (
-            <div>
+            <div className="flex flex-col gap-1.5">
               <Label>Warranty</Label>
-              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    role="combobox"
-                    className={cn(
-                      "w-full justify-between",
-                      !selected && "text-muted-foreground",
+              <Combobox
+                items={warranties}
+                value={selected}
+                onValueChange={(w: Warranty | null) =>
+                  form.setValue("warrantyId", w?.id ?? "", {
+                    shouldValidate: true,
+                  })
+                }
+                itemToStringLabel={(w: Warranty) =>
+                  `${w.customerName} · ${w.type === "external" ? w.provider : "In-house"}`
+                }
+              >
+                <ComboboxInput
+                  placeholder="Pick an active warranty"
+                  startAddon={<Search />}
+                  className="w-full"
+                />
+                <ComboboxPopup>
+                  <ComboboxEmpty>No active warranties.</ComboboxEmpty>
+                  <ComboboxList>
+                    {(w: Warranty) => (
+                      <ComboboxItem key={w.id} value={w}>
+                        <div className="flex flex-col">
+                          <span className="text-sm">{w.customerName}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {w.type === "external" ? w.provider : "In-house"} ·{" "}
+                            {w.startDate} → {w.endDate}
+                          </span>
+                        </div>
+                      </ComboboxItem>
                     )}
-                  >
-                    {selected
-                      ? `${selected.customerName} · ${selected.type === "external" ? selected.provider : "In-house"}`
-                      : "Pick an active warranty"}
-                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                  <Command>
-                    <CommandInput placeholder="Search customer or provider…" />
-                    <CommandList>
-                      <CommandEmpty>No active warranties.</CommandEmpty>
-                      <CommandGroup>
-                        {warranties.map((w) => (
-                          <CommandItem
-                            key={w.id}
-                            value={`${w.customerName} ${w.provider ?? ""} ${w.id}`}
-                            onSelect={() => {
-                              form.setValue("warrantyId", w.id, {
-                                shouldValidate: true,
-                              });
-                              setPickerOpen(false);
-                            }}
-                          >
-                            <Check
-                              className={cn(
-                                "mr-2 h-4 w-4",
-                                w.id === selectedId ? "opacity-100" : "opacity-0",
-                              )}
-                            />
-                            <div className="flex flex-1 flex-col">
-                              <span className="text-sm">{w.customerName}</span>
-                              <span className="text-xs text-muted-foreground">
-                                {w.type === "external"
-                                  ? w.provider
-                                  : "In-house"}{" "}
-                                · {w.startDate} → {w.endDate}
-                              </span>
-                            </div>
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                  </ComboboxList>
+                </ComboboxPopup>
+              </Combobox>
               {form.formState.errors.warrantyId && (
-                <p className="mt-1 text-xs text-destructive">
+                <p className="text-xs text-destructive">
                   {form.formState.errors.warrantyId.message}
                 </p>
               )}
             </div>
           )}
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Issue description</Label>
             <Textarea
               {...form.register("issueDescription")}
@@ -223,13 +195,13 @@ export function NewClaimDialog({
               className="min-h-24"
             />
             {form.formState.errors.issueDescription && (
-              <p className="mt-1 text-xs text-destructive">
+              <p className="text-xs text-destructive">
                 {form.formState.errors.issueDescription.message}
               </p>
             )}
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Estimated cost (£)</Label>
             <Input
               type="number"
@@ -271,7 +243,7 @@ export function NewClaimDialog({
             </div>
           </Card>
 
-          <DialogFooter>
+          <DialogFooter className="-mx-6 mt-2">
             <Button
               type="button"
               variant="outline"

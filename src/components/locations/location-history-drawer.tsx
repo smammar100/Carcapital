@@ -117,7 +117,7 @@ export function LocationHistoryDrawer({
 
   async function handleMarkReturned(movement: LocationMovement) {
     try {
-      await locationService.markReturned(movement.id, actorId);
+      await locationService.markReturned(movement.id, actorId, vehicle.companyId);
       toast.success("Marked returned");
       setRefreshToken((t) => t + 1);
       onChanged?.();

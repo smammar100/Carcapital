@@ -620,7 +620,7 @@ export interface Listing {
   price: number;
   specialFeatures: string;
   channels: Record<ListingChannel, boolean>;
-  atPriceIndicator: "great" | "good" | "above_average" | "unrated";
+  atPriceIndicator: "great" | "good" | "above_average" | "high" | "unrated";
   status: ListingStatus;
   publishedAt: ISODateTime | null;
   enquiriesCount: number;
@@ -815,6 +815,8 @@ export interface Warranty {
   endDate: ISODate;
   costToDealership: number;
   costToCustomer: number;
+  /** Actual amount paid to the external provider at purchase (≠ cost_to_dealership). */
+  amountPaid: number | null;
   status: WarrantyStatus;
   /** Gap 4 — purchase tracker. `n_a` for in-house, `pending`/`purchased` for external. */
   purchaseStatus: WarrantyPurchaseStatus;
@@ -1190,7 +1192,11 @@ export type ActivityActionType =
   | "sale_stage_changed"
   | "sale_completed"
   | "warranty_created"
+  | "warranty_purchased"
+  | "warranty_cancelled"
   | "warranty_claim_opened"
+  | "return_resolved"
+  | "return_rejected"
   | "invoice_created"
   | "invoice_sent"
   | "invoice_paid"

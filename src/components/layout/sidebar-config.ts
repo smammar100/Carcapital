@@ -87,7 +87,12 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         label: "Invoicing",
         href: "/admin/invoicing",
         icon: Receipt,
-        requiredAnyOf: ["invoice:send", "invoice:mark_paid", "invoice:edit"],
+        requiredAnyOf: [
+          "invoice:generate",
+          "invoice:send",
+          "invoice:mark_paid",
+          "invoice:edit",
+        ],
       },
       {
         label: "Vendors",
@@ -99,7 +104,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         label: "Activity Log",
         href: "/admin/activity",
         icon: History,
-        requiredAnyOf: ["admin:view_master_sheet"],
+        requiredAnyOf: ["admin:view_master_sheet", "admin:view_financials"],
       },
     ],
   },

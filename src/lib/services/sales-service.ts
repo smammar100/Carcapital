@@ -7,6 +7,13 @@ import { listingService } from "./listing-service";
 
 const NS = "sales:";
 
+// A listing is "publishable" (publicly visible) once it's live or already
+// tracking the sale lifecycle (reserved). Drafts and archived adverts were
+// never on the forecourt, so the sale lifecycle must not stamp them.
+function isPublishableStatus(status: string): boolean {
+  return status === "live" || status === "reserved";
+}
+
 const SELECT = `
   id,
   companyId:company_id,
@@ -65,7 +72,9 @@ export const salesService = {
     });
   },
 
-  async create(input: CreateInput): Promise<SalesDeal> {
+  async create(
+    input: CreateInput,
+  ): Promise<{ deal: SalesDeal; existing: boolean }> {
     const supabase = createClient();
     // Dedupe: never open a second ACTIVE (non-lost) deal for the same vehicle
     // (or the same lead). Return the existing deal so the caller can still
@@ -73,15 +82,19 @@ export const salesService = {
     const orFilter = input.leadId
       ? `vehicle_id.eq.${input.vehicleId},lead_id.eq.${input.leadId}`
       : `vehicle_id.eq.${input.vehicleId}`;
-    const { data: existing } = await supabase
+    // Select an array (not maybeSingle) so >1 active deal never throws — just
+    // take the most recently updated existing deal.
+    const { data: existingRows } = await supabase
       .from("sales_deals")
       .select(SELECT)
       .eq("company_id", input.companyId)
       .neq("stage", "lost")
       .or(orFilter)
-      .limit(1)
-      .maybeSingle();
-    if (existing) return existing as unknown as SalesDeal;
+      .order("updated_at", { ascending: false })
+      .limit(1);
+    const existing = (existingRows ?? [])[0];
+    if (existing)
+      return { deal: existing as unknown as SalesDeal, existing: true };
 
     const { data, error } = await supabase
       .from("sales_deals")
@@ -108,7 +121,7 @@ export const salesService = {
       description: `Deal opened for ${input.customerName}`,
       metadata: { dealId: deal.id, leadId: input.leadId },
     });
-    return deal;
+    return { deal, existing: false };
   },
 
   async updateStage(
@@ -142,7 +155,12 @@ export const salesService = {
       });
       if (stage === "completed_sale") {
         await vehicleService.changeStatus(v.id, "sold", actorId);
-        await listingService.setStatusForVehicle(v.id, "sold");
+        // Only stamp "sold" on a listing that's actually published/live —
+        // never promote a draft or archived advert into the sold lifecycle.
+        const soldListing = await listingService.getForVehicle(v.id);
+        if (soldListing && isPublishableStatus(soldListing.status)) {
+          await listingService.setStatusForVehicle(v.id, "sold");
+        }
         await activityService.log({
           companyId: v.companyId,
           userId: actorId,
@@ -159,12 +177,28 @@ export const salesService = {
         if (v.status !== "reserved" && v.status !== "sold") {
           await vehicleService.changeStatus(v.id, "reserved", actorId);
         }
-        await listingService.setStatusForVehicle(v.id, "reserved");
+        // Only flip a live/publishable advert to "reserved" — leave drafts
+        // and archived listings untouched (they were never publicly visible).
+        const reserveListing = await listingService.getForVehicle(v.id);
+        if (reserveListing && isPublishableStatus(reserveListing.status)) {
+          await listingService.setStatusForVehicle(v.id, "reserved");
+        }
       } else if (stage === "lost") {
         // Deal fell through — release the reservation back to the forecourt.
         if (v.status === "reserved") {
           await vehicleService.changeStatus(v.id, "listed", actorId);
-          await listingService.setStatusForVehicle(v.id, "live");
+          // Revert the listing to what it was before the deal reserved it,
+          // without silently publishing. A "reserved" advert was live before
+          // the deal (reservation only stamps publishable listings), so it
+          // goes back live. Any non-reserved listing (e.g. a draft) reverts to
+          // draft rather than being promoted to live without a publish step.
+          const lostListing = await listingService.getForVehicle(v.id);
+          if (lostListing) {
+            await listingService.setStatusForVehicle(
+              v.id,
+              lostListing.status === "reserved" ? "live" : "draft",
+            );
+          }
         }
       }
     }

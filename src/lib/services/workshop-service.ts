@@ -152,6 +152,9 @@ export const workshopService = {
     const updates: TableUpdate<"workshop_jobs"> = { status };
     if (status === "completed") {
       updates.completed_date = new Date().toISOString().slice(0, 10);
+    } else {
+      // Moving back to pending/in_progress/stalled clears the completion date.
+      updates.completed_date = null;
     }
     const { data, error } = await supabase
       .from("workshop_jobs")

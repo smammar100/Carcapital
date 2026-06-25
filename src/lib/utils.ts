@@ -24,8 +24,20 @@ const DATE_FMT = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
+// A bare date ("2026-06-25", no time) is parsed as UTC midnight; formatting it
+// in a negative-UTC locale can roll back to the previous day. Detect these and
+// render in UTC so the shown day matches the stored date.
+const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+const DATE_FMT_UTC = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  timeZone: "UTC",
+});
+
 export function formatDate(iso: string | null | undefined): string {
   if (!iso) return "—";
+  if (DATE_ONLY_RE.test(iso)) return DATE_FMT_UTC.format(new Date(iso));
   return DATE_FMT.format(new Date(iso));
 }
 
@@ -38,9 +50,21 @@ const DATETIME_FMT = new Intl.DateTimeFormat("en-GB", {
   hour12: false,
 });
 
+const DATETIME_FMT_UTC = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "UTC",
+});
+
 /** Stripe-style "6 Dec 2024, 12:35". */
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
+  // Date-only input has no time component — format in UTC so the day is stable.
+  if (DATE_ONLY_RE.test(iso)) return DATETIME_FMT_UTC.format(new Date(iso));
   return DATETIME_FMT.format(new Date(iso));
 }
 
@@ -52,7 +76,9 @@ const TIME_FMT = new Intl.DateTimeFormat("en-GB", {
 
 export function formatTime12(hhmm: string): string {
   // accepts "14:30" → "2:30 PM"
-  const [h, m] = hhmm.split(":").map(Number);
+  const [h, m] = (hhmm ?? "").split(":").map(Number);
+  // Guard malformed/empty input so we never render "Invalid Date".
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return "—";
   const d = new Date();
   d.setHours(h, m, 0, 0);
   return TIME_FMT.format(d).toLowerCase().replace(" ", "");
@@ -74,8 +100,13 @@ export function formatRelativeTime(iso: string): string {
 }
 
 export function daysBetween(a: string, b: string): number {
-  const ms = new Date(b).getTime() - new Date(a).getTime();
-  return Math.round(ms / 86400000);
+  // Compare UTC-midnight of each date so the count is DST-safe (a fixed
+  // 86_400_000 ms divisor is off by one across a DST boundary).
+  const da = new Date(a);
+  const db = new Date(b);
+  const ua = Date.UTC(da.getFullYear(), da.getMonth(), da.getDate());
+  const ub = Date.UTC(db.getFullYear(), db.getMonth(), db.getDate());
+  return Math.round((ub - ua) / 86400000);
 }
 
 export type DaysInStockColor = "green" | "amber" | "red";

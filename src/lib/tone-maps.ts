@@ -89,6 +89,7 @@ export const AT_INDICATOR_TONE: Record<string, string> = {
   great: "green",
   good: "blue",
   above_average: "yellow",
+  high: "red",
   unrated: "gray",
 };
 

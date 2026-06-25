@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronsUpDown, ExternalLink, Shield } from "lucide-react";
+import { Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -31,19 +31,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+  Combobox,
+  ComboboxInput,
+  ComboboxPopup,
+  ComboboxList,
+  ComboboxItem,
+  ComboboxEmpty,
+} from "@/components/ui/combobox";
 
 const PROVIDERS = [
   "Warranty First",
@@ -107,7 +101,6 @@ export function NewWarrantyDialog({
 }: NewWarrantyDialogProps) {
   const { user, company } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [vehiclePickerOpen, setVehiclePickerOpen] = useState(false);
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -197,10 +190,13 @@ export function NewWarrantyDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>New warranty</DialogTitle>
+          <DialogTitle>
+            New {type === "external" ? "external" : "in-house"} warranty
+          </DialogTitle>
           <DialogDescription>
-            Issue an in-house warranty or record a third-party warranty sold
-            with the vehicle.
+            {type === "external"
+              ? "Record a third-party warranty bought from a provider and sold with the vehicle."
+              : "Issue a warranty Car Capital provides to the buyer directly."}
           </DialogDescription>
         </DialogHeader>
 
@@ -208,110 +204,67 @@ export function NewWarrantyDialog({
           onSubmit={form.handleSubmit(onSubmit)}
           className="flex flex-col gap-4 px-6"
         >
-          {/* 1. Type selector — two card-style options */}
-          <div className="grid gap-2 sm:grid-cols-2">
-            <TypeCard
-              active={type === "in_house"}
-              icon={Shield}
-              title="In-house"
-              description="Car Capital provides the cover directly."
-              onClick={() => form.setValue("type", "in_house")}
-            />
-            <TypeCard
-              active={type === "external"}
-              icon={ExternalLink}
-              title="External"
-              description="Third-party warranty bought from a provider."
-              onClick={() => form.setValue("type", "external")}
-            />
-          </div>
-
-          {/* 2. Vehicle & customer */}
+          {/* Vehicle & customer */}
           <Card className="flex flex-col gap-3 p-4">
             <h3 className="text-sm font-semibold">Vehicle &amp; customer</h3>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="sm:col-span-2">
+              <div className="flex flex-col gap-1.5">
                 <Label>Vehicle</Label>
-                <Popover
-                  open={vehiclePickerOpen}
-                  onOpenChange={setVehiclePickerOpen}
+                <Combobox
+                  items={vehicles}
+                  value={selectedVehicle}
+                  onValueChange={(v: Vehicle | null) =>
+                    form.setValue("vehicleId", v?.id ?? "", {
+                      shouldValidate: true,
+                    })
+                  }
+                  itemToStringLabel={(v: Vehicle) =>
+                    `${v.registration} — ${v.make} ${v.model}`
+                  }
                 >
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      role="combobox"
-                      className={cn(
-                        "w-full justify-between",
-                        !selectedVehicle && "text-muted-foreground",
+                  <ComboboxInput
+                    placeholder="Pick a vehicle in stock"
+                    startAddon={<Search />}
+                    className="w-full"
+                  />
+                  <ComboboxPopup>
+                    <ComboboxEmpty>No vehicles match.</ComboboxEmpty>
+                    <ComboboxList>
+                      {(v: Vehicle) => (
+                        <ComboboxItem key={v.id} value={v}>
+                          <div className="flex flex-col">
+                            <span className="text-sm">
+                              {v.registration} — {v.make} {v.model}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {v.stockId} · {v.status}
+                            </span>
+                          </div>
+                        </ComboboxItem>
                       )}
-                    >
-                      {selectedVehicle
-                        ? `${selectedVehicle.registration} — ${selectedVehicle.make} ${selectedVehicle.model}`
-                        : "Pick a vehicle in stock"}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                      <CommandInput placeholder="Search reg, make, model…" />
-                      <CommandList>
-                        <CommandEmpty>No vehicles match.</CommandEmpty>
-                        <CommandGroup>
-                          {vehicles.map((v) => (
-                            <CommandItem
-                              key={v.id}
-                              value={`${v.registration} ${v.make} ${v.model} ${v.stockId}`}
-                              onSelect={() => {
-                                form.setValue("vehicleId", v.id, {
-                                  shouldValidate: true,
-                                });
-                                setVehiclePickerOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  v.id === vehicleId ? "opacity-100" : "opacity-0",
-                                )}
-                              />
-                              <div className="flex flex-1 flex-col">
-                                <span className="text-sm">
-                                  {v.registration} — {v.make} {v.model}
-                                </span>
-                                <span className="text-xs text-muted-foreground">
-                                  {v.stockId} · {v.status}
-                                </span>
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                    </ComboboxList>
+                  </ComboboxPopup>
+                </Combobox>
                 {form.formState.errors.vehicleId && (
-                  <p className="mt-1 text-xs text-destructive">
+                  <p className="text-xs text-destructive">
                     {form.formState.errors.vehicleId.message}
                   </p>
                 )}
                 {selectedVehicle && (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Stock {selectedVehicle.stockId}
                   </p>
                 )}
               </div>
+              <Field label="Email" error={form.formState.errors.customerEmail?.message}>
+                <Input type="email" {...form.register("customerEmail")} />
+              </Field>
               <Field label="Customer name" error={form.formState.errors.customerName?.message}>
                 <Input {...form.register("customerName")} />
               </Field>
               <Field label="Phone" error={form.formState.errors.customerPhone?.message}>
                 <Input {...form.register("customerPhone")} />
               </Field>
-              <div className="sm:col-span-2">
-                <Field label="Email" error={form.formState.errors.customerEmail?.message}>
-                  <Input type="email" {...form.register("customerEmail")} />
-                </Field>
-              </div>
             </div>
           </Card>
 
@@ -320,7 +273,7 @@ export function NewWarrantyDialog({
             <Card className="flex flex-col gap-3 p-4">
               <h3 className="text-sm font-semibold">Provider</h3>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div>
+                <div className="flex flex-col gap-1.5">
                   <Label>Provider</Label>
                   <Select
                     value={form.watch("provider") ?? ""}
@@ -340,7 +293,7 @@ export function NewWarrantyDialog({
                     </SelectContent>
                   </Select>
                   {form.formState.errors.provider && (
-                    <p className="mt-1 text-xs text-destructive">
+                    <p className="text-xs text-destructive">
                       {form.formState.errors.provider.message}
                     </p>
                   )}
@@ -359,9 +312,12 @@ export function NewWarrantyDialog({
           <Card className="flex flex-col gap-3 p-4">
             <h3 className="text-sm font-semibold">Coverage</h3>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div>
+              <div className="flex flex-col gap-1.5">
                 <Label>Duration</Label>
                 <Select
+                  items={Object.fromEntries(
+                    DURATIONS.map((d) => [d.value, d.label]),
+                  )}
                   value={form.watch("durationMonths")}
                   onValueChange={(v) =>
                     form.setValue("durationMonths", v, { shouldDirty: true })
@@ -385,15 +341,16 @@ export function NewWarrantyDialog({
               <Field label="End date">
                 <Input type="date" {...form.register("endDate")} />
               </Field>
-              <div className="sm:col-span-3">
-                <Field label="Coverage details" error={form.formState.errors.coverageDetails?.message}>
-                  <Textarea
-                    {...form.register("coverageDetails")}
-                    className="min-h-20"
-                  />
-                </Field>
-              </div>
             </div>
+            {/* Kept outside the grid: a field-sizing textarea inside a grid
+                track gets sized at its min-height, then its content overflows
+                the card. As a plain flex child it sizes correctly. */}
+            <Field label="Coverage details" error={form.formState.errors.coverageDetails?.message}>
+              <Textarea
+                {...form.register("coverageDetails")}
+                className="min-h-20"
+              />
+            </Field>
           </Card>
 
           {/* 5. Pricing */}
@@ -440,44 +397,6 @@ export function NewWarrantyDialog({
   );
 }
 
-function TypeCard({
-  active,
-  icon: Icon,
-  title,
-  description,
-  onClick,
-}: {
-  active: boolean;
-  icon: React.ComponentType<{ className?: string }>;
-  title: string;
-  description: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex flex-col items-start gap-1 rounded-md border p-3 text-left transition-colors",
-        active
-          ? "border-primary bg-primary/5"
-          : "hover:border-primary/40 hover:bg-accent/40",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <Icon
-          className={cn(
-            "h-4 w-4",
-            active ? "text-primary" : "text-muted-foreground",
-          )}
-        />
-        <span className="text-sm font-medium">{title}</span>
-      </div>
-      <p className="text-xs text-muted-foreground">{description}</p>
-    </button>
-  );
-}
-
 function Field({
   label,
   error,
@@ -488,10 +407,10 @@ function Field({
   children: React.ReactNode;
 }) {
   return (
-    <div>
+    <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
       {children}
-      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );
 }

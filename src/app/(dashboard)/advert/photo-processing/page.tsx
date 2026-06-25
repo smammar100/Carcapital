@@ -193,7 +193,13 @@ export default function PhotoProcessingPage() {
                       size="sm"
                       onClick={async () => {
                         if (!user) return;
-                        if (vehicle.status === "photos_pending") {
+                        // Both photos_pending and photos_ready advance to
+                        // "ready" — the button is enabled for exactly these
+                        // two states, so the handler and disabled-state agree.
+                        if (
+                          vehicle.status === "photos_pending" ||
+                          vehicle.status === "photos_ready"
+                        ) {
                           await vehicleService.changeStatus(
                             vehicle.id,
                             "ready",
@@ -204,12 +210,6 @@ export default function PhotoProcessingPage() {
                             setVehicles(
                               await vehicleService.getAll(company.id),
                             );
-                        } else if (vehicle.status === "ready") {
-                          toast.info("Already Ready");
-                        } else {
-                          toast.info(
-                            `Vehicle is in ${vehicle.status} status — cannot mark ready yet`,
-                          );
                         }
                       }}
                       disabled={

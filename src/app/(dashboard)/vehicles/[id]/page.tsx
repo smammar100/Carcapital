@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
+import { vendorService } from "@/lib/services/vendor-service";
 import { downloadBlob, pdfService } from "@/lib/services/pdf-service";
 import { useAuth } from "@/contexts/auth-context";
 import type { Vehicle, VehicleStatus } from "@/lib/types";
@@ -43,11 +44,23 @@ export default function VehicleDetailPage({
     setVehicle((v) => (v ? { ...v, ...patch } : v));
   }
 
+  /** Re-pull the vehicle from the service so derived/computed fields the page
+   *  doesn't own (imagesCount, heroImageUrl, status, etc.) stay fresh after a
+   *  child tab mutates photos / inspection / etc. */
+  async function refetchVehicle() {
+    const fresh = await vehicleService.getById(id);
+    if (fresh) setVehicle(fresh);
+  }
+
   async function handleStatusChange(s: VehicleStatus) {
     if (!user || !vehicle) return;
-    const updated = await vehicleService.changeStatus(vehicle.id, s, user.id);
-    setVehicle(updated);
-    toast.success(`Status: ${s.replace("_", " ")}`);
+    try {
+      const updated = await vehicleService.changeStatus(vehicle.id, s, user.id);
+      setVehicle(updated);
+      toast.success(`Status: ${s.replace("_", " ")}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't change status");
+    }
   }
 
   async function handleRemoveFromWebsite() {
@@ -56,21 +69,32 @@ export default function VehicleDetailPage({
       `Remove ${vehicle.registration} from website?\n\nVehicle will disappear from Work List but stays on the Master Sheet for historical reference.`,
     );
     if (!ok) return;
-    const updated = await vehicleService.removeFromWebsite(vehicle.id, user.id);
-    setVehicle(updated);
-    toast.success(`${vehicle.registration} removed from website`);
+    try {
+      const updated = await vehicleService.removeFromWebsite(vehicle.id, user.id);
+      setVehicle(updated);
+      toast.success(`${vehicle.registration} removed from website`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Couldn't remove from website");
+    }
   }
 
   async function handleExportPdf() {
     if (!vehicle || !company) return;
     setExporting(true);
     try {
-      const todos = await todoService.getForVehicle(vehicle.id);
+      const [todos, vendors] = await Promise.all([
+        todoService.getForVehicle(vehicle.id),
+        vendorService.getAll(company.id),
+      ]);
+      const vendorNames = Object.fromEntries(
+        vendors.map((v) => [v.id, v.name]),
+      );
       const blob = await pdfService.generateJobCard({
         vehicle,
         todos,
         preparedBy: user?.name ?? "—",
         companyName: company.name,
+        vendorNames,
       });
       downloadBlob(blob, `job-card-${vehicle.stockId}.pdf`);
       toast.success("Job card downloaded");
@@ -122,6 +146,7 @@ export default function VehicleDetailPage({
         value={tab}
         onValueChange={setTab}
         onVehiclePatch={patchVehicle}
+        onVehicleRefetch={() => void refetchVehicle()}
         exporting={exporting}
         onExportPdf={() => void handleExportPdf()}
       />

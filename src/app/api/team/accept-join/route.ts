@@ -87,7 +87,7 @@ export async function POST(request: Request) {
 
   const { data: invitation, error: invErr } = await admin
     .from("team_invitations" as never)
-    .select("company_id, default_roles, expires_at, used_at")
+    .select("company_id, default_roles, expires_at, used_at, recipient_email")
     .eq("token", token)
     .maybeSingle();
 
@@ -104,7 +104,20 @@ export async function POST(request: Request) {
       default_roles: string[];
       expires_at: string;
       used_at: string | null;
+      recipient_email: string | null;
     };
+    // Targeted invitations are bound to a specific recipient — the redeemer
+    // must sign up under the invited email. Without this, anyone holding the
+    // token could redeem it under an arbitrary email of their choosing.
+    if (
+      inv.recipient_email &&
+      inv.recipient_email.trim().toLowerCase() !== email
+    ) {
+      return NextResponse.json(
+        { error: "This invitation was sent to a different email address." },
+        { status: 403 },
+      );
+    }
     if (inv.used_at) {
       return NextResponse.json(
         { error: "This invitation link has already been used" },
@@ -115,6 +128,30 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "This invitation link has expired. Ask your manager to send a new one." },
         { status: 410 },
+      );
+    }
+    // Atomically consume the single-use token BEFORE creating the auth user.
+    // The early `used_at` read above is racy (TOCTOU): two concurrent
+    // redemptions can both pass it. This conditional update is the real guard
+    // — only one request can flip `used_at` from null, and a 0-row result means
+    // another redemption already claimed it. If account creation later fails we
+    // roll `used_at` back so a legitimate retry can succeed.
+    const { data: claimed, error: claimErr } = await admin
+      .from("team_invitations" as never)
+      .update({ used_at: new Date().toISOString() } as never)
+      .eq("token", token)
+      .is("used_at", null)
+      .select("token");
+    if (claimErr) {
+      return NextResponse.json(
+        { error: "Could not validate the join link" },
+        { status: 502 },
+      );
+    }
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json(
+        { error: "This invitation link has already been used" },
+        { status: 409 },
       );
     }
     companyId = inv.company_id;
@@ -139,6 +176,11 @@ export async function POST(request: Request) {
         { status: 404 },
       );
     }
+    // SECURITY TODO: the shared team_join_links magic-link has no expiry and no
+    // use-cap — anyone who obtains the token can redeem it indefinitely. The
+    // current schema has no `expires_at` / max-uses columns to enforce here. Add
+    // an `expires_at` (and optionally a use counter) column to team_join_links
+    // and gate redemption on it, mirroring the team_invitations checks above.
     companyId = link.company_id as string;
     defaultRoles = [(link.default_role as string) || "view_only"];
   }
@@ -172,6 +214,14 @@ export async function POST(request: Request) {
     user_metadata: { company_id: companyId, name: memberName, role: legacyRole },
   });
   if (authErr || !authData?.user) {
+    // Release the single-use token we claimed above so a legitimate retry works.
+    if (invitationToken) {
+      await admin
+        .from("team_invitations" as never)
+        .update({ used_at: null } as never)
+        .eq("token", invitationToken)
+        .then(() => {}, () => {});
+    }
     return NextResponse.json(
       { error: authErr?.message ?? "Failed to create the account" },
       { status: 502 },
@@ -208,23 +258,22 @@ export async function POST(request: Request) {
 
   if (rowErr) {
     await admin.auth.admin.deleteUser(authUserId).catch(() => {});
+    // Release the claimed token so the joiner can retry after a transient failure.
+    if (invitationToken) {
+      await admin
+        .from("team_invitations" as never)
+        .update({ used_at: null } as never)
+        .eq("token", invitationToken)
+        .then(() => {}, () => {});
+    }
     return NextResponse.json(
       { error: `Account created but profile creation failed: ${rowErr.message}` },
       { status: 502 },
     );
   }
 
-  // 4. Mark single-use invitation as consumed so the link can't be reused.
-  if (invitationToken) {
-    try {
-      await admin
-        .from("team_invitations" as never)
-        .update({ used_at: now } as never)
-        .eq("token", invitationToken);
-    } catch {
-      /* best-effort — the account is already created */
-    }
-  }
+  // The single-use invitation was already atomically consumed up-front (see the
+  // conditional `used_at` claim above), so no further marking is needed here.
 
   return NextResponse.json({ ok: true, email });
 }

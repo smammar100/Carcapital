@@ -16,6 +16,12 @@ interface Props {
   checked: boolean;
   /** True when the user is a super-user — all caps, locked. */
   superUser: boolean;
+  /**
+   * True when this capability is derived from the member's role(s). It's
+   * implied (always on) and cannot be toggled off here — only explicit grants
+   * are editable.
+   */
+  roleGranted: boolean;
   /** True when the local value differs from the saved server value. */
   changed: boolean;
   onToggle: (userId: UUID, cap: Capability) => void;
@@ -26,13 +32,15 @@ export function PermissionCell({
   capability,
   checked,
   superUser,
+  roleGranted,
   changed,
   onToggle,
 }: Props) {
+  const locked = superUser || roleGranted;
   const box = (
     <Checkbox
-      checked={superUser ? true : checked}
-      disabled={superUser}
+      checked={superUser || roleGranted ? true : checked}
+      disabled={locked}
       onCheckedChange={() => onToggle(userId, capability)}
       aria-label={capability}
       data-testid={`perm-cell-${userId}-${capability}`}
@@ -55,6 +63,15 @@ export function PermissionCell({
             </TooltipTrigger>
             <TooltipContent>
               Super-user — all capabilities, cannot be edited here.
+            </TooltipContent>
+          </Tooltip>
+        ) : roleGranted ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="inline-flex">{box}</span>
+            </TooltipTrigger>
+            <TooltipContent>
+              Granted by role — edit the member&apos;s roles to change this.
             </TooltipContent>
           </Tooltip>
         ) : (

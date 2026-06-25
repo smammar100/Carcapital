@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronDown, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -63,6 +63,22 @@ export default function DealerPartnerDetailPage({
   const [edit, setEdit] = useState<DraftPartner | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const loadStock = useCallback(
+    (cid: string) => {
+      // .catch guards: without them a failed read leaves the count stuck on
+      // "…" forever. Fall back to an empty list so the UI resolves.
+      void dealerPartnerService
+        .activeStock(cid, id)
+        .then(setActive)
+        .catch(() => setActive([]));
+      void dealerPartnerService
+        .historicalStock(cid, id)
+        .then(setHistorical)
+        .catch(() => setHistorical([]));
+    },
+    [id],
+  );
+
   useEffect(() => {
     if (!company) return;
     const cid = company.id;
@@ -70,14 +86,23 @@ export default function DealerPartnerDetailPage({
       setPartner(p);
       setLoaded(true);
       setNotesDraft(p?.notes ?? "");
-      if (p) {
-        void dealerPartnerService.activeStock(cid, id).then(setActive);
-        void dealerPartnerService
-          .historicalStock(cid, id)
-          .then(setHistorical);
-      }
+      if (p) loadStock(cid);
     });
-  }, [company, id]);
+  }, [company, id, loadStock]);
+
+  // The Add Vehicle flow navigates away to the arrival form, so there's no
+  // inline "added" callback to hook. Refetch stock when the tab regains
+  // visibility (e.g. the user finishes adding and returns) so a vehicle just
+  // sourced from this partner shows up without a manual reload.
+  useEffect(() => {
+    if (!company) return;
+    const cid = company.id;
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && partner) loadStock(cid);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [company, partner, loadStock]);
 
   const stockCols = useMemo<ColumnDef<Vehicle>[]>(
     () => [
