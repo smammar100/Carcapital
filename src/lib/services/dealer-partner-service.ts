@@ -64,6 +64,34 @@ function isMigrationMissing(error: unknown): boolean {
   );
 }
 
+/** Lightweight supplier-link row — the only columns the stock computations need. */
+interface SupplierLinkRow {
+  id: string;
+  supplier_id: string | null;
+  status: string;
+}
+
+/**
+ * The `id, supplier_id, status` scan that `activeStockCounts` / `activeStock` /
+ * `historicalStock` all share. Cached per company so a vendors page that calls
+ * several of them in one pass hits the table once instead of three times.
+ * Degrades to an empty list when migration 0002 isn't applied.
+ */
+async function supplierLinks(companyId: UUID): Promise<SupplierLinkRow[]> {
+  return withCache(`${NS}links:${companyId}`, async () => {
+    const sb = looseClient();
+    const { data, error } = await sb
+      .from("vehicles")
+      .select("id, supplier_id, status")
+      .eq("company_id", companyId);
+    if (error) {
+      if (isMigrationMissing(error)) return [];
+      throw error;
+    }
+    return (data ?? []) as unknown as SupplierLinkRow[];
+  });
+}
+
 interface UpsertInput {
   id?: UUID;
   companyId: UUID;
@@ -100,20 +128,8 @@ export const dealerPartnerService = {
    * directly (lightweight) and tolerates the column not existing yet.
    */
   async activeStockCounts(companyId: UUID): Promise<Map<string, number>> {
-    const sb = looseClient();
-    const { data, error } = await sb
-      .from("vehicles")
-      .select("id, supplier_id, status")
-      .eq("company_id", companyId);
     const counts = new Map<string, number>();
-    if (error) {
-      if (isMigrationMissing(error)) return counts;
-      throw error;
-    }
-    for (const row of (data ?? []) as unknown as Array<{
-      supplier_id: string | null;
-      status: string;
-    }>) {
+    for (const row of await supplierLinks(companyId)) {
       if (!row.supplier_id) continue;
       if (INACTIVE_STATUSES.has(row.status)) continue;
       counts.set(row.supplier_id, (counts.get(row.supplier_id) ?? 0) + 1);
@@ -128,21 +144,9 @@ export const dealerPartnerService = {
    * vehicle SELECT (which many pages depend on).
    */
   async activeStock(companyId: UUID, partnerId: UUID): Promise<Vehicle[]> {
-    const sb = looseClient();
-    const { data, error } = await sb
-      .from("vehicles")
-      .select("id, supplier_id, status")
-      .eq("company_id", companyId);
-    if (error) {
-      if (isMigrationMissing(error)) return [];
-      throw error;
-    }
+    const links = await supplierLinks(companyId);
     const ids = new Set(
-      ((data ?? []) as unknown as Array<{
-        id: string;
-        supplier_id: string | null;
-        status: string;
-      }>)
+      links
         .filter(
           (r) =>
             r.supplier_id === partnerId && !INACTIVE_STATUSES.has(r.status),
@@ -222,6 +226,8 @@ export const dealerPartnerService = {
       throw error;
     }
     invalidate("vehicles:");
+    // The supplier link map is now stale — drop it so stock counts re-read.
+    invalidate(`${NS}links:`);
     return true;
   },
 
@@ -248,22 +254,9 @@ export const dealerPartnerService = {
     companyId: UUID,
     partnerId: UUID,
   ): Promise<Vehicle[]> {
-    const sb = looseClient();
-    const { data, error } = await sb
-      .from("vehicles")
-      .select("id, supplier_id")
-      .eq("company_id", companyId);
-    if (error) {
-      if (isMigrationMissing(error)) return [];
-      throw error;
-    }
+    const links = await supplierLinks(companyId);
     const ids = new Set(
-      ((data ?? []) as unknown as Array<{
-        id: string;
-        supplier_id: string | null;
-      }>)
-        .filter((r) => r.supplier_id === partnerId)
-        .map((r) => r.id),
+      links.filter((r) => r.supplier_id === partnerId).map((r) => r.id),
     );
     if (ids.size === 0) return [];
     const all = await vehicleService.getAll(companyId);

@@ -28,6 +28,9 @@ interface VehicleDetailShellProps {
   onValueChange?: (v: string) => void;
   /** Merge fresh fields into the page's Vehicle state (Overview valuation refresh). */
   onVehiclePatch?: (patch: Partial<Vehicle>) => void;
+  /** Re-pull the vehicle from the service after a tab mutates photos/inspection
+   *  so the header, Photos badge and Overview reflect the change in-session. */
+  onVehicleRefetch?: () => void;
   /** Job Card PDF export — surfaced on the Things to Do tab (the job sheet). */
   onExportPdf?: () => void;
   exporting?: boolean;
@@ -44,6 +47,7 @@ export function VehicleDetailShell({
   value,
   onValueChange,
   onVehiclePatch,
+  onVehicleRefetch,
   onExportPdf,
   exporting,
 }: VehicleDetailShellProps) {
@@ -59,10 +63,12 @@ export function VehicleDetailShell({
       .getForVehicle(vehicle.id)
       .then((rows) =>
         setTodoCount(rows.filter((r) => r.status !== "completed").length),
-      );
+      )
+      .catch(() => setTodoCount(null));
     void enquiryService
       .getForVehicle(vehicle.id)
-      .then((rows) => setEnquiryCount(rows.length));
+      .then((rows) => setEnquiryCount(rows.length))
+      .catch(() => setEnquiryCount(null));
   }, [vehicle.id]);
 
   return (
@@ -121,7 +127,7 @@ export function VehicleDetailShell({
         <InspectionTab vehicle={vehicle} />
       </TabsContent>
       <TabsContent value="photos">
-        <PhotosTab vehicle={vehicle} />
+        <PhotosTab vehicle={vehicle} onVehicleRefetch={onVehicleRefetch} />
       </TabsContent>
       <TabsContent value="listing">
         <ListingTab vehicle={vehicle} />

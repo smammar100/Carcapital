@@ -27,6 +27,7 @@ const SELECT = `
   endDate:end_date,
   costToDealership:cost_to_dealership,
   costToCustomer:cost_to_customer,
+  amountPaid:amount_paid,
   status,
   purchaseStatus:purchase_status,
   purchasedAt:purchased_at,
@@ -175,19 +176,22 @@ export const warrantyService = {
   ): Promise<{ inHouse: number; external: number }> {
     return withCache(`${NS}active-count:${companyId}`, async () => {
       const supabase = createClient();
+      const today = new Date().toISOString().slice(0, 10);
       const [{ count: inHouse }, { count: external }] = await Promise.all([
         supabase
           .from("warranties")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .eq("type", "in_house")
-          .eq("status", "active"),
+          .eq("status", "active")
+          .gte("end_date", today),
         supabase
           .from("warranties")
           .select("id", { count: "exact", head: true })
           .eq("company_id", companyId)
           .eq("type", "external")
-          .eq("status", "active"),
+          .eq("status", "active")
+          .gte("end_date", today),
       ]);
       return { inHouse: inHouse ?? 0, external: external ?? 0 };
     });
@@ -220,10 +224,16 @@ export const warrantyService = {
   ): Promise<Warranty[]> {
     return withCache(`${NS}expiring:${companyId}:${days}`, async () => {
       const supabase = createClient();
-      const today = new Date().toISOString().slice(0, 10);
-      const cutoff = new Date(Date.now() + days * 86_400_000)
-        .toISOString()
-        .slice(0, 10);
+      // Local-midnight basis so the KPI agrees with the per-row daysRemaining
+      // (0 <= daysRemaining <= days), rather than drifting by the UTC offset.
+      const toLocalISODate = (d: Date) => {
+        const local = new Date(d);
+        local.setHours(0, 0, 0, 0);
+        const tzOffsetMs = local.getTimezoneOffset() * 60_000;
+        return new Date(local.getTime() - tzOffsetMs).toISOString().slice(0, 10);
+      };
+      const today = toLocalISODate(new Date());
+      const cutoff = toLocalISODate(new Date(Date.now() + days * 86_400_000));
       const { data, error } = await supabase
         .from("warranties")
         .select(SELECT)
@@ -300,10 +310,10 @@ export const warrantyService = {
         : new Date().toISOString(),
       purchased_by: input.purchasedBy,
       provider_reference: input.providerReference ?? null,
+      // The actual amount paid to the provider — recorded in its own column so
+      // it never overwrites cost_to_dealership (the margin cost basis).
+      amount_paid: input.amountPaid ?? null,
     };
-    if (typeof input.amountPaid === "number") {
-      updates.cost_to_dealership = input.amountPaid;
-    }
     const { data, error } = await supabase
       .from("warranties")
       .update(updates)
@@ -317,7 +327,7 @@ export const warrantyService = {
       companyId: w.companyId,
       userId: input.purchasedBy,
       vehicleId: w.vehicleId,
-      actionType: "warranty_created",
+      actionType: "warranty_purchased",
       description: `Marked ${w.provider ?? "external"} warranty purchased for ${w.customerName}`,
       metadata: {
         warrantyId: w.id,
@@ -346,7 +356,7 @@ export const warrantyService = {
       companyId: w.companyId,
       userId: actorId,
       vehicleId: w.vehicleId,
-      actionType: "warranty_created",
+      actionType: "warranty_cancelled",
       description: `Cancelled warranty for ${w.customerName}${reason ? ` — ${reason}` : ""}`,
       metadata: { warrantyId: w.id, reason: reason ?? null, event: "warranty_cancelled" },
     });

@@ -9,6 +9,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { claimService } from "@/lib/services/claim-service";
 import type { Vehicle, Warranty, WarrantyClaim, WarrantyStatus } from "@/lib/types";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { effectiveWarrantyStatus } from "@/lib/warranty-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -83,6 +84,14 @@ export default function InHouseWarrantiesPage() {
     onChange: () => setRefreshKey((k) => k + 1),
   });
 
+  // Claim changes (e.g. filed elsewhere) must refresh the per-row claim count.
+  useRealtimeTable({
+    table: "warranty_claims",
+    companyId: company?.id,
+    invalidatePrefix: "claims:",
+    onChange: () => setRefreshKey((k) => k + 1),
+  });
+
   // Sync filter + query to URL so views are shareable / bookmarkable.
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
@@ -101,7 +110,8 @@ export default function InHouseWarrantiesPage() {
       count:
         f.value === "all"
           ? warranties.length
-          : warranties.filter((w) => w.status === f.value).length,
+          : warranties.filter((w) => effectiveWarrantyStatus(w) === f.value)
+              .length,
     }));
   }, [warranties]);
 
@@ -109,7 +119,7 @@ export default function InHouseWarrantiesPage() {
     if (!warranties) return null;
     const q = query.trim().toLowerCase();
     return warranties
-      .filter((w) => filter === "all" || w.status === filter)
+      .filter((w) => filter === "all" || effectiveWarrantyStatus(w) === filter)
       .filter((w) => {
         if (!q) return true;
         const v = vehicles.find((x) => x.id === w.vehicleId);

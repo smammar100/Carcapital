@@ -17,7 +17,10 @@ export default function TeamAndSecurityPage() {
   const [addStaffOpen, setAddStaffOpen] = useState(false);
   const gridRef = useRef<PermissionsGridHandle>(null);
 
-  const canManage = isSuperUser || can("admin:manage_permissions");
+  const canManage =
+    isSuperUser ||
+    can("admin:manage_users") ||
+    can("admin:manage_permissions");
 
   // The role-based "Invite Member" CTA (IAM Admin / Owner) navigates here with
   // ?invite=1 — auto-open the invite dialog so the CTA lands in the flow.

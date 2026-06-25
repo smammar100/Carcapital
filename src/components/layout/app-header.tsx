@@ -14,7 +14,8 @@ export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
-  const { notifications, unreadCount, markAllRead } = useNotifications();
+  const { notifications, unreadCount, markRead, markAllRead } =
+    useNotifications();
   const { resolvedTheme, setTheme } = useTheme();
   const [searchValue, setSearchValue] = useState("");
 
@@ -98,7 +99,13 @@ export function AppHeader() {
               <nord-dropdown-item disabled>No notifications</nord-dropdown-item>
             ) : (
               notifications.slice(0, 5).map((n) => (
-                <nord-dropdown-item key={n.id} href={n.link ?? undefined}>
+                <nord-dropdown-item
+                  key={n.id}
+                  onClick={() => {
+                    if (!n.read) void markRead(n.id);
+                    if (n.link) router.push(n.link);
+                  }}
+                >
                   {n.title}
                 </nord-dropdown-item>
               ))

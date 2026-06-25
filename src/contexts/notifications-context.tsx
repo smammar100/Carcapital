@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 import { notificationService } from "@/lib/services/notification-service";
+import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import type { Notification } from "@/lib/types";
 import { useAuth } from "./auth-context";
 
@@ -16,6 +17,7 @@ interface NotificationsContextValue {
   notifications: Notification[];
   unreadCount: number;
   refresh: () => Promise<void>;
+  markRead: (id: string) => Promise<void>;
   markAllRead: () => Promise<void>;
 }
 
@@ -34,19 +36,45 @@ export function useNotifications(): NotificationsContextValue {
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!user) {
       setNotifications([]);
+      setUnreadCount(0);
       return;
     }
-    const list = await notificationService.getForUser(user.id);
+    // Source the badge from the accurate count query rather than the
+    // (capped) list the dropdown renders.
+    const [list, count] = await Promise.all([
+      notificationService.getForUser(user.id),
+      notificationService.getUnreadCount(user.id),
+    ]);
     setNotifications(list);
+    setUnreadCount(count);
   }, [user]);
 
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Notifications are user-scoped — subscribe on user_id so new rows show up
+  // without a manual reload. Cleanup is handled inside the hook on unmount.
+  useRealtimeTable({
+    table: "notifications",
+    companyId: user?.id ?? null,
+    filterColumn: "user_id",
+    invalidatePrefix: "notifications:",
+    onChange: () => void refresh(),
+  });
+
+  const markRead = useCallback(
+    async (id: string) => {
+      await notificationService.markRead(id);
+      await refresh();
+    },
+    [refresh],
+  );
 
   const markAllRead = useCallback(async () => {
     if (!user) return;
@@ -54,11 +82,9 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     await refresh();
   }, [user, refresh]);
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
   return (
     <NotificationsContext.Provider
-      value={{ notifications, unreadCount, refresh, markAllRead }}
+      value={{ notifications, unreadCount, refresh, markRead, markAllRead }}
     >
       {children}
     </NotificationsContext.Provider>

@@ -49,16 +49,9 @@ const COLS: ColDef[] = [
   { key: "dateSold", label: "Sold date", type: "date", width: 120 },
   { key: "sellingAgent", label: "Agent", type: "text", width: 130 },
   { key: "grossEarning", label: "Gross", type: "currency", width: 110 },
-  {
-    key: "profit",
-    label: "Est. profit",
-    type: "currency",
-    width: 110,
-    format: (v) =>
-      v.listingPrice !== null
-        ? String(Math.round(v.listingPrice - v.baseCost))
-        : "",
-  },
+  // Est. profit is derived centrally in vehicle-sheet (rawValue) so the
+  // on-screen cell and the CSV export share one source of truth.
+  { key: "profit", label: "Est. profit", type: "currency", width: 110 },
   { key: "status", label: "Status", type: "status", width: 140 },
   // Spec v3.0 · Module A — Location with Off-site badge for Garage/Staff.
   { key: "currentLocation", label: "Location", type: "location", width: 150 },

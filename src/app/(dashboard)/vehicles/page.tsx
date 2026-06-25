@@ -16,9 +16,20 @@ import { cn, formatCurrency } from "@/lib/utils";
 // quick-add) — only the column set differs. This is the curated "at a
 // glance" view used for historical analysis and reporting; the Master
 // Sheet exposes the full ~44-field grid.
+// Profit basis: for a sold vehicle use the actual selling price when known;
+// otherwise fall back to the advertised web (listing) price.
+function profitPrice(v: {
+  status: string;
+  sellingPrice: number | null;
+  listingPrice: number | null;
+}): number | null {
+  if (v.status === "sold" && v.sellingPrice !== null) return v.sellingPrice;
+  return v.listingPrice;
+}
+
 const COLS: ColDef[] = [
   { key: "stockId", label: "Stock ID", type: "stockId", width: 100, sticky: true },
-  { key: "stockId", label: "Vehicle", type: "vehicle", width: 180 },
+  { key: "registration", label: "Vehicle", type: "vehicle", width: 180 },
   {
     key: "make",
     label: "Make / Model",
@@ -55,13 +66,13 @@ const COLS: ColDef[] = [
     label: "Profit",
     type: "currency",
     width: 110,
-    format: (v) =>
-      v.listingPrice !== null
-        ? String(Math.round(v.listingPrice - v.baseCost))
-        : "",
+    format: (v) => {
+      const price = profitPrice(v);
+      return price !== null ? String(Math.round(price - v.baseCost)) : "";
+    },
     render: (v) => {
-      const profit =
-        v.listingPrice !== null ? v.listingPrice - v.baseCost : null;
+      const price = profitPrice(v);
+      const profit = price !== null ? price - v.baseCost : null;
       if (profit === null)
         return <span className="text-muted-foreground/40">—</span>;
       return (

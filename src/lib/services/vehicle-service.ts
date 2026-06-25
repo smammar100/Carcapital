@@ -215,20 +215,22 @@ export const vehicleService = {
     });
   },
 
-  async getById(id: UUID): Promise<Vehicle | null> {
-    return withCache(`${NS}by-id:${id}`, async () => {
+  // SECURITY: `companyId` is optional and defaults to RLS-only scoping for
+  // backward compatibility with existing callers. Pass it where the caller
+  // knows the tenant to add an explicit company filter as defense-in-depth.
+  async getById(id: UUID, companyId?: UUID): Promise<Vehicle | null> {
+    return withCache(`${NS}by-id:${id}:${companyId ?? "*"}`, async () => {
       const supabase = createClient();
-      const { data, error } = await supabase
-        .from("vehicles")
-        .select(SELECT)
-        .eq("id", id)
-        .maybeSingle();
+      let q = supabase.from("vehicles").select(SELECT).eq("id", id);
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q.maybeSingle();
       if (error) throw error;
       return data as unknown as Vehicle | null;
     });
   },
 
-  async getByRegistration(reg: string): Promise<Vehicle | null> {
+  // SECURITY: see getById — optional explicit company scoping.
+  async getByRegistration(reg: string, companyId?: UUID): Promise<Vehicle | null> {
     const supabase = createClient();
     // UK plates can sit in the column either with their canonical space
     // ("LF62 LGX") or without ("LF62LGX") depending on how the row was
@@ -247,11 +249,12 @@ export const vehicleService = {
     if (!candidates.includes(trimmed)) candidates.unshift(trimmed);
 
     for (const candidate of candidates) {
-      const { data, error } = await supabase
+      let q = supabase
         .from("vehicles")
         .select(SELECT)
-        .eq("registration", candidate)
-        .limit(1);
+        .eq("registration", candidate);
+      if (companyId) q = q.eq("company_id", companyId);
+      const { data, error } = await q.limit(1);
       if (error) throw error;
       const row = Array.isArray(data) ? data[0] : null;
       if (row) return row as unknown as Vehicle;
@@ -451,6 +454,12 @@ export const vehicleService = {
   },
 
   async removeFromWebsite(id: UUID, actorId: UUID): Promise<Vehicle> {
+    // Status is intentionally left unchanged here. Removal only applies to
+    // already-sold vehicles, and every live-stock / stock-overview query
+    // already combines its status filter with `removedFromWebsiteAt === null`
+    // (see dashboard-kpi-row, dashboard-stock-overview, advert/work-list).
+    // The timestamp approach is therefore internally consistent; mutating the
+    // status would risk losing the "sold" state and is avoided.
     const supabase = createClient();
     const { data, error } = await supabase
       .from("vehicles")

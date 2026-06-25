@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import { INSPECTION_ITEMS, NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
-import type { InspectionCheck, UUID } from "@/lib/types";
+import type { InspectionCheck, UUID, VehicleStatus } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
 import { todoService } from "./todo-service";
@@ -178,8 +178,39 @@ export const inspectionService = {
       );
     }
 
-    const targetStatus = failing.length > 0 ? "being_prepared" : "ready";
-    if (v.status !== targetStatus) {
+    // Lifecycle order — used to avoid dragging a vehicle backwards.
+    const LIFECYCLE: VehicleStatus[] = [
+      "received",
+      "inspection_pending",
+      "being_prepared",
+      "photos_pending",
+      "photos_ready",
+      "ready",
+      "listed",
+      "reserved",
+      "sold",
+      "returned",
+    ];
+    const rank = (s: VehicleStatus) => LIFECYCLE.indexOf(s);
+
+    // A vehicle may only become "ready" if there are no open inspection-sourced
+    // maintenance jobs left (pending ones were just cleared above, but any
+    // in-progress/stalled auto-jobs still count as open work).
+    const { data: openJobs } = await supabase
+      .from("maintenance_jobs")
+      .select("id")
+      .eq("vehicle_id", vehicleId)
+      .neq("status", "completed")
+      .like("notes", "Auto-created from 20-point inspection%");
+    const hasOpenInspectionJobs =
+      failing.length > 0 || (openJobs?.length ?? 0) > 0;
+
+    const targetStatus: VehicleStatus = hasOpenInspectionJobs
+      ? "being_prepared"
+      : "ready";
+    // Only move forward to the target stage — never downgrade a vehicle that has
+    // already progressed past it (e.g. photos_ready, listed, sold, reserved).
+    if (v.status !== targetStatus && rank(v.status) < rank(targetStatus)) {
       await vehicleService.changeStatus(vehicleId, targetStatus, actorId);
     }
 

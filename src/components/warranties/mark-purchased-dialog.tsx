@@ -116,16 +116,17 @@ export function MarkPurchasedDialog({
 
         <form
           onSubmit={form.handleSubmit(onSubmit)}
-          className="flex flex-col gap-3"
+          className="flex flex-col gap-4 px-6"
         >
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Purchase date</Label>
             <Input type="date" {...form.register("purchaseDate")} />
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Paid by</Label>
             <Select
+              items={Object.fromEntries(users.map((u) => [u.id, u.name]))}
               value={form.watch("purchasedBy")}
               onValueChange={(v) =>
                 form.setValue("purchasedBy", v, { shouldValidate: true })
@@ -143,13 +144,13 @@ export function MarkPurchasedDialog({
               </SelectContent>
             </Select>
             {form.formState.errors.purchasedBy && (
-              <p className="mt-1 text-xs text-destructive">
+              <p className="text-xs text-destructive">
                 {form.formState.errors.purchasedBy.message}
               </p>
             )}
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Provider reference (optional)</Label>
             <Input
               {...form.register("providerReference")}
@@ -157,7 +158,7 @@ export function MarkPurchasedDialog({
             />
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Amount paid (£)</Label>
             <Input
               type="number"
@@ -166,12 +167,12 @@ export function MarkPurchasedDialog({
             />
           </div>
 
-          <div>
+          <div className="flex flex-col gap-1.5">
             <Label>Notes (optional)</Label>
             <Textarea {...form.register("notes")} className="min-h-16" />
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="-mx-6 mt-2">
             <Button
               type="button"
               variant="outline"

@@ -28,11 +28,12 @@ export default function DashboardLayout({
   // Force users with a temp password through /set-password before any dashboard
   // route. Middleware can't see passwordResetRequired (public.users column, not
   // in the session JWT), so this stays client-side.
+  const mustResetPassword = Boolean(user?.passwordResetRequired);
   useEffect(() => {
-    if (user?.passwordResetRequired) {
+    if (mustResetPassword) {
       router.replace("/set-password");
     }
-  }, [user?.passwordResetRequired, router]);
+  }, [mustResetPassword, router]);
 
   if (error) {
     return (
@@ -60,6 +61,14 @@ export default function DashboardLayout({
         </div>
       </div>
     );
+  }
+
+  // Block rendering of protected children while the forced-reset redirect is
+  // pending. Guarding render (not just firing an effect) means a user with
+  // password_reset_required can never briefly interact with the app between the
+  // effect scheduling and the navigation completing.
+  if (mustResetPassword) {
+    return null;
   }
 
   // Nord layout owns the sidebar/header chrome + responsive nav toggle, peek,

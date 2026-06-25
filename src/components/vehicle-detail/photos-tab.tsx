@@ -35,6 +35,9 @@ import { Panel } from "./primitives";
 
 interface PhotosTabProps {
   vehicle: Vehicle;
+  /** Ask the page to re-pull the vehicle so the header hero / Photos badge /
+   *  Overview reflect cover & photo changes without a full navigation. */
+  onVehicleRefetch?: () => void;
 }
 
 /** Named angle slots — each is assigned from an uploaded photo. "hero" is the
@@ -58,13 +61,22 @@ const angleKey = (k: string) => `angle:${k}`;
  *  - Cover photo persists to `vehicle.heroImageUrl`.
  *  - "Vehicle angles": assign an uploaded photo to each named slot (no AI).
  */
-export function PhotosTab({ vehicle }: PhotosTabProps) {
+export function PhotosTab({ vehicle, onVehicleRefetch }: PhotosTabProps) {
   const { user, company } = useAuth();
   const [photos, setPhotos] = useState<VehiclePhoto[] | null>(null);
   const [coverUrl, setCoverUrl] = useState<string | null>(vehicle.heroImageUrl);
   const [customFields, setCustomFields] = useState<Vehicle["customFields"]>(
     vehicle.customFields ?? {},
   );
+
+  // Re-sync local cover/angle state when the parent supplies a fresh vehicle
+  // (e.g. after a refetch), so edits don't appear undone on navigate-away/back.
+  useEffect(() => {
+    setCoverUrl(vehicle.heroImageUrl);
+  }, [vehicle.heroImageUrl]);
+  useEffect(() => {
+    setCustomFields(vehicle.customFields ?? {});
+  }, [vehicle.customFields]);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [uploading, setUploading] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -92,7 +104,10 @@ export function PhotosTab({ vehicle }: PhotosTabProps) {
       : [];
     if (!list.length || !user || !company) return;
     setUploading(true);
-    const base = photos?.length ?? 0;
+    // Derive the next order index from the max existing order rather than the
+    // count, so deletions can't cause a collision and persisted order stays
+    // unique.
+    const base = Math.max(0, ...(photos ?? []).map((p) => p.order)) + 1;
     const ok: VehiclePhoto[] = [];
     let firstError: string | null = null;
     try {
@@ -117,6 +132,8 @@ export function PhotosTab({ vehicle }: PhotosTabProps) {
       if (ok.length) setPhotos((prev) => [...(prev ?? []), ...ok]);
       if (ok.length) {
         toast.success(`Uploaded ${ok.length} photo${ok.length === 1 ? "" : "s"}`);
+        // Refresh the Photos badge / Overview photo count.
+        onVehicleRefetch?.();
       }
       if (firstError) toast.error(firstError);
     } finally {
@@ -130,6 +147,8 @@ export function PhotosTab({ vehicle }: PhotosTabProps) {
     if (url) {
       try {
         await vehicleService.setHeroImageUrl(vehicle.id, url);
+        // Keep the header hero (which reads vehicle.heroImageUrl) in sync.
+        onVehicleRefetch?.();
       } catch {
         toast.error("Couldn't set cover");
       }
@@ -172,6 +191,8 @@ export function PhotosTab({ vehicle }: PhotosTabProps) {
     try {
       for (const t of targets) await vehiclePhotoService.remove(t);
       toast.success(`Deleted ${targets.length} photo${targets.length === 1 ? "" : "s"}`);
+      // Refresh the Photos badge / Overview photo count.
+      onVehicleRefetch?.();
     } catch {
       setPhotos(prev);
       toast.error("Couldn't delete photo(s)");
@@ -243,6 +264,9 @@ export function PhotosTab({ vehicle }: PhotosTabProps) {
     setPhotos(next);
     try {
       await vehiclePhotoService.reorder(next.map((p) => p.id));
+      // Keep the header hero / ordering in sync in-session, consistent with
+      // how cover-set / upload / delete already refetch.
+      onVehicleRefetch?.();
     } catch {
       setPhotos(prev);
       toast.error("Couldn't reorder photos");

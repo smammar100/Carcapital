@@ -50,11 +50,19 @@ export const performanceService = {
     const trend = new Array(TREND_DAYS).fill(0) as number[];
     let leadsTotal = 0;
     // Date.now() is fine here — this runs in a service (async), not during render.
-    const now = Date.now();
+    // Bucket by calendar day using UTC midnights so a DST transition can't skew
+    // a lead into the wrong day (raw /86_400_000 drifts by an hour on the
+    // change-over days). utcMidnight() floors a timestamp to 00:00 UTC.
+    const utcMidnight = (ms: number) => {
+      const d = new Date(ms);
+      return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+    };
+    const today = utcMidnight(Date.now());
 
     for (const lead of leads) {
-      const dayIdx = Math.floor(
-        (now - new Date(lead.createdAt).getTime()) / 86_400_000,
+      const dayIdx = Math.round(
+        (today - utcMidnight(new Date(lead.createdAt).getTime())) /
+          86_400_000,
       );
       if (dayIdx >= 0 && dayIdx < TREND_DAYS) {
         trend[TREND_DAYS - 1 - dayIdx] += 1;

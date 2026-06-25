@@ -210,9 +210,15 @@ export const listingService = {
       .eq("id", id)
       .single();
     if (!row) throw new Error("Listing not found");
-    const channels = (row as { channels: Record<ListingChannel, boolean> })
+    const current = (row as { channels: Record<ListingChannel, boolean> })
       .channels;
-    channels[channel] = !channels[channel];
+    // Build a fresh object with the single channel flipped — never mutate the
+    // fetched row in place, and write the whole computed map so the toggle is a
+    // self-contained update rather than a flip of a possibly-stale read.
+    const channels: Record<ListingChannel, boolean> = {
+      ...current,
+      [channel]: !current[channel],
+    };
     const { data, error } = await supabase
       .from("listings")
       .update({ channels })

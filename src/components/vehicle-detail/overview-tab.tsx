@@ -67,10 +67,15 @@ export function OverviewTab({ vehicle, onVehiclePatch, onNavigate }: OverviewTab
   }
   const floor = vehicle.minimumSalePrice ?? 0;
   const stockingBurn = vehicle.dailyChargeRate ?? 0;
+  // Canonical cost = total buying + stocking + prep/value-addition + warranty
+  // (matches the Master Sheet profit column and the Financials expense ledger).
+  const baseCost =
+    vehicle.totalBuyingPrice +
+    vehicle.stockingCharges +
+    vehicle.valueAddition +
+    (vehicle.warrantyCost ?? 0);
   const grossProfit =
-    webPrice && vehicle.totalBuyingPrice
-      ? Math.max(0, webPrice - vehicle.totalBuyingPrice)
-      : 0;
+    webPrice && baseCost ? Math.max(0, webPrice - baseCost) : 0;
   const marginVat = grossProfit > 0 ? grossProfit * (0.2 / 1.2) : 0;
   const netProfit = grossProfit - marginVat;
 
@@ -383,7 +388,7 @@ function ValuationPanel({
             : ratio <= 1.0
               ? "good"
               : ratio <= 1.05
-                ? "fair"
+                ? "above_average"
                 : "high";
       const patch: Partial<Vehicle> = {
         atRetailValuation: data.retailValuation ?? null,

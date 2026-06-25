@@ -7,6 +7,7 @@ import {
   type Capability,
   type CapabilityGroup,
 } from "@/lib/capabilities";
+import { capabilitiesForRoles } from "@/lib/roles";
 import { Trash2, SlidersHorizontal, KeyRound } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { cn, getInitials } from "@/lib/utils";
@@ -94,6 +95,7 @@ export function PermissionsGridTable({
           {users.map((u) => {
             const local = localState.get(u.id) ?? new Set<Capability>();
             const server = serverState.get(u.id) ?? new Set<Capability>();
+            const roleCaps = capabilitiesForRoles(u.roles);
             const isYou = currentUserId === u.id;
             const granted = u.isSuperUser ? ALL_CAPABILITIES.length : local.size;
             return (
@@ -190,7 +192,9 @@ export function PermissionsGridTable({
                 </td>
                 {caps.map((cap) => {
                   const checked = local.has(cap);
-                  const changed = !u.isSuperUser && checked !== server.has(cap);
+                  const roleGranted = roleCaps.has(cap);
+                  const changed =
+                    !u.isSuperUser && !roleGranted && checked !== server.has(cap);
                   return (
                     <PermissionCell
                       key={cap}
@@ -198,6 +202,7 @@ export function PermissionsGridTable({
                       capability={cap}
                       checked={checked}
                       superUser={u.isSuperUser}
+                      roleGranted={roleGranted}
                       changed={changed}
                       onToggle={onToggle}
                     />

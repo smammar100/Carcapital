@@ -78,6 +78,10 @@ export default function InvoicingPage() {
   const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
   const canEdit = isSuperUser || can("invoice:edit");
+  // Recording/uploading an invoice is a write — gate it behind invoice edit or
+  // external-invoice create authority rather than leaving it always-on.
+  const canUpload =
+    isSuperUser || can("invoice:edit") || can("external_invoice:create");
   // F-D5: top-tab state is mirrored in `?tab=` so the URL is a
   // deep-linkable + bookmarkable surface.
   const topTab: TopTab = parseTopTab(searchParams.get("tab"));
@@ -306,7 +310,7 @@ export default function InvoicingPage() {
             purchase invoices, and external job bills.
           </p>
         </div>
-        {topTab === "sales" ? (
+        {topTab === "sales" && canUpload ? (
         <Dialog open={uploadOpen} onOpenChange={setUploadOpen}>
           <DialogTrigger asChild>
             <Button>
@@ -623,17 +627,19 @@ export default function InvoicingPage() {
                   </td>
                 </tr>
               ))}
-              <tr>
-                <td colSpan={9} className="border-t border-border">
-                  <button
-                    type="button"
-                    onClick={() => setUploadOpen(true)}
-                    className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
-                  >
-                    <Upload className="h-4 w-4" /> Upload invoice
-                  </button>
-                </td>
-              </tr>
+              {canUpload && (
+                <tr>
+                  <td colSpan={9} className="border-t border-border">
+                    <button
+                      type="button"
+                      onClick={() => setUploadOpen(true)}
+                      className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
+                    >
+                      <Upload className="h-4 w-4" /> Upload invoice
+                    </button>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

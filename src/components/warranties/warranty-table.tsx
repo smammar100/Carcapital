@@ -19,7 +19,8 @@ import {
 import { RegPlate } from "@/components/shared/reg-plate";
 import { StatusPill } from "./status-pill";
 import { ProviderBadge } from "./provider-badge";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { daysRemaining, effectiveWarrantyStatus } from "@/lib/warranty-status";
 import { usePermissions } from "@/hooks/use-permissions";
 import type { Vehicle, Warranty, WarrantyClaim } from "@/lib/types";
 
@@ -36,12 +37,6 @@ interface WarrantyTableProps {
   onMarkPurchased?: (warranty: WarrantyRow) => void;
 }
 
-function daysRemaining(endDate: string): number {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  return Math.round((new Date(endDate).getTime() - today.getTime()) / 86_400_000);
-}
-
 function remainingLabel(endDate: string): string {
   const d = daysRemaining(endDate);
   if (d < 0) return `Expired ${-d}d ago`;
@@ -49,6 +44,41 @@ function remainingLabel(endDate: string): string {
   if (d < 60) return `${d}d remaining`;
   const months = Math.round(d / 30);
   return `${months}mo remaining`;
+}
+
+/** Elapsed fraction (0–100) of the coverage window, clamped. */
+function elapsedPct(startDate: string, endDate: string): number {
+  const s = new Date(startDate).getTime();
+  const e = new Date(endDate).getTime();
+  if (!(e > s)) return 100;
+  const now = Date.now();
+  return Math.min(100, Math.max(0, Math.round(((now - s) / (e - s)) * 100)));
+}
+
+/** Active cover ending within 30 days — the amber lane (not yet expired). */
+function isExpiring(row: WarrantyRow): boolean {
+  const d = daysRemaining(row.endDate);
+  return (
+    effectiveWarrantyStatus(row) === "active" && d >= 0 && d <= 30
+  );
+}
+
+/** Coverage progress bar: emerald healthy, amber expiring, grey expired. */
+function CoverageBar({ row }: { row: WarrantyRow }) {
+  const tone =
+    effectiveWarrantyStatus(row) === "expired"
+      ? "bg-muted-foreground/50"
+      : isExpiring(row)
+        ? "bg-amber-500"
+        : "bg-emerald-500";
+  return (
+    <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+      <div
+        className={cn("h-full rounded-full", tone)}
+        style={{ width: `${elapsedPct(row.startDate, row.endDate)}%` }}
+      />
+    </div>
+  );
 }
 
 export function WarrantyTable({
@@ -91,7 +121,10 @@ export function WarrantyTable({
                 if ((e.target as HTMLElement).closest("[data-row-action]")) return;
                 onRowClick(row);
               }}
-              className="cursor-pointer"
+              className={cn(
+                "cursor-pointer",
+                isExpiring(row) && "bg-amber-50/50 dark:bg-amber-500/[0.04]",
+              )}
             >
               <TableCell className="font-medium">
                 {row.vehicle ? (
@@ -113,10 +146,22 @@ export function WarrantyTable({
               </TableCell>
               {variant === "in-house" ? (
                 <>
-                  <TableCell className="text-xs">
-                    {formatDate(row.startDate)} → {formatDate(row.endDate)}
+                  <TableCell className="w-[24%] min-w-[180px]">
+                    <div className="flex flex-col gap-1">
+                      <CoverageBar row={row} />
+                      <span className="text-2xs tabular-nums text-muted-foreground">
+                        {formatDate(row.startDate)} → {formatDate(row.endDate)}
+                      </span>
+                    </div>
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
+                  <TableCell
+                    className={cn(
+                      "text-xs",
+                      isExpiring(row)
+                        ? "font-medium text-amber-600 dark:text-amber-400"
+                        : "text-muted-foreground",
+                    )}
+                  >
                     {remainingLabel(row.endDate)}
                   </TableCell>
                   <TableCell className="text-center text-sm tabular-nums">
@@ -132,8 +177,13 @@ export function WarrantyTable({
                   <TableCell>
                     <ProviderBadge provider={row.provider} />
                   </TableCell>
-                  <TableCell className="text-xs text-muted-foreground">
-                    {formatDate(row.startDate)} → {formatDate(row.endDate)}
+                  <TableCell className="w-[20%] min-w-[160px]">
+                    <div className="flex flex-col gap-1">
+                      <CoverageBar row={row} />
+                      <span className="text-2xs tabular-nums text-muted-foreground">
+                        {formatDate(row.startDate)} → {formatDate(row.endDate)}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>
                     <StatusPill status={row.purchaseStatus} />
@@ -144,7 +194,7 @@ export function WarrantyTable({
                 </>
               )}
               <TableCell>
-                <StatusPill status={row.status} />
+                <StatusPill status={effectiveWarrantyStatus(row)} />
               </TableCell>
               <TableCell data-row-action>
                 <RowActions

@@ -73,19 +73,21 @@ export function VehicleHeaderCard({
   onRemoveFromWebsite,
   onNavigate,
 }: VehicleHeaderCardProps) {
-  // Prefer the first real uploaded photo for the hero; fall back to the
-  // AI/placeholder VehicleImage when none has been uploaded yet.
-  const [heroUrl, setHeroUrl] = useState<string | null>(null);
+  // Prefer the chosen cover photo (vehicle.heroImageUrl, the same source the
+  // Photos tab cover uses) so the header and Photos tab never disagree; fall
+  // back to the first uploaded photo, then to the AI/placeholder VehicleImage.
+  const [firstPhotoUrl, setFirstPhotoUrl] = useState<string | null>(null);
   useEffect(() => {
     let active = true;
     vehiclePhotoService
       .list(vehicle.id)
-      .then((p) => active && setHeroUrl(p[0]?.url ?? null))
+      .then((p) => active && setFirstPhotoUrl(p[0]?.url ?? null))
       .catch(() => {});
     return () => {
       active = false;
     };
   }, [vehicle.id]);
+  const heroUrl = vehicle.heroImageUrl ?? firstPhotoUrl;
 
   const nextStep = NEXT_STEP[vehicle.status];
   const canRemoveFromWebsite =

@@ -57,8 +57,7 @@ export default function MaintenanceJobDetailPage({
 
   async function load() {
     if (!company) return;
-    const all = await maintenanceService.getAll(company.id);
-    const j = all.find((x) => x.id === id) ?? null;
+    const j = await maintenanceService.getById(id);
     setJob(j);
     if (j) {
       const [v, n, u] = await Promise.all([

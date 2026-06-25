@@ -1,6 +1,11 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
-import type { MaintenanceJob, MaintenanceStatus, UUID } from "@/lib/types";
+import type {
+  MaintenanceJob,
+  MaintenanceStatus,
+  UUID,
+  VehicleStatus,
+} from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
 
@@ -76,6 +81,19 @@ export const maintenanceService = {
     });
   },
 
+  async getById(id: UUID): Promise<MaintenanceJob | null> {
+    return withCache(`${NS}by-id:${id}`, async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("maintenance_jobs")
+        .select(SELECT)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as unknown as MaintenanceJob | null;
+    });
+  },
+
   async create(input: CreateInput, actorId: UUID): Promise<MaintenanceJob> {
     const supabase = createClient();
     const { data, error } = await supabase
@@ -132,6 +150,17 @@ export const maintenanceService = {
     actorId: UUID,
   ): Promise<MaintenanceJob> {
     const supabase = createClient();
+    // Only treat fields whose value actually differs from the stored row as
+    // changes — so an edit-dialog save that touched nothing doesn't write a
+    // misleading "Job updated" audit note.
+    const existing = await this.getById(id);
+    const changedKeys = existing
+      ? (Object.keys(patch) as (keyof typeof patch)[]).filter(
+          (k) => patch[k] !== existing[k as keyof MaintenanceJob],
+        )
+      : (Object.keys(patch) as (keyof typeof patch)[]);
+    if (existing && changedKeys.length === 0) return existing;
+
     const updates: TableUpdate<"maintenance_jobs"> = {};
     if (patch.vehicleId !== undefined) updates.vehicle_id = patch.vehicleId;
     if (patch.description !== undefined) updates.description = patch.description;
@@ -159,7 +188,7 @@ export const maintenanceService = {
       job_id: id,
       user_id: actorId,
       note_type: "note",
-      content: `Job updated (${Object.keys(patch).join(", ")})`,
+      content: `Job updated (${changedKeys.join(", ")})`,
     });
     return data as unknown as MaintenanceJob;
   },
@@ -228,14 +257,21 @@ export const maintenanceService = {
           description: `Maintenance completed for ${v.registration}`,
           metadata: { jobId: id },
         });
-        // When the last open job for a vehicle completes and vehicle is in
-        // being_prepared, advance to photos_pending (v4.1 TC-P2-007).
+        // When the last open job for a vehicle completes, advance it to
+        // photos_pending (v4.1 TC-P2-007). This applies to any pre-prep
+        // lifecycle stage — a vehicle still in received/inspection_pending whose
+        // jobs are all done should move forward too, not just being_prepared.
         const { count } = await supabase
           .from("maintenance_jobs")
           .select("id", { count: "exact", head: true })
           .eq("vehicle_id", v.id)
-          .in("status", ["pending", "in_progress"]);
-        if ((count ?? 0) === 0 && v.status === "being_prepared") {
+          .in("status", ["pending", "in_progress", "stalled"]);
+        const advanceFrom: VehicleStatus[] = [
+          "received",
+          "inspection_pending",
+          "being_prepared",
+        ];
+        if ((count ?? 0) === 0 && advanceFrom.includes(v.status)) {
           await vehicleService.changeStatus(v.id, "photos_pending", actorId);
         }
       }

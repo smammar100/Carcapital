@@ -5,6 +5,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { teamService } from "@/lib/services/team-service";
 import { permissionService } from "@/lib/services/permission-service";
 import { invalidate } from "@/lib/cache";
+import { capabilitiesForRoles } from "@/lib/roles";
 import type { Capability } from "@/lib/capabilities";
 import type { User, UUID } from "@/lib/types";
 import { toast } from "@/lib/toast";
@@ -63,6 +64,10 @@ export function usePermissionsGrid(): UsePermissionsGrid {
 
   const toggleCapability = useCallback(
     (userId: UUID, cap: Capability) => {
+      // Role-derived caps are implied, not editable here — toggling one off
+      // would do nothing (the role still grants it) and snap back on reload.
+      const target = users?.find((u) => u.id === userId);
+      if (target && capabilitiesForRoles(target.roles).has(cap)) return;
       setLocalState((prev) => {
         const next = cloneMap(prev);
         const set = next.get(userId) ?? new Set<Capability>();
@@ -72,7 +77,7 @@ export function usePermissionsGrid(): UsePermissionsGrid {
         return next;
       });
     },
-    [],
+    [users],
   );
 
   const pendingChanges = useMemo<PendingChange[]>(() => {
@@ -98,25 +103,51 @@ export function usePermissionsGrid(): UsePermissionsGrid {
   }, [serverState]);
 
   const save = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || !users) return;
     const changedUserIds = new Set(pendingChanges.map((c) => c.userId));
     if (changedUserIds.size === 0) return;
+    const usersById = new Map(users.map((u) => [u.id, u]));
     setSaving(true);
-    try {
-      for (const userId of changedUserIds) {
-        const caps = [...(localState.get(userId) ?? new Set<Capability>())];
-        await permissionService.setForUser(userId, caps, currentUser.id);
+    // The grid's local set is the EFFECTIVE set (role caps ∪ explicit grants).
+    // We must persist only the explicit-grant delta — writing the role-derived
+    // caps as grants would freeze them, so a later role change couldn't revoke
+    // them. So send `localCaps − roleCaps` to setForUser.
+    let saved = 0;
+    const failed: string[] = [];
+    for (const userId of changedUserIds) {
+      const target = usersById.get(userId);
+      const roleCaps = target
+        ? capabilitiesForRoles(target.roles)
+        : new Set<Capability>();
+      const explicitGrants = [
+        ...(localState.get(userId) ?? new Set<Capability>()),
+      ].filter((cap) => !roleCaps.has(cap));
+      try {
+        await permissionService.setForUser(
+          userId,
+          explicitGrants,
+          currentUser.id,
+        );
+        saved += 1;
+      } catch {
+        failed.push(target?.name ?? userId);
       }
-      toast.success(
-        `Saved permissions for ${changedUserIds.size} member${changedUserIds.size === 1 ? "" : "s"}`,
-      );
-      await reload();
-    } catch {
-      toast.error("Could not save permission changes");
-    } finally {
-      setSaving(false);
     }
-  }, [currentUser, pendingChanges, localState, reload]);
+    setSaving(false);
+
+    if (failed.length === 0) {
+      toast.success(
+        `Saved permissions for ${saved} member${saved === 1 ? "" : "s"}`,
+      );
+    } else if (saved === 0) {
+      toast.error("Could not save permission changes");
+    } else {
+      toast.error(
+        `Saved ${saved}, but failed for: ${failed.join(", ")}`,
+      );
+    }
+    await reload();
+  }, [currentUser, users, pendingChanges, localState, reload]);
 
   // Guard against losing unsaved edits on tab close / navigation.
   useEffect(() => {

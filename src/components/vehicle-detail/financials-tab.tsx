@@ -1,7 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { ChevronRight, DollarSign } from "lucide-react";
-import type { Vehicle } from "@/lib/types";
+import type { Invoice, Listing, Vehicle } from "@/lib/types";
+import { listingService } from "@/lib/services/listing-service";
+import { invoiceService } from "@/lib/services/invoice-service";
+import { paidAddonsTotal } from "@/lib/invoice-calc";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Field, FieldGrid, Panel, Pill } from "./primitives";
@@ -24,11 +28,36 @@ interface LedgerEntry {
  * margin-scheme breakdown. HMRC margin-scheme aware throughout.
  */
 export function FinancialsTab({ vehicle }: FinancialsTabProps) {
-  const purchase = vehicle.totalBuyingPrice;
-  const retail = vehicle.listingPrice ?? 0;
-  const gross = retail > 0 ? Math.max(0, retail - purchase) : 0;
-  const marginVat = gross * (0.2 / 1.2);
-  const net = gross - marginVat;
+  // Web price source aligned with the Overview tab: prefer the live listing
+  // price, fall back to the vehicle record so both surfaces show the same
+  // revenue for the same car.
+  const [listing, setListing] = useState<Listing | null>(null);
+  useEffect(() => {
+    let active = true;
+    void listingService
+      .getForVehicle(vehicle.id)
+      .then((l) => active && setListing(l))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [vehicle.id]);
+
+  // The vehicle's real add-on revenue lives on its sale invoice. Fetch it so the
+  // revenue ledger and the SIV figure reflect actual paid add-ons rather than 0.
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
+  useEffect(() => {
+    let active = true;
+    void invoiceService
+      .getByVehicle(vehicle.companyId, vehicle.id, "sale")
+      .then((rows) => active && setInvoice(rows[0] ?? null))
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [vehicle.companyId, vehicle.id]);
+
+  const retail = listing?.price ?? vehicle.listingPrice ?? 0;
 
   const expenses: LedgerEntry[] = [
     { name: "Buying Price", amount: vehicle.buyingPrice },
@@ -46,20 +75,42 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
   ];
   const expenseTotal = expenses.reduce((acc, e) => acc + e.amount, 0);
 
-  // Add-on revenue lines (markups / commissions / fees). Not yet modelled on
-  // the vehicle record — shown as the capture taxonomy with 0 until wired.
-  const addons: LedgerEntry[] = [
-    "Accessories", "Warranty (markup)", "Paint Protection", "Admin Fee",
-    "GAP Insurance", "Service Plan", "Smart Insurance", "Finance Commission",
-    "Bonus", "Discount", "Writedown", "Commission Adj.",
-  ].map((name) => ({ name, amount: 0 }));
-  const addonTotal = addons.reduce((acc, r) => acc + r.amount, 0);
+  // Add-on revenue lines (markups / commissions / fees) come from the vehicle's
+  // sale invoice. When an invoice exists we list its real paid add-on lines; the
+  // total is the canonical paidAddonsTotal so the SIV figure stays consistent.
+  // With no invoice yet we fall back to the capture taxonomy shown at 0.
+  const paidAddonLines = (invoice?.lineItems ?? []).filter(
+    (l) => l.type === "addon_paid",
+  );
+  const addons: LedgerEntry[] =
+    paidAddonLines.length > 0
+      ? paidAddonLines.map((l) => ({
+          name: l.description || "Add-on",
+          amount: l.total,
+        }))
+      : [
+          "Accessories", "Warranty (markup)", "Paint Protection", "Admin Fee",
+          "GAP Insurance", "Service Plan", "Smart Insurance", "Finance Commission",
+          "Bonus", "Discount", "Writedown", "Commission Adj.",
+        ].map((name) => ({ name, amount: 0 }));
+  // Canonical paid add-on revenue from the invoice (falls back to 0 gracefully).
+  const addonTotal = invoice
+    ? paidAddonsTotal(invoice.lineItems)
+    : 0;
 
   const revenue: LedgerEntry[] = [
     { name: "Retail (web price)", amount: retail },
     ...addons,
   ];
   const revenueTotal = retail + addonTotal;
+
+  // Both halves of the screen must agree: net = money in − money out, using the
+  // SAME full-cost figure the expense ledger displays (which already includes
+  // stocking charges, prep/value-addition and warranty cost — the canonical
+  // baseCost that matches the Master Sheet). Gross is the pre-VAT margin.
+  const gross = revenueTotal > 0 ? Math.max(0, revenueTotal - expenseTotal) : 0;
+  const marginVat = gross * (0.2 / 1.2);
+  const net = gross - marginVat;
 
   return (
     <div className="flex flex-col gap-4">
@@ -157,10 +208,10 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
         action={<Pill tone="info">Margin Scheme</Pill>}
       >
         <FieldGrid cols={4}>
-          <VatStat label="Gross Profit" value={gross} formula="retail − purchase" tone="good" />
+          <VatStat label="Gross Profit" value={gross} formula="revenue − total cost" tone="good" />
           <VatStat label="Margin VAT" value={marginVat} formula="gross × 0.20 / 1.20" />
           <VatStat label="Car Margin" value={net} formula="gross − VAT" tone="good" />
-          <VatStat label="Net Profit (SIV)" value={net + addonTotal} formula="+ additional profit" tone="good" />
+          <VatStat label="Net Profit (SIV)" value={net + addonTotal} formula="+ add-on profit" tone="good" />
         </FieldGrid>
       </Panel>
     </div>

@@ -301,9 +301,11 @@ function legacyTotals(
   const lines = rawLines.map((li) => {
     const sub = round2(li.quantity * li.unitPrice);
     const grp = lineGroup(li);
+    // Discount lines carry a POSITIVE subtotal but must reduce the net total
+    // and its VAT — feed the VAT engine a negative net for them.
     const { vatAmount } = calculateVat({
       scheme: vatScheme,
-      lineNet: sub,
+      lineNet: grp === "discount" ? -sub : sub,
       isVehicleLine: grp === "vehicle",
       vehicleCost,
     });
@@ -314,7 +316,8 @@ function legacyTotals(
   let discountTotal = 0;
   let vatAmount = 0;
   for (const x of lines) {
-    subtotal += x.sub;
+    // Discounts are stored positive; subtract them from the subtotal.
+    subtotal += x.grp === "discount" ? -x.sub : x.sub;
     if (x.grp === "addon") addonsTotal += x.sub;
     if (x.grp === "discount") discountTotal += x.sub;
     vatAmount += x.vatAmount;

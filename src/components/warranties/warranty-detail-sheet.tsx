@@ -227,6 +227,16 @@ export function WarrantyDetailSheet({
                         {formatCurrency(warranty.costToDealership)}
                       </span>
                     </div>
+                    {warranty.amountPaid != null && (
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          Amount paid to provider
+                        </span>
+                        <span className="font-medium tabular-nums">
+                          {formatCurrency(warranty.amountPaid)}
+                        </span>
+                      </div>
+                    )}
                     {margin !== null && (
                       <div className="flex items-center justify-between border-t pt-1 text-sm">
                         <span className="text-muted-foreground">Margin</span>

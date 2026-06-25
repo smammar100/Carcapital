@@ -184,8 +184,12 @@ export function DashboardKpiRow() {
       new Date().getMonth(),
       1,
     ).getTime();
+    // "In stock" = vehicles still in the live pipeline. Exclude terminal /
+    // dead-end states (sold, returned) so a returned car isn't counted as
+    // stock — it also skews Avg Days in Stock.
+    const NON_LIVE_STATUSES = new Set(["sold", "returned"]);
     const activeVehicles = data.vehicles.filter(
-      (v) => v.status !== "sold" && v.removedFromWebsiteAt === null,
+      (v) => !NON_LIVE_STATUSES.has(v.status) && v.removedFromWebsiteAt === null,
     );
     const carsInStock = activeVehicles.length;
     const carsInReadiness = activeVehicles.filter(

@@ -80,6 +80,14 @@ export default function ClaimsPage() {
     onChange: () => setRefreshKey((k) => k + 1),
   });
 
+  // Warranty changes feed the "Warranty" column + KPIs on this page.
+  useRealtimeTable({
+    table: "warranties",
+    companyId: company?.id,
+    invalidatePrefix: "warranties:",
+    onChange: () => setRefreshKey((k) => k + 1),
+  });
+
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     if (filter === "open") next.delete("filter");

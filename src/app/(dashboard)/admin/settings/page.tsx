@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { ShieldX } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
-import { activityService } from "@/lib/services/activity-service";
+import { usePermissions } from "@/hooks/use-permissions";
+import { companyService } from "@/lib/services/company-service";
+import { EmptyState } from "@/components/shared/empty-state";
 import {
   FINANCE_PROVIDERS,
   INSPECTION_ITEMS,
@@ -32,6 +35,9 @@ import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
   const { user, company } = useAuth();
+  const { can, isSuperUser, isLoading } = usePermissions();
+  const canManage = isSuperUser || can("admin:manage_settings");
+  const [saving, setSaving] = useState(false);
   const [name, setName] = useState(company?.name ?? "");
   const [address, setAddress] = useState(company?.address ?? "");
   const [vat, setVat] = useState(company?.vatNumber ?? "");
@@ -40,19 +46,26 @@ export default function SettingsPage() {
   const [defaultVat, setDefaultVat] = useState(String(VAT_RATE));
 
   async function handleSave() {
-    // v1: company settings are read-only on the Company entity. We log the
-    // intent so the activity feed shows the change; real persistence comes
-    // with Supabase.
     if (!user || !company) return;
-    await activityService.log({
-      companyId: company.id,
-      userId: user.id,
-      vehicleId: null,
-      actionType: "company_setting_changed",
-      description: "Company settings updated",
-      metadata: { name, address, vatNumber: vat, stockIdPrefix: stockPrefix },
-    });
-    toast.success("Settings saved (mock — no persistence)");
+    setSaving(true);
+    try {
+      await companyService.update(
+        company.id,
+        {
+          name,
+          address,
+          vatNumber: vat,
+          stockIdPrefix: stockPrefix,
+        },
+        user.id,
+      );
+      toast.success("Company settings saved");
+    } catch (err) {
+      console.error("[settings] save failed:", err);
+      toast.error("Couldn't save settings. Please try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -63,6 +76,13 @@ export default function SettingsPage() {
           Company profile, defaults, and inspection checklist.
         </p>
       </div>
+      {!isLoading && !canManage ? (
+        <EmptyState
+          icon={ShieldX}
+          title="You don't have access"
+          description="Editing company settings requires the Manage Settings capability."
+        />
+      ) : (
       <Tabs defaultValue="company">
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
@@ -95,7 +115,9 @@ export default function SettingsPage() {
               />
             </div>
             <div className="sm:col-span-2 flex justify-end">
-              <Button onClick={handleSave}>Save</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : "Save"}
+              </Button>
             </div>
           </Card>
         </TabsContent>
@@ -127,7 +149,11 @@ export default function SettingsPage() {
               />
             </div>
             <div className="sm:col-span-2 flex justify-end">
-              <Button onClick={() => toast.success("Defaults saved (mock)")}>
+              <Button
+                onClick={() =>
+                  toast.success("Defaults applied for this session")
+                }
+              >
                 Save
               </Button>
             </div>
@@ -158,6 +184,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
       </Tabs>
+      )}
     </div>
   );
 }

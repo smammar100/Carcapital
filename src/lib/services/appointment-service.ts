@@ -98,7 +98,7 @@ export const appointmentService = {
         special_requirements: input.specialRequirements,
         status: "upcoming",
         outcome: "pending",
-        notifications_sent: { whatsapp: true, email: true },
+        notifications_sent: { whatsapp: false, email: false },
         created_by: input.createdBy,
       })
       .select(SELECT)

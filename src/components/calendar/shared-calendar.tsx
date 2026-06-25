@@ -196,6 +196,11 @@ const HOURS: number[] = Array.from(
 );
 const WEEK_HOUR_PX = 48;
 const DAY_HOUR_PX = 56;
+// Appointments / workshop jobs have no real stored duration. Render them as
+// short fixed-height point markers so overlapDepths() only treats genuinely
+// simultaneous events as collisions instead of fabricating overlaps from
+// hard-coded 1h/2h spans.
+const MARKER_DURATION = 0.5;
 
 function gridSpan(
   ev: CalEvent,
@@ -412,7 +417,7 @@ export function SharedCalendar({
         subtitle: vehicleLine(a.vehicleId),
         date: a.date,
         start,
-        end: start + 1,
+        end: start + MARKER_DURATION,
         raw: a,
       });
     }
@@ -426,7 +431,7 @@ export function SharedCalendar({
         subtitle: `${j.vehicleReg} — ${j.vehicleDescription}`,
         date: j.scheduledDate,
         start,
-        end: start + 2,
+        end: start + MARKER_DURATION,
         raw: j,
       });
     }
@@ -464,9 +469,10 @@ export function SharedCalendar({
   const rangeISO = useMemo(() => {
     if (view === "day") return new Set([toISO(anchor)]);
     if (view === "week") return new Set(weekDays.map(toISO));
-    const days = buildMonthGrid(anchor)
-      .flat()
-      .filter((d) => d.getMonth() === anchor.getMonth());
+    // Count the full rendered grid (including leading/trailing spill-over days
+    // from adjacent months) so the chip counts and "N events shown" match the
+    // events actually drawn on the 6-week grid.
+    const days = buildMonthGrid(anchor).flat();
     return new Set(days.map(toISO));
   }, [view, anchor, weekDays]);
 
@@ -513,6 +519,9 @@ export function SharedCalendar({
   async function handleSubmit(fields: FormFields): Promise<void> {
     if (!company || !user || saving) return;
     setSaving(true);
+    // Hold the success message until the reload resolves — otherwise a failed
+    // reload would flash "created" then an error over stale data.
+    let successMessage = "";
     try {
       if (modal?.mode === "create") {
         if (fields.kind === "appt") {
@@ -529,6 +538,11 @@ export function SharedCalendar({
             createdBy: user.id,
           });
         } else if (fields.kind === "workshop") {
+          // TODO(stock-link): link this walk-in to a stock vehicle when the
+          // typed reg matches a loaded `vehicles` row. Skipped for now because
+          // `WorkshopJob` (types.ts) and the `workshop_jobs` table have no
+          // `vehicleId` column — wiring it needs a migration + type/service
+          // change, all out of scope for this polish pass.
           await workshopService.create(
             {
               companyId: company.id,
@@ -546,6 +560,10 @@ export function SharedCalendar({
             user.id,
           );
         } else {
+          // Calendar-created maintenance is a stub: vendor / assignee /
+          // costs / duration are left null to be filled in later from the
+          // Maintenance pipeline. We default startDate to the chosen dueDate
+          // so the job is at least schedulable rather than start-less.
           await maintenanceService.create(
             {
               companyId: company.id,
@@ -555,14 +573,14 @@ export function SharedCalendar({
               vendorId: null,
               estimatedCost: null,
               estimatedDurationHours: null,
-              startDate: null,
+              startDate: fields.date,
               dueDate: fields.date,
               notes: fields.notes.trim() || null,
             },
             user.id,
           );
         }
-        notify.success(`${KIND_META[fields.kind].label.replace(/s$/, "")} created`);
+        successMessage = `${KIND_META[fields.kind].label.replace(/s$/, "")} created`;
       } else if (modal?.mode === "edit") {
         const ev = modal.ev;
         if (ev.kind === "appt") {
@@ -602,10 +620,11 @@ export function SharedCalendar({
             user.id,
           );
         }
-        notify.success("Saved");
+        successMessage = "Saved";
       }
-      setModal(null);
       await reloadAll(company.id);
+      setModal(null);
+      if (successMessage) notify.success(successMessage);
     } catch (e) {
       notify.error(e instanceof Error ? e.message : "Could not save");
     } finally {

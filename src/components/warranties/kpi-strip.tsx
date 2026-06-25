@@ -72,26 +72,28 @@ export function KpiStrip({ refreshKey = 0 }: { refreshKey?: number }) {
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <KpiCard
         icon={ShieldCheck}
+        tone="blue"
         label="Active warranties"
         value={totalActive}
         hint={`${state.activeInHouse} in-house · ${state.activeExternal} external`}
       />
       <KpiCard
         icon={Clock}
+        tone="amber"
         label="Pending purchase"
         value={state.pendingPurchase}
         hint={pendingAccent ? "Action needed" : "All up to date"}
-        accent={pendingAccent ? "amber" : undefined}
       />
       <KpiCard
         icon={ShieldAlert}
+        tone="red"
         label="Open claims"
         value={state.openClaims}
         hint={claimsAccent ? "Awaiting resolution" : "All resolved"}
-        accent={claimsAccent ? "destructive" : undefined}
       />
       <KpiCard
         icon={AlertTriangle}
+        tone="orange"
         label="Expiring soon"
         value={state.expiringSoon}
         hint="Active, ending within 30 days"
@@ -100,42 +102,39 @@ export function KpiStrip({ refreshKey = 0 }: { refreshKey?: number }) {
   );
 }
 
+type KpiTone = "blue" | "amber" | "red" | "orange";
+
+// Each card owns a distinct accent colour so the four read as four separate
+// signals at a glance (a left rail bar + matching icon) — never two-the-same.
+const TONES: Record<KpiTone, { bar: string; icon: string }> = {
+  blue: { bar: "bg-blue-500", icon: "text-blue-600 dark:text-blue-400" },
+  amber: { bar: "bg-amber-500", icon: "text-amber-600 dark:text-amber-400" },
+  red: { bar: "bg-red-500", icon: "text-red-600 dark:text-red-400" },
+  orange: { bar: "bg-orange-500", icon: "text-orange-600 dark:text-orange-400" },
+};
+
 interface KpiCardProps {
   icon: React.ComponentType<{ className?: string }>;
+  tone: KpiTone;
   label: string;
   value: number;
   hint?: string;
-  accent?: "amber" | "destructive";
 }
 
-function KpiCard({ icon: Icon, label, value, hint, accent }: KpiCardProps) {
+function KpiCard({ icon: Icon, tone, label, value, hint }: KpiCardProps) {
+  const t = TONES[tone];
   return (
-    <Card
-      className={cn(
-        "flex flex-col gap-2 p-4 transition-colors",
-        accent === "amber" &&
-          "border-amber-400/60 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-500/5",
-        accent === "destructive" &&
-          "border-destructive/40 bg-destructive/5",
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <Icon
-          className={cn(
-            "h-4 w-4",
-            accent === "amber" && "text-amber-600",
-            accent === "destructive" && "text-destructive",
-            !accent && "text-muted-foreground",
-          )}
-        />
+    <Card className="relative flex flex-col gap-1.5 overflow-hidden p-4 pl-5 transition-colors">
+      <span
+        aria-hidden
+        className={cn("absolute inset-y-0 left-0 w-1.5", t.bar)}
+      />
+      <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <Icon className={cn("h-3.5 w-3.5", t.icon)} />
+        {label}
       </div>
       <div className="text-2xl font-semibold tabular-nums">{value}</div>
-      {hint && (
-        <div className="text-xs text-muted-foreground">{hint}</div>
-      )}
+      {hint && <div className="text-xs text-muted-foreground">{hint}</div>}
     </Card>
   );
 }

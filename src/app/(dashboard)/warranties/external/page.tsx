@@ -9,6 +9,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { claimService } from "@/lib/services/claim-service";
 import type { Vehicle, Warranty, WarrantyClaim } from "@/lib/types";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
+import { effectiveWarrantyStatus } from "@/lib/warranty-status";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,6 +80,14 @@ export default function ExternalWarrantiesPage() {
     onChange: () => setRefreshKey((k) => k + 1),
   });
 
+  // Claim changes must refresh the per-row claim count here too.
+  useRealtimeTable({
+    table: "warranty_claims",
+    companyId: company?.id,
+    invalidatePrefix: "claims:",
+    onChange: () => setRefreshKey((k) => k + 1),
+  });
+
   useEffect(() => {
     const next = new URLSearchParams(searchParams);
     if (filter === "all") next.delete("filter");
@@ -98,7 +107,8 @@ export default function ExternalWarrantiesPage() {
           ? warranties.length
           : f.value === "pending" || f.value === "purchased"
             ? warranties.filter((w) => w.purchaseStatus === f.value).length
-            : warranties.filter((w) => w.status === f.value).length,
+            : warranties.filter((w) => effectiveWarrantyStatus(w) === f.value)
+                .length,
     }));
   }, [warranties]);
 
@@ -110,7 +120,7 @@ export default function ExternalWarrantiesPage() {
         if (filter === "all") return true;
         if (filter === "pending" || filter === "purchased")
           return w.purchaseStatus === filter;
-        return w.status === filter;
+        return effectiveWarrantyStatus(w) === filter;
       })
       .filter((w) => {
         if (!q) return true;
@@ -145,13 +155,7 @@ export default function ExternalWarrantiesPage() {
 
       <KpiStrip refreshKey={refreshKey} />
 
-      {warranties && (
-        <PendingPurchaseBanner
-          warranties={warranties}
-          onViewPendingOnly={() => setFilter("pending")}
-          alreadyFiltered={filter === "pending"}
-        />
-      )}
+      {warranties && <PendingPurchaseBanner warranties={warranties} />}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <FilterChips

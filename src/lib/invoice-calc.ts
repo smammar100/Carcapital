@@ -60,7 +60,10 @@ export function vatAmount(
         sum +
         calculateVat({
           scheme,
-          lineNet: l.total,
+          // Discount lines are stored with a POSITIVE total (so `subtotal()`
+          // subtracts them); their VAT must therefore be SUBTRACTED too, so
+          // pass the net as negative to the VAT engine.
+          lineNet: l.type === "discount" ? -l.total : l.total,
           isVehicleLine: l.type === "vehicle_price",
           vehicleCost,
         }).vatAmount,

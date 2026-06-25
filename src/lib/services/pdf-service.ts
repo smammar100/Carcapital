@@ -5,6 +5,8 @@ export interface JobCardPdfInput {
   todos: TodoItem[];
   preparedBy: string;
   companyName: string;
+  /** Vendor id → name, so the job card prints vendor names not raw UUIDs. */
+  vendorNames?: Record<string, string>;
 }
 
 export interface WarrantyPdfInput {
