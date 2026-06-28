@@ -1329,3 +1329,29 @@ export interface EnquiryHistoryEntry {
   note: string | null;
   createdAt: ISODateTime;
 }
+
+// ---------------------------------------------------------------------------
+// AutoTrader Connect — Advertisers (dealers configured on the integration)
+// ---------------------------------------------------------------------------
+/**
+ * A dealer (advertiser) returned by the AutoTrader Advertisers API. Field
+ * names normalise AutoTrader's raw shape — `raw` keeps the full payload so we
+ * never lose data we haven't surfaced yet. Confirm raw field names against a
+ * live response (scripts/autotrader-advertisers-probe.mjs).
+ */
+export interface Advertiser {
+  advertiserId: string;
+  name: string | null;
+  status: string | null;
+  postcode: string | null;
+  products: string[];
+  raw: Record<string, unknown>;
+}
+
+/** A row in our `at_advertisers` mirror table (camelCase view). */
+export interface AdvertiserRecord extends Advertiser {
+  /** Last time we pulled this advertiser from the Advertisers API. */
+  syncedAt: ISODateTime | null;
+  /** Last time an ADVERTISER update notification touched this row. */
+  atUpdatedAt: ISODateTime | null;
+}

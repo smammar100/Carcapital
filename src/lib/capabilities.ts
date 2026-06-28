@@ -69,7 +69,10 @@ export type Capability =
   | "external_invoice:edit_any"
   | "external_invoice:delete"
   // AutoTrader Connect — publish a listing to AutoTrader (live API write)
-  | "listing:publish_autotrader";
+  | "listing:publish_autotrader"
+  // AutoTrader Connect — Advertisers API (dealers on the integration)
+  | "advertiser:read"
+  | "advertiser:sync";
 
 export const ALL_CAPABILITIES: Capability[] = [
   "inventory:add",
@@ -118,6 +121,8 @@ export const ALL_CAPABILITIES: Capability[] = [
   "external_invoice:edit_any",
   "external_invoice:delete",
   "listing:publish_autotrader",
+  "advertiser:read",
+  "advertiser:sync",
 ];
 
 export const CAPABILITY_LABELS: Record<Capability, string> = {
@@ -165,6 +170,8 @@ export const CAPABILITY_LABELS: Record<Capability, string> = {
   "locations:delete": "Delete Movement",
   "external_invoice:create": "Create External Invoice",
   "listing:publish_autotrader": "Publish to AutoTrader",
+  "advertiser:read": "View AutoTrader Advertisers",
+  "advertiser:sync": "Sync AutoTrader Advertisers",
   "external_invoice:edit_any": "Edit Any External Invoice",
   "external_invoice:delete": "Delete External Invoice",
 };
@@ -252,7 +259,11 @@ export const CAPABILITY_GROUPS: CapabilityGroup[] = [
   },
   {
     label: "Advert",
-    capabilities: ["listing:publish_autotrader"],
+    capabilities: [
+      "listing:publish_autotrader",
+      "advertiser:read",
+      "advertiser:sync",
+    ],
   },
   {
     label: "Admin",
