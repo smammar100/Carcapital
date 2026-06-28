@@ -112,6 +112,74 @@ casing matters: vehicleType `Car`/`Van`, fuelType `Petrol`/`Diesel`/
 > `8a46844d9e4aa706019e7a88f05f4808` (sandbox advertiser 10008899,
 > NOT_PUBLISHED — safe to leave or delete in the sandbox portal).
 
+## Advertisers API — `GET /advertisers` (✅ captured live 2026-06-28)
+
+Captured against the sandbox, advertiser `10008899`, via
+`scripts/autotrader-advertisers-probe.mjs`. CF-RAY present on every response.
+
+Paginated list — **Go-Live requires `page` + `pageSize`** (both sent always):
+```
+GET /advertisers?page=1&pageSize=10
+Authorization: Bearer <token>
+```
+`200` envelope — `{ results[], totalResults }` (NO `page`/`pageSize` echoed;
+the service reflects what it sent). Page 2 returns `results: []` → the sync
+loop stops on the first empty/short page.
+```json
+{
+  "results": [
+    {
+      "advertiserId": "10008899",
+      "name": "…",
+      "status": "…",
+      "segment": "…",
+      "phone": "…",
+      "location": {
+        "addressLineOne": "…", "town": "…", "county": null,
+        "region": "…", "postCode": "…", "latitude": 0, "longitude": 0
+      },
+      "capabilities": { "atConnect": [ /* 21 capability strings */ ] }
+    }
+  ],
+  "totalResults": 1
+}
+```
+Mapping (`mapAdvertiser`): postcode ← `location.postCode` (nested, capital C);
+products ← `capabilities.atConnect`; name/status/advertiserId top-level.
+
+Single advertiser (is-this-dealer-on-my-integration check) — **use the query
+form**; the path form 404s:
+```
+GET /advertisers/{advertiserId}     # ❌ 404 (warnings body) — do NOT use
+GET /advertisers?advertiserId={id}  # ✅ 200, same { results[], totalResults }
+```
+- Empty `results` → advertiser not on the integration → `getAdvertiser` null.
+- `403` → not on integration → throws `forbidden_advertiser`.
+- `CF-RAY` captured on every failure (done in `atFetch`).
+
+> 403 classification (`forbidden_advertiser` vs `forbidden_product`) is still a
+> body-text heuristic — no real 403 was reproducible in sandbox. Confirm wording
+> if a 403 surfaces in the call logs and tighten `classify403`.
+
+## Advertiser update notifications (⚠️ UNCONFIRMED — confirm hash scheme)
+
+Webhook receiver: `POST /api/webhooks/autotrader`. AutoTrader signs the
+notification; we recompute and compare before trusting it.
+
+> The exact hash algorithm + header name are **assumed**:
+> `HMAC-SHA256(rawBody, AUTOTRADER_WEBHOOK_SECRET)` as lowercase hex, in header
+> `x-autotrader-hash` (see `src/lib/autotrader/verify-notification.ts`).
+> Confirm against AutoTrader's "Advertiser update notifications" reference and
+> update `NOTIFICATION_HASH_HEADER` + `computeNotificationHash` + the tests.
+
+Expected payload (only fields we read):
+```json
+{ "notificationType": "ADVERTISER", "advertiser": { "advertiserId": "…", … } }
+```
+- Hash matches → **2XX** (Go-Live requirement). Mismatch → `401`, not processed.
+- `notificationType === "ADVERTISER"` → upsert into `at_advertisers`
+  (stamps `at_updated_at`). Other types → `200`, ignored.
+
 ## Notes for the service
 - No `priceIndicator` in the vehicle lookup — the Great/Good indicator is
   an advert-side concept. We derive a simple indicator client-side

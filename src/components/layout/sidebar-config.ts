@@ -22,6 +22,7 @@ import {
   Handshake,
   ShieldAlert,
   MapPin,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import type { Capability } from "@/lib/capabilities";
@@ -191,6 +192,13 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/advert/performance",
         icon: BarChart3,
         requiredAnyOf: ["advert:edit", "listing:publish_autotrader"],
+      },
+      // AutoTrader Connect — dealers (advertisers) on our integration.
+      {
+        label: "Advertisers",
+        href: "/admin/advertisers",
+        icon: Building2,
+        requiredAnyOf: ["advertiser:read"],
       },
     ],
   },
