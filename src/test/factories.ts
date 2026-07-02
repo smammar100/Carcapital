@@ -1,0 +1,239 @@
+/**
+ * Typed factories for characterization tests. Shapes mirror src/lib/types.ts;
+ * default values are realistic UK-dealership data (cf. src/lib/mock-data.ts).
+ */
+
+import type {
+  InvoiceLineItem,
+  InvoiceLineItemType,
+  Listing,
+  SalesDeal,
+  Vehicle,
+  Warranty,
+  WarrantyClaim,
+} from "@/lib/types";
+
+export function makeVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
+  return {
+    id: "veh-0001",
+    companyId: "co-0001",
+    registration: "AB12 CDE",
+    stockId: "CC-2026-0042",
+    tagNumber: "42",
+    make: "VOLKSWAGEN",
+    model: "GOLF",
+    variantName: "Golf GT TDI",
+    variantCode: null,
+    year: 2019,
+    colour: "Grey",
+    mileage: 42350,
+    vehicleType: "car",
+    bodyType: "hatchback",
+    fuelType: "diesel",
+    transmission: "manual",
+    engineSizeCC: 1968,
+    receivedDate: "2026-05-10",
+    receivedBy: "user-0001",
+    sellerName: "BCA Nottingham",
+    sellerPhone: "0115 989 3488",
+    purchaseSource: "auction",
+    purchaseChannel: null,
+    supplierId: null,
+    localOrImport: "local",
+    auctionHouse: "BCA",
+    ownedBy: null,
+    managedBy: null,
+    invoiceDate: "2026-05-10",
+    v5Received: true,
+    serviceHistory: "full",
+    numKeys: 2,
+    lockNut: true,
+    motExpiry: "2027-03-15",
+    vin: "WVWZZZAUZKW123456",
+    firstRegisteredDate: "2019-03-15",
+    buyingPrice: 10000,
+    vatOnBuyingPrice: 0,
+    buyersFee: 350,
+    inspectionCharge: null,
+    collectionFee: 120,
+    deliveryFee: null,
+    lateStorageFee: null,
+    otherCharges: null,
+    totalBuyingPrice: 10470,
+    financeProvider: "next_gear",
+    loadingFee: 99,
+    dailyChargeRate: 5.5,
+    unloadingFee: 99,
+    stockingCharges: 350,
+    valueAddition: 450,
+    warrantyCost: 150,
+    landedCost: 11270,
+    baseCost: 11420,
+    minimumSalePrice: 11995,
+    listingPrice: 12495,
+    sellingPrice: null,
+    dateSold: null,
+    sellingAgent: null,
+    grossEarning: null,
+    status: "listed",
+    removedFromWebsiteAt: null,
+    daysInStock: 53,
+    imagesCount: 24,
+    heroImageUrl: "/generated/cars/veh-0001/hero.png",
+    customFields: {},
+    currentLocation: "forecourt",
+    locationSince: "2026-05-10T09:00:00.000Z",
+    outForTestDrive: false,
+    testDriveExpectedBackAt: null,
+    co2Emissions: 118,
+    euroStatus: "EURO 6",
+    taxStatus: "Taxed",
+    taxDueDate: "2026-11-01",
+    motStatus: "Valid",
+    wheelplan: "2 AXLE RIGID BODY",
+    automatedVehicle: false,
+    dateOfLastV5CIssued: "2026-05-12",
+    derivative: "GT TDI",
+    generation: "Golf VII Facelift (2017)",
+    trim: "GT",
+    atDerivativeId: "at-deriv-9f8e7d",
+    atRetailValuation: 12600,
+    atTradeValuation: 10400,
+    atPartExchangeValuation: 10900,
+    atPrivateValuation: 11800,
+    atPriceIndicator: "GOOD",
+    atValuationAt: "2026-06-01T08:00:00.000Z",
+    createdAt: "2026-05-10T09:00:00.000Z",
+    updatedAt: "2026-06-01T08:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function makeListing(overrides: Partial<Listing> = {}): Listing {
+  return {
+    id: "lst-0001",
+    companyId: "co-0001",
+    vehicleId: "veh-0001",
+    title: "2019 Volkswagen Golf GT TDI 2.0",
+    description:
+      "Stunning Golf GT TDI with full service history, two keys and fresh MOT.",
+    price: 12495,
+    specialFeatures: "Full VW service history",
+    channels: { autotrader: true, website: true, ebay: false, facebook: false },
+    atPriceIndicator: "good",
+    status: "live",
+    publishedAt: "2026-06-02T10:00:00.000Z",
+    enquiriesCount: 7,
+    atStockId: null,
+    atAdvertisingStatus: null,
+    atLastSyncedAt: null,
+    atLastError: null,
+    advertData: {
+      attentionGrabber: "",
+      keySellingPoint: "",
+      strapline: "",
+      subtitle: "",
+      highlights: [],
+      features: [],
+      taxonomy: {},
+    },
+    createdAt: "2026-06-01T10:00:00.000Z",
+    ...overrides,
+  };
+}
+
+let lineSeq = 0;
+export function makeLineItem(
+  type: InvoiceLineItemType,
+  unitPrice: number,
+  overrides: Partial<InvoiceLineItem> = {},
+): InvoiceLineItem {
+  const quantity = overrides.quantity ?? 1;
+  return {
+    id: `line-${++lineSeq}`,
+    type,
+    description:
+      type === "vehicle_price"
+        ? "2019 Volkswagen Golf GT TDI"
+        : type === "discount"
+          ? "Discount"
+          : "Add-on",
+    addonCategory: type.startsWith("addon") ? "custom" : null,
+    quantity,
+    unitPrice,
+    total: Math.round(quantity * unitPrice * 100) / 100,
+    vatAmount: 0,
+    ...overrides,
+  };
+}
+
+export function makeSalesDeal(overrides: Partial<SalesDeal> = {}): SalesDeal {
+  return {
+    id: "deal-0001",
+    companyId: "co-0001",
+    vehicleId: "veh-0001",
+    leadId: "lead-0001",
+    customerName: "Sarah Whitfield",
+    customerPhone: "07700 900123",
+    customerEmail: "sarah@example.co.uk",
+    stage: "new_lead",
+    offerPrice: null,
+    agreedPrice: null,
+    depositAmount: null,
+    depositDate: null,
+    collectionDate: null,
+    completionDate: null,
+    sellingAgent: "user-0002",
+    notes: null,
+    createdAt: "2026-06-20T09:00:00.000Z",
+    updatedAt: "2026-06-20T09:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function makeWarranty(overrides: Partial<Warranty> = {}): Warranty {
+  return {
+    id: "war-0001",
+    companyId: "co-0001",
+    vehicleId: "veh-0001",
+    saleDealId: "deal-0001",
+    customerName: "Sarah Whitfield",
+    customerPhone: "07700 900123",
+    customerEmail: "sarah@example.co.uk",
+    type: "in_house",
+    provider: "Car Capital",
+    coverageDetails: "3-month engine & gearbox cover",
+    startDate: "2026-06-01",
+    endDate: "2026-09-01",
+    costToDealership: 0,
+    costToCustomer: 199,
+    amountPaid: null,
+    status: "active",
+    purchaseStatus: "n_a",
+    purchasedAt: null,
+    purchasedBy: null,
+    providerReference: null,
+    certificateGenerated: false,
+    createdAt: "2026-06-01T12:00:00.000Z",
+    ...overrides,
+  };
+}
+
+export function makeClaim(overrides: Partial<WarrantyClaim> = {}): WarrantyClaim {
+  return {
+    id: "claim-0001",
+    warrantyId: "war-0001",
+    vehicleId: "veh-0001",
+    companyId: "co-0001",
+    customerName: "Sarah Whitfield",
+    issueDescription: "Clutch judder at low speed",
+    isComplaint: false,
+    estimatedCost: 320,
+    actualCost: null,
+    status: "open",
+    resolution: null,
+    createdAt: "2026-06-25T14:00:00.000Z",
+    resolvedAt: null,
+    ...overrides,
+  };
+}

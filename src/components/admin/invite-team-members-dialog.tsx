@@ -159,17 +159,25 @@ export function InviteTeamMembersDialog({ open, onOpenChange, onInvited }: Props
         email?: string;
         password?: string;
         error?: string;
+        /** null = not attempted; false = send failed (relay manually). */
+        emailSent?: boolean | null;
       };
       if (!res.ok) {
         toast.error(json.error ?? "Could not create the member");
         return;
       }
       setCreatedCreds({ email: json.email ?? email, password });
-      toast.success(
-        sendCredEmail
-          ? `${email} created — credentials emailed to them`
-          : `${email} created — relay the credentials below`,
-      );
+      if (sendCredEmail && json.emailSent === false) {
+        toast.error(
+          `${email} created, but the credentials email failed to send — copy the credentials below and share them directly.`,
+        );
+      } else {
+        toast.success(
+          sendCredEmail
+            ? `${email} created — credentials emailed to them`
+            : `${email} created — relay the credentials below`,
+        );
+      }
       onInvited?.(1);
     } catch {
       toast.error("Could not create the member");

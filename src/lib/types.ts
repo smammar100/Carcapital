@@ -104,6 +104,14 @@ export interface TeamJoinLink {
   defaultRole: import("./roles").RoleValue;
   createdBy: UUID | null;
   createdAt: ISODateTime;
+  /** Redemption deadline — Reset refreshes this (+72h). Migration 0033. */
+  expiresAt: ISODateTime;
+  /** Optional redemption cap (null = uncapped until expiry). */
+  maxUses: number | null;
+  /** Successful redemptions so far (server-incremented). */
+  usedCount: number;
+  /** Set when an admin revokes the link without rotating it. */
+  revokedAt: ISODateTime | null;
 }
 
 // ============================================================

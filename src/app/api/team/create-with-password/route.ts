@@ -36,6 +36,8 @@ import {
   requireCapability,
   authErrorResponse,
 } from "@/lib/auth/require-user";
+import { rateLimit } from "@/lib/rate-limit";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -79,6 +81,18 @@ export async function POST(request: Request) {
     const r = authErrorResponse(e);
     if (r) return r;
     throw e;
+  }
+
+  // Per-actor limit: mints auth accounts.
+  const limit = rateLimit(`create-user:${actor.id}`, {
+    max: 15,
+    windowMs: 60_000,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many accounts created at once — try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   const companyId = actor.companyId;
@@ -292,7 +306,12 @@ export async function POST(request: Request) {
     }
   }
 
-  // 4. Optional credentials email — only for REAL-email accounts.
+  // 4. Optional credentials email — only for REAL-email accounts. A send
+  //    failure must NOT fail the request (the account exists and the
+  //    credentials are echoed below for out-of-band relay), but it must not
+  //    be silent either: log it, notify the actor in-app, and tell the
+  //    caller via `emailSent` so the UI can prompt a manual hand-off.
+  let emailSent: boolean | null = null;
   if (sendEmail && !username) {
     const appUrl =
       process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ??
@@ -302,12 +321,41 @@ export async function POST(request: Request) {
       .select("name")
       .eq("id", companyId)
       .maybeSingle();
-    await sendCredentialsEmail({
-      recipientEmail: loginEmail,
-      recipientName: memberName,
-      companyName: (co?.name as string) ?? "your company",
-      loginUrl: `${appUrl}/login`,
-    }).catch(() => {});
+    try {
+      await sendCredentialsEmail({
+        recipientEmail: loginEmail,
+        recipientName: memberName,
+        companyName: (co?.name as string) ?? "your company",
+        loginUrl: `${appUrl}/login`,
+      });
+      emailSent = true;
+    } catch (err) {
+      emailSent = false;
+      logger.error("team-create", "credentials email failed", {
+        recipient: loginEmail,
+        error: err instanceof Error ? err : String(err),
+      });
+      // Surface in the actor's notification bell (best-effort — the response
+      // flag below is the guaranteed signal).
+      await admin
+        .from("notifications" as never)
+        .insert({
+          company_id: companyId,
+          user_id: actor.id,
+          type: "email_failed",
+          title: "Credentials email not delivered",
+          body: `The credentials email to ${memberName} (${loginEmail}) failed to send. Share the login details with them directly.`,
+          link: "/admin/users-and-permissions",
+          read: false,
+        } as never)
+        .then(
+          () => {},
+          (e) =>
+            logger.warn("team-create", "failed to write email-failure notification", {
+              error: e instanceof Error ? e : String(e),
+            }),
+        );
+    }
   }
 
   // 5. Echo the credentials for out-of-band relay. For username accounts we
@@ -317,5 +365,7 @@ export async function POST(request: Request) {
     username: username ?? null,
     email: username ? null : loginEmail,
     password,
+    /** null = no email attempted; false = attempted and failed (relay manually). */
+    emailSent,
   });
 }

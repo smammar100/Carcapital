@@ -9,6 +9,7 @@ import { AppSidebar } from "@/components/layout/app-sidebar";
 import { GridOverlay } from "@/components/layout/grid-overlay";
 import { PageShell } from "@/components/layout/page-shell";
 import { RouteGuard } from "@/components/layout/route-guard";
+import { CommandPalette } from "@/components/layout/command-palette";
 import { Button } from "@/components/ui/button";
 
 export default function DashboardLayout({
@@ -82,6 +83,7 @@ export default function DashboardLayout({
       <PageShell>
         <RouteGuard>{children}</RouteGuard>
       </PageShell>
+      <CommandPalette />
       <Suspense fallback={null}>
         <GridOverlay />
       </Suspense>

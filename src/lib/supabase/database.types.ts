@@ -318,24 +318,36 @@ export type Database = {
           created_at: string
           created_by: string | null
           default_role: string
+          expires_at: string
           id: string
+          max_uses: number | null
+          revoked_at: string | null
           token: string
+          used_count: number
         }
         Insert: {
           company_id: string
           created_at?: string
           created_by?: string | null
           default_role?: string
+          expires_at?: string
           id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
           token: string
+          used_count?: number
         }
         Update: {
           company_id?: string
           created_at?: string
           created_by?: string | null
           default_role?: string
+          expires_at?: string
           id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
           token?: string
+          used_count?: number
         }
         Relationships: [
           {

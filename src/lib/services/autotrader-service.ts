@@ -34,6 +34,7 @@
  */
 
 import "server-only";
+import { logger } from "@/lib/logger";
 import {
   deriveExpiryDate,
   deriveMotStatus,
@@ -296,9 +297,7 @@ async function atFetch(
 }
 
 function logRay(service: AtService, status: number, ray: string | null): void {
-  console.warn(
-    `[autotrader] ${service} HTTP ${status} cf-ray=${ray ?? "(none)"}`,
-  );
+  logger.warn("autotrader", "upstream error", { service, status, cfRay: ray });
 }
 
 // ---------------------------------------------------------------------------

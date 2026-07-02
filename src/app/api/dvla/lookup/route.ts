@@ -22,6 +22,7 @@
 
 import { NextResponse } from "next/server";
 import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -107,12 +108,25 @@ interface DvlaResponse {
 // ---- POST /api/dvla/lookup --------------------------------------------
 export async function POST(request: Request) {
   // AuthZ: must be a signed-in, active user (any role).
+  let actor;
   try {
-    await requireUser();
+    actor = await requireUser();
   } catch (e) {
     const r = authErrorResponse(e);
     if (r) return r;
     throw e;
+  }
+
+  // Per-user limit — same budget as /api/vehicle/lookup (DVLA 1,000/day).
+  const limit = rateLimit(`vehicle-lookup:${actor.id}`, {
+    max: 30,
+    windowMs: 60_000,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   const apiKey = process.env.DVLA_API_KEY;

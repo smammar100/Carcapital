@@ -1,0 +1,67 @@
+# Quality gate — lint, typecheck, unit tests, secret scan, migration lint.
+# Make this a required check on main (Settings → Branches → protection rules).
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Lint (ratchet — count may not exceed .lint-baseline.json)
+        run: node scripts/lint-ratchet.mjs
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test:unit
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # gitleaks scans commit history on PRs
+
+      - name: Secret scan (gitleaks)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  migration-lint:
+    # Applied migrations are immutable — a PR may only ADD migration files.
+    # Editing or deleting an existing db/migrations/*.sql fails the gate.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Forbid edits to existing migrations
+        run: |
+          BASE="origin/${{ github.base_ref }}"
+          git fetch origin "${{ github.base_ref }}" --depth=1
+          CHANGED=$(git diff --name-only --diff-filter=MD "$BASE"...HEAD -- 'db/migrations/*.sql')
+          if [ -n "$CHANGED" ]; then
+            echo "::error::Existing migrations were modified or deleted (add a new migration instead):"
+            echo "$CHANGED"
+            exit 1
+          fi
+          echo "OK — no existing migrations touched."

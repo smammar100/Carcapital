@@ -128,6 +128,16 @@ export const leadService = {
       description: `Lead from ${input.source.replace("_", " ")} — ${input.customerName} interested in ${input.vehicleInterest}`,
       metadata: { leadId: lead.id },
     });
+    // Fire-and-forget bell fan-out to lead-working teammates. Goes via a
+    // server route because RLS blocks clients writing other users'
+    // notifications; a failure must never fail the create.
+    if (typeof window !== "undefined") {
+      void fetch("/api/notifications/lead-created", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leadId: lead.id }),
+      }).catch(() => {});
+    }
     return lead;
   },
 

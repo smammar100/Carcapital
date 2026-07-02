@@ -17,6 +17,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { legacyRoleForRoles, type RoleValue } from "@/lib/roles";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -37,6 +38,19 @@ function nameFromEmail(email: string): string {
 }
 
 export async function POST(request: Request) {
+  // Unauthenticated + creates accounts → tight per-IP limit. Also blunts
+  // token brute-forcing against the join-link lookup below.
+  const limit = rateLimit(`accept-join:${clientIp(request)}`, {
+    max: 10,
+    windowMs: 60_000,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many attempts — try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
+  }
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -84,6 +98,19 @@ export async function POST(request: Request) {
   let companyId: string;
   let defaultRoles: string[];
   let invitationToken: string | null = null;
+  let joinLinkToken: string | null = null;
+  let joinLinkUsedCount = 0;
+
+  /** Release the use slot claimed on the shared link so a retry can succeed. */
+  const releaseJoinLinkSlot = async () => {
+    if (!joinLinkToken) return;
+    await admin
+      .from("team_join_links")
+      .update({ used_count: joinLinkUsedCount - 1 } as never)
+      .eq("token", joinLinkToken)
+      .eq("used_count", joinLinkUsedCount)
+      .then(() => {}, () => {});
+  };
 
   const { data: invitation, error: invErr } = await admin
     .from("team_invitations" as never)
@@ -161,7 +188,7 @@ export async function POST(request: Request) {
     // Fall back to shared magic-link (team_join_links).
     const { data: link, error: linkErr } = await admin
       .from("team_join_links")
-      .select("company_id, default_role")
+      .select("company_id, default_role, expires_at, max_uses, used_count, revoked_at")
       .eq("token", token)
       .maybeSingle();
     if (linkErr) {
@@ -176,13 +203,64 @@ export async function POST(request: Request) {
         { status: 404 },
       );
     }
-    // SECURITY TODO: the shared team_join_links magic-link has no expiry and no
-    // use-cap — anyone who obtains the token can redeem it indefinitely. The
-    // current schema has no `expires_at` / max-uses columns to enforce here. Add
-    // an `expires_at` (and optionally a use counter) column to team_join_links
-    // and gate redemption on it, mirroring the team_invitations checks above.
-    companyId = link.company_id as string;
-    defaultRoles = [(link.default_role as string) || "view_only"];
+    const shared = link as {
+      company_id: string;
+      default_role: string | null;
+      expires_at: string | null;
+      max_uses: number | null;
+      used_count: number | null;
+      revoked_at: string | null;
+    };
+    // Expiry / revocation / use-cap gates (migration 0033), mirroring the
+    // team_invitations checks above. `expires_at` is nullable in the type only
+    // for pre-migration rows — treat NULL as expired rather than immortal.
+    if (shared.revoked_at) {
+      return NextResponse.json(
+        { error: "This join link has been revoked. Ask your manager for a new one." },
+        { status: 410 },
+      );
+    }
+    if (!shared.expires_at || new Date(shared.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: "This join link has expired. Ask your manager to reset it." },
+        { status: 410 },
+      );
+    }
+    if (shared.max_uses !== null && (shared.used_count ?? 0) >= shared.max_uses) {
+      return NextResponse.json(
+        { error: "This join link has reached its usage limit. Ask your manager to reset it." },
+        { status: 410 },
+      );
+    }
+    // Atomically claim a use slot BEFORE creating the auth user — the read
+    // above is racy under concurrency (same TOCTOU as team_invitations). The
+    // conditional increment only succeeds while the cap and expiry still hold;
+    // 0 rows means another redemption beat us to the last slot. Rolled back on
+    // downstream failure so a legitimate retry still works.
+    const { data: slot, error: slotErr } = await admin
+      .from("team_join_links")
+      .update({ used_count: (shared.used_count ?? 0) + 1 } as never)
+      .eq("token", token)
+      .eq("used_count", shared.used_count ?? 0)
+      .is("revoked_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .select("token");
+    if (slotErr) {
+      return NextResponse.json(
+        { error: "Could not validate the join link" },
+        { status: 502 },
+      );
+    }
+    if (!slot || slot.length === 0) {
+      return NextResponse.json(
+        { error: "This join link is no longer available. Ask your manager to reset it." },
+        { status: 409 },
+      );
+    }
+    joinLinkToken = token;
+    joinLinkUsedCount = (shared.used_count ?? 0) + 1;
+    companyId = shared.company_id;
+    defaultRoles = [shared.default_role || "view_only"];
   }
 
   // Guard: don't create a duplicate within the same company.
@@ -222,6 +300,7 @@ export async function POST(request: Request) {
         .eq("token", invitationToken)
         .then(() => {}, () => {});
     }
+    await releaseJoinLinkSlot();
     return NextResponse.json(
       { error: authErr?.message ?? "Failed to create the account" },
       { status: 502 },
@@ -266,6 +345,7 @@ export async function POST(request: Request) {
         .eq("token", invitationToken)
         .then(() => {}, () => {});
     }
+    await releaseJoinLinkSlot();
     return NextResponse.json(
       { error: `Account created but profile creation failed: ${rowErr.message}` },
       { status: 502 },

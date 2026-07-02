@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, RotateCw } from "lucide-react";
+import { Ban, Loader2, RotateCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ROLE_DEFS, ROLE_GROUPS, type RoleValue } from "@/lib/roles";
 import { joinLinkService } from "@/lib/services/join-link-service";
+import type { TeamJoinLink } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -37,8 +38,19 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
   const { user, company } = useAuth();
   const [emailDraft, setEmailDraft] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [joinUrl, setJoinUrl] = useState<string | null>(null);
+  const [joinLink, setJoinLink] = useState<TeamJoinLink | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [revoking, setRevoking] = useState(false);
+
+  const linkRevoked = Boolean(joinLink?.revokedAt);
+  const linkExpired = Boolean(
+    joinLink && !linkRevoked && new Date(joinLink.expiresAt) < new Date(),
+  );
+  const linkUsable = Boolean(joinLink) && !linkRevoked && !linkExpired;
+  const joinUrl =
+    joinLink && typeof window !== "undefined"
+      ? `${window.location.origin}/join/${joinLink.token}`
+      : null;
   // Role(s) the invitee will accept into. Defaults to View Only; admin can
   // change before sending. At least one role is always selected.
   const [roles, setRoles] = useState<Set<RoleValue>>(
@@ -63,8 +75,8 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
     if (!open || !company || !user) return;
     void joinLinkService
       .ensure(company.id, user.id)
-      .then((l) => setJoinUrl(`${window.location.origin}/join/${l.token}`))
-      .catch(() => setJoinUrl(null));
+      .then((l) => setJoinLink(l))
+      .catch(() => setJoinLink(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, company, user]);
 
@@ -125,12 +137,26 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
     setResetting(true);
     try {
       const link = await joinLinkService.reset(company.id, user.id);
-      setJoinUrl(`${window.location.origin}/join/${link.token}`);
+      setJoinLink(link);
       toast.success("Join link reset — the old link no longer works");
     } catch {
       toast.error("Could not reset the join link");
     } finally {
       setResetting(false);
+    }
+  }
+
+  async function handleRevoke() {
+    if (!user || !company) return;
+    setRevoking(true);
+    try {
+      const link = await joinLinkService.revoke(company.id, user.id);
+      setJoinLink(link);
+      toast.success("Join link revoked — Reset to issue a new one");
+    } catch {
+      toast.error("Could not revoke the join link");
+    } finally {
+      setRevoking(false);
     }
   }
 
@@ -224,39 +250,76 @@ export function InviteMemberDialog({ open, onOpenChange, onInvited }: Props) {
         <div className="rounded-xl border p-4">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold">Invite via magic link</h3>
-            <button
-              type="button"
-              onClick={() => void handleReset()}
-              disabled={resetting}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
-              data-testid="magic-link-reset"
-            >
-              <RotateCw
-                className={cn("h-3.5 w-3.5", resetting && "animate-spin")}
-              />
-              Reset
-            </button>
+            <div className="flex items-center gap-3">
+              {linkUsable && (
+                <button
+                  type="button"
+                  onClick={() => void handleRevoke()}
+                  disabled={revoking}
+                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive disabled:opacity-50"
+                  data-testid="magic-link-revoke"
+                >
+                  <Ban className="h-3.5 w-3.5" />
+                  Revoke
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => void handleReset()}
+                disabled={resetting}
+                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground disabled:opacity-50"
+                data-testid="magic-link-reset"
+              >
+                <RotateCw
+                  className={cn("h-3.5 w-3.5", resetting && "animate-spin")}
+                />
+                Reset
+              </button>
+            </div>
           </div>
           <div className="mt-3 flex gap-2">
             <Input
               readOnly
-              value={joinUrl ?? "Generating…"}
-              className="flex-1 font-mono text-xs"
+              value={
+                linkRevoked
+                  ? "Link revoked — Reset to issue a new one"
+                  : linkExpired
+                    ? "Link expired — Reset to issue a new one"
+                    : (joinUrl ?? "Generating…")
+              }
+              className={cn(
+                "flex-1 font-mono text-xs",
+                !linkUsable && joinLink && "text-muted-foreground",
+              )}
               onFocus={(e) => e.currentTarget.select()}
               data-testid="magic-link-url"
             />
             <Button
               variant="default"
               onClick={() => void handleCopy()}
-              disabled={!joinUrl}
+              disabled={!joinUrl || !linkUsable}
               data-testid="magic-link-copy"
             >
               Copy
             </Button>
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
-            Anyone with this link can join {company?.name ?? "your team"} as{" "}
-            {roleLabel(DEFAULT_ROLE)}. Reset to revoke it.
+            {linkUsable && joinLink ? (
+              <>
+                Anyone with this link can join {company?.name ?? "your team"}{" "}
+                as {roleLabel(DEFAULT_ROLE)} until{" "}
+                {new Date(joinLink.expiresAt).toLocaleString(undefined, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
+                . Reset rotates it; Revoke kills it immediately.
+              </>
+            ) : (
+              <>
+                Links expire 72 hours after creation. Reset to issue a fresh
+                one.
+              </>
+            )}
           </p>
         </div>
       </DialogContent>

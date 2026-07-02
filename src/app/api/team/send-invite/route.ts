@@ -18,6 +18,7 @@ import {
   requireCapability,
   authErrorResponse,
 } from "@/lib/auth/require-user";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -56,6 +57,18 @@ export async function POST(request: Request) {
     const r = authErrorResponse(e);
     if (r) return r;
     throw e;
+  }
+
+  // Per-actor limit: sends email + writes invitation rows.
+  const limit = rateLimit(`send-invite:${actor.id}`, {
+    max: 20,
+    windowMs: 60_000,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many invitations at once — try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   const companyId = actor.companyId;

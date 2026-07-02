@@ -1,5 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
+import {
+  decodeCursor,
+  keysetFilterDesc,
+  toPage,
+  type Page,
+  type PageParams,
+} from "./_base";
 import type { Json } from "@/lib/supabase/database.types";
 import type {
   ActivityActionType,
@@ -30,6 +37,10 @@ interface LogInput {
 }
 
 export const activityService = {
+  /**
+   * @deprecated Loads the ENTIRE audit trail — the fastest-growing table in
+   * the schema. Use `getPage()`; kept while existing callers migrate (A4).
+   */
   async getAll(companyId: UUID): Promise<ActivityLogEntry[]> {
     return withCache(`${NS}all:${companyId}`, async () => {
       const supabase = createClient();
@@ -40,6 +51,32 @@ export const activityService = {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as unknown as ActivityLogEntry[];
+    });
+  },
+
+  /** Keyset-paginated read in (created_at DESC, id DESC) order. */
+  async getPage(
+    companyId: UUID,
+    params: PageParams,
+  ): Promise<Page<ActivityLogEntry>> {
+    const limit = Math.min(Math.max(params.limit, 1), 200);
+    const cacheKey = `${NS}page:${companyId}:${params.cursor ?? "first"}:${limit}`;
+    return withCache(cacheKey, async () => {
+      const supabase = createClient();
+      let q = supabase
+        .from("activity_log")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
+      if (params.cursor) {
+        const c = decodeCursor(params.cursor);
+        if (c) q = q.or(keysetFilterDesc(c));
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return toPage((data ?? []) as unknown as ActivityLogEntry[], limit);
     });
   },
 

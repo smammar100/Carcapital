@@ -26,7 +26,7 @@ const SUPABASE_ANON_KEY =
  *
  * Returns `true` when a plausibly-fresh session cookie is present.
  */
-function hasFreshAuthCookie(request: NextRequest): boolean {
+export function hasFreshAuthCookie(request: NextRequest): boolean {
   const tokenCookie = request.cookies
     .getAll()
     .find(

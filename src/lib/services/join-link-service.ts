@@ -12,8 +12,19 @@ const SELECT = `
   token,
   defaultRole:default_role,
   createdBy:created_by,
-  createdAt:created_at
+  createdAt:created_at,
+  expiresAt:expires_at,
+  maxUses:max_uses,
+  usedCount:used_count,
+  revokedAt:revoked_at
 `;
+
+/** Links live 72h from (re)creation — mirrors the DB default in 0033. */
+const LINK_TTL_MS = 72 * 60 * 60 * 1000;
+
+function freshExpiry(): string {
+  return new Date(Date.now() + LINK_TTL_MS).toISOString();
+}
 
 /** Unguessable, readable slug — three base36 groups (~Glide style). */
 function generateToken(): string {
@@ -63,7 +74,8 @@ export const joinLinkService = {
     const supabase = createClient();
     const token = generateToken();
     // Upsert on the per-company unique constraint so reset also works when
-    // no link exists yet.
+    // no link exists yet. A reset is a fresh link: new 72h expiry, use
+    // counter back to zero, any revocation cleared.
     const { data, error } = await supabase
       .from("team_join_links")
       .upsert(
@@ -72,6 +84,9 @@ export const joinLinkService = {
           token,
           default_role: "view_only" satisfies RoleValue,
           created_by: actorId,
+          expires_at: freshExpiry(),
+          used_count: 0,
+          revoked_at: null,
         },
         { onConflict: "company_id" },
       )
@@ -88,5 +103,29 @@ export const joinLinkService = {
       metadata: { joinLinkId: (data as unknown as TeamJoinLink).id },
     });
     return data as unknown as TeamJoinLink;
+  },
+
+  /** Kill the link without rotating — redemption stops until the next Reset. */
+  async revoke(companyId: UUID, actorId: UUID): Promise<TeamJoinLink | null> {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("team_join_links")
+      .update({ revoked_at: new Date().toISOString() })
+      .eq("company_id", companyId)
+      .select(SELECT)
+      .maybeSingle();
+    if (error) throw error;
+    invalidate(NS);
+    if (data) {
+      await activityService.log({
+        companyId,
+        userId: actorId,
+        vehicleId: null,
+        actionType: "user_invited",
+        description: "Revoked the team join link",
+        metadata: { joinLinkId: (data as unknown as TeamJoinLink).id },
+      });
+    }
+    return (data as unknown as TeamJoinLink | null) ?? null;
   },
 };

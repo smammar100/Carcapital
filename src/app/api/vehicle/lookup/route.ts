@@ -19,6 +19,7 @@
 
 import { NextResponse } from "next/server";
 import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
+import { rateLimit } from "@/lib/rate-limit";
 import {
   DvlaError,
   lookupDvlaVehicle,
@@ -245,12 +246,26 @@ function mergePayload(
 // ---- POST /api/vehicle/lookup -------------------------------------------
 export async function POST(request: Request) {
   // AuthZ: must be a signed-in, active user (any role).
+  let actor;
   try {
-    await requireUser();
+    actor = await requireUser();
   } catch (e) {
     const r = authErrorResponse(e);
     if (r) return r;
     throw e;
+  }
+
+  // Per-user limit: every call can burn DVLA/DVSA/AutoTrader quota
+  // (DVLA free tier is 1,000/day). Generous enough for bulk intake sessions.
+  const limit = rateLimit(`vehicle-lookup:${actor.id}`, {
+    max: 30,
+    windowMs: 60_000,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "rate_limited" },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   let payload: {

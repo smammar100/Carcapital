@@ -2,6 +2,13 @@ import { createClient, type TableInsert, type TableUpdate } from "@/lib/supabase
 import { invalidate, withCache } from "@/lib/cache";
 import type { UUID, Vehicle, VehicleStatus } from "@/lib/types";
 import { activityService } from "./activity-service";
+import {
+  decodeCursor,
+  keysetFilterDesc,
+  toPage,
+  type Page,
+  type PageParams,
+} from "./_base";
 
 const NS = "vehicles:";
 
@@ -203,6 +210,11 @@ function vehicleToRow(
 }
 
 export const vehicleService = {
+  /**
+   * @deprecated Loads the ENTIRE vehicle table for the company — unusable at
+   * 1000+ rows. Use `getPage()` for lists; kept while existing callers
+   * migrate (Track A4).
+   */
   async getAll(companyId: UUID): Promise<Vehicle[]> {
     return withCache(`${NS}all:${companyId}`, async () => {
       const supabase = createClient();
@@ -212,6 +224,29 @@ export const vehicleService = {
         .eq("company_id", companyId);
       if (error) throw error;
       return (data ?? []) as unknown as Vehicle[];
+    });
+  },
+
+  /** Keyset-paginated read in (created_at DESC, id DESC) order. */
+  async getPage(companyId: UUID, params: PageParams): Promise<Page<Vehicle>> {
+    const limit = Math.min(Math.max(params.limit, 1), 200);
+    const cacheKey = `${NS}page:${companyId}:${params.cursor ?? "first"}:${limit}`;
+    return withCache(cacheKey, async () => {
+      const supabase = createClient();
+      let q = supabase
+        .from("vehicles")
+        .select(SELECT)
+        .eq("company_id", companyId)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .limit(limit + 1);
+      if (params.cursor) {
+        const c = decodeCursor(params.cursor);
+        if (c) q = q.or(keysetFilterDesc(c));
+      }
+      const { data, error } = await q;
+      if (error) throw error;
+      return toPage((data ?? []) as unknown as Vehicle[], limit);
     });
   },
 

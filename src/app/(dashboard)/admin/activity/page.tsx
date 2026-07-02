@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   Banknote,
@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
+import { Button } from "@/components/ui/button";
 import { activityService } from "@/lib/services/activity-service";
 import { authService } from "@/lib/services/auth-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -146,9 +147,13 @@ function dayLabel(iso: string): string {
   });
 }
 
+const PAGE_SIZE = 100;
+
 export default function ActivityLogPage() {
   const { company } = useAuth();
   const [entries, setEntries] = useState<ActivityLogEntry[] | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [actionFilter, setActionFilter] = useState<ActivityActionType | "all">(
@@ -158,18 +163,49 @@ export default function ActivityLogPage() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
 
+  // Depend on the stable id, NOT the company object: auth revalidation mints
+  // a new company object identity, and re-running this effect would clobber
+  // pages the user has already loaded back to page 1.
+  const companyId = company?.id ?? null;
   useEffect(() => {
-    if (!company) return;
+    if (!companyId) return;
+    // A4: keyset pagination — the audit trail grows unboundedly, so the page
+    // loads the newest PAGE_SIZE entries and appends older ones on demand.
     void Promise.all([
-      activityService.getAll(company.id),
-      authService.getUsersForCompany(company.id),
-      vehicleService.getAll(company.id),
-    ]).then(([e, u, v]) => {
-      setEntries(e);
+      activityService.getPage(companyId, { limit: PAGE_SIZE }),
+      authService.getUsersForCompany(companyId),
+      vehicleService.getAll(companyId),
+    ]).then(([page, u, v]) => {
+      setEntries(page.rows);
+      setNextCursor(page.nextCursor);
       setUsers(u);
       setVehicles(v);
     });
-  }, [company]);
+  }, [companyId]);
+
+  // Ref (not state) guards the in-flight fetch: two rapid clicks land before
+  // the state update flushes, and appending the same page twice duplicates
+  // every entry. The ref flips synchronously.
+  const loadingRef = useRef(false);
+  const loadMore = async () => {
+    if (!company || !nextCursor || loadingRef.current) return;
+    loadingRef.current = true;
+    setLoadingMore(true);
+    try {
+      const page = await activityService.getPage(company.id, {
+        limit: PAGE_SIZE,
+        cursor: nextCursor,
+      });
+      setEntries((prev) => {
+        const seen = new Set((prev ?? []).map((e) => e.id));
+        return [...(prev ?? []), ...page.rows.filter((e) => !seen.has(e.id))];
+      });
+      setNextCursor(page.nextCursor);
+    } finally {
+      loadingRef.current = false;
+      setLoadingMore(false);
+    }
+  };
 
   const filtered = useMemo(() => {
     if (!entries) return null;
@@ -332,7 +368,26 @@ export default function ActivityLogPage() {
               </ol>
             </div>
           ))}
+          {nextCursor && (
+            <div className="flex justify-center border-t pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => void loadMore()}
+                disabled={loadingMore}
+              >
+                {loadingMore ? "Loading…" : "Load older activity"}
+              </Button>
+            </div>
+          )}
         </Card>
+      )}
+      {nextCursor && (from || to || actionFilter !== "all" || userFilter !== "all") && (
+        <p className="text-center text-xs text-muted-foreground">
+          Filters apply to the {entries?.length ?? 0} loaded entries — load
+          older activity to search further back.
+        </p>
       )}
     </div>
   );

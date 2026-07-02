@@ -16,6 +16,7 @@ import {
   requireAnyCapability,
   authErrorResponse,
 } from "@/lib/auth/require-user";
+import { rateLimit } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -44,6 +45,18 @@ export async function POST(request: Request) {
     const r = authErrorResponse(e);
     if (r) return r;
     throw e;
+  }
+
+  // Per-actor limit: rotates other users' credentials.
+  const limit = rateLimit(`reset-password:${actor.id}`, {
+    max: 10,
+    windowMs: 60_000,
+  });
+  if (!limit.ok) {
+    return NextResponse.json(
+      { error: "Too many password resets at once — try again shortly." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } },
+    );
   }
 
   let body: Body;

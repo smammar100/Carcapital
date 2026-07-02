@@ -20,6 +20,7 @@ import {
 } from "@/lib/autotrader/verify-notification";
 import { normalizeAdvertiser } from "@/lib/services/autotrader-service";
 import { upsertNotifiedAdvertiser } from "@/lib/services/advertiser-service";
+import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
 
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   const secret = process.env.AUTOTRADER_WEBHOOK_SECRET;
   if (!secret) {
     // Misconfiguration — refuse rather than accept unverifiable notifications.
-    console.warn("[autotrader-webhook] AUTOTRADER_WEBHOOK_SECRET not set");
+    logger.error("autotrader-webhook", "AUTOTRADER_WEBHOOK_SECRET not set");
     return NextResponse.json({ error: "not_configured" }, { status: 500 });
   }
 
@@ -43,9 +44,7 @@ export async function POST(request: Request) {
   const cfRayId = request.headers.get("cf-ray");
 
   if (!verifyNotificationHash(rawBody, providedHash, secret)) {
-    console.warn(
-      `[autotrader-webhook] hash mismatch cf-ray=${cfRayId ?? "(none)"}`,
-    );
+    logger.warn("autotrader-webhook", "hash mismatch", { cfRay: cfRayId });
     return NextResponse.json({ error: "invalid_hash" }, { status: 401 });
   }
 
@@ -55,9 +54,9 @@ export async function POST(request: Request) {
   } catch {
     // Hash matched but body isn't JSON — ack so AutoTrader doesn't retry, but
     // flag it: a valid signer sent us garbage.
-    console.warn(
-      `[autotrader-webhook] valid hash but non-JSON body cf-ray=${cfRayId ?? "(none)"}`,
-    );
+    logger.warn("autotrader-webhook", "valid hash but non-JSON body", {
+      cfRay: cfRayId,
+    });
     return NextResponse.json({ received: true, processed: false });
   }
 
@@ -85,9 +84,10 @@ export async function POST(request: Request) {
     });
   } catch (e) {
     // Hash was valid; the failure is on our side. 500 so AutoTrader retries.
-    console.warn(
-      `[autotrader-webhook] processing failed cf-ray=${cfRayId ?? "(none)"}: ${String(e)}`,
-    );
+    logger.error("autotrader-webhook", "processing failed", {
+      cfRay: cfRayId,
+      error: e instanceof Error ? e : String(e),
+    });
     return NextResponse.json({ error: "processing_failed" }, { status: 500 });
   }
 }
