@@ -4,7 +4,10 @@ import { useRef, useState } from "react";
 import { ShieldX, ImageIcon, Upload, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { companyService } from "@/lib/services/company-service";
+import {
+  companyService,
+  type LogoKind,
+} from "@/lib/services/company-service";
 import { EmptyState } from "@/components/shared/empty-state";
 import {
   FINANCE_PROVIDERS,
@@ -45,24 +48,32 @@ export default function SettingsPage() {
   const [logoUrl, setLogoUrl] = useState<string | null>(
     company?.logoUrl ?? null,
   );
+  const [logoMarkUrl, setLogoMarkUrl] = useState<string | null>(
+    company?.logoMarkUrl ?? null,
+  );
   const [uploadingLogo, setUploadingLogo] = useState(false);
-  const logoInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingMark, setUploadingMark] = useState(false);
   const [defaultProvider, setDefaultProvider] = useState("next_gear");
   const [defaultVat, setDefaultVat] = useState(String(VAT_RATE));
 
-  async function handleLogoSelect(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleLogoSelect(
+    e: React.ChangeEvent<HTMLInputElement>,
+    kind: LogoKind,
+  ) {
     const file = e.target.files?.[0];
     e.target.value = ""; // allow re-selecting the same file
     if (!file || !company) return;
-    setUploadingLogo(true);
+    const setUploading = kind === "mark" ? setUploadingMark : setUploadingLogo;
+    const setUrl = kind === "mark" ? setLogoMarkUrl : setLogoUrl;
+    setUploading(true);
     try {
-      const url = await companyService.uploadLogo(file, company.id);
-      setLogoUrl(url);
-      toast.success("Logo uploaded — click Save to apply it");
+      const url = await companyService.uploadLogo(file, company.id, kind);
+      setUrl(url);
+      toast.success("Uploaded — click Save to apply it");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Couldn't upload logo");
+      toast.error(err instanceof Error ? err.message : "Couldn't upload image");
     } finally {
-      setUploadingLogo(false);
+      setUploading(false);
     }
   }
 
@@ -78,11 +89,12 @@ export default function SettingsPage() {
           vatNumber: vat,
           stockIdPrefix: stockPrefix,
           logoUrl: logoUrl ?? "",
+          logoMarkUrl: logoMarkUrl ?? "",
         },
         user.id,
       );
-      // Refresh the auth-context company so invoices pick up the new logo
-      // without a full reload.
+      // Refresh the auth-context company so the sidebar mark + invoice logo
+      // pick up the change without a full reload.
       await revalidate();
       toast.success("Company settings saved");
     } catch (err) {
@@ -116,60 +128,24 @@ export default function SettingsPage() {
         </TabsList>
         <TabsContent value="company" className="mt-3">
           <Card className="grid gap-4 p-5 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <Label>Company logo</Label>
-              <p className="mb-2 text-xs text-muted-foreground">
-                Shown on generated invoices. PNG or JPG — large images are
-                automatically resized.
-              </p>
-              <div className="flex items-center gap-4">
-                <div className="grid h-16 w-24 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/30">
-                  {logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={logoUrl}
-                      alt="Company logo"
-                      className="h-full w-full object-contain"
-                    />
-                  ) : (
-                    <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    ref={logoInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg"
-                    className="hidden"
-                    onChange={(e) => void handleLogoSelect(e)}
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => logoInputRef.current?.click()}
-                    disabled={uploadingLogo}
-                  >
-                    <Upload className="mr-1.5 h-3.5 w-3.5" />
-                    {uploadingLogo
-                      ? "Uploading…"
-                      : logoUrl
-                        ? "Replace"
-                        : "Upload"}
-                  </Button>
-                  {logoUrl ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      onClick={() => setLogoUrl(null)}
-                      disabled={uploadingLogo}
-                    >
-                      <X className="mr-1.5 h-3.5 w-3.5" />
-                      Remove
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+            <LogoField
+              label="Full logo"
+              hint="Shown on generated invoices (logo + wordmark). PNG or JPG — large images are automatically resized."
+              url={logoUrl}
+              previewClassName="h-16 w-24"
+              uploading={uploadingLogo}
+              onSelect={(e) => void handleLogoSelect(e, "full")}
+              onClear={() => setLogoUrl(null)}
+            />
+            <LogoField
+              label="Logo mark"
+              hint="Square icon shown in the sidebar. Falls back to the initials when unset. PNG or JPG."
+              url={logoMarkUrl}
+              previewClassName="h-16 w-16"
+              uploading={uploadingMark}
+              onSelect={(e) => void handleLogoSelect(e, "mark")}
+              onClear={() => setLogoMarkUrl(null)}
+            />
             <div className="sm:col-span-2">
               <Label>Name</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} />
@@ -264,6 +240,78 @@ export default function SettingsPage() {
         </TabsContent>
       </Tabs>
       )}
+    </div>
+  );
+}
+
+/** One logo uploader (preview + Upload/Replace + Remove). Owns its file input. */
+function LogoField({
+  label,
+  hint,
+  url,
+  previewClassName,
+  uploading,
+  onSelect,
+  onClear,
+}: {
+  label: string;
+  hint: string;
+  url: string | null;
+  previewClassName: string;
+  uploading: boolean;
+  onSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClear: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="sm:col-span-2">
+      <Label>{label}</Label>
+      <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
+      <div className="flex items-center gap-4">
+        <div
+          className={`grid shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/30 ${previewClassName}`}
+        >
+          {url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={url}
+              alt={label}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <ImageIcon className="h-6 w-6 text-muted-foreground/50" />
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/png,image/jpeg"
+            className="hidden"
+            onChange={onSelect}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+          >
+            <Upload className="mr-1.5 h-3.5 w-3.5" />
+            {uploading ? "Uploading…" : url ? "Replace" : "Upload"}
+          </Button>
+          {url ? (
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={onClear}
+              disabled={uploading}
+            >
+              <X className="mr-1.5 h-3.5 w-3.5" />
+              Remove
+            </Button>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

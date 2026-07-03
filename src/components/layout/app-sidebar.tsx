@@ -106,9 +106,18 @@ export function AppSidebar() {
         // to align the brand with the nav items / CTA below it.
         className="flex min-w-0 items-center gap-2 py-1 pl-5 pr-3 no-underline"
       >
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
-          CC
-        </span>
+        {company?.logoMarkUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={company.logoMarkUrl}
+            alt={`${company.name} logo`}
+            className="h-8 w-8 shrink-0 rounded-md object-contain"
+          />
+        ) : (
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+            CC
+          </span>
+        )}
         <span className="flex min-w-0 flex-col leading-tight">
           <span className="truncate text-sm font-semibold text-foreground">
             Car Capital UK

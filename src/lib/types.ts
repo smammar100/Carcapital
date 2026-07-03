@@ -19,7 +19,10 @@ export interface Company {
   slug?: string;
   address: string;
   vatNumber: string | null;
+  /** Full logo + wordmark, rendered on invoices. */
   logoUrl: string | null;
+  /** Square logo mark, shown in the sidebar (falls back to initials). */
+  logoMarkUrl: string | null;
   stockIdPrefix: string; // "CC" — single-tenant in v1
   nextStockSeq: number;  // monotonic counter for stock IDs (Phase 2)
 }

@@ -12,9 +12,13 @@ const SELECT = `
   address,
   vatNumber:vat_number,
   logoUrl:logo_url,
+  logoMarkUrl:logo_mark_url,
   stockIdPrefix:stock_id_prefix,
   nextStockSeq:next_stock_seq
 `;
+
+/** Which brand lockup an upload targets — see uploadLogo. */
+export type LogoKind = "full" | "mark";
 
 /** Columns the Settings → Company form can persist. */
 export interface UpdateCompanyInput {
@@ -23,8 +27,10 @@ export interface UpdateCompanyInput {
   /** Empty string is normalised to null (the column is nullable). */
   vatNumber?: string | null;
   stockIdPrefix?: string;
-  /** Public logo URL (from uploadLogo). Empty string clears it. */
+  /** Full logo (invoices). Empty string clears it. */
   logoUrl?: string | null;
+  /** Square logo mark (sidebar). Empty string clears it. */
+  logoMarkUrl?: string | null;
 }
 
 const LOGO_BUCKET = "company-logos";
@@ -55,7 +61,10 @@ export const companyService = {
   ): Promise<Company> {
     const supabase = createClient();
 
-    const patch: TableUpdate<"companies"> = {};
+    // logo_mark_url isn't in the generated TableUpdate type yet (added in
+    // migration 0035); extend locally rather than regenerate the 2k-line file.
+    const patch: TableUpdate<"companies"> & { logo_mark_url?: string | null } =
+      {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.address !== undefined) patch.address = input.address;
     if (input.vatNumber !== undefined)
@@ -64,10 +73,15 @@ export const companyService = {
       patch.stock_id_prefix = input.stockIdPrefix;
     if (input.logoUrl !== undefined)
       patch.logo_url = input.logoUrl === "" ? null : input.logoUrl;
+    if (input.logoMarkUrl !== undefined)
+      patch.logo_mark_url = input.logoMarkUrl === "" ? null : input.logoMarkUrl;
 
     const { data, error } = await supabase
       .from("companies")
-      .update(patch)
+      // Cast drops the local logo_mark_url extension so supabase-js's
+      // excess-property guard passes; the column exists (migration 0035) and is
+      // sent at runtime. Remove once database.types.ts is regenerated.
+      .update(patch as TableUpdate<"companies">)
       .eq("id", companyId)
       .select(SELECT)
       .single();
@@ -89,11 +103,16 @@ export const companyService = {
 
   /**
    * Upload a company logo to the public `company-logos` bucket and return its
-   * public URL. The caller persists it via `update({ logoUrl })`. Overwrites
-   * the company's existing logo (upsert on a stable path) so old files don't
-   * accumulate.
+   * public URL. `kind` selects the lockup: "full" (logo + wordmark, for
+   * invoices) or "mark" (square mark, for the sidebar) — each writes a
+   * distinct stable path so they don't overwrite each other. The caller
+   * persists the URL via `update({ logoUrl })` / `update({ logoMarkUrl })`.
    */
-  async uploadLogo(file: File, companyId: UUID): Promise<string> {
+  async uploadLogo(
+    file: File,
+    companyId: UUID,
+    kind: LogoKind = "full",
+  ): Promise<string> {
     if (!LOGO_ALLOWED_MIME.has(file.type)) {
       throw new Error(`Unsupported file "${file.type}". Use PNG or JPG.`);
     }
@@ -103,21 +122,23 @@ export const companyService = {
       );
     }
 
-    // Downscale to a small, invoice-friendly logo. Dynamic import keeps the
-    // browser-only compressor out of any server bundle that touches this
-    // service. PNG transparency is preserved (fileType pinned to the source).
+    // Downscale before upload. Dynamic import keeps the browser-only compressor
+    // out of any server bundle that touches this service. PNG transparency is
+    // preserved (fileType pinned to the source). The mark is a small square, so
+    // it compresses tighter than the full logo.
     const { default: imageCompression } = await import(
       "browser-image-compression"
     );
     const compressed = await imageCompression(file, {
-      maxSizeMB: 0.5,
-      maxWidthOrHeight: 800,
+      maxSizeMB: kind === "mark" ? 0.2 : 0.5,
+      maxWidthOrHeight: kind === "mark" ? 256 : 800,
       useWebWorker: true,
       fileType: file.type,
     });
 
     const ext = file.type === "image/png" ? "png" : "jpg";
-    const path = `${companyId}/logo.${ext}`;
+    const base = kind === "mark" ? "logo-mark" : "logo";
+    const path = `${companyId}/${base}.${ext}`;
     const supabase = createClient();
 
     const { error: upErr } = await supabase.storage

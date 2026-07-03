@@ -70,6 +70,7 @@ const USER_WITH_COMPANY_SELECT = `
     address,
     vatNumber:vat_number,
     logoUrl:logo_url,
+    logoMarkUrl:logo_mark_url,
     stockIdPrefix:stock_id_prefix,
     nextStockSeq:next_stock_seq
   )

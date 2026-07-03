@@ -78,6 +78,7 @@ export const mockCompanies: Company[] = [
     address: "220 Uxbridge Rd, Southall, UB1 3DZ",
     vatNumber: "GB123456789",
     logoUrl: null,
+    logoMarkUrl: null,
     stockIdPrefix: "CC",
     nextStockSeq: 115,
   },
