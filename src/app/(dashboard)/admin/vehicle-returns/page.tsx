@@ -463,6 +463,7 @@ export default function ReturnsPage() {
             companyName: company.name,
             companyAddress: company.address,
             vatNumber: company.vatNumber,
+            logoUrl: company.logoUrl,
           });
           openBlobInNewTab(blob);
         } catch (e) {

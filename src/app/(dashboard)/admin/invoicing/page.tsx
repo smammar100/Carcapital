@@ -236,6 +236,7 @@ export default function InvoicingPage() {
       companyName: company.name,
       companyAddress: company.address,
       vatNumber: company.vatNumber,
+      logoUrl: company.logoUrl,
     });
     openBlobInNewTab(blob);
   }
@@ -247,6 +248,7 @@ export default function InvoicingPage() {
       companyName: company.name,
       companyAddress: company.address,
       vatNumber: company.vatNumber,
+      logoUrl: company.logoUrl,
     });
     downloadBlob(blob, `${inv.invoiceNumber}.pdf`);
   }
