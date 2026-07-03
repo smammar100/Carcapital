@@ -1,4 +1,4 @@
-import type { Invoice, TodoItem, Vehicle, Warranty } from "@/lib/types";
+import type { Company, Invoice, TodoItem, Vehicle, Warranty } from "@/lib/types";
 
 export interface JobCardPdfInput {
   vehicle: Vehicle;
@@ -34,6 +34,28 @@ export interface InvoicePdfInput {
    * the image; otherwise it falls back to the text mark.
    */
   logoUrl?: string | null;
+}
+
+/**
+ * The company-derived fields every invoice PDF needs. Spread this into a
+ * `generateInvoice` call so all sites map the company identically — the ONE
+ * place to add a new company→PDF field (see GEN-12: logoUrl was missed at 3
+ * of 4 call sites when added ad hoc).
+ *
+ *   pdfService.generateInvoice({ invoice, vehicle, ...companyInvoiceFields(company) })
+ */
+export function companyInvoiceFields(company: Company): {
+  companyName: string;
+  companyAddress: string;
+  vatNumber: string | null;
+  logoUrl: string | null;
+} {
+  return {
+    companyName: company.name,
+    companyAddress: company.address,
+    vatNumber: company.vatNumber,
+    logoUrl: company.logoUrl,
+  };
 }
 
 /**

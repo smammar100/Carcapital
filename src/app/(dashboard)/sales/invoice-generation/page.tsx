@@ -22,7 +22,11 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { salesService } from "@/lib/services/sales-service";
-import { downloadBlob, pdfService } from "@/lib/services/pdf-service";
+import {
+  companyInvoiceFields,
+  downloadBlob,
+  pdfService,
+} from "@/lib/services/pdf-service";
 import type {
   AddonCategory,
   DepositMethod,
@@ -605,11 +609,8 @@ function InvoiceGenerationForm() {
       );
       const blob = await pdfService.generateInvoice({
         invoice,
-        companyName: company.name,
-        companyAddress: company.address,
-        vatNumber: company.vatNumber,
         vehicle,
-        logoUrl: company.logoUrl,
+        ...companyInvoiceFields(company),
       });
       downloadBlob(blob, `Invoice-${invoice.invoiceNumber}.pdf`);
       router.push("/admin/invoicing");

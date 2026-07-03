@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import {
+  companyInvoiceFields,
   downloadBlob,
   openBlobInNewTab,
   pdfService,
@@ -233,10 +234,7 @@ export default function InvoicingPage() {
     if (!company) return;
     const blob = await pdfService.generateInvoice({
       invoice: inv,
-      companyName: company.name,
-      companyAddress: company.address,
-      vatNumber: company.vatNumber,
-      logoUrl: company.logoUrl,
+      ...companyInvoiceFields(company),
     });
     openBlobInNewTab(blob);
   }
@@ -245,10 +243,7 @@ export default function InvoicingPage() {
     if (!company) return;
     const blob = await pdfService.generateInvoice({
       invoice: inv,
-      companyName: company.name,
-      companyAddress: company.address,
-      vatNumber: company.vatNumber,
-      logoUrl: company.logoUrl,
+      ...companyInvoiceFields(company),
     });
     downloadBlob(blob, `${inv.invoiceNumber}.pdf`);
   }

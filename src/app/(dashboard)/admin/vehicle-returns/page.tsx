@@ -23,6 +23,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { salesService } from "@/lib/services/sales-service";
 import {
+  companyInvoiceFields,
   openBlobInNewTab,
   pdfService,
 } from "@/lib/services/pdf-service";
@@ -460,10 +461,7 @@ export default function ReturnsPage() {
         try {
           const blob = await pdfService.generateInvoice({
             invoice: createdRefund,
-            companyName: company.name,
-            companyAddress: company.address,
-            vatNumber: company.vatNumber,
-            logoUrl: company.logoUrl,
+            ...companyInvoiceFields(company),
           });
           openBlobInNewTab(blob);
         } catch (e) {
