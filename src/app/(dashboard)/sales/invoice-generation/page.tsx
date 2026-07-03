@@ -609,6 +609,7 @@ function InvoiceGenerationForm() {
         companyAddress: company.address,
         vatNumber: company.vatNumber,
         vehicle,
+        logoUrl: company.logoUrl,
       });
       downloadBlob(blob, `Invoice-${invoice.invoiceNumber}.pdf`);
       router.push("/admin/invoicing");

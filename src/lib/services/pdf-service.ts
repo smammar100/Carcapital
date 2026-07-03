@@ -29,6 +29,11 @@ export interface InvoicePdfInput {
    * not have it loaded).
    */
   vehicle?: Vehicle | null;
+  /**
+   * Company logo (public URL). When set, the invoice header/footer renders
+   * the image; otherwise it falls back to the text mark.
+   */
+  logoUrl?: string | null;
 }
 
 /**

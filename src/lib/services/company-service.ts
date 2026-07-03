@@ -23,7 +23,15 @@ export interface UpdateCompanyInput {
   /** Empty string is normalised to null (the column is nullable). */
   vatNumber?: string | null;
   stockIdPrefix?: string;
+  /** Public logo URL (from uploadLogo). Empty string clears it. */
+  logoUrl?: string | null;
 }
+
+const LOGO_BUCKET = "company-logos";
+// PNG / JPG only: the invoice PDF renders the logo via @react-pdf/renderer's
+// <Image>, which does not support SVG or WebP.
+const LOGO_ALLOWED_MIME = new Set(["image/png", "image/jpeg"]);
+const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB — logos should be small
 
 /**
  * Company profile reads/writes for the admin Settings page.
@@ -52,6 +60,8 @@ export const companyService = {
       patch.vat_number = input.vatNumber === "" ? null : input.vatNumber;
     if (input.stockIdPrefix !== undefined)
       patch.stock_id_prefix = input.stockIdPrefix;
+    if (input.logoUrl !== undefined)
+      patch.logo_url = input.logoUrl === "" ? null : input.logoUrl;
 
     const { data, error } = await supabase
       .from("companies")
@@ -73,5 +83,34 @@ export const companyService = {
     });
 
     return data as unknown as Company;
+  },
+
+  /**
+   * Upload a company logo to the public `company-logos` bucket and return its
+   * public URL. The caller persists it via `update({ logoUrl })`. Overwrites
+   * the company's existing logo (upsert on a stable path) so old files don't
+   * accumulate.
+   */
+  async uploadLogo(file: File, companyId: UUID): Promise<string> {
+    if (!LOGO_ALLOWED_MIME.has(file.type)) {
+      throw new Error(`Unsupported file "${file.type}". Use PNG, JPG, WebP or SVG.`);
+    }
+    if (file.size > LOGO_MAX_BYTES) {
+      throw new Error(
+        `Logo too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 2 MB.`,
+      );
+    }
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+    const path = `${companyId}/logo.${ext}`;
+    const supabase = createClient();
+
+    const { error: upErr } = await supabase.storage
+      .from(LOGO_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: true });
+    if (upErr) throw upErr;
+
+    const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);
+    // Cache-bust so a re-upload to the same path shows immediately.
+    return `${data.publicUrl}?v=${Date.now()}`;
   },
 };

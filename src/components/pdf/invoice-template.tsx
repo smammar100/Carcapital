@@ -1,4 +1,11 @@
-import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  Image,
+  StyleSheet,
+} from "@react-pdf/renderer";
 import type { Invoice, InvoiceLineItem, Vehicle } from "@/lib/types";
 import { formatVatLabel, normalizeVatScheme } from "@/lib/vat";
 import {
@@ -23,6 +30,8 @@ interface Props {
   companyAddress: string;
   vatNumber: string | null;
   vehicle?: Vehicle | null;
+  /** Public URL of the company logo; falls back to the text mark when unset. */
+  logoUrl?: string | null;
 }
 
 const TEAL = "#73AFA5";
@@ -50,6 +59,7 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   logoTxt: { fontSize: 7, color: LABEL, textAlign: "center" },
+  logoImg: { width: "100%", height: "100%", objectFit: "contain" },
   bannerWrap: {
     flexDirection: "row",
     alignItems: "center",
@@ -386,7 +396,7 @@ function lineTotalDisplay(l: InvoiceLineItem): string {
 // ---------------------------------------------------------------------------
 // 2-page Car Capital Sales Invoice (SPEC §7, 1:1 with the reference PDF)
 // ---------------------------------------------------------------------------
-function SalesInvoice({ invoice, vehicle }: Props) {
+function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
   const pdc = invoice.preDeliveryCheck;
   const w = invoice.warranty;
   const left = PDI_ITEMS.slice(0, 7);
@@ -421,7 +431,11 @@ function SalesInvoice({ invoice, vehicle }: Props) {
             <Text style={s.brandSmall}>{CO.addressLines.join("\n")}</Text>
           </View>
           <View style={s.logoBox}>
-            <Text style={s.logoTxt}>CAR{"\n"}CAPITAL</Text>
+            {logoUrl ? (
+              <Image src={logoUrl} style={s.logoImg} />
+            ) : (
+              <Text style={s.logoTxt}>CAR{"\n"}CAPITAL</Text>
+            )}
           </View>
         </View>
 
@@ -633,7 +647,11 @@ function SalesInvoice({ invoice, vehicle }: Props) {
             <Text style={s.brandSmall}>{CO.addressLines.join(", ")}</Text>
           </View>
           <View style={[s.logoBox, { width: 46, height: 28 }]}>
-            <Text style={s.logoTxt}>CAR{"\n"}CAPITAL</Text>
+            {logoUrl ? (
+              <Image src={logoUrl} style={s.logoImg} />
+            ) : (
+              <Text style={s.logoTxt}>CAR{"\n"}CAPITAL</Text>
+            )}
           </View>
         </View>
 
