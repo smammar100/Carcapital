@@ -710,15 +710,6 @@ function InvoiceGenerationForm() {
             </div>
             <div>
               <Label>
-                Address line <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                value={buyerAddress}
-                onChange={(e) => setBuyerAddress(e.target.value.toUpperCase())}
-              />
-            </div>
-            <div>
-              <Label>
                 Post code <span className="text-destructive">*</span>
               </Label>
               <div className="flex gap-2">
@@ -738,6 +729,15 @@ function InvoiceGenerationForm() {
                   {pcLoading ? "…" : "Lookup"}
                 </Button>
               </div>
+            </div>
+            <div>
+              <Label>
+                Address line <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                value={buyerAddress}
+                onChange={(e) => setBuyerAddress(e.target.value.toUpperCase())}
+              />
             </div>
             <div>
               <Label>Email (optional)</Label>

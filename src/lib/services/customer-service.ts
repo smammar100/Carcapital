@@ -55,28 +55,6 @@ interface CannedAddress {
   line4: string;
 }
 
-/** Stub address book for the postcode lookup. Real integration is a follow-up. */
-const POSTCODE_STUB: Record<string, CannedAddress> = {
-  "UB1 3DZ": {
-    line1: "220 Uxbridge Road",
-    line2: "Southall",
-    line3: "Greater London",
-    line4: "UB1 3DZ",
-  },
-  "SW1A 1AA": {
-    line1: "Buckingham Palace",
-    line2: "",
-    line3: "London",
-    line4: "SW1A 1AA",
-  },
-  "NW10 6RS": {
-    line1: "Wembley Distribution Centre",
-    line2: "Mountbatten Way",
-    line3: "London",
-    line4: "NW10 6RS",
-  },
-};
-
 function digitsOnly(s: string): string {
   return s.replace(/\D+/g, "");
 }
@@ -275,23 +253,50 @@ export const customerService = {
   },
 
   /**
-   * Stub UK postcode lookup. Returns canned addresses for the three demo
-   * postcodes; null otherwise. Swap in postcodes.io or getAddress.io later.
+   * UK postcode lookup via postcodes.io (free, keyless, CORS-enabled).
+   *
+   * postcodes.io resolves a postcode to its administrative geography (ward,
+   * district, county/region) and the canonical postcode — but NOT the house
+   * number or street, which no free API provides. So `line1` is returned
+   * empty for the user to type; the remaining lines are pre-filled. To also
+   * auto-fill street lines, swap in a paid provider (getaddress.io / Loqate)
+   * behind this same method — the hook contract won't change.
+   *
+   * Returns null for an unknown/invalid postcode (404); throws on network
+   * failure so the caller can surface a retry.
    */
   async lookupAddressByPostcode(
     postcode: string,
   ): Promise<CannedAddress | null> {
     const key = normPostcode(postcode);
-    // simulate a 200ms network call so the spinner has time to render
-    await new Promise((r) => setTimeout(r, 200));
-    // Try exact + spaced variants.
-    return (
-      POSTCODE_STUB[postcode.trim().toUpperCase()] ??
-      POSTCODE_STUB[key] ??
-      Object.entries(POSTCODE_STUB).find(
-        ([k]) => normPostcode(k) === key,
-      )?.[1] ??
-      null
+    if (!key) return null;
+
+    const res = await fetch(
+      `https://api.postcodes.io/postcodes/${encodeURIComponent(key)}`,
     );
+    if (res.status === 404) return null; // invalid / unknown postcode
+    if (!res.ok) {
+      throw new Error(`Postcode lookup failed (${res.status})`);
+    }
+
+    const json = (await res.json()) as {
+      result?: {
+        postcode?: string;
+        admin_ward?: string | null;
+        admin_district?: string | null;
+        admin_county?: string | null;
+        region?: string | null;
+      };
+    };
+    const r = json.result;
+    if (!r) return null;
+
+    const county = r.admin_county || r.region || "";
+    return {
+      line1: "", // house number + street — user enters manually
+      line2: r.admin_ward ?? "",
+      line3: r.admin_district ?? "",
+      line4: [county, r.postcode].filter(Boolean).join(", "),
+    };
   },
 };
