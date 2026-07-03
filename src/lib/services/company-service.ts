@@ -31,7 +31,9 @@ const LOGO_BUCKET = "company-logos";
 // PNG / JPG only: the invoice PDF renders the logo via @react-pdf/renderer's
 // <Image>, which does not support SVG or WebP.
 const LOGO_ALLOWED_MIME = new Set(["image/png", "image/jpeg"]);
-const LOGO_MAX_BYTES = 2 * 1024 * 1024; // 2 MB — logos should be small
+// Accept a generous raw file (unoptimised exports are common) and downscale
+// it to a small logo before upload rather than rejecting the user.
+const LOGO_MAX_RAW_BYTES = 12 * 1024 * 1024; // 12 MB pre-compression
 
 /**
  * Company profile reads/writes for the admin Settings page.
@@ -93,20 +95,34 @@ export const companyService = {
    */
   async uploadLogo(file: File, companyId: UUID): Promise<string> {
     if (!LOGO_ALLOWED_MIME.has(file.type)) {
-      throw new Error(`Unsupported file "${file.type}". Use PNG, JPG, WebP or SVG.`);
+      throw new Error(`Unsupported file "${file.type}". Use PNG or JPG.`);
     }
-    if (file.size > LOGO_MAX_BYTES) {
+    if (file.size > LOGO_MAX_RAW_BYTES) {
       throw new Error(
-        `Logo too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 2 MB.`,
+        `Image too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Max 12 MB.`,
       );
     }
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "png";
+
+    // Downscale to a small, invoice-friendly logo. Dynamic import keeps the
+    // browser-only compressor out of any server bundle that touches this
+    // service. PNG transparency is preserved (fileType pinned to the source).
+    const { default: imageCompression } = await import(
+      "browser-image-compression"
+    );
+    const compressed = await imageCompression(file, {
+      maxSizeMB: 0.5,
+      maxWidthOrHeight: 800,
+      useWebWorker: true,
+      fileType: file.type,
+    });
+
+    const ext = file.type === "image/png" ? "png" : "jpg";
     const path = `${companyId}/logo.${ext}`;
     const supabase = createClient();
 
     const { error: upErr } = await supabase.storage
       .from(LOGO_BUCKET)
-      .upload(path, file, { contentType: file.type, upsert: true });
+      .upload(path, compressed, { contentType: file.type, upsert: true });
     if (upErr) throw upErr;
 
     const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path);

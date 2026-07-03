@@ -119,7 +119,8 @@ export default function SettingsPage() {
             <div className="sm:col-span-2">
               <Label>Company logo</Label>
               <p className="mb-2 text-xs text-muted-foreground">
-                Shown on generated invoices. PNG or JPG, up to 2 MB.
+                Shown on generated invoices. PNG or JPG — large images are
+                automatically resized.
               </p>
               <div className="flex items-center gap-4">
                 <div className="grid h-16 w-24 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/30">
