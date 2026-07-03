@@ -188,7 +188,10 @@ function overlapDepths(timed: CalEvent[]): Map<string, number> {
 
 /* ----------------------------------------------------------- time-grid cfg */
 
-const GRID_START = 8;
+// Working-day window for the day/week grids. Starts at 9am per the dealership's
+// hours (UAT request). Events entirely before GRID_START are not shown; ones
+// that merely start earlier are clamped to the top of the grid.
+const GRID_START = 9;
 const GRID_END = 18;
 const HOURS: number[] = Array.from(
   { length: GRID_END - GRID_START },

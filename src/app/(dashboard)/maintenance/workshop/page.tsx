@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Plus,
   Wrench,
@@ -16,7 +17,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useAuth } from "@/contexts/auth-context";
 import { workshopService } from "@/lib/services/workshop-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
 import { authService } from "@/lib/services/auth-service";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import type {
   MaintenanceStatus,
   User,
@@ -73,6 +76,8 @@ const STATUS_DOT: Record<MaintenanceStatus, string> = {
 };
 
 export default function WorkshopPage() {
+  const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const { user, company } = useAuth();
   const [jobs, setJobs] = useState<WorkshopJob[] | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -164,15 +169,33 @@ export default function WorkshopPage() {
     setJobs(await workshopService.getAll(company.id));
   }
 
+  /**
+   * Workshop jobs store the plate as free text (no vehicle FK), so resolve it
+   * against stock on demand. Navigates when a match exists; otherwise says so.
+   */
+  async function openVehicleFromReg(reg: string) {
+    if (!reg?.trim()) return;
+    try {
+      const vehicle = await vehicleService.getByRegistration(
+        reg,
+        company?.id,
+      );
+      if (vehicle) router.push(`/vehicles/${vehicle.id}`);
+      else toast.error(`No stock vehicle matches ${reg}.`);
+    } catch {
+      toast.error("Couldn't look up that vehicle.");
+    }
+  }
+
   async function handleDelete(j: WorkshopJob) {
     if (!company) return;
-    if (
-      !window.confirm(
-        `Delete the workshop job for ${j.customerName} (${j.vehicleReg})? This cannot be undone.`,
-      )
-    ) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete workshop job?",
+      description: `This permanently deletes the job for ${j.customerName} (${j.vehicleReg}). This cannot be undone.`,
+      confirmText: "Delete job",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await workshopService.remove(j.id);
       if (selectedId === j.id) setSelectedId(null);
@@ -406,7 +429,19 @@ export default function WorkshopPage() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <Field icon={Car} label="Vehicle">
                       <span className="inline-flex flex-wrap items-center gap-2">
-                        <RegPlate registration={selected.vehicleReg} size="sm" />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            void openVehicleFromReg(selected.vehicleReg)
+                          }
+                          className="transition-opacity hover:opacity-80"
+                          title="Open vehicle details"
+                        >
+                          <RegPlate
+                            registration={selected.vehicleReg}
+                            size="sm"
+                          />
+                        </button>
                         <span className="text-muted-foreground">
                           {selected.vehicleDescription}
                         </span>
@@ -471,6 +506,8 @@ export default function WorkshopPage() {
           );
         })()
       )}
+
+      {confirmDialog}
     </div>
   );
 }

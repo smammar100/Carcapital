@@ -10,6 +10,7 @@ import { downloadBlob, pdfService } from "@/lib/services/pdf-service";
 import { useAuth } from "@/contexts/auth-context";
 import type { Vehicle, VehicleStatus } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VehicleHeaderCard } from "@/components/vehicle-detail/vehicle-header-card";
 import { VehicleDetailShell } from "@/components/vehicle-detail/vehicle-detail-shell";
@@ -27,6 +28,7 @@ export default function VehicleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const { confirm, confirmDialog } = useConfirm();
   const { user, company } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null | undefined>(undefined);
   const [exporting, setExporting] = useState(false);
@@ -65,9 +67,13 @@ export default function VehicleDetailPage({
 
   async function handleRemoveFromWebsite() {
     if (!user || !vehicle) return;
-    const ok = window.confirm(
-      `Remove ${vehicle.registration} from website?\n\nVehicle will disappear from Work List but stays on the Master Sheet for historical reference.`,
-    );
+    const ok = await confirm({
+      title: `Remove ${vehicle.registration} from website?`,
+      description:
+        "The vehicle disappears from the Work List but stays on the Master Sheet for historical reference.",
+      confirmText: "Remove from website",
+      destructive: true,
+    });
     if (!ok) return;
     try {
       const updated = await vehicleService.removeFromWebsite(vehicle.id, user.id);
@@ -150,6 +156,8 @@ export default function VehicleDetailPage({
         exporting={exporting}
         onExportPdf={() => void handleExportPdf()}
       />
+
+      {confirmDialog}
     </div>
   );
 }

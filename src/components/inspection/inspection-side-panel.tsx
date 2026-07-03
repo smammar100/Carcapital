@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 import {
   Sheet,
@@ -38,7 +39,13 @@ export function InspectionSidePanel({ vehicle, open, onOpenChange, onComplete }:
             <SheetHeader>
               <SheetTitle className="flex items-center gap-2">
                 20-point Inspection
-                <RegPlate registration={vehicle.registration} size="sm" />
+                <Link
+                  href={`/vehicles/${vehicle.id}`}
+                  className="transition-opacity hover:opacity-80"
+                  title="Open vehicle details"
+                >
+                  <RegPlate registration={vehicle.registration} size="sm" />
+                </Link>
               </SheetTitle>
               <SheetDescription>
                 {vehicle.make} {vehicle.model} · {vehicle.stockId} · Inspector:{" "}

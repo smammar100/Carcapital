@@ -30,6 +30,7 @@ import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -178,6 +179,7 @@ function deriveAtPriceIndicator(
 export function ArrivalForm() {
   const { user, company } = useAuth();
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const [submitting, setSubmitting] = useState(false);
   // Variation E — guided wizard. Sections are grouped into 5 steps; fields
   // stay registered across step changes (RHF keeps values, shouldUnregister
@@ -593,9 +595,11 @@ export function ArrivalForm() {
     const reg = formatRegPlate(values.registration);
     const existing = await vehicleService.getByRegistration(reg);
     if (existing) {
-      const proceed = window.confirm(
-        `${reg} is already on the Master Sheet (${existing.stockId}, ${existing.make} ${existing.model}). Add anyway?`,
-      );
+      const proceed = await confirm({
+        title: "Registration already on the Master Sheet",
+        description: `${reg} already exists (${existing.stockId}, ${existing.make} ${existing.model}). Add anyway?`,
+        confirmText: "Add anyway",
+      });
       if (!proceed) {
         setSubmitting(false);
         return;
@@ -1470,6 +1474,8 @@ export function ArrivalForm() {
           </div>
         </aside>
       </div>
+
+      {confirmDialog}
     </div>
   );
 }

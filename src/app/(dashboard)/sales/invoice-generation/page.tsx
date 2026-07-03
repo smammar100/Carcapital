@@ -45,6 +45,7 @@ import { computeInvoiceTotals } from "@/lib/invoice-calc";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -162,6 +163,7 @@ export default function InvoiceGenerationPage() {
 
 function InvoiceGenerationForm() {
   const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const searchParams = useSearchParams();
   const vehicleIdParam = searchParams.get("vehicleId");
   const invoiceIdParam = searchParams.get("invoiceId");
@@ -537,9 +539,12 @@ function InvoiceGenerationForm() {
       return;
     }
     if (totals.overpayment) {
-      const ok = window.confirm(
-        "Deposit + finance exceed the grand total (overpayment). Continue anyway?",
-      );
+      const ok = await confirm({
+        title: "Overpayment on this invoice?",
+        description:
+          "Deposit + finance exceed the grand total. Continue anyway?",
+        confirmText: "Continue",
+      });
       if (!ok) return;
     }
     setSubmitting(true);
@@ -1304,6 +1309,7 @@ function InvoiceGenerationForm() {
           </div>
         </Card>
       </div>
+      {confirmDialog}
     </div>
   );
 }

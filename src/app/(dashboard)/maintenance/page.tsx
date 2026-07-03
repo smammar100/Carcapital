@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Wrench,
   Plus,
@@ -41,6 +42,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { AddEventSheet } from "@/components/shared/add-event-sheet";
 import { EditJobDialog } from "@/components/maintenance/edit-job-dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 import {
   cn,
   formatCurrency,
@@ -106,6 +108,8 @@ function UrgencyBadge({ urgency }: { urgency: Urgency }) {
 }
 
 export default function MaintenancePage() {
+  const router = useRouter();
+  const { confirm, confirmDialog } = useConfirm();
   const { user, company } = useAuth();
   const [jobs, setJobs] = useState<MaintenanceJob[] | null>(null);
   const [editJob, setEditJob] = useState<MaintenanceJob | null>(null);
@@ -171,9 +175,13 @@ export default function MaintenancePage() {
 
   async function handleDelete(id: string, label: string) {
     if (!company) return;
-    if (!window.confirm(`Delete the maintenance job for ${label}? This cannot be undone.`)) {
-      return;
-    }
+    const ok = await confirm({
+      title: "Delete maintenance job?",
+      description: `This permanently deletes the job for ${label}. This cannot be undone.`,
+      confirmText: "Delete job",
+      destructive: true,
+    });
+    if (!ok) return;
     try {
       await maintenanceService.remove(id);
       setJobs(await maintenanceService.getAll(company.id));
@@ -362,8 +370,33 @@ export default function MaintenancePage() {
                             </div>
                           </div>
 
-                          {/* Body */}
-                          <div className="flex flex-col gap-2 p-3">
+                          {/* Body — click opens the job detail. The header
+                              (reg link, job# link, actions menu) sits outside
+                              this element, so those keep their own behaviour. */}
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            className="flex cursor-pointer flex-col gap-2 p-3 transition-colors hover:bg-muted/30"
+                            onClick={(e) => {
+                              // A completed drag doesn't fire a click, but guard
+                              // anyway; also ignore clicks bubbling from any
+                              // interactive child.
+                              if (dragId) return;
+                              if (
+                                (e.target as HTMLElement).closest(
+                                  "a,button,[role=menuitem]",
+                                )
+                              )
+                                return;
+                              router.push(`/maintenance/jobs/${j.id}`);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                router.push(`/maintenance/jobs/${j.id}`);
+                              }
+                            }}
+                          >
                             {cardTotal ? (
                               <span className="text-base font-semibold tabular-nums">
                                 {formatCurrency(cardTotal)}
@@ -457,6 +490,8 @@ export default function MaintenancePage() {
         users={users}
         onSaved={refetch}
       />
+
+      {confirmDialog}
     </div>
   );
 }

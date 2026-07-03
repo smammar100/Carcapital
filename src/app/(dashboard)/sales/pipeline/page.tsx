@@ -241,11 +241,17 @@ export default function SalesPipelinePage() {
                               gradient, with the movable stage as a glassy chip */}
                           <div className="relative">
                             {v ? (
-                              <VehicleImage
-                                vehicle={v}
-                                variant="card"
-                                className="rounded-none"
-                              />
+                              <Link
+                                href={`/vehicles/${v.id}`}
+                                title="Open vehicle details"
+                                className="block"
+                              >
+                                <VehicleImage
+                                  vehicle={v}
+                                  variant="card"
+                                  className="rounded-none"
+                                />
+                              </Link>
                             ) : (
                               <div className="grid aspect-[16/10] w-full place-items-center bg-gradient-to-br from-muted to-muted-foreground/20 text-muted-foreground/50">
                                 <Car className="size-6" />
@@ -254,7 +260,13 @@ export default function SalesPipelinePage() {
                             <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
                             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2.5">
                               {v ? (
-                                <RegPlate registration={v.registration} size="sm" />
+                                <Link
+                                  href={`/vehicles/${v.id}`}
+                                  title="Open vehicle details"
+                                  className="pointer-events-auto transition-opacity hover:opacity-80"
+                                >
+                                  <RegPlate registration={v.registration} size="sm" />
+                                </Link>
                               ) : (
                                 <span />
                               )}
