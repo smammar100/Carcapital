@@ -132,8 +132,19 @@ export function PhotosTab({ vehicle, onVehicleRefetch }: PhotosTabProps) {
       if (ok.length) setPhotos((prev) => [...(prev ?? []), ...ok]);
       if (ok.length) {
         toast.success(`Uploaded ${ok.length} photo${ok.length === 1 ? "" : "s"}`);
-        // Refresh the Photos badge / Overview photo count.
-        onVehicleRefetch?.();
+        // Auto-set a cover when the vehicle has none yet, so it shows a real
+        // image on the Work List / header immediately (the cover drives
+        // vehicles.hero_image_url, which VehicleImage reads). Pick the
+        // lowest-order photo across existing + new uploads.
+        if (!coverUrl) {
+          const first = [...(photos ?? []), ...ok].sort(
+            (a, b) => a.order - b.order,
+          )[0];
+          if (first) await persistCover(first.url);
+        } else {
+          // Refresh the Photos badge / Overview photo count.
+          onVehicleRefetch?.();
+        }
       }
       if (firstError) toast.error(firstError);
     } finally {
