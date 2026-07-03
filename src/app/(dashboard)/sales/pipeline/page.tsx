@@ -23,6 +23,7 @@ import {
 import { RegPlate } from "@/components/shared/reg-plate";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import { DealDetailSheet } from "@/components/sales/deal-detail-sheet";
 import { cn, formatCurrency, formatRelativeTime, getInitials } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
@@ -57,6 +58,7 @@ export default function SalesPipelinePage() {
   const [users, setUsers] = useState<User[]>([]);
   const [agentFilter, setAgentFilter] = useState<string | "all">("all");
   const [nowTs, setNowTs] = useState<number | null>(null);
+  const [viewDeal, setViewDeal] = useState<SalesDeal | null>(null);
 
   useEffect(() => {
     if (!company) return;
@@ -279,12 +281,17 @@ export default function SalesPipelinePage() {
                           </div>
                           <div className="flex flex-col gap-1.5 p-2.5">
                             <div className="flex items-center justify-between gap-2">
-                              <Link
-                                href={v ? `/vehicles/${v.id}` : "#"}
-                                className="truncate text-sm font-semibold leading-tight hover:underline"
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setViewDeal(d);
+                                }}
+                                className="truncate text-left text-sm font-semibold leading-tight hover:underline"
+                                title="Open deal details"
                               >
                                 {d.customerName}
-                              </Link>
+                              </button>
                               <span
                                 className={cn(
                                   "inline-flex shrink-0 items-center gap-1",
@@ -345,6 +352,24 @@ export default function SalesPipelinePage() {
           })}
         </div>
       )}
+
+      <DealDetailSheet
+        deal={viewDeal}
+        vehicle={
+          viewDeal
+            ? (vehicles.find((v) => v.id === viewDeal.vehicleId) ?? null)
+            : null
+        }
+        agent={
+          viewDeal
+            ? (users.find((u) => u.id === viewDeal.sellingAgent) ?? null)
+            : null
+        }
+        open={viewDeal !== null}
+        onOpenChange={(o) => {
+          if (!o) setViewDeal(null);
+        }}
+      />
     </div>
   );
 }

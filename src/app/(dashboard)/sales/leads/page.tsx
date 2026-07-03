@@ -854,22 +854,32 @@ export default function LeadsPage() {
                 {/* Actions */}
                 <div className="flex flex-col gap-3 border-t pt-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Button type="button" onClick={openStatusDialog}>
+                    {/* Primary conversion action — turns the lead into a
+                        pipeline deal. Needs a linked vehicle; when absent we
+                        keep it visible but disabled with a hint below. */}
+                    <Button
+                      type="button"
+                      disabled={creatingDeal || !selected.vehicleId}
+                      onClick={() => void handleCreateDeal()}
+                    >
+                      <Plus className="mr-1.5 h-4 w-4" />
+                      {creatingDeal ? "Opening…" : "Create deal in pipeline"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={openStatusDialog}
+                    >
                       <ArrowRight className="mr-1.5 size-4" />
                       Update status
                     </Button>
-                    {selected.vehicleId ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={creatingDeal}
-                        onClick={() => void handleCreateDeal()}
-                      >
-                        <Plus className="mr-1.5 h-4 w-4" />
-                        {creatingDeal ? "Opening…" : "Create deal in pipeline"}
-                      </Button>
-                    ) : null}
                   </div>
+                  {!selected.vehicleId ? (
+                    <p className="text-xs text-muted-foreground">
+                      Link a vehicle to this lead (via Update status) to create a
+                      deal.
+                    </p>
+                  ) : null}
                   {selected.status === "appointment_booked" ? (
                     <p className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
                       <CalendarPlus className="size-3.5" />
