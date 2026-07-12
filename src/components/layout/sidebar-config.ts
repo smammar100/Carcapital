@@ -79,7 +79,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         requiredAnyOf: ["admin:manage_permissions", "admin:manage_users"],
       },
       {
-        label: "Vehicle Returns",
+        label: "Returns and Cancellations",
         href: "/admin/vehicle-returns",
         icon: Undo2,
         requiredAnyOf: ["returns:create"],
