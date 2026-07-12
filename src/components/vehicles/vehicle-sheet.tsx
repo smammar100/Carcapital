@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import {
   Check,
   Download,
@@ -401,6 +402,8 @@ export function VehicleSheet({
   children,
 }: VehicleSheetProps) {
   const { company, user } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [visible, setVisible] = useState<Set<string>>(
     new Set(allCols.map((c) => colKey(c))),
@@ -683,6 +686,12 @@ export function VehicleSheet({
       else next.add(k);
       return next;
     });
+  }
+
+  /** Open a vehicle's detail page, stamping the originating list path as
+   *  `?from=` so the detail Back button returns here (not always Inventory). */
+  function openVehicle(id: string) {
+    router.push(`/vehicles/${id}?from=${encodeURIComponent(pathname)}`);
   }
 
   function toggleRow(id: string) {
@@ -981,7 +990,11 @@ export function VehicleSheet({
                     return (
                       <tr
                         key={v.id}
-                        className={cn("group/row", isSelected && "bg-primary/5")}
+                        onClick={() => openVehicle(v.id)}
+                        className={cn(
+                          "group/row cursor-pointer",
+                          isSelected && "bg-primary/5",
+                        )}
                       >
                         <td
                           className={cn(
@@ -996,6 +1009,7 @@ export function VehicleSheet({
                             isSelected && "bg-muted",
                             "group-hover/row:bg-muted",
                           )}
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <div className="flex h-11 items-center justify-center">
                             <span className="text-xs tabular-nums text-muted-foreground group-hover/row:hidden group-has-[[data-state=checked]]/row:hidden">
@@ -1054,6 +1068,7 @@ export function VehicleSheet({
                                     }
                                     value={draft}
                                     disabled={savingCell}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => setDraft(e.target.value)}
                                     onBlur={() => void commitEdit(v, c)}
                                     onKeyDown={(e) => {
@@ -1074,7 +1089,8 @@ export function VehicleSheet({
                                   <button
                                     type="button"
                                     title="Click to edit"
-                                    onClick={() => {
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       if (c.type === "boolean") {
                                         void commitEdit(
                                           v,

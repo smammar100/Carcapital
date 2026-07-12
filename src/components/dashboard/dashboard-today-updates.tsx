@@ -55,7 +55,7 @@ export function DashboardTodayUpdates() {
         href: "/maintenance/inspection",
       },
       {
-        label: "Vehicle returns to review",
+        label: "Returns & cancellations to review",
         count: returns,
         href: "/admin/vehicle-returns",
       },

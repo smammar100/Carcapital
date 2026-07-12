@@ -480,11 +480,12 @@ export default function ReturnsPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Vehicle Returns
+            Returns and Cancellations
           </h1>
           <p className="text-sm text-muted-foreground">
-            Process a sold car coming back. Enter its registration to pull the
-            original sale, then resolve it to raise a refund invoice.
+            Process a sold car coming back or a cancelled sale. Enter its
+            registration to pull the original sale, then resolve it to raise a
+            refund invoice.
           </p>
         </div>
         <Dialog
@@ -742,8 +743,8 @@ export default function ReturnsPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={Undo2}
-          title="No returns yet"
-          description="Process customer returns and track resolution paths."
+          title="No returns or cancellations yet"
+          description="Process customer returns and cancellations and track resolution paths."
         />
       ) : (
         <div className="grid grid-cols-1 overflow-hidden rounded-lg border border-border bg-card lg:grid-cols-[320px_1fr]">

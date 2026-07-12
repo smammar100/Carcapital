@@ -2,6 +2,7 @@
 
 import { use, useEffect, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
@@ -17,6 +18,28 @@ import { VehicleDetailShell } from "@/components/vehicle-detail/vehicle-detail-s
 import { toast } from "@/lib/toast";
 
 /**
+ * Lists a vehicle can be opened from, keyed by their route. The grid stamps
+ * the originating path as `?from=` (see VehicleSheet.openVehicle) so Back
+ * returns to the exact list the user came from instead of always Inventory.
+ */
+const BACK_TARGETS: Record<string, string> = {
+  "/vehicles": "All Vehicles",
+  "/admin/master-sheet": "Master Sheet",
+  "/advert/work-list": "Work List",
+};
+
+/** Resolve the Back link target from the `from` query param. Only known
+ *  in-app list routes are honoured; anything else falls back to Inventory. */
+function resolveBack(from: string | null): { href: string; label: string } {
+  if (from) {
+    const path = from.split("?")[0];
+    const label = BACK_TARGETS[path];
+    if (label) return { href: from, label };
+  }
+  return { href: "/vehicles", label: "inventory" };
+}
+
+/**
  * Vehicle detail — the v5 surface for a single piece of stock. The page
  * owns auth/data hydration and the inspection side-panel; everything
  * visual is handled by `VehicleHeaderCard` (the hero) and
@@ -28,6 +51,8 @@ export default function VehicleDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
+  const searchParams = useSearchParams();
+  const back = resolveBack(searchParams.get("from"));
   const { confirm, confirmDialog } = useConfirm();
   const { user, company } = useAuth();
   const [vehicle, setVehicle] = useState<Vehicle | null | undefined>(undefined);
@@ -125,7 +150,7 @@ export default function VehicleDetailPage({
         Vehicle not found.
         <div className="mt-3">
           <Button asChild size="sm" variant="outline">
-            <Link href="/vehicles">Back to inventory</Link>
+            <Link href={back.href}>Back to {back.label}</Link>
           </Button>
         </div>
       </div>
@@ -135,8 +160,8 @@ export default function VehicleDetailPage({
   return (
     <div className="flex flex-col gap-4">
       <Button asChild variant="ghost" size="sm" className="-ml-2 self-start">
-        <Link href="/vehicles">
-          <ChevronLeft className="mr-1 h-4 w-4" /> Back to inventory
+        <Link href={back.href}>
+          <ChevronLeft className="mr-1 h-4 w-4" /> Back to {back.label}
         </Link>
       </Button>
 

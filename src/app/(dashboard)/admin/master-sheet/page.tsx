@@ -29,9 +29,9 @@ const COLS: ColDef[] = [
   { key: "purchaseSource", label: "Purchase Source", type: "select", width: 130 },
   { key: "auctionHouse", label: "Auction", type: "text", width: 130 },
   { key: "v5Received", label: "V5", type: "boolean", width: 60 },
-  { key: "serviceHistory", label: "SH", type: "select", width: 90 },
+  { key: "serviceHistory", label: "Service History", type: "select", width: 130 },
   { key: "numKeys", label: "Keys", type: "number", width: 60 },
-  { key: "lockNut", label: "Lock", type: "boolean", width: 60 },
+  { key: "lockNut", label: "Locking Nut Key", type: "boolean", width: 130 },
   { key: "motExpiry", label: "MOT", type: "date", width: 120 },
   { key: "buyingPrice", label: "Buying", type: "currency", width: 110 },
   { key: "buyersFee", label: "Buyer fee", type: "currency", width: 100 },
@@ -55,8 +55,7 @@ const COLS: ColDef[] = [
   { key: "status", label: "Status", type: "status", width: 140 },
   // Spec v3.0 · Module A — Location with Off-site badge for Garage/Staff.
   { key: "currentLocation", label: "Location", type: "location", width: 150 },
-  { key: "daysInStock", label: "Days", type: "number", width: 70 },
-  { key: "imagesCount", label: "Imgs", type: "number", width: 70 },
+  { key: "daysInStock", label: "Days in Stock", type: "number", width: 120 },
 ];
 
 const FILTER_FIELDS: FilterField[] = [
