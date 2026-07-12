@@ -204,6 +204,10 @@ const DAY_HOUR_PX = 56;
 // simultaneous events as collisions instead of fabricating overlaps from
 // hard-coded 1h/2h spans.
 const MARKER_DURATION = 0.5;
+// The dealership books customer appointments in 1-hour slots (UAT 2026-07-09),
+// so an appointment spans a full hour from its start. Workshop markers keep the
+// fine-grained 30-min MARKER_DURATION.
+const APPT_DURATION = 1;
 
 function gridSpan(
   ev: CalEvent,
@@ -221,6 +225,12 @@ function gridSpan(
 const TIME_OPTIONS: string[] = Array.from(
   { length: (GRID_END - GRID_START) * 2 },
   (_, i) => decToHm(GRID_START + i / 2),
+);
+// Appointment booking offers whole-hour start slots within business hours
+// (last slot 17:00, ending 18:00 at GRID_END). Workshop uses TIME_OPTIONS.
+const APPT_TIME_OPTIONS: string[] = Array.from(
+  { length: GRID_END - GRID_START },
+  (_, i) => decToHm(GRID_START + i),
 );
 
 /* ------------------------------------------------------------- modal state */
@@ -420,7 +430,7 @@ export function SharedCalendar({
         subtitle: vehicleLine(a.vehicleId),
         date: a.date,
         start,
-        end: start + MARKER_DURATION,
+        end: start + APPT_DURATION,
         raw: a,
       });
     }
@@ -1416,9 +1426,12 @@ function EventForm({
     onSubmit(fields);
   };
 
-  const timeOptions = TIME_OPTIONS.includes(fields.time)
-    ? TIME_OPTIONS
-    : [fields.time, ...TIME_OPTIONS];
+  // Appointments book in whole-hour slots; workshop keeps 30-min granularity.
+  const baseTimeOptions =
+    fields.kind === "appt" ? APPT_TIME_OPTIONS : TIME_OPTIONS;
+  const timeOptions = baseTimeOptions.includes(fields.time)
+    ? baseTimeOptions
+    : [fields.time, ...baseTimeOptions];
 
   const vehicleSelect = (
     <nord-select
