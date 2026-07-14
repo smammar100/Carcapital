@@ -224,7 +224,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         requiredAnyOf: ["sales:edit_pipeline_stage"],
       },
       {
-        label: "Deals",
+        label: "Closed Deals",
         href: "/sales/deals",
         icon: Handshake,
         requiredAnyOf: ["sales:mark_sold", "sales:edit_pipeline_stage"],
