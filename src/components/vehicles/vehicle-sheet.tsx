@@ -14,6 +14,7 @@ import {
   Download,
   FileSpreadsheet,
   Plus,
+  Search,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -942,19 +943,22 @@ export function VehicleSheet({
               </span>
             ))}
             <div className="ml-auto flex items-center gap-2">
-              <nord-input
-                type="search"
-                hideLabel
-                label="Search"
-                size="s"
-                placeholder="Search reg, stock, make…"
-                value={search}
-                onInput={(e) => {
-                  setSearch((e.target as HTMLInputElement).value);
-                  setPage(1);
-                }}
-                suppressHydrationWarning
-              />
+              {/* Plain search input — no "Search" label above it (GEN-40); the
+                  placeholder describes it and aria-label keeps it accessible. */}
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  aria-label="Search"
+                  placeholder="Search reg, stock, make…"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setPage(1);
+                  }}
+                  className="h-8 w-56 pl-7 text-xs"
+                />
+              </div>
               <button
                 type="button"
                 onClick={() => setBuilderOpen((o) => !o)}
