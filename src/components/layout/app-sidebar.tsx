@@ -11,6 +11,7 @@ import { getPrimaryCta, type PrimaryCta } from "@/lib/role-cta";
 import { cn } from "@/lib/utils";
 import {
   SIDEBAR_GROUPS,
+  activeHrefForPath,
   type SidebarGroup,
   type SidebarItem,
 } from "./sidebar-config";
@@ -75,9 +76,12 @@ export function AppSidebar() {
     })).filter((group) => group.items.length > 0);
   }, [can, isSuperUser]);
 
+  // Exactly one nav item is active: the single longest href matching the current
+  // path. This stops a parent route (/maintenance) from also highlighting when a
+  // child route (/maintenance/calendar) is open (GEN-36).
+  const activeHref = React.useMemo(() => activeHrefForPath(pathname), [pathname]);
   function isActive(href: string): boolean {
-    if (href === "/dashboard") return pathname === href;
-    return pathname === href || pathname.startsWith(href + "/");
+    return href === activeHref;
   }
 
   // The group containing the current route — always rendered expanded so the
