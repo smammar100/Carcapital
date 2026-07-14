@@ -25,9 +25,19 @@ export const CAR_CAPITAL_COMPANY = {
   website: "www.thecarcapital.co.uk",
   warrantyProviderPhone: "02088434878",
   warrantyProviderEmail: "info@thecarcapital.co.uk",
+  // Accreditation logos rendered in the invoice footer. Served from /public so
+  // @react-pdf/renderer's <Image> fetches them at build/print time (the PDF is
+  // generated client-side, so a root-relative URL resolves against the origin).
+  // JPG/PNG only — @react-pdf/renderer can't rasterise SVG (GEN-35).
   badges: [
-    { line1: "AutoTrader", line2: "Highly Rated", line3: "FOR OUR CUSTOMER SERVICE 2023" },
-    { line1: "CarGurus", line2: "TOP-RATED", line3: "DEALER 2023" },
+    {
+      src: "/invoice/autotrader-highly-rated-2023.jpg",
+      alt: "AutoTrader — Highly Rated for our Customer Service 2023",
+    },
+    {
+      src: "/invoice/cargurus-top-rated-2023.jpg",
+      alt: "CarGurus — Top-Rated Dealer 2023",
+    },
   ],
 } as const;
 

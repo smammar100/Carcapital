@@ -145,8 +145,8 @@ export function CommandPalette() {
       }}
       label="Command palette"
       shouldFilter
-      className="fixed left-1/2 top-24 z-[100] w-full max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border bg-background shadow-2xl"
-      overlayClassName="fixed inset-0 z-[99] bg-black/30 backdrop-blur-[2px]"
+      className="fixed left-1/2 top-24 z-[900] w-full max-w-lg -translate-x-1/2 overflow-hidden rounded-xl border bg-background shadow-2xl"
+      overlayClassName="fixed inset-0 z-[900] bg-black/30 backdrop-blur-[2px]"
     >
       <Command.Input
         value={query}

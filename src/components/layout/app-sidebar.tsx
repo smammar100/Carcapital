@@ -2,19 +2,25 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { AddVehicleModal } from "@/components/vehicles/add-vehicle-modal";
-import { getPrimaryCta, type PrimaryCta } from "@/lib/role-cta";
 import { cn } from "@/lib/utils";
 import {
   SIDEBAR_GROUPS,
+  activeHrefForPath,
   type SidebarGroup,
   type SidebarItem,
 } from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
+
+// localStorage key for the user's persisted expand/collapse choices (GEN-29).
+const COLLAPSED_STORAGE_KEY = "cc.sidebar.collapsed-groups";
+// Every collapsible group label — the default "all collapsed" state.
+const ALL_GROUP_LABELS: string[] = SIDEBAR_GROUPS.map((g) => g.label).filter(
+  (label): label is string => label !== null,
+);
 
 // Active = neutral pill + left accent tick (prototype "Variation E"). Crucially
 // NOT a solid-blue fill, so it never reads like the primary "Add Vehicle" CTA.
@@ -27,18 +33,31 @@ const ITEM_INACTIVE =
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
-  const { company } = useAuth();
+  const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
-  const [addOpen, setAddOpen] = React.useState(false);
-  // Collapsed group labels (in-memory; persists across SPA navigation since the
-  // sidebar stays mounted in the dashboard layout). Default: all expanded.
-  const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
-
-  const primaryCta = React.useMemo(
-    () => getPrimaryCta({ isSuperUser, can }),
-    [isSuperUser, can],
+  // Collapsed group labels. Default: every group collapsed (GEN-29) so the
+  // sidebar loads compact; the group holding the active route is force-expanded
+  // at render time. Deterministic on server + first client paint (no persisted
+  // read here) so there's no hydration mismatch or active-group expand flicker.
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(
+    () => new Set(ALL_GROUP_LABELS),
   );
+
+  // Hydrate the user's persisted choices after mount. localStorage is
+  // unavailable during SSR, so reading it in the initializer above would risk a
+  // hydration mismatch; applying it in an effect keeps the first paint stable.
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      // Deliberate post-mount setState: reading localStorage in the initializer
+      // would diverge from the server render and cause a hydration mismatch, so
+      // we hydrate the persisted state here instead. Runs once.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (raw) setCollapsed(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      // Corrupt/blocked storage → keep the all-collapsed default.
+    }
+  }, []);
 
   // Capability gating (unchanged): an item shows for super-users, items with no
   // gate, or items where the user holds ANY required capability. A group renders
@@ -52,26 +71,38 @@ export function AppSidebar() {
     })).filter((group) => group.items.length > 0);
   }, [can, isSuperUser]);
 
+  // Exactly one nav item is active: the single longest href matching the current
+  // path. This stops a parent route (/maintenance) from also highlighting when a
+  // child route (/maintenance/calendar) is open (GEN-36).
+  const activeHref = React.useMemo(() => activeHrefForPath(pathname), [pathname]);
   function isActive(href: string): boolean {
-    if (href === "/dashboard") return pathname === href;
-    return pathname === href || pathname.startsWith(href + "/");
+    return href === activeHref;
   }
+
+  // The group containing the current route — always rendered expanded so the
+  // active page stays visible even when the user's default is collapsed.
+  const activeGroupLabel: string | null = React.useMemo(() => {
+    const group = visibleGroups.find(
+      (g) => g.label !== null && g.items.some((item) => isActive(item.href)),
+    );
+    return group?.label ?? null;
+    // isActive is a pure function of pathname, so pathname is the real dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleGroups, pathname]);
 
   function toggleGroup(label: string): void {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
+      // Persist the manual choice so it survives reloads/navigation (GEN-29).
+      try {
+        localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...next]));
+      } catch {
+        // Ignore storage failures — in-memory state still updates.
+      }
       return next;
     });
-  }
-
-  // Client-side routing comes free from <Link>; modifier-clicks open a new tab.
-  function handleCtaNav(e: React.MouseEvent, href: string): void {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
-      return;
-    e.preventDefault();
-    router.push(href);
   }
 
   const renderItems = (items: SidebarItem[]) => (
@@ -103,7 +134,7 @@ export function AppSidebar() {
         slot="header"
         href="/dashboard"
         // Nord's header slot has no inset (unlike the body), so add left padding
-        // to align the brand with the nav items / CTA below it.
+        // to align the brand with the nav items below it.
         className="flex min-w-0 items-center gap-2 py-1 pl-5 pr-3 no-underline"
       >
         {company?.logoMarkUrl ? (
@@ -119,37 +150,34 @@ export function AppSidebar() {
           </span>
         )}
         <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold text-foreground">
-            Car Capital UK
+          <span
+            className="truncate text-sm font-semibold text-foreground"
+            suppressHydrationWarning
+          >
+            {company?.name ?? "Car Capital UK"}
           </span>
+          {/* The signed-in user's email, not a second copy of the company name
+              (GEN-34). Falls back to a dash before hydration / when unknown. */}
           <span
             className="truncate text-xs text-muted-foreground"
             suppressHydrationWarning
           >
-            {company?.name ?? "—"}
+            {user?.email ?? "—"}
           </span>
         </span>
       </Link>
 
-      {primaryCta && (
-        <div className="px-2 pb-2">
-          <PrimaryCtaButton
-            cta={primaryCta}
-            onModal={() => setAddOpen(true)}
-            onNav={handleCtaNav}
-          />
-        </div>
-      )}
-      <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} />
-
-      <div className="flex flex-col gap-1.5 px-1 pb-2">
+      <div className="flex flex-col gap-1.5 px-1 pb-2 pt-1">
         {visibleGroups.map((group) => {
           if (group.label === null) {
             return (
               <div key="__top">{renderItems(group.items)}</div>
             );
           }
-          const isOpen = !collapsed.has(group.label);
+          // Active group is always open so the current page stays visible;
+          // otherwise honour the collapsed set (defaults to collapsed).
+          const isOpen =
+            group.label === activeGroupLabel || !collapsed.has(group.label);
           return (
             <div key={group.label}>
               <button
@@ -172,34 +200,5 @@ export function AppSidebar() {
         })}
       </div>
     </nord-navigation>
-  );
-}
-
-function PrimaryCtaButton({
-  cta,
-  onModal,
-  onNav,
-}: {
-  cta: PrimaryCta;
-  onModal: () => void;
-  onNav: (e: React.MouseEvent, href: string) => void;
-}): React.ReactElement {
-  if (cta.kind === "modal") {
-    return (
-      <nord-button variant="primary" expand onClick={onModal}>
-        <nord-icon slot="start" name="interface-add-small" />
-        {cta.label}
-      </nord-button>
-    );
-  }
-  return (
-    <nord-button
-      variant="primary"
-      expand
-      href={cta.href}
-      onClick={(e: React.MouseEvent) => cta.href && onNav(e, cta.href)}
-    >
-      {cta.label}
-    </nord-button>
   );
 }

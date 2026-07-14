@@ -262,12 +262,38 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
 ];
 
-/** Used by AppHeader to derive the page title from the current pathname. */
-export function titleFromPath(pathname: string): string {
+/** Whether a pathname sits under (or exactly on) a nav item's href. */
+function matchesHref(pathname: string, href: string): boolean {
+  if (href === "/dashboard") return pathname === href;
+  return pathname === href || pathname.startsWith(href + "/");
+}
+
+/**
+ * The single active sidebar href for a path: the LONGEST matching item href, so
+ * a child route (`/maintenance/calendar`) beats its parent (`/maintenance`) and
+ * only one nav item is ever highlighted (GEN-36). Returns null when nothing
+ * matches. Mirrors the longest-match rule already used by requiredCapsForPath.
+ */
+export function activeHrefForPath(pathname: string): string | null {
+  let best: string | null = null;
   for (const group of SIDEBAR_GROUPS) {
     for (const item of group.items) {
-      if (pathname === item.href) return item.label;
-      if (pathname.startsWith(item.href + "/")) return item.label;
+      if (matchesHref(pathname, item.href)) {
+        if (best === null || item.href.length > best.length) best = item.href;
+      }
+    }
+  }
+  return best;
+}
+
+/** Used by AppHeader to derive the page title from the current pathname. */
+export function titleFromPath(pathname: string): string {
+  const activeHref = activeHrefForPath(pathname);
+  if (activeHref) {
+    for (const group of SIDEBAR_GROUPS) {
+      for (const item of group.items) {
+        if (item.href === activeHref) return item.label;
+      }
     }
   }
   if (pathname.startsWith("/vehicles/")) return "Vehicle";
