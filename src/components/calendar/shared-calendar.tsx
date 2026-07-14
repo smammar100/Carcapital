@@ -205,16 +205,23 @@ const DAY_HOUR_PX = 56;
 // hard-coded 1h/2h spans.
 const MARKER_DURATION = 0.5;
 
-function gridSpan(
-  ev: CalEvent,
-  hourPx: number,
-): { top: number; height: number } | null {
+// Total business hours the grid spans (09:00–18:00 → 9).
+const TOTAL_HOURS = GRID_END - GRID_START;
+// Minimum pixel height for an event pill so its time + name are never clipped,
+// even for a short or late-in-day slot near the grid's bottom edge (GEN-33).
+const EVENT_MIN_PX = 40;
+
+// Position an event as a percentage of the grid height instead of fixed pixels,
+// so the hour rows can flex-grow to fill the calendar card (GEN-32) while events
+// stay aligned to their times. Returns null when the event falls outside the
+// business-hours window. `top`/`height` are CSS percentage strings.
+function spanPct(ev: CalEvent): { top: string; height: string } | null {
   if (ev.end <= GRID_START || ev.start >= GRID_END) return null;
   const s = Math.max(ev.start, GRID_START);
   const e = Math.min(ev.end, GRID_END);
   return {
-    top: (s - GRID_START) * hourPx,
-    height: Math.max((e - s) * hourPx, 20),
+    top: `${((s - GRID_START) / TOTAL_HOURS) * 100}%`,
+    height: `${((e - s) / TOTAL_HOURS) * 100}%`,
   };
 }
 
@@ -937,8 +944,8 @@ function WeekView({
   const nowDecimal = now ? now.getHours() + now.getMinutes() / 60 : null;
 
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="sticky top-0 z-20 flex h-12 border-b border-border bg-card">
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
+      <div className="sticky top-0 z-20 flex h-12 shrink-0 border-b border-border bg-card">
         <div className="w-12 shrink-0" />
         {days.map((d, i) => {
           const iso = toISO(d);
@@ -975,7 +982,7 @@ function WeekView({
         })}
       </div>
 
-      <div className="sticky top-12 z-20 flex min-h-7 border-b border-border bg-card">
+      <div className="sticky top-12 z-20 flex min-h-7 shrink-0 border-b border-border bg-card">
         <div className="flex w-12 shrink-0 items-center justify-end pr-1.5">
           <span className="text-[9px] uppercase text-muted-foreground">all-day</span>
         </div>
@@ -1018,12 +1025,19 @@ function WeekView({
         })}
       </div>
 
-      <div className="flex">
-        <div className="w-12 shrink-0">
+      {/* Hours body flex-grows to fill the card; a min-height keeps the rows
+          readable and makes the scroll appear only when hours genuinely don't
+          fit (GEN-32). Hour rows and events both size off the same grid, so
+          events stay aligned to their times. */}
+      <div
+        className="flex min-h-0 flex-1"
+        style={{ minHeight: TOTAL_HOURS * WEEK_HOUR_PX }}
+      >
+        <div className="flex w-12 shrink-0 flex-col">
           {HOURS.map((h) => (
             <div
               key={h}
-              className="h-12 border-b border-border/60 pr-1.5 pt-0.5 text-right text-[10px] leading-none tabular-nums text-muted-foreground"
+              className="flex-1 border-b border-border/60 pr-1.5 pt-0.5 text-right text-[10px] leading-none tabular-nums text-muted-foreground"
             >
               {fmtHour(h)}
             </div>
@@ -1042,7 +1056,7 @@ function WeekView({
             <div
               key={iso}
               className={cn(
-                "relative min-w-0 flex-1 border-l border-border",
+                "relative flex min-w-0 flex-1 flex-col border-l border-border",
                 i >= 5 && "bg-muted/30",
               )}
             >
@@ -1054,11 +1068,11 @@ function WeekView({
                   onClick={() =>
                     onCreateAt({ date: iso, time: decToHm(h), kind: defaultKind })
                   }
-                  className="block h-12 w-full border-b border-border/60 transition-colors hover:bg-muted/40"
+                  className="block min-h-0 w-full flex-1 border-b border-border/60 transition-colors hover:bg-muted/40"
                 />
               ))}
               {timed.map((e) => {
-                const span = gridSpan(e, WEEK_HOUR_PX);
+                const span = spanPct(e);
                 if (!span) return null;
                 return (
                   <button
@@ -1069,6 +1083,7 @@ function WeekView({
                     style={{
                       top: span.top,
                       height: span.height,
+                      minHeight: EVENT_MIN_PX,
                       left: `calc(0.125rem + ${(depths.get(e.key) ?? 0) * 14}%)`,
                       right: "0.125rem",
                       zIndex: 1 + (depths.get(e.key) ?? 0),
@@ -1095,7 +1110,9 @@ function WeekView({
               {showNow && nowDecimal !== null && (
                 <div
                   className="pointer-events-none absolute inset-x-0 z-10"
-                  style={{ top: (nowDecimal - GRID_START) * WEEK_HOUR_PX }}
+                  style={{
+                    top: `${((nowDecimal - GRID_START) / TOTAL_HOURS) * 100}%`,
+                  }}
                 >
                   <div className="relative h-px bg-red-500/70">
                     <span className="absolute -left-0.5 -top-[2.5px] h-1.5 w-1.5 rounded-full bg-red-500/70" />
@@ -1190,23 +1207,26 @@ function DayView({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Lanes flex-grow to fill the card height; the min-height keeps the
+            rows readable and makes a scrollbar appear only when the hours don't
+            fit (GEN-32). Events size off the same grid via spanPct so they stay
+            aligned to their times. */}
         <div
-          className="relative grid pb-4"
-          style={{ gridTemplateColumns: laneCols }}
+          className="relative flex min-h-full"
+          style={{ minHeight: TOTAL_HOURS * DAY_HOUR_PX }}
         >
-          <div
-            className="relative"
-            style={{ height: (GRID_END - GRID_START) * DAY_HOUR_PX }}
-          >
-            {[...HOURS, GRID_END].map((h) => (
-              <span
+          <div className="relative flex w-12 shrink-0 flex-col">
+            {HOURS.map((h) => (
+              <div
                 key={h}
-                className="absolute right-1.5 text-[10px] tabular-nums text-muted-foreground"
-                style={{ top: (h - GRID_START) * DAY_HOUR_PX + 2 }}
+                className="flex-1 pr-1.5 pt-0.5 text-right text-[10px] leading-none tabular-nums text-muted-foreground"
               >
                 {fmtHour(h)}
-              </span>
+              </div>
             ))}
+            <span className="absolute bottom-0 right-1.5 text-[10px] leading-none tabular-nums text-muted-foreground">
+              {fmtHour(GRID_END)}
+            </span>
           </div>
 
           {kinds.map((kind) => {
@@ -1214,7 +1234,10 @@ function DayView({
             const timed = laneAll.filter((e) => !e.allDay);
             const depths = overlapDepths(timed);
             return (
-              <div key={kind} className="relative border-l border-border">
+              <div
+                key={kind}
+                className="relative flex min-w-0 flex-1 flex-col border-l border-border"
+              >
                 {HOURS.map((h) => (
                   <button
                     key={h}
@@ -1223,20 +1246,22 @@ function DayView({
                     onClick={() =>
                       onCreateAt({ date: iso, time: decToHm(h), kind })
                     }
-                    className="block h-14 w-full border-b border-border/50 transition-colors hover:bg-muted/40"
+                    className="block min-h-0 w-full flex-1 border-b border-border/50 transition-colors hover:bg-muted/40"
                   />
                 ))}
                 {timed.map((e) => {
-                  const span = gridSpan(e, DAY_HOUR_PX);
+                  const span = spanPct(e);
                   if (!span) return null;
                   return (
                     <button
                       key={e.key}
                       type="button"
+                      title={`${e.title}${e.subtitle ? ` · ${e.subtitle}` : ""}`}
                       onClick={() => onOpenEvent(e)}
                       style={{
                         top: span.top,
                         height: span.height,
+                        minHeight: EVENT_MIN_PX,
                         left: `calc(0.25rem + ${(depths.get(e.key) ?? 0) * 14}%)`,
                         right: "0.25rem",
                         zIndex: 1 + (depths.get(e.key) ?? 0),
@@ -1271,7 +1296,7 @@ function DayView({
             <div
               className="pointer-events-none absolute right-0 z-20"
               style={{
-                top: (nowDecimal - GRID_START) * DAY_HOUR_PX,
+                top: `${((nowDecimal - GRID_START) / TOTAL_HOURS) * 100}%`,
                 left: "3rem",
               }}
             >
@@ -1437,6 +1462,12 @@ function EventForm({
     </nord-select>
   );
 
+  // Date and Time share identical custom-control markup (label typography +
+  // h-9 box) so they top-align in the two-column grid. A Nord <nord-select> for
+  // Time sat at a different height than the native date input, leaving the two
+  // fields misaligned; nord-input has no native date type, so match the other
+  // way — render Time as a plain styled <select> mirroring the date field
+  // (GEN-30).
   const dateField = (labelText: string) => (
     <div className="flex flex-col gap-1">
       <label htmlFor="mc-date" className="text-xs font-medium text-foreground">
@@ -1453,19 +1484,24 @@ function EventForm({
   );
 
   const timeSelect = (
-    <nord-select
-      expand
-      label="Time"
-      value={fields.time}
-      onChange={(e) => set("time", (e.target as HTMLSelectElement).value)}
-      suppressHydrationWarning
-    >
-      {timeOptions.map((t) => (
-        <option key={t} value={t}>
-          {fmtHour(hmToDec(t))}
-        </option>
-      ))}
-    </nord-select>
+    <div className="flex flex-col gap-1">
+      <label htmlFor="mc-time" className="text-xs font-medium text-foreground">
+        Time
+      </label>
+      <select
+        id="mc-time"
+        value={fields.time}
+        onChange={(e) => set("time", e.target.value)}
+        suppressHydrationWarning
+        className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {timeOptions.map((t) => (
+          <option key={t} value={t}>
+            {fmtHour(hmToDec(t))}
+          </option>
+        ))}
+      </select>
+    </div>
   );
 
   return (
