@@ -22,12 +22,12 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import {
   companyInvoiceFields,
-  downloadBlob,
   openBlobInNewTab,
   pdfService,
 } from "@/lib/services/pdf-service";
 import type { Invoice, InvoiceType } from "@/lib/types";
 import { ExternalInvoiceList } from "@/components/external-invoices";
+import { InvoiceDetailDialog } from "@/components/invoicing/invoice-detail-dialog";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -151,6 +151,21 @@ export default function InvoicingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company, vatRange]);
 
+  // Deep-link: `?view=<invoiceId>` opens that invoice's detail modal (e.g. when
+  // clicking a row in Closed Deals, GEN-21). Consume the param once loaded so
+  // closing the modal doesn't immediately re-open it.
+  useEffect(() => {
+    const viewId = searchParams.get("view");
+    if (!viewId || !invoices) return;
+    const inv = invoices.find((i) => i.id === viewId);
+    if (!inv) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setViewing(inv);
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("view");
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [searchParams, invoices, router]);
+
   const filtered = useMemo(() => {
     if (!invoices) return null;
     if (filter === "all") return invoices;
@@ -237,15 +252,6 @@ export default function InvoicingPage() {
       ...companyInvoiceFields(company),
     });
     openBlobInNewTab(blob);
-  }
-
-  async function handleDownload(inv: Invoice) {
-    if (!company) return;
-    const blob = await pdfService.generateInvoice({
-      invoice: inv,
-      ...companyInvoiceFields(company),
-    });
-    downloadBlob(blob, `${inv.invoiceNumber}.pdf`);
   }
 
   async function handleUpload() {
@@ -691,78 +697,14 @@ export default function InvoicingPage() {
         </TabsContent>
       </Tabs>
 
-      {/* View modal */}
-      <Dialog
-        open={viewing !== null}
+      {/* View modal — shared in-app invoice detail (also used on Closed Deals). */}
+      <InvoiceDetailDialog
+        invoice={viewing}
+        company={company}
         onOpenChange={(o) => {
           if (!o) setViewing(null);
         }}
-      >
-        <DialogContent className="max-w-lg">
-          {viewing && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{viewing.invoiceNumber}</DialogTitle>
-                <DialogDescription>
-                  {viewing.partyName} · {formatDate(viewing.invoiceDate)}
-                </DialogDescription>
-              </DialogHeader>
-              <div className="overflow-x-auto px-6">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="border-b text-left text-muted-foreground">
-                      <th className="py-1.5 pr-2 font-medium">Description</th>
-                      <th className="py-1.5 pr-2 text-right font-medium">Qty</th>
-                      <th className="py-1.5 pr-2 text-right font-medium">Unit</th>
-                      <th className="py-1.5 pr-2 text-right font-medium">VAT</th>
-                      <th className="py-1.5 pr-2 text-right font-medium">Total</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {viewing.lineItems.map((li) => (
-                      <tr key={li.id} className="border-b last:border-b-0">
-                        <td className="py-1.5 pr-2">{li.description}</td>
-                        <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {li.quantity}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {formatCurrency(li.unitPrice)}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {formatCurrency(li.vatAmount)}
-                        </td>
-                        <td className="py-1.5 pr-2 text-right tabular-nums">
-                          {formatCurrency(li.total + li.vatAmount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <div className="grid gap-1 px-6 pb-6 text-right text-sm tabular-nums">
-                <div>
-                  Subtotal: {formatCurrency(viewing.subtotal)}
-                </div>
-                <div>VAT: {formatCurrency(viewing.vatAmount)}</div>
-                <div className="text-base font-semibold">
-                  Total: {formatCurrency(viewing.total)}
-                </div>
-              </div>
-              <DialogFooter>
-                <Button
-                  variant="outline"
-                  onClick={() => void handleDownload(viewing)}
-                >
-                  Download PDF
-                </Button>
-                <Button onClick={() => void handlePrint(viewing)}>
-                  Print
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      />
 
       {/* Email modal */}
       <Dialog
