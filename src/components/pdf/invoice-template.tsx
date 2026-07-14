@@ -167,14 +167,9 @@ const s = StyleSheet.create({
   footer: { marginTop: "auto", paddingTop: 8 },
   footerGrid: { flexDirection: "row", justifyContent: "space-between" },
   footerCol: { fontSize: 7.5, lineHeight: 1.5 },
-  badgeRow: { flexDirection: "row", gap: 6 },
-  badge: {
-    width: 64,
-    border: `0.5pt solid ${RULE}`,
-    padding: 3,
-    alignItems: "center",
-  },
-  badgeTxt: { fontSize: 5.5, textAlign: "center", lineHeight: 1.2 },
+  badgeRow: { flexDirection: "row", gap: 6, alignItems: "center" },
+  // Square-ish accreditation logos; contain keeps their aspect ratio (GEN-35).
+  badgeImg: { width: 42, height: 42, objectFit: "contain" },
   hr: { borderBottom: `0.5pt solid ${RULE}`, marginVertical: 5 },
   contactLine: { fontSize: 7.5, textAlign: "center" },
   chkBox: {
@@ -622,15 +617,8 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
             </View>
             <View style={s.badgeRow}>
               {CO.badges.map((b) => (
-                <View style={s.badge} key={b.line1}>
-                  <Text style={s.badgeTxt}>
-                    {b.line1}
-                    {"\n"}
-                    {b.line2}
-                    {"\n"}
-                    {b.line3}
-                  </Text>
-                </View>
+                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
+                <Image key={b.src} src={b.src} style={s.badgeImg} />
               ))}
             </View>
           </View>
