@@ -78,7 +78,7 @@ export function DrawerSwipeArea({
   return (
     <DrawerPrimitive.SwipeArea
       className={cn(
-        "fixed z-50 touch-none",
+        "fixed z-overlay touch-none",
         position === "bottom" && "inset-x-0 bottom-0 h-8",
         position === "top" && "inset-x-0 top-0 h-8",
         position === "left" && "inset-y-0 left-0 w-8",
@@ -98,7 +98,7 @@ export function DrawerBackdrop({
   return (
     <DrawerPrimitive.Backdrop
       className={cn(
-        "fixed inset-0 z-50 bg-black/32 opacity-[calc(1-var(--drawer-swipe-progress))] backdrop-blur-sm transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-starting-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-swiping:duration-0 supports-[-webkit-touch-callout:none]:absolute",
+        "fixed inset-0 z-overlay bg-black/32 opacity-[calc(1-var(--drawer-swipe-progress))] backdrop-blur-sm transition-opacity duration-450 ease-[cubic-bezier(0.32,0.72,0,1)] data-ending-style:opacity-0 data-starting-style:opacity-0 data-ending-style:duration-[calc(var(--drawer-swipe-strength)*400ms)] data-swiping:duration-0 supports-[-webkit-touch-callout:none]:absolute",
         className,
       )}
       data-slot="drawer-backdrop"
@@ -119,7 +119,7 @@ export function DrawerViewport({
   return (
     <DrawerPrimitive.Viewport
       className={cn(
-        "fixed inset-0 z-50 [--bleed:--spacing(12)] [--inset:--spacing(0)]",
+        "fixed inset-0 z-overlay [--bleed:--spacing(12)] [--inset:--spacing(0)]",
         "touch-none",
         position === "bottom" && "grid grid-rows-[1fr_auto] pt-12",
         position === "top" && "grid grid-rows-[auto_1fr] pb-12",

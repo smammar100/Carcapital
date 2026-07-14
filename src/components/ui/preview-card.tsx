@@ -34,7 +34,7 @@ export function PreviewCardPopup({
       <PreviewCardPrimitive.Positioner
         align={align}
         anchor={anchor}
-        className="z-50"
+        className="z-overlay"
         data-slot="preview-card-positioner"
         sideOffset={sideOffset}
       >

@@ -383,3 +383,16 @@
 @utility container {
   @apply mx-auto max-w-[1416px] px-4 lg:px-6;
 }
+
+/* App overlay stacking tier (GEN-31).
+   Overlays (dialogs, sheets, drawers, popovers, menus, selects, tooltips, the
+   command palette, calendar modals) portal to <body>, but Nord's fixed sidebar
+   sits at z-index 400 (--n-index-nav) and the top bar at 500. A bare Tailwind
+   `z-50` therefore renders backdrops BELOW the sidebar, leaving it lit and
+   clickable while a modal is open. Park the entire overlay band on Nord's modal
+   tier (900) so backdrops cover the whole viewport — including the sidebar — and
+   trap interaction. Every overlay layer shares one value so they keep stacking
+   amongst themselves by portal/DOM order, exactly as they did at z-50. */
+@utility z-overlay {
+  z-index: 900;
+}
