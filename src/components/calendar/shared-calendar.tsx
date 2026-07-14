@@ -1216,13 +1216,14 @@ function DayView({
         })}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">
         {/* Lanes flex-grow to fill the card height; the min-height keeps the
             rows readable and makes a scrollbar appear only when the hours don't
-            fit (GEN-32). Events size off the same grid via spanPct so they stay
-            aligned to their times. */}
+            fit (GEN-32). flex-1 (not min-h-full) does the growing — an inline
+            min-height would otherwise override a min-h-full class. Events size
+            off the same grid via spanPct so they stay aligned to their times. */}
         <div
-          className="relative flex min-h-full"
+          className="relative flex min-h-0 flex-1"
           style={{ minHeight: TOTAL_HOURS * DAY_HOUR_PX }}
         >
           <div className="relative flex w-12 shrink-0 flex-col">
