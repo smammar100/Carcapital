@@ -53,6 +53,10 @@ export function AppSidebar() {
   React.useEffect(() => {
     try {
       const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      // Deliberate post-mount setState: reading localStorage in the initializer
+      // would diverge from the server render and cause a hydration mismatch, so
+      // we hydrate the persisted state here instead. Runs once.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (raw) setCollapsed(new Set(JSON.parse(raw) as string[]));
     } catch {
       // Corrupt/blocked storage → keep the all-collapsed default.
