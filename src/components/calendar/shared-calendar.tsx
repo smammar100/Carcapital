@@ -207,9 +207,19 @@ const MARKER_DURATION = 0.5;
 
 // Total business hours the grid spans (09:00–18:00 → 9).
 const TOTAL_HOURS = GRID_END - GRID_START;
-// Minimum pixel height for an event pill so its time + name are never clipped,
-// even for a short or late-in-day slot near the grid's bottom edge (GEN-33).
-const EVENT_MIN_PX = 40;
+// Minimum pixel height for an event pill so its content is never clipped, even
+// for a short or late-in-day slot (GEN-33). Week pills show up to two lines
+// (time + name), Day pills three (time range + name + vehicle), so they need
+// more room.
+const WEEK_EVENT_MIN_PX = 40;
+const DAY_EVENT_MIN_PX = 58;
+
+// A pill's top, clamped so `top + minPx` never exceeds the grid bottom — a
+// late slot (e.g. 17:30) is pinned to the bottom edge instead of overflowing
+// the scroll container and getting cropped there (GEN-33).
+function clampTop(top: string, minPx: number): string {
+  return `min(${top}, calc(100% - ${minPx}px))`;
+}
 
 // Position an event as a percentage of the grid height instead of fixed pixels,
 // so the hour rows can flex-grow to fill the calendar card (GEN-32) while events
@@ -1081,9 +1091,9 @@ function WeekView({
                     title={`${e.title}${e.subtitle ? ` · ${e.subtitle}` : ""}`}
                     onClick={() => onOpenEvent(e)}
                     style={{
-                      top: span.top,
+                      top: clampTop(span.top, WEEK_EVENT_MIN_PX),
                       height: span.height,
-                      minHeight: EVENT_MIN_PX,
+                      minHeight: WEEK_EVENT_MIN_PX,
                       left: `calc(0.125rem + ${(depths.get(e.key) ?? 0) * 14}%)`,
                       right: "0.125rem",
                       zIndex: 1 + (depths.get(e.key) ?? 0),
@@ -1259,9 +1269,9 @@ function DayView({
                       title={`${e.title}${e.subtitle ? ` · ${e.subtitle}` : ""}`}
                       onClick={() => onOpenEvent(e)}
                       style={{
-                        top: span.top,
+                        top: clampTop(span.top, DAY_EVENT_MIN_PX),
                         height: span.height,
-                        minHeight: EVENT_MIN_PX,
+                        minHeight: DAY_EVENT_MIN_PX,
                         left: `calc(0.25rem + ${(depths.get(e.key) ?? 0) * 14}%)`,
                         right: "0.25rem",
                         zIndex: 1 + (depths.get(e.key) ?? 0),
@@ -1344,7 +1354,7 @@ function EventModal({
 
   return (
     <div
-      className="fixed inset-0 z-overlay flex items-center justify-center bg-black/50 p-4"
+      className="fixed inset-0 z-[900] flex items-center justify-center bg-black/50 p-4"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}

@@ -178,7 +178,7 @@ export function ComboboxPopup({
         align={align}
         alignOffset={alignOffset}
         anchor={anchor}
-        className="z-overlay select-none"
+        className="z-[900] select-none"
         data-slot="combobox-positioner"
         side={side}
         sideOffset={sideOffset}
