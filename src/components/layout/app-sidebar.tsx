@@ -2,12 +2,10 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
-import { AddVehicleModal } from "@/components/vehicles/add-vehicle-modal";
-import { getPrimaryCta, type PrimaryCta } from "@/lib/role-cta";
 import { cn } from "@/lib/utils";
 import {
   SIDEBAR_GROUPS,
@@ -35,10 +33,8 @@ const ITEM_INACTIVE =
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
-  const [addOpen, setAddOpen] = React.useState(false);
   // Collapsed group labels. Default: every group collapsed (GEN-29) so the
   // sidebar loads compact; the group holding the active route is force-expanded
   // at render time. Deterministic on server + first client paint (no persisted
@@ -62,11 +58,6 @@ export function AppSidebar() {
       // Corrupt/blocked storage → keep the all-collapsed default.
     }
   }, []);
-
-  const primaryCta = React.useMemo(
-    () => getPrimaryCta({ isSuperUser, can }),
-    [isSuperUser, can],
-  );
 
   // Capability gating (unchanged): an item shows for super-users, items with no
   // gate, or items where the user holds ANY required capability. A group renders
@@ -114,14 +105,6 @@ export function AppSidebar() {
     });
   }
 
-  // Client-side routing comes free from <Link>; modifier-clicks open a new tab.
-  function handleCtaNav(e: React.MouseEvent, href: string): void {
-    if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0)
-      return;
-    e.preventDefault();
-    router.push(href);
-  }
-
   const renderItems = (items: SidebarItem[]) => (
     <ul className="mt-0.5 flex flex-col gap-0.5">
       {items.map((item) => {
@@ -151,7 +134,7 @@ export function AppSidebar() {
         slot="header"
         href="/dashboard"
         // Nord's header slot has no inset (unlike the body), so add left padding
-        // to align the brand with the nav items / CTA below it.
+        // to align the brand with the nav items below it.
         className="flex min-w-0 items-center gap-2 py-1 pl-5 pr-3 no-underline"
       >
         {company?.logoMarkUrl ? (
@@ -184,18 +167,7 @@ export function AppSidebar() {
         </span>
       </Link>
 
-      {primaryCta && (
-        <div className="px-2 pb-2">
-          <PrimaryCtaButton
-            cta={primaryCta}
-            onModal={() => setAddOpen(true)}
-            onNav={handleCtaNav}
-          />
-        </div>
-      )}
-      <AddVehicleModal open={addOpen} onOpenChange={setAddOpen} />
-
-      <div className="flex flex-col gap-1.5 px-1 pb-2">
+      <div className="flex flex-col gap-1.5 px-1 pb-2 pt-1">
         {visibleGroups.map((group) => {
           if (group.label === null) {
             return (
@@ -228,34 +200,5 @@ export function AppSidebar() {
         })}
       </div>
     </nord-navigation>
-  );
-}
-
-function PrimaryCtaButton({
-  cta,
-  onModal,
-  onNav,
-}: {
-  cta: PrimaryCta;
-  onModal: () => void;
-  onNav: (e: React.MouseEvent, href: string) => void;
-}): React.ReactElement {
-  if (cta.kind === "modal") {
-    return (
-      <nord-button variant="primary" expand onClick={onModal}>
-        <nord-icon slot="start" name="interface-add-small" />
-        {cta.label}
-      </nord-button>
-    );
-  }
-  return (
-    <nord-button
-      variant="primary"
-      expand
-      href={cta.href}
-      onClick={(e: React.MouseEvent) => cta.href && onNav(e, cta.href)}
-    >
-      {cta.label}
-    </nord-button>
   );
 }
