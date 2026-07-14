@@ -1,6 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Check,
@@ -82,6 +89,14 @@ export function colKey(c: ColDef): string {
 }
 
 const PAGE_SIZE = 25;
+
+// Column-resize bounds (GEN-20). Columns never shrink below MIN so a header
+// stays clickable, nor grow past MAX so one column can't run off the screen.
+const MIN_COL_W = 48;
+const MAX_COL_W = 640;
+/** localStorage key for a sheet's per-column width overrides. */
+const colWidthsKey = (csvName: string): string =>
+  `cc.vehicle-sheet.col-widths.${csvName}`;
 
 /* ---- Filtering (Master Sheet "Variation C" filter-chip bar) -------------- */
 
@@ -432,6 +447,113 @@ export function VehicleSheet({
   );
   const [bValue, setBValue] = useState("");
   const filterId = useRef(1);
+
+  // Per-column width overrides (GEN-20), keyed by colKey → px. Missing keys fall
+  // back to the ColDef's default width. Persisted per sheet so a user's resize
+  // survives reloads; hydrated post-mount to avoid an SSR hydration mismatch.
+  const [colWidths, setColWidths] = useState<Record<string, number>>({});
+  const resizeRef = useRef<{
+    key: string;
+    startX: number;
+    startW: number;
+    colEl: HTMLElement | null;
+    width: number;
+    tableEl: HTMLElement | null;
+    startTableW: number;
+  } | null>(null);
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(colWidthsKey(csvName));
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      if (raw) setColWidths(JSON.parse(raw) as Record<string, number>);
+    } catch {
+      /* corrupt/blocked storage → keep default widths */
+    }
+  }, [csvName]);
+
+  const widthFor = (c: ColDef): number => colWidths[colKey(c)] ?? c.width;
+
+  function persistWidths(next: Record<string, number>): void {
+    try {
+      localStorage.setItem(colWidthsKey(csvName), JSON.stringify(next));
+    } catch {
+      /* ignore storage failures — in-memory widths still apply */
+    }
+  }
+
+  function onResizeStart(e: ReactPointerEvent, c: ColDef): void {
+    // Keep the drag off the header (no sort/select side-effects) and capture the
+    // pointer so move/up keep firing even once it leaves the thin handle.
+    e.preventDefault();
+    e.stopPropagation();
+    const handle = e.currentTarget as HTMLElement;
+    // Grab the matching <col> so the drag can resize it imperatively — updating
+    // React state on every pointermove would re-render the whole grid (43 cols ×
+    // 25 rows) each frame and stutter. We commit to state only on release.
+    const th = handle.closest("th");
+    const tableEl = handle.closest("table") as HTMLElement | null;
+    const colgroup = tableEl?.querySelector("colgroup");
+    const colEl =
+      th && colgroup
+        ? (colgroup.children[th.cellIndex] as HTMLElement | undefined)
+        : undefined;
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch {
+      /* capture is best-effort — the drag still tracks via move/up */
+    }
+    const startW = widthFor(c);
+    resizeRef.current = {
+      key: colKey(c),
+      startX: e.clientX,
+      startW,
+      colEl: colEl ?? null,
+      width: startW,
+      tableEl,
+      startTableW: tableEl?.offsetWidth ?? 0,
+    };
+  }
+  function onResizeMove(e: ReactPointerEvent): void {
+    const r = resizeRef.current;
+    if (!r) return;
+    r.width = Math.min(
+      Math.max(r.startW + (e.clientX - r.startX), MIN_COL_W),
+      MAX_COL_W,
+    );
+    // Imperative width update — no setState, so no re-render mid-drag. Under
+    // table-fixed the table width must track the summed columns too, else a
+    // shrink just redistributes the freed space back into the column.
+    const delta = r.width - r.startW;
+    if (r.colEl) r.colEl.style.width = `${r.width}px`;
+    if (r.tableEl) r.tableEl.style.width = `${r.startTableW + delta}px`;
+  }
+  function onResizeEnd(e: ReactPointerEvent): void {
+    const r = resizeRef.current;
+    if (!r) return;
+    try {
+      (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+    } catch {
+      /* no-op if capture was never acquired */
+    }
+    resizeRef.current = null;
+    // A click with no drag (width unchanged) shouldn't pin/persist a width.
+    if (r.width === r.startW) return;
+    // Commit the final width to state (keeps React in sync) + persist once.
+    setColWidths((prev) => {
+      const next = { ...prev, [r.key]: r.width };
+      persistWidths(next);
+      return next;
+    });
+  }
+  function resetWidth(c: ColDef): void {
+    // Double-click a handle → drop the override, back to the ColDef default.
+    setColWidths((prev) => {
+      const next = { ...prev };
+      delete next[colKey(c)];
+      persistWidths(next);
+      return next;
+    });
+  }
 
   useEffect(() => {
     if (!company) return;
@@ -934,14 +1056,22 @@ export function VehicleSheet({
         ) : (
           <Card className="flex min-h-0 flex-1 flex-col p-0">
             <div className="relative min-h-0 flex-1 overflow-auto">
+              {/* table-fixed makes the colgroup widths authoritative so a
+                  resize actually sticks — under auto layout a wide-content
+                  column (e.g. Variant) ignored its <col> width and couldn't be
+                  shrunk (GEN-20). The explicit width tracks the summed columns
+                  so the container scrolls horizontally as before. */}
               <table
-                className="w-max border-separate text-xs"
-                style={{ borderSpacing: 0 }}
+                className="table-fixed border-separate text-xs"
+                style={{
+                  width: 80 + cols.reduce((sum, c) => sum + widthFor(c), 0),
+                  borderSpacing: 0,
+                }}
               >
                 <colgroup>
                   <col style={{ width: 40 }} />
                   {cols.map((c) => (
-                    <col key={colKey(c)} style={{ width: c.width }} />
+                    <col key={colKey(c)} style={{ width: widthFor(c) }} />
                   ))}
                   <col style={{ width: 40 }} />
                 </colgroup>
@@ -963,16 +1093,32 @@ export function VehicleSheet({
                       <th
                         key={colKey(c)}
                         className={cn(
-                          "border-b border-r px-2 text-left font-medium",
+                          "relative border-b border-r px-2 text-left font-medium",
                           c.sticky &&
                             "sticky z-30 bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]",
                         )}
                         style={c.sticky ? { left: 40 } : undefined}
                       >
-                        <div className="flex h-8 items-center text-xs">
-                          <span className="truncate font-medium text-foreground">
+                        <div className="flex h-8 min-w-0 items-center pr-1 text-xs">
+                          <span className="min-w-0 truncate font-medium text-foreground">
                             {c.label}
                           </span>
+                        </div>
+                        {/* Resize handle: a wide, easy-to-grab hit area (GEN-20)
+                            straddling the right border, with a thin accent line
+                            shown on hover. Drag to resize, double-click resets. */}
+                        <div
+                          role="separator"
+                          aria-orientation="vertical"
+                          aria-label={`Resize ${c.label} column`}
+                          onPointerDown={(e) => onResizeStart(e, c)}
+                          onPointerMove={onResizeMove}
+                          onPointerUp={onResizeEnd}
+                          onDoubleClick={() => resetWidth(c)}
+                          className="group/resize absolute -right-1.5 top-0 z-40 flex h-full w-3 cursor-col-resize touch-none select-none justify-center"
+                          title="Drag to resize · double-click to reset"
+                        >
+                          <span className="h-full w-0.5 bg-transparent transition-colors group-hover/resize:bg-primary/60 group-active/resize:bg-primary" />
                         </div>
                       </th>
                     ))}
@@ -1051,7 +1197,10 @@ export function VehicleSheet({
                             >
                               <div
                                 className={cn(
-                                  "flex h-11 items-center",
+                                  // min-w-0 + overflow-hidden let truncating
+                                  // cell text clip cleanly inside the now
+                                  // fixed-width column (GEN-20).
+                                  "flex h-11 min-w-0 items-center overflow-hidden [&_span]:min-w-0",
                                   alignEnd ? "justify-end" : "justify-start",
                                 )}
                               >
@@ -1081,7 +1230,7 @@ export function VehicleSheet({
                                       }
                                     }}
                                     className={cn(
-                                      "h-7 px-1.5 py-0 text-xs",
+                                      "h-7 w-full min-w-0 px-1.5 py-0 text-xs",
                                       alignEnd && "text-right",
                                     )}
                                   />
@@ -1101,7 +1250,7 @@ export function VehicleSheet({
                                         startEdit(v, c);
                                       }
                                     }}
-                                    className="-mx-1 flex w-full cursor-pointer items-center rounded px-1 text-left hover:bg-primary/5 focus-visible:outline-1"
+                                    className="-mx-1 flex w-full min-w-0 cursor-pointer items-center rounded px-1 text-left hover:bg-primary/5 focus-visible:outline-1"
                                     style={
                                       alignEnd
                                         ? { justifyContent: "flex-end" }
