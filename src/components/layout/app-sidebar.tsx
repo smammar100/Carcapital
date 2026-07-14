@@ -16,6 +16,13 @@ import {
 } from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
 
+// localStorage key for the user's persisted expand/collapse choices (GEN-29).
+const COLLAPSED_STORAGE_KEY = "cc.sidebar.collapsed-groups";
+// Every collapsible group label — the default "all collapsed" state.
+const ALL_GROUP_LABELS: string[] = SIDEBAR_GROUPS.map((g) => g.label).filter(
+  (label): label is string => label !== null,
+);
+
 // Active = neutral pill + left accent tick (prototype "Variation E"). Crucially
 // NOT a solid-blue fill, so it never reads like the primary "Add Vehicle" CTA.
 const ITEM_BASE =
@@ -28,12 +35,28 @@ const ITEM_INACTIVE =
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { company } = useAuth();
+  const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
   const [addOpen, setAddOpen] = React.useState(false);
-  // Collapsed group labels (in-memory; persists across SPA navigation since the
-  // sidebar stays mounted in the dashboard layout). Default: all expanded.
-  const [collapsed, setCollapsed] = React.useState<Set<string>>(new Set());
+  // Collapsed group labels. Default: every group collapsed (GEN-29) so the
+  // sidebar loads compact; the group holding the active route is force-expanded
+  // at render time. Deterministic on server + first client paint (no persisted
+  // read here) so there's no hydration mismatch or active-group expand flicker.
+  const [collapsed, setCollapsed] = React.useState<Set<string>>(
+    () => new Set(ALL_GROUP_LABELS),
+  );
+
+  // Hydrate the user's persisted choices after mount. localStorage is
+  // unavailable during SSR, so reading it in the initializer above would risk a
+  // hydration mismatch; applying it in an effect keeps the first paint stable.
+  React.useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COLLAPSED_STORAGE_KEY);
+      if (raw) setCollapsed(new Set(JSON.parse(raw) as string[]));
+    } catch {
+      // Corrupt/blocked storage → keep the all-collapsed default.
+    }
+  }, []);
 
   const primaryCta = React.useMemo(
     () => getPrimaryCta({ isSuperUser, can }),
@@ -57,11 +80,28 @@ export function AppSidebar() {
     return pathname === href || pathname.startsWith(href + "/");
   }
 
+  // The group containing the current route — always rendered expanded so the
+  // active page stays visible even when the user's default is collapsed.
+  const activeGroupLabel: string | null = React.useMemo(() => {
+    const group = visibleGroups.find(
+      (g) => g.label !== null && g.items.some((item) => isActive(item.href)),
+    );
+    return group?.label ?? null;
+    // isActive is a pure function of pathname, so pathname is the real dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleGroups, pathname]);
+
   function toggleGroup(label: string): void {
     setCollapsed((prev) => {
       const next = new Set(prev);
       if (next.has(label)) next.delete(label);
       else next.add(label);
+      // Persist the manual choice so it survives reloads/navigation (GEN-29).
+      try {
+        localStorage.setItem(COLLAPSED_STORAGE_KEY, JSON.stringify([...next]));
+      } catch {
+        // Ignore storage failures — in-memory state still updates.
+      }
       return next;
     });
   }
@@ -119,14 +159,19 @@ export function AppSidebar() {
           </span>
         )}
         <span className="flex min-w-0 flex-col leading-tight">
-          <span className="truncate text-sm font-semibold text-foreground">
-            Car Capital UK
+          <span
+            className="truncate text-sm font-semibold text-foreground"
+            suppressHydrationWarning
+          >
+            {company?.name ?? "Car Capital UK"}
           </span>
+          {/* The signed-in user's email, not a second copy of the company name
+              (GEN-34). Falls back to a dash before hydration / when unknown. */}
           <span
             className="truncate text-xs text-muted-foreground"
             suppressHydrationWarning
           >
-            {company?.name ?? "—"}
+            {user?.email ?? "—"}
           </span>
         </span>
       </Link>
@@ -149,7 +194,10 @@ export function AppSidebar() {
               <div key="__top">{renderItems(group.items)}</div>
             );
           }
-          const isOpen = !collapsed.has(group.label);
+          // Active group is always open so the current page stays visible;
+          // otherwise honour the collapsed set (defaults to collapsed).
+          const isOpen =
+            group.label === activeGroupLabel || !collapsed.has(group.label);
           return (
             <div key={group.label}>
               <button
