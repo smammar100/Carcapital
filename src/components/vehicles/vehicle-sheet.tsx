@@ -1209,7 +1209,16 @@ export function VehicleSheet({
                                 )}
                               >
                                 {isEditingThis ? (
-                                  <Input
+                                  // Plain input, not the shadcn <Input>: that
+                                  // renders a bordered wrapper whose font
+                                  // (sm:text-sm) and baked-in padding can't be
+                                  // matched to the read-only cell, so the value
+                                  // jumped in size + position on edit (GEN-39).
+                                  // Match the read-only button exactly — text-xs
+                                  // and the same "-mx-1 px-1" flush inset — and
+                                  // use a bg tint (not a border, which the cell's
+                                  // overflow-hidden would clip) as the affordance.
+                                  <input
                                     autoFocus
                                     type={
                                       c.type === "date"
@@ -1234,7 +1243,7 @@ export function VehicleSheet({
                                       }
                                     }}
                                     className={cn(
-                                      "h-7 w-full min-w-0 px-1.5 py-0 text-xs",
+                                      "-mx-1 h-7 w-full min-w-0 rounded bg-primary/10 px-1 text-xs text-foreground caret-primary outline-none disabled:opacity-60",
                                       alignEnd && "text-right",
                                     )}
                                   />
