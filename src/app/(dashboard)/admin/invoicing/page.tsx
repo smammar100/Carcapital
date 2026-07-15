@@ -672,19 +672,6 @@ export default function InvoicingPage() {
                   </td>
                 </tr>
               ))}
-              {canUpload && (
-                <tr>
-                  <td colSpan={10} className="border-t border-border">
-                    <button
-                      type="button"
-                      onClick={() => setUploadOpen(true)}
-                      className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
-                    >
-                      <Upload className="h-4 w-4" /> Upload invoice
-                    </button>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
