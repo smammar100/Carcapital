@@ -121,7 +121,10 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
               const groupRoles = filteredRoleDefs.filter((r) => r.group === group);
               if (groupRoles.length === 0) return null;
               return (
-                <div key={group} className="flex flex-col">
+                // shrink-0: this list is a scroll container (overflow-y-auto);
+                // without it the group's flex rows shrink below their content
+                // and multi-line descriptions overlap the next role (GEN-41).
+                <div key={group} className="flex shrink-0 flex-col">
                   <div className="rounded bg-muted/40 px-3 py-1.5 text-xs font-semibold">
                     {group}
                   </div>
