@@ -981,7 +981,20 @@ export default function LeadsPage() {
                   </div>
                   <div className="grid gap-1.5">
                     <Label>Time</Label>
-                    <Input type="time" value={stTime} onChange={(e) => setStTime(e.target.value)} />
+                    {/* Business books hourly appointment slots (09:00–17:00,
+                        ending by 18:00). step=3600 nudges the picker to whole
+                        hours; the calendar renders each as a 1-hour block. */}
+                    <Input
+                      type="time"
+                      value={stTime}
+                      min="09:00"
+                      max="17:00"
+                      step={3600}
+                      onChange={(e) => setStTime(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      1-hour slot · 09:00–17:00
+                    </p>
                   </div>
                 </div>
                 <div className="grid gap-1.5">
