@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -11,8 +11,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   ROLE_DEFS,
@@ -34,7 +32,6 @@ interface Props {
 export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
   const { user: actor } = useAuth();
   const [roles, setRoles] = useState<Set<RoleValue>>(new Set());
-  const [search, setSearch] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   // Reset state when target user changes / dialog re-opens.
@@ -47,7 +44,6 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
       setRoles(
         new Set((user.roles as RoleValue[]).filter((r) => r !== "owner")),
       );
-      setSearch("");
     }
   }, [open, user]);
 
@@ -58,18 +54,12 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
     setRoles(next);
   }
 
-  const filteredRoleDefs = useMemo(() => {
-    // Owner / Super Administrator is a deliberate super-user grant, not
-    // assignable from the role editor — exclude it from the picker.
-    const assignable = ROLE_DEFS.filter((r) => r.value !== "owner");
-    const q = search.trim().toLowerCase();
-    if (!q) return assignable;
-    return assignable.filter(
-      (r) =>
-        r.label.toLowerCase().includes(q) ||
-        r.description.toLowerCase().includes(q),
-    );
-  }, [search]);
+  // Owner / Super Administrator is a deliberate super-user grant, not
+  // assignable from the role editor — exclude it from the picker.
+  const assignableRoleDefs = useMemo(
+    () => ROLE_DEFS.filter((r) => r.value !== "owner"),
+    [],
+  );
 
   async function handleSave() {
     if (!actor || !user) return;
@@ -101,37 +91,20 @@ export function EditRolesDialog({ user, open, onOpenChange, onSaved }: Props) {
           )}
         </DialogHeader>
 
-        <div className="flex flex-1 flex-col gap-3 overflow-hidden px-6 py-5">
-          <div>
-            <Label className="text-sm font-medium">Search roles</Label>
-            <div className="relative mt-2">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search by role…"
-                className="pl-8"
-                data-testid="edit-role-search"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-1 flex-col gap-1 overflow-y-auto">
+        <div className="flex flex-1 flex-col overflow-hidden px-6 py-5">
+          <div className="flex flex-1 flex-col overflow-y-auto">
             {ROLE_GROUPS.map((group) => {
-              const groupRoles = filteredRoleDefs.filter((r) => r.group === group);
+              const groupRoles = assignableRoleDefs.filter((r) => r.group === group);
               if (groupRoles.length === 0) return null;
               return (
                 // shrink-0: this list is a scroll container (overflow-y-auto);
                 // without it the group's flex rows shrink below their content
                 // and multi-line descriptions overlap the next role (GEN-41).
                 <div key={group} className="flex shrink-0 flex-col">
-                  <div className="rounded bg-muted/40 px-3 py-1.5 text-xs font-semibold">
-                    {group}
-                  </div>
                   {groupRoles.map((r) => (
                     <label
                       key={r.value}
-                      className="flex cursor-pointer items-start gap-2 px-3 py-2 text-sm hover:bg-muted/30"
+                      className="flex cursor-pointer items-start gap-2 rounded-md px-3 py-2.5 text-sm hover:bg-muted/40"
                     >
                       <Checkbox
                         checked={roles.has(r.value)}
