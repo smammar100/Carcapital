@@ -107,6 +107,12 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         icon: History,
         requiredAnyOf: ["admin:view_master_sheet", "admin:view_financials"],
       },
+      {
+        label: "Reports & Analytics",
+        href: "/admin/reports",
+        icon: BarChart3,
+        requiredAnyOf: ["admin:view_financials"],
+      },
     ],
   },
   {
