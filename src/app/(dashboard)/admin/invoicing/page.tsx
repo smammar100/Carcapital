@@ -12,7 +12,6 @@ import {
   Printer,
   Receipt,
   RotateCcw,
-  Search,
   TrendingUp,
   Upload,
   type LucideIcon,
@@ -20,14 +19,22 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
+import { vehicleService } from "@/lib/services/vehicle-service";
 import {
   companyInvoiceFields,
   openBlobInNewTab,
   pdfService,
 } from "@/lib/services/pdf-service";
-import type { Invoice, InvoiceType } from "@/lib/types";
+import type { Invoice, InvoiceType, Vehicle } from "@/lib/types";
 import { ExternalInvoiceList } from "@/components/external-invoices";
 import { InvoiceDetailDialog } from "@/components/invoicing/invoice-detail-dialog";
+import { RegPlate } from "@/components/shared/reg-plate";
+import {
+  FilterBar,
+  matchesFilterState,
+  useFilterState,
+  type SelectFilter,
+} from "@/components/filters/filter-bar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -100,15 +107,13 @@ export default function InvoicingPage() {
   }
   const [invoices, setInvoices] = useState<Invoice[] | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
-  const [query, setQuery] = useState("");
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const { state: filters, setState: setFilters } = useFilterState();
   const [vat, setVat] = useState<{
     inputVat: number;
     outputVat: number;
     net: number;
   } | null>(null);
-  const [vatRange, setVatRange] = useState<"month" | "quarter" | "year" | "all">(
-    "all",
-  );
 
   // View / Email / Upload state
   const [viewing, setViewing] = useState<Invoice | null>(null);
@@ -126,30 +131,31 @@ export default function InvoicingPage() {
     if (!company) return;
     const [list, summary] = await Promise.all([
       invoiceService.getAll(company.id),
-      invoiceService.vatSummary(company.id, ...computeRange(vatRange)),
+      invoiceService.vatSummary(company.id),
     ]);
     setInvoices(list);
     setVat(summary);
   };
 
-  function computeRange(r: typeof vatRange): [string?, string?] {
-    if (r === "all") return [];
-    const now = new Date();
-    if (r === "year") return [`${now.getFullYear()}-01-01`];
-    if (r === "month") {
-      const m = String(now.getMonth() + 1).padStart(2, "0");
-      return [`${now.getFullYear()}-${m}-01`];
-    }
-    // quarter
-    const q = Math.floor(now.getMonth() / 3);
-    const startMonth = String(q * 3 + 1).padStart(2, "0");
-    return [`${now.getFullYear()}-${startMonth}-01`];
-  }
-
   useEffect(() => {
+    // refresh() sets invoices/vat after an async load — a deliberate data-fetch
+    // effect, not a synchronous render-loop setState.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [company, vatRange]);
+  }, [company]);
+
+  // Vehicles power the reg search in the filter bar (GEN-23).
+  useEffect(() => {
+    if (!company) return;
+    void vehicleService.getAll(company.id).then(setVehicles);
+  }, [company]);
+
+  const vehicleById = useMemo(() => {
+    const m = new Map<string, Vehicle>();
+    vehicles.forEach((v) => m.set(v.id, v));
+    return m;
+  }, [vehicles]);
 
   // Deep-link: `?view=<invoiceId>` opens that invoice's detail modal (e.g. when
   // clicking a row in Closed Deals, GEN-21). Consume the param once loaded so
@@ -225,17 +231,43 @@ export default function InvoicingPage() {
     };
   }, [invoices]);
 
-  // Free-text search over invoice # + party, applied on top of the tab filter.
+  // Status options derived from the visible invoices (schema-driven, GEN-23).
+  const statusFilters: SelectFilter[] = useMemo(() => {
+    if (!filtered) return [];
+    const set = new Set(filtered.map((i) => i.status));
+    if (set.size === 0) return [];
+    return [
+      {
+        key: "status",
+        label: "Status",
+        allLabel: "All statuses",
+        options: [...set]
+          .sort()
+          .map((s) => ({ value: s, label: INV_STATUS[s]?.label ?? s })),
+      },
+    ];
+  }, [filtered]);
+
+  // Search (invoice # / customer / vehicle reg) + invoice-date range + status,
+  // applied on top of the type tab (GEN-23).
   const searched = useMemo(() => {
     if (!filtered) return null;
-    const q = query.trim().toLowerCase();
-    if (!q) return filtered;
-    return filtered.filter(
-      (i) =>
-        i.invoiceNumber.toLowerCase().includes(q) ||
-        i.partyName.toLowerCase().includes(q),
+    return filtered.filter((i) =>
+      matchesFilterState(i, filters, {
+        searchText: () =>
+          [
+            i.invoiceNumber,
+            i.partyName,
+            i.buyerName,
+            i.vehicleId ? vehicleById.get(i.vehicleId)?.registration : null,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        date: () => i.invoiceDate,
+        selectValue: (_row, key) => (key === "status" ? i.status : null),
+      }),
     );
-  }, [filtered, query]);
+  }, [filtered, filters, vehicleById]);
 
   async function handleSendEmail() {
     if (!emailing || !user) return;
@@ -443,7 +475,7 @@ export default function InvoicingPage() {
         />
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Tabs value={filter} onValueChange={(v) => setFilter(v as Filter)}>
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
@@ -452,16 +484,15 @@ export default function InvoicingPage() {
             <TabsTrigger value="refund">Refunds / Cancellations</TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative w-64 max-w-[45%]">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search invoice # or party…"
-            className="pl-8"
-          />
-        </div>
       </div>
+
+      <FilterBar
+        state={filters}
+        onChange={setFilters}
+        searchPlaceholder="Search invoice #, customer, reg…"
+        dateLabel="Invoice"
+        selects={statusFilters}
+      />
 
       {filter === "refund" && (
         <Card className="flex flex-wrap gap-6 p-4 text-sm">
@@ -508,6 +539,7 @@ export default function InvoicingPage() {
                 <th className="px-3 py-2.5 font-medium">Invoice #</th>
                 <th className="px-3 py-2.5 font-medium">Type</th>
                 <th className="px-3 py-2.5 font-medium">Party</th>
+                <th className="px-3 py-2.5 font-medium">Reg</th>
                 <th className="px-3 py-2.5 font-medium">Date</th>
                 <th className="px-3 py-2.5 text-right font-medium">Subtotal</th>
                 <th className="px-3 py-2.5 text-right font-medium">VAT</th>
@@ -543,6 +575,16 @@ export default function InvoicingPage() {
                       <Avatar name={inv.partyName} />
                       <span className="truncate">{inv.partyName}</span>
                     </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5">
+                    {inv.vehicleId && vehicleById.get(inv.vehicleId) ? (
+                      <RegPlate
+                        registration={vehicleById.get(inv.vehicleId)!.registration}
+                        size="sm"
+                      />
+                    ) : (
+                      <span className="text-muted-foreground/50">—</span>
+                    )}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 text-muted-foreground">
                     {formatDate(inv.invoiceDate)}
@@ -630,61 +672,29 @@ export default function InvoicingPage() {
                   </td>
                 </tr>
               ))}
-              {canUpload && (
-                <tr>
-                  <td colSpan={9} className="border-t border-border">
-                    <button
-                      type="button"
-                      onClick={() => setUploadOpen(true)}
-                      className="flex w-full items-center justify-center gap-1.5 px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground"
-                    >
-                      <Upload className="h-4 w-4" /> Upload invoice
-                    </button>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       )}
 
-      <Card className="grid gap-4 p-5 sm:grid-cols-[1fr_220px]">
-        <div>
-          <h2 className="text-sm font-semibold">VAT summary</h2>
-          <p className="mt-1 text-xs text-muted-foreground">
-            Input VAT (purchases) − Output VAT (sales) = net.
-          </p>
-          {vat ? (
-            <div className="mt-3 grid gap-2 sm:grid-cols-3 text-sm">
-              <Stat label="Input VAT (purchases)" value={vat.inputVat} />
-              <Stat label="Output VAT (sales)" value={vat.outputVat} />
-              <Stat
-                label="Net VAT"
-                value={vat.net}
-                tone={vat.net > 0 ? "negative" : "positive"}
-              />
-            </div>
-          ) : (
-            <Skeleton className="mt-3 h-10" />
-          )}
-        </div>
-        <div>
-          <Label>Range</Label>
-          <Select
-            value={vatRange}
-            onValueChange={(v) => setVatRange(v as typeof vatRange)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All-time</SelectItem>
-              <SelectItem value="year">This year</SelectItem>
-              <SelectItem value="quarter">This quarter</SelectItem>
-              <SelectItem value="month">This month</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <Card className="p-5">
+        <h2 className="text-sm font-semibold">VAT summary</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Input VAT (purchases) − Output VAT (sales) = net.
+        </p>
+        {vat ? (
+          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+            <Stat label="Input VAT (purchases)" value={vat.inputVat} />
+            <Stat label="Output VAT (sales)" value={vat.outputVat} />
+            <Stat
+              label="Net VAT"
+              value={vat.net}
+              tone={vat.net > 0 ? "negative" : "positive"}
+            />
+          </div>
+        ) : (
+          <Skeleton className="mt-3 h-10" />
+        )}
       </Card>
         </TabsContent>
 
