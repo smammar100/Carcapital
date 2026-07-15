@@ -1,259 +1,548 @@
 "use client";
 
-/**
- * /prototype — auth-free design lab.
- *
- * 4 redesigns of the External-warranties "pending purchase" alert banner.
- * Variation A is the requested slim, bright-red, full-width top strip; B–D are
- * alternative treatments. Each is shown in the real External page context
- * (title, 4-colour KPI strip, filter chips, a few pending rows) so placement
- * and weight read correctly. Pick a winner (A–D).
- *
- * Built on the app's real tokens/primitives so the winner ports straight in.
+/*
+ * PROTOTYPE — Reports & Analytics redesign, 5 variations side by side.
+ * Auth-free, static data. Grounded in Mobbin references:
+ *  - Asana reporting dashboard (KPI tiles + chart-card grid)
+ *  - Amplitude (left filter rail + focused report + breakdown table)
+ *  - Gumroad / Plane (bounded chart over table)
+ *  - Fiverr (KPI tiles + trend chart)
+ * The whole point: bounded charts with a real Y-AXIS, restrained sizing.
  */
 
 import * as React from "react";
-import {
-  AlertTriangle,
-  Clock,
-  ShieldAlert,
-  ShieldCheck,
-  Search,
-  Plus,
-  ArrowRight,
-} from "lucide-react";
-import { RegPlate } from "@/components/shared/reg-plate";
 import { cn } from "@/lib/utils";
 
-/* ---- shared mock data (mirrors the live External page) ------------------ */
+/* ------------------------------------------------------------ sample data */
 
-const KPIS = [
-  { icon: ShieldCheck, label: "Active warranties", value: 12, hint: "7 in-house · 5 external", bar: "bg-blue-500", ic: "text-blue-600 dark:text-blue-400" },
-  { icon: Clock, label: "Pending purchase", value: 3, hint: "Action needed", bar: "bg-amber-500", ic: "text-amber-600 dark:text-amber-400" },
-  { icon: ShieldAlert, label: "Open claims", value: 2, hint: "Awaiting resolution", bar: "bg-red-500", ic: "text-red-600 dark:text-red-400" },
-  { icon: AlertTriangle, label: "Expiring soon", value: 3, hint: "Active, ending within 30 days", bar: "bg-orange-500", ic: "text-orange-600 dark:text-orange-400" },
+const MONTHS = [
+  { label: "Jan", units: 3, revenue: 32000, profit: 4200 },
+  { label: "Feb", units: 5, revenue: 61000, profit: 9800 },
+  { label: "Mar", units: 4, revenue: 48000, profit: 6100 },
+  { label: "Apr", units: 4, revenue: 50819, profit: 8532 },
+  { label: "May", units: 6, revenue: 71850, profit: 13850 },
+  { label: "Jun", units: 5, revenue: 63200, profit: 11200 },
+];
+const SOURCES = [
+  { label: "BCA Auction", units: 9 },
+  { label: "Dealer", units: 6 },
+  { label: "Private", units: 4 },
+  { label: "Trade-in", units: 2 },
+];
+const AGING = [
+  { label: "0–30", value: 12 },
+  { label: "31–60", value: 23 },
+  { label: "61–90", value: 18 },
+  { label: "91–180", value: 9 },
+  { label: "180+", value: 4 },
+];
+const CHART_COLORS = [
+  "var(--chart-1)",
+  "var(--chart-2)",
+  "var(--chart-3)",
+  "var(--chart-4)",
+  "var(--chart-5)",
 ];
 
-const FILTERS = [
-  { label: "All", count: 5, active: false },
-  { label: "Pending purchase", count: 3, active: true },
-  { label: "Purchased", count: 2, active: false },
-  { label: "Active", count: 5, active: false },
-  { label: "Expired", count: 0, active: false },
-];
+const gbp = (n: number) =>
+  n >= 1000 ? `£${(n / 1000).toFixed(n % 1000 === 0 ? 0 : 1)}k` : `£${n}`;
+const gbpFull = (n: number) => `£${n.toLocaleString("en-GB")}`;
 
-const ROWS = [
-  { reg: "WM21KCA", model: "JAGUAR E-PACE", customer: "David Singh", phone: "07700300022", provider: "RAC Warranty", coverage: "22 Apr 2026 → 22 Apr 2027", cost: "£250.00" },
-  { reg: "LU17JHZ", model: "BMW 2 Series GRAN TOURER", customer: "Hannah Roberts", phone: "07700300021", provider: "AA Warranty", coverage: "13 Apr 2026 → 13 Apr 2027", cost: "£320.00" },
-  { reg: "MV17HFJ", model: "AUDI Q2", customer: "Tom Williams", phone: "07700300020", provider: "Warranty First", coverage: "15 Feb 2026 → 15 Feb 2028", cost: "£280.00" },
-];
+/* ------------------------------------------------- bounded bar chart (Y axis) */
 
-/* ---- the four banner variations ----------------------------------------- */
-
-// A — slim, bright-red, full-bleed strip pinned to the very top of the page.
-function BannerA() {
-  return (
-    <div className="flex items-center gap-2.5 bg-red-600 px-5 py-2 text-sm text-white">
-      <AlertTriangle className="h-4 w-4 shrink-0" />
-      <span className="font-semibold">3 external warranties pending purchase</span>
-      <span className="hidden text-white/85 sm:inline">
-        · £850.00 owed to providers · 3 overdue 60+ days
-      </span>
-      <button
-        type="button"
-        className="ml-auto inline-flex items-center gap-1 rounded-md bg-white/15 px-2.5 py-1 text-xs font-semibold whitespace-nowrap transition hover:bg-white/25"
-      >
-        View pending only <ArrowRight className="h-3.5 w-3.5" />
-      </button>
-    </div>
-  );
+function niceMax(max: number): number {
+  if (max <= 0) return 1;
+  const pow = Math.pow(10, Math.floor(Math.log10(max)));
+  const n = max / pow;
+  const step = n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10;
+  return step * pow;
 }
 
-// B — slim, bright-red, rounded inline bar (sits where the banner is today).
-function BannerB() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg bg-red-600 px-4 py-2.5 text-sm text-white shadow-sm">
-      <AlertTriangle className="h-4 w-4 shrink-0" />
-      <span className="font-semibold">3 external warranties pending purchase</span>
-      <span className="text-white/85">£850.00 owed · 3 overdue 60+ days</span>
-      <button
-        type="button"
-        className="ml-auto rounded-md bg-white px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-white/90"
-      >
-        View pending only
-      </button>
-    </div>
-  );
-}
-
-// C — light-red callout with a bright-red left accent bar (more substantial).
-function BannerC() {
-  return (
-    <div className="relative overflow-hidden rounded-lg border border-red-300 bg-red-50 py-3 pl-5 pr-4 dark:border-red-500/30 dark:bg-red-500/10">
-      <span aria-hidden className="absolute inset-y-0 left-0 w-1.5 bg-red-600" />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-start gap-2.5">
-          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
-          <div>
-            <p className="text-sm font-semibold text-red-800 dark:text-red-200">
-              3 external warranties pending purchase
-            </p>
-            <p className="text-xs text-red-700/80 dark:text-red-300/80">
-              £850.00 owed to providers · 3 overdue 60+ days
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-red-700"
-        >
-          View pending only
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// D — bright-red ribbon with segmented stats split by hairline dividers.
-function BannerD() {
-  return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg bg-red-600 px-4 py-2.5 text-sm text-white">
-      <span className="inline-flex items-center gap-2 font-semibold">
-        <AlertTriangle className="h-4 w-4" /> Pending purchase
-      </span>
-      <span className="h-4 w-px bg-white/30" />
-      <span><strong className="font-semibold">3</strong> warranties</span>
-      <span className="h-4 w-px bg-white/30" />
-      <span><strong className="font-semibold">£850.00</strong> owed</span>
-      <span className="h-4 w-px bg-white/30" />
-      <span><strong className="font-semibold">3</strong> overdue 60+ days</span>
-      <button
-        type="button"
-        className="ml-auto rounded-md bg-white px-3 py-1 text-xs font-semibold text-red-700 transition hover:bg-white/90"
-      >
-        View pending only
-      </button>
-    </div>
-  );
-}
-
-/* ---- External page chrome (so each banner reads in context) ------------- */
-
-function ExternalPageMock({
-  topStrip,
-  inlineBanner,
+/** Fixed-height bar chart with a left Y-axis, gridlines, thin rounded bars. */
+function BarChart({
+  data,
+  color = "var(--chart-1)",
+  fmtY = (v: number) => String(v),
+  height = 180,
 }: {
-  topStrip?: React.ReactNode;
-  inlineBanner?: React.ReactNode;
+  data: { label: string; value: number }[];
+  color?: string;
+  fmtY?: (v: number) => string;
+  height?: number;
+}) {
+  const max = niceMax(Math.max(...data.map((d) => d.value), 1));
+  const W = 560;
+  const H = height;
+  const padL = 48;
+  const padR = 8;
+  const padT = 8;
+  const padB = 26;
+  const plotW = W - padL - padR;
+  const plotH = H - padT - padB;
+  const band = plotW / data.length;
+  const barW = Math.min(band * 0.5, 44);
+  const ticks = [0, 0.25, 0.5, 0.75, 1];
+  return (
+    <svg
+      viewBox={`0 0 ${W} ${H}`}
+      width="100%"
+      height={H}
+      preserveAspectRatio="xMidYMid meet"
+      role="img"
+    >
+      {ticks.map((t) => {
+        const gy = padT + plotH * (1 - t);
+        return (
+          <g key={t}>
+            <line
+              x1={padL}
+              x2={W - padR}
+              y1={gy}
+              y2={gy}
+              className="stroke-border"
+              strokeWidth={1}
+            />
+            <text
+              x={padL - 6}
+              y={gy + 3}
+              textAnchor="end"
+              className="fill-muted-foreground text-[9px] tabular-nums"
+            >
+              {fmtY(max * t)}
+            </text>
+          </g>
+        );
+      })}
+      {data.map((d, i) => {
+        const cx = padL + band * i + band / 2;
+        const bh = plotH * (d.value / max);
+        return (
+          <g key={d.label}>
+            <title>{`${d.label}: ${d.value}`}</title>
+            <rect
+              x={cx - barW / 2}
+              y={padT + plotH - bh}
+              width={barW}
+              height={Math.max(bh, 1)}
+              rx={3}
+              fill={color}
+            />
+            <text
+              x={cx}
+              y={H - 8}
+              textAnchor="middle"
+              className="fill-muted-foreground text-[10px]"
+            >
+              {d.label}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/**
+ * Donut with a full-width data legend. The donut carries the total (with a
+ * caption) in its centre; the legend beside it reads like a compact table —
+ * swatch · label on the left, value · share right-aligned — with row dividers
+ * so it fills the card height instead of huddling in a corner.
+ */
+function Donut({
+  data,
+  size = 148,
+  unit = "",
+}: {
+  data: { label: string; value: number }[];
+  size?: number;
+  unit?: string;
+}) {
+  const total = data.reduce((a, d) => a + d.value, 0) || 1;
+  const stroke = 22;
+  const r = (size - stroke) / 2;
+  const c = 2 * Math.PI * r;
+  const starts = data.map((_, i) =>
+    data.slice(0, i).reduce((s, d) => s + (d.value / total) * c, 0),
+  );
+  return (
+    <div className="flex h-full flex-wrap items-center justify-center gap-x-8 gap-y-5">
+      <svg
+        viewBox={`0 0 ${size} ${size}`}
+        width={size}
+        height={size}
+        role="img"
+        className="shrink-0"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={r}
+          fill="none"
+          className="stroke-muted"
+          strokeWidth={stroke}
+        />
+        {data.map((d, i) => {
+          const dash = (d.value / total) * c;
+          return (
+            <circle
+              key={d.label}
+              cx={size / 2}
+              cy={size / 2}
+              r={r}
+              fill="none"
+              stroke={CHART_COLORS[i % CHART_COLORS.length]}
+              strokeWidth={stroke}
+              strokeLinecap="butt"
+              strokeDasharray={`${Math.max(dash - 3, 0)} ${c}`}
+              strokeDashoffset={-starts[i]}
+              transform={`rotate(-90 ${size / 2} ${size / 2})`}
+            >
+              <title>{`${d.label}: ${d.value}`}</title>
+            </circle>
+          );
+        })}
+        <text
+          x={size / 2}
+          y={size / 2 - 2}
+          textAnchor="middle"
+          className="fill-foreground text-xl font-semibold tabular-nums"
+        >
+          {total}
+        </text>
+        <text
+          x={size / 2}
+          y={size / 2 + 14}
+          textAnchor="middle"
+          className="fill-muted-foreground text-[10px] uppercase tracking-wide"
+        >
+          {unit || "total"}
+        </text>
+      </svg>
+      <ul className="flex min-w-[200px] flex-1 flex-col text-sm">
+        {data.map((d, i) => (
+          <li
+            key={d.label}
+            className="flex items-center gap-2.5 border-b border-border/60 py-2 last:border-0"
+          >
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: CHART_COLORS[i % CHART_COLORS.length] }}
+            />
+            <span className="flex-1 truncate text-foreground">{d.label}</span>
+            <span className="tabular-nums text-muted-foreground">{d.value}</span>
+            <span className="w-11 text-right font-medium tabular-nums text-foreground">
+              {Math.round((d.value / total) * 100)}%
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/* --------------------------------------------------------- shared bits */
+
+function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
+  return (
+    <div className="rounded-lg border border-border bg-card p-4">
+      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
+      {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  right,
+  children,
+  className,
+}: {
+  title: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">
-      {topStrip}
-      <div className="flex flex-col gap-5 p-6">
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-foreground">External Warranties</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Third-party warranties sold alongside vehicles. See which still need purchasing from the provider.
-            </p>
-          </div>
-          <button type="button" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-primary px-3.5 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90">
-            <Plus className="h-4 w-4" /> New warranty
-          </button>
-        </header>
+    <div className={cn("flex flex-col rounded-lg border border-border bg-card p-4", className)}>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {right}
+      </div>
+      <div className="flex-1">{children}</div>
+    </div>
+  );
+}
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {KPIS.map((k) => (
-            <div key={k.label} className="relative flex flex-col gap-1.5 overflow-hidden rounded-xl border border-border bg-card p-4 pl-5">
-              <span aria-hidden className={cn("absolute inset-y-0 left-0 w-1.5", k.bar)} />
-              <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                <k.icon className={cn("h-3.5 w-3.5", k.ic)} /> {k.label}
-              </div>
-              <div className="text-2xl font-semibold tabular-nums text-foreground">{k.value}</div>
-              <div className="text-xs text-muted-foreground">{k.hint}</div>
-            </div>
+function Chip({ children, active }: { children: React.ReactNode; active?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "rounded-md px-2 py-1 text-xs font-medium",
+        active ? "bg-primary text-primary-foreground" : "text-muted-foreground",
+      )}
+    >
+      {children}
+    </span>
+  );
+}
+
+function FilterBarMock() {
+  return (
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+      <input
+        placeholder="Search reg, make/model…"
+        className="h-8 min-w-40 flex-1 rounded-md border border-border bg-background px-2.5 text-xs outline-none"
+      />
+      <select className="h-8 rounded-md border border-border bg-background px-2 text-xs">
+        <option>Sold: This year</option>
+      </select>
+      <select className="h-8 rounded-md border border-border bg-background px-2 text-xs">
+        <option>All sources</option>
+      </select>
+      <div className="ml-auto inline-flex overflow-hidden rounded-md border border-border text-xs">
+        <Chip active>Month</Chip>
+        <Chip>Quarter</Chip>
+        <Chip>Year</Chip>
+      </div>
+    </div>
+  );
+}
+
+function MiniTable({
+  head,
+  rows,
+}: {
+  head: string[];
+  rows: (string | number)[][];
+}) {
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="border-b border-border text-left text-muted-foreground">
+          {head.map((h, i) => (
+            <th key={h} className={cn("py-1.5 pr-3 font-medium", i > 0 && "text-right")}>
+              {h}
+            </th>
           ))}
-        </div>
-
-        {inlineBanner}
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="inline-flex divide-x divide-border overflow-hidden rounded-md border border-border">
-            {FILTERS.map((f) => (
-              <button key={f.label} type="button" className={cn("inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition", f.active ? "bg-primary text-primary-foreground" : "bg-card text-muted-foreground hover:bg-muted/50")}>
-                {f.label}<span className={cn("text-xs tabular-nums", f.active ? "opacity-90" : "opacity-70")}>{f.count}</span>
-              </button>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r, ri) => (
+          <tr key={ri} className="border-b border-border/60 last:border-0">
+            {r.map((c, ci) => (
+              <td
+                key={ci}
+                className={cn(
+                  "py-1.5 pr-3 tabular-nums",
+                  ci > 0 && "text-right",
+                  ci === 0 && "font-medium text-foreground",
+                )}
+              >
+                {c}
+              </td>
             ))}
-          </div>
-          <div className="relative w-72">
-            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input placeholder="Search customer, vehicle, provider…" className="h-9 w-full rounded-md border border-border bg-card pl-8 pr-3 text-sm outline-none placeholder:text-muted-foreground focus:border-ring" />
-          </div>
-        </div>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
 
-        <div className="overflow-hidden rounded-xl border border-border bg-card">
-          <table className="w-full border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-border text-left">
-                {["Vehicle", "Customer", "Provider", "Coverage", "Purchase", "Cost", ""].map((h, i) => (
-                  <th key={i} className="px-4 py-2.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ROWS.map((r, i) => (
-                <tr key={i} className="border-b border-border/70 last:border-0">
-                  <td className="px-4 py-3"><div className="flex items-center gap-2"><RegPlate registration={r.reg} size="sm" /><span className="truncate text-xs text-muted-foreground">{r.model}</span></div></td>
-                  <td className="px-4 py-3"><div className="text-foreground">{r.customer}</div><div className="text-xs tabular-nums text-muted-foreground">{r.phone}</div></td>
-                  <td className="px-4 py-3"><span className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-foreground">{r.provider}</span></td>
-                  <td className="px-4 py-3 text-xs tabular-nums text-muted-foreground">{r.coverage}</td>
-                  <td className="px-4 py-3"><span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-500/20 dark:text-amber-200"><span className="h-1.5 w-1.5 rounded-full bg-amber-500" />Pending Purchase</span></td>
-                  <td className="px-4 py-3 text-sm tabular-nums text-foreground">{r.cost}</td>
-                  <td className="px-4 py-3 text-right"><button type="button" className="rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">Mark purchased</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+const REPORT_TABS = ["Profitability", "Sales & revenue", "Purchase source", "Stock aging"];
+
+function TabRow({ active = 0 }: { active?: number }) {
+  return (
+    <div className="flex flex-wrap gap-1 rounded-lg bg-muted p-1 text-xs">
+      {REPORT_TABS.map((t, i) => (
+        <span
+          key={t}
+          className={cn(
+            "rounded-md px-3 py-1.5 font-medium",
+            i === active
+              ? "bg-background text-foreground shadow-sm"
+              : "text-muted-foreground",
+          )}
+        >
+          {t}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/* ================================================================= variations */
+
+/** A — KPI tiles + 2×2 chart-card grid (Asana reporting). */
+function VariationA() {
+  return (
+    <div className="flex flex-col gap-4">
+      <FilterBarMock />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Units sold" value="27" sub="This year" />
+        <Kpi label="Revenue" value="£326k" sub="+12% vs last yr" />
+        <Kpi label="Profit" value="£53.7k" sub="16.5% margin" />
+        <Kpi label="Avg days in stock" value="66d" />
+      </div>
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        <Panel title="Profit by month" right={<span className="text-xs text-muted-foreground">£53.7k</span>}>
+          <BarChart data={MONTHS.map((m) => ({ label: m.label, value: m.profit }))} color="var(--chart-2)" fmtY={gbp} />
+        </Panel>
+        <Panel title="Revenue by month">
+          <BarChart data={MONTHS.map((m) => ({ label: m.label, value: m.revenue }))} fmtY={gbp} />
+        </Panel>
+        <Panel title="Purchase source">
+          <Donut data={SOURCES.map((s) => ({ label: s.label, value: s.units }))} unit="vehicles" />
+        </Panel>
+        <Panel title="Days in stock">
+          <BarChart data={AGING} color="var(--chart-4)" />
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+/** B — Left filter rail + one focused report + breakdown table (Amplitude). */
+function VariationB() {
+  return (
+    <div className="grid grid-cols-[200px_1fr] gap-4">
+      <aside className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Filters</div>
+        <label className="flex flex-col gap-1 text-xs">Report
+          <select className="h-8 rounded-md border border-border bg-background px-2"><option>Profitability</option></select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs">Period
+          <select className="h-8 rounded-md border border-border bg-background px-2"><option>This year</option></select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs">Granularity
+          <select className="h-8 rounded-md border border-border bg-background px-2"><option>Month</option></select>
+        </label>
+        <label className="flex flex-col gap-1 text-xs">Source
+          <select className="h-8 rounded-md border border-border bg-background px-2"><option>All sources</option></select>
+        </label>
+      </aside>
+      <div className="flex flex-col gap-4">
+        <Panel title="Profit by month" right={<span className="text-lg font-semibold tabular-nums">£53.7k</span>}>
+          <BarChart data={MONTHS.map((m) => ({ label: m.label, value: m.profit }))} color="var(--chart-2)" fmtY={gbp} height={220} />
+        </Panel>
+        <Panel title="Breakdown">
+          <MiniTable
+            head={["Period", "Units", "Revenue", "Cost", "Profit"]}
+            rows={MONTHS.map((m) => [m.label, m.units, gbpFull(m.revenue), gbpFull(m.revenue - m.profit), gbpFull(m.profit)])}
+          />
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+/** C — Clean tabbed, bounded chart over table (Gumroad / Plane). */
+function VariationC() {
+  return (
+    <div className="flex flex-col gap-4">
+      <FilterBarMock />
+      <TabRow active={0} />
+      <div className="rounded-lg border border-border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Profit by month</h3>
+          <span className="text-sm font-semibold tabular-nums text-muted-foreground">Total £53.7k</span>
+        </div>
+        <BarChart data={MONTHS.map((m) => ({ label: m.label, value: m.profit }))} color="var(--chart-2)" fmtY={gbp} height={200} />
+        <div className="mt-4">
+          <MiniTable
+            head={["Period", "Units", "Revenue", "Cost", "Profit"]}
+            rows={MONTHS.map((m) => [m.label, m.units, gbpFull(m.revenue), gbpFull(m.revenue - m.profit), gbpFull(m.profit)])}
+          />
         </div>
       </div>
     </div>
   );
 }
 
-function Frame({ label, name, children }: { label: string; name: string; children: React.ReactNode }) {
+/** D — Overview scroll: KPI header + report cards split chart-left / table-right. */
+function VariationD() {
   return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-baseline gap-3">
-        <span className="rounded-md bg-foreground px-2 py-0.5 text-xs font-semibold text-background">{label}</span>
-        <span className="text-sm font-medium text-muted-foreground">{name}</span>
+    <div className="flex flex-col gap-4">
+      <FilterBarMock />
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi label="Units sold" value="27" />
+        <Kpi label="Revenue" value="£326k" />
+        <Kpi label="Profit" value="£53.7k" />
+        <Kpi label="Avg days in stock" value="66d" />
       </div>
-      {children}
-    </section>
+      <Panel title="Profitability">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
+          <BarChart data={MONTHS.map((m) => ({ label: m.label, value: m.profit }))} color="var(--chart-2)" fmtY={gbp} />
+          <MiniTable head={["Period", "Units", "Profit"]} rows={MONTHS.map((m) => [m.label, m.units, gbpFull(m.profit)])} />
+        </div>
+      </Panel>
+      <Panel title="Purchase source">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
+          <Donut data={SOURCES.map((s) => ({ label: s.label, value: s.units }))} size={150} />
+          <MiniTable head={["Source", "Units"]} rows={SOURCES.map((s) => [s.label, s.units])} />
+        </div>
+      </Panel>
+    </div>
   );
 }
+
+/** E — Bento grid: hero trend + smaller stat/donut cards. */
+function VariationE() {
+  return (
+    <div className="flex flex-col gap-4">
+      <FilterBarMock />
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+        <Panel title="Revenue by month" className="lg:col-span-2 lg:row-span-2">
+          <BarChart data={MONTHS.map((m) => ({ label: m.label, value: m.revenue }))} fmtY={gbp} height={220} />
+        </Panel>
+        <Kpi label="Total profit" value="£53.7k" sub="16.5% margin" />
+        <Kpi label="Best month" value="May" sub="£13.9k profit" />
+        <Panel title="Source split">
+          <Donut data={SOURCES.map((s) => ({ label: s.label, value: s.units }))} size={110} />
+        </Panel>
+        <Panel title="Stock aging" className="lg:col-span-2">
+          <BarChart data={AGING} color="var(--chart-4)" height={150} />
+        </Panel>
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ page */
+
+const VARIATIONS: { key: string; name: string; note: string; el: React.ReactNode }[] = [
+  { key: "A", name: "KPI tiles + chart-card grid", note: "Asana reporting", el: <VariationA /> },
+  { key: "B", name: "Left filter rail + focused report", note: "Amplitude", el: <VariationB /> },
+  { key: "C", name: "Tabbed, chart over table", note: "Gumroad / Plane", el: <VariationC /> },
+  { key: "D", name: "Overview: KPIs + split cards", note: "chart-left / table-right", el: <VariationD /> },
+  { key: "E", name: "Bento grid", note: "hero trend + stat cards", el: <VariationE /> },
+];
 
 export default function PrototypePage() {
   return (
-    <main className="min-h-screen bg-muted/30 px-6 py-8 lg:px-10">
-      <div className="mx-auto flex max-w-[1240px] flex-col gap-10">
-        <div>
-          <h2 className="text-lg font-semibold text-foreground">Pending-purchase banner — 4 variations</h2>
-          <p className="text-sm text-muted-foreground">Pick a winner (A–D). A is the slim bright-red top strip; B–D are alternatives. Toggle your theme to compare light &amp; dark.</p>
-        </div>
-
-        <Frame label="A" name="Slim bright-red top strip (full-width, pinned above the page)">
-          <ExternalPageMock topStrip={<BannerA />} />
-        </Frame>
-        <Frame label="B" name="Slim bright-red inline bar (rounded, in current position)">
-          <ExternalPageMock inlineBanner={<BannerB />} />
-        </Frame>
-        <Frame label="C" name="Light-red callout with bright-red left accent">
-          <ExternalPageMock inlineBanner={<BannerC />} />
-        </Frame>
-        <Frame label="D" name="Bright-red segmented ribbon (stats split by dividers)">
-          <ExternalPageMock inlineBanner={<BannerD />} />
-        </Frame>
+    <div className="min-h-screen bg-background p-6 text-foreground">
+      <div className="mx-auto flex max-w-5xl flex-col gap-10">
+        <header>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Reports &amp; Analytics — 5 variations
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Bounded charts with a real Y-axis, restrained sizing. Pick A–E.
+          </p>
+        </header>
+        {VARIATIONS.map((v) => (
+          <section key={v.key} className="flex flex-col gap-3">
+            <div className="flex items-baseline gap-2 border-b border-border pb-2">
+              <span className="text-sm font-semibold">Variation {v.key}</span>
+              <span className="text-sm text-foreground">— {v.name}</span>
+              <span className="text-xs text-muted-foreground">({v.note})</span>
+            </div>
+            {v.el}
+          </section>
+        ))}
       </div>
-    </main>
+    </div>
   );
 }
