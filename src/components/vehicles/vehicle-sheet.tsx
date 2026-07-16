@@ -46,7 +46,7 @@ import { cn, formatCurrency, formatDate } from "@/lib/utils";
 /* ------------------------------------------------------------------ *
  * Shared "wide spreadsheet" module — the Master Sheet grid extracted
  * so the Master Sheet and All Vehicles pages render the exact same
- * module (sticky row-counter + Stock ID, full gridlines, bg-muted
+ * module (sticky row-counter + Stock ID, full gridlines, card-white
  * sticky header, chip-bar filter, inline edit, quick-add, paginated
  * footer). Each page supplies its own column set + filter fields; the
  * structure and styling are identical by construction.
@@ -1080,9 +1080,13 @@ export function VehicleSheet({
                   ))}
                   <col style={{ width: 40 }} />
                 </colgroup>
-                <thead className="sticky top-0 z-20 bg-muted">
+                {/* Surfaces are card-white (GEN-62). The sticky header/column
+                    still need an OPAQUE fill so rows don't show through while
+                    scrolling — bg-card is opaque, and the header keeps its
+                    borders + font-medium to read as a band without a tint. */}
+                <thead className="sticky top-0 z-20 bg-card">
                   <tr>
-                    <th className="sticky left-0 z-30 border-b border-r bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]">
+                    <th className="sticky left-0 z-30 border-b border-r bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)]">
                       <div className="flex h-8 items-center justify-center">
                         <Checkbox
                           checked={
@@ -1100,7 +1104,7 @@ export function VehicleSheet({
                         className={cn(
                           "relative border-b border-r px-2 text-left font-medium",
                           c.sticky &&
-                            "sticky z-30 bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]",
+                            "sticky z-30 bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)]",
                         )}
                         style={c.sticky ? { left: 40 } : undefined}
                       >
@@ -1134,7 +1138,10 @@ export function VehicleSheet({
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-background">
+                {/* bg-card, not bg-background: this element paints the whole
+                    body, so page-grey here hid the white Card behind the grid
+                    and made every row read grey (GEN-62). */}
+                <tbody className="bg-card">
                   {(pagedRows ?? []).map((v, idxOnPage) => {
                     const isSelected = selected.has(v.id);
                     const idx = (safePage - 1) * PAGE_SIZE + idxOnPage;
@@ -1154,11 +1161,18 @@ export function VehicleSheet({
                             // content bleed through and corrupts cell
                             // text (date columns sliding under stock IDs
                             // produced "CC400072026"-style artifacts).
-                            // Drop shadow marks the sticky boundary.
-                            "sticky left-0 z-10 border-b border-r bg-background text-center",
+                            // bg-card is opaque AND matches the white grid
+                            // surface (GEN-62). Drop shadow marks the
+                            // sticky boundary.
+                            "sticky left-0 z-10 border-b border-r bg-card text-center",
                             "shadow-[2px_0_4px_-2px_var(--shadow-color)]",
-                            isSelected && "bg-muted",
-                            "group-hover/row:bg-muted",
+                            // Sticky cells can't use the row's translucent
+                            // tints (they'd bleed), so mix the SAME tints
+                            // into --card to get an opaque colour identical
+                            // to what the normal cells composite to.
+                            isSelected &&
+                              "bg-[color-mix(in_srgb,var(--primary)_5%,var(--card))]",
+                            "group-hover/row:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]",
                           )}
                           onClick={(e) => e.stopPropagation()}
                         >
@@ -1193,9 +1207,14 @@ export function VehicleSheet({
                                 // by the next sticky cell's solid bg via
                                 // paint order; only the rightmost shadow
                                 // is visually present.
+                                // Sticky cells mix the row's tints into
+                                // --card so they stay opaque while matching
+                                // the normal cells exactly (GEN-62).
                                 c.sticky &&
-                                  "sticky z-10 bg-background shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-muted",
-                                isSelected && c.sticky && "bg-muted",
+                                  "sticky z-10 bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]",
+                                isSelected &&
+                                  c.sticky &&
+                                  "bg-[color-mix(in_srgb,var(--primary)_5%,var(--card))]",
                                 !c.sticky && "group-hover/row:bg-muted/40",
                               )}
                               style={c.sticky ? { left: 40 } : undefined}

@@ -740,7 +740,7 @@ export default function LeadsPage() {
                       aria-selected={isActive}
                       onClick={() => setSelectedId(l.id)}
                       className={cn(
-                        "flex w-full shrink-0 items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors",
+                        "flex w-full shrink-0 items-center gap-2.5 rounded-lg border bg-card p-2.5 text-left transition-colors",
                         isActive
                           ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                           : "border-border hover:bg-muted/50",

@@ -666,7 +666,7 @@ export default function ListingsPage() {
                     aria-selected={isActive}
                     onClick={() => setSelectedId(l.id)}
                     className={cn(
-                      "flex w-full shrink-0 gap-3 rounded-lg border p-3 text-left transition-colors",
+                      "flex w-full shrink-0 gap-3 rounded-lg border bg-card p-3 text-left transition-colors",
                       isActive
                         ? "border-primary bg-primary/5 ring-1 ring-primary/20"
                         : "border-border hover:bg-muted/50",
