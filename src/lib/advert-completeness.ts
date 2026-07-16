@@ -27,6 +27,11 @@ export function computeAdvertChecks(
 ): AdvertCheck[] {
   const hasDescription =
     !!listing?.description && listing.description.trim().length > 30;
+  // Resolve the price exactly like the Overview Web Price KPI does
+  // (listing price, falling back to the vehicle's listing price) — checking
+  // only listing.price made this card say "Price not set" beside a KPI tile
+  // showing a price for the same vehicle (GEN-48).
+  const price = listing?.price ?? vehicle.listingPrice;
 
   return [
     {
@@ -58,14 +63,16 @@ export function computeAdvertChecks(
       key: "pricing",
       name: "Pricing & Floor",
       meta:
-        listing?.price && vehicle.minimumSalePrice
-          ? `${formatCurrency(listing.price)} · Floor ${formatCurrency(
+        price && vehicle.minimumSalePrice
+          ? `${formatCurrency(price)} · Floor ${formatCurrency(
               vehicle.minimumSalePrice,
             )}`
-          : listing?.price
-            ? formatCurrency(listing.price)
+          : price
+            ? `${formatCurrency(price)} · no floor set`
             : "Price not set",
-      state: listing?.price ? "done" : "miss",
+      // A price with no floor is workable but risky (nothing stops selling
+      // below cost) — warn rather than pass silently.
+      state: price ? (vehicle.minimumSalePrice ? "done" : "warn") : "miss",
     },
     {
       key: "mot",
