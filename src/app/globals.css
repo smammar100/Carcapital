@@ -222,10 +222,21 @@
   --secondary: var(--n-color-active);
   --secondary-foreground: var(--n-color-text);
   --muted: var(--n-color-active);
-  --muted-foreground: var(--n-color-text-weaker);
+  /* Nord's --n-color-text-weaker is rgb(102,118,128) — oklch(0.556 0.025
+     235.3). On --muted (its most common pairing: table headers, TabsList,
+     filter-group labels) that measures 4.41:1, under the 4.5 WCAG AA floor
+     for the 11–12px text it carries. Darken LIGHTNESS ONLY (0.556 → 0.53),
+     keeping chroma + hue, which lifts it to 4.94:1 on muted (5.08 on
+     background, 5.27 on card) with no perceptible change of tone. Scoped to
+     our token so Nord's own components keep their value (GEN-58). */
+  --muted-foreground: oklch(0.53 0.025 235.3);
   --accent: var(--n-color-active);
   --accent-foreground: var(--n-color-text);
   --destructive: var(--n-color-status-danger);
+  /* NOT a "text on destructive" colour — this is Nord's dark red text for
+     LIGHT surfaces (bg-destructive/8 badges, error copy). Pairing it with
+     --destructive itself measures 1.35:1; the solid destructive button
+     correctly uses text-white instead. */
   --destructive-foreground: var(--n-color-text-danger);
   --info: var(--n-color-status-info);
   --info-foreground: var(--n-color-text-info);
@@ -330,6 +341,14 @@
     0 0 0 1px var(--n-color-border);
   --n-box-shadow-nav: 0 0 0 1px var(--n-color-border),
     0 5px 17px rgba(0, 0, 0, 0.24);
+
+  /* :root pins --muted-foreground to a literal oklch() for the light-mode
+     contrast fix (GEN-58), which would otherwise leak that light value into
+     dark mode — this block only re-declares --n-color-*, so the var()
+     indirection has to be restored explicitly. Dark's own weaker text
+     (rgb 143,148,158) already clears AA on every surface (4.78 on --muted),
+     so it needs no nudge. */
+  --muted-foreground: var(--n-color-text-weaker);
 }
 
 @layer base {
@@ -350,6 +369,11 @@
 
   body {
     line-height: 1.45;
+    /* Never let the browser fake a weight or style it doesn't have a file
+       for — a synthesized bold/italic silently ships as a slightly-wrong
+       typeface. With this off, a missing Geist weight fails visibly instead
+       (GEN-57). */
+    font-synthesis: none;
   }
 
   h1,

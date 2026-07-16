@@ -13,6 +13,13 @@ import { cn } from "@/lib/utils";
  * each mark carries a <title> for a native hover tooltip.
  */
 
+/*
+ * Type-scale exception (GEN-57): the text-[9px]/text-[10px] below sit on SVG
+ * <text> inside a fixed viewBox — they scale with the chart, not with the
+ * document, so they're geometry rather than UI type and deliberately don't
+ * come from the --text-* scale. Everywhere else, use the scale.
+ */
+
 /** Fixed categorical order — brand tokens, never cycled past 5 (fold to Other). */
 export const CHART_COLORS = [
   "var(--chart-1)",

@@ -697,7 +697,7 @@ export function SharedCalendar({
             </div>
             <h2 className="truncate text-sm font-semibold">{label}</h2>
             {view === "day" && toISO(anchor) === todayISO && (
-              <span className="shrink-0 rounded bg-primary px-1.5 py-0.5 text-[10px] font-medium text-primary-foreground">
+              <span className="shrink-0 rounded bg-primary px-1.5 py-0.5 text-2xs font-medium text-primary-foreground">
                 Today
               </span>
             )}
@@ -846,7 +846,7 @@ function MonthView({
           <div
             key={d}
             className={cn(
-              "py-1.5 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground",
+              "py-1.5 text-center text-2xs font-medium uppercase tracking-wide text-muted-foreground",
               i >= 5 && "bg-muted/30",
             )}
           >
@@ -913,7 +913,7 @@ function MonthView({
                     onOpenEvent(e);
                   }}
                   className={cn(
-                    "flex w-full min-w-0 items-center gap-1 rounded px-1 py-px text-left text-[10px] leading-4 transition hover:underline",
+                    "flex w-full min-w-0 items-center gap-1 rounded px-1 py-px text-left text-2xs leading-4 transition hover:underline",
                     e.allDay
                       ? cn("border", KIND_META[e.kind].chip)
                       : cn("border-l-2", KIND_META[e.kind].block),
@@ -928,7 +928,7 @@ function MonthView({
                 </button>
               ))}
               {extra > 0 && (
-                <span className="truncate px-1 text-[10px] font-medium text-muted-foreground">
+                <span className="truncate px-1 text-2xs font-medium text-muted-foreground">
                   +{extra} more
                 </span>
               )}
@@ -983,7 +983,7 @@ function WeekView({
             >
               <span
                 className={cn(
-                  "text-[10px] font-medium uppercase",
+                  "text-2xs font-medium uppercase",
                   isToday ? "text-foreground" : "text-muted-foreground",
                 )}
               >
@@ -1004,7 +1004,7 @@ function WeekView({
 
       <div className="sticky top-12 z-20 flex min-h-7 shrink-0 border-b border-border bg-card">
         <div className="flex w-12 shrink-0 items-center justify-end pr-1.5">
-          <span className="text-[9px] uppercase text-muted-foreground">all-day</span>
+          <span className="text-2xs uppercase text-muted-foreground">all-day</span>
         </div>
         {days.map((d, i) => {
           const iso = toISO(d);
@@ -1024,7 +1024,7 @@ function WeekView({
                   title={`${e.title}${e.subtitle ? ` · ${e.subtitle}` : ""}`}
                   onClick={() => onOpenEvent(e)}
                   className={cn(
-                    "truncate rounded border px-1 py-px text-left text-[10px] font-medium",
+                    "truncate rounded border px-1 py-px text-left text-2xs font-medium",
                     KIND_META[e.kind].chip,
                   )}
                 >
@@ -1035,7 +1035,7 @@ function WeekView({
                 <button
                   type="button"
                   onClick={() => onOpenDay(d)}
-                  className="truncate px-1 text-left text-[10px] font-medium text-muted-foreground hover:underline"
+                  className="truncate px-1 text-left text-2xs font-medium text-muted-foreground hover:underline"
                 >
                   +{dues.length - 2} more
                 </button>
@@ -1057,7 +1057,7 @@ function WeekView({
           {HOURS.map((h) => (
             <div
               key={h}
-              className="flex-1 border-b border-border/60 pr-1.5 pt-0.5 text-right text-[10px] leading-none tabular-nums text-muted-foreground"
+              className="flex-1 border-b border-border/60 pr-1.5 pt-0.5 text-right text-2xs leading-none tabular-nums text-muted-foreground"
             >
               {fmtHour(h)}
             </div>
@@ -1113,14 +1113,14 @@ function WeekView({
                       KIND_META[e.kind].block,
                     )}
                   >
-                    <p className="truncate text-[10px] leading-3 tabular-nums opacity-80">
+                    <p className="truncate text-2xs leading-3 tabular-nums opacity-80">
                       {fmtHour(e.start)}
                     </p>
-                    <p className="truncate text-[11px] font-medium leading-4">
+                    <p className="truncate text-xs font-medium leading-4">
                       {e.title}
                     </p>
                     {e.end - e.start >= 1.5 && (
-                      <p className="truncate text-[10px] leading-3 opacity-70">
+                      <p className="truncate text-2xs leading-3 opacity-70">
                         {e.subtitle}
                       </p>
                     )}
@@ -1181,7 +1181,7 @@ function DayView({
     <div className="flex min-h-0 flex-1 flex-col">
       {allDay.length > 0 && (
         <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-3 py-1.5">
-          <span className="shrink-0 text-[9px] uppercase text-muted-foreground">
+          <span className="shrink-0 text-2xs uppercase text-muted-foreground">
             all-day
           </span>
           {allDay.map((e) => (
@@ -1191,7 +1191,7 @@ function DayView({
               title={`${e.title}${e.subtitle ? ` · ${e.subtitle}` : ""}`}
               onClick={() => onOpenEvent(e)}
               className={cn(
-                "truncate rounded border px-1.5 py-0.5 text-[10px] font-medium",
+                "truncate rounded border px-1.5 py-0.5 text-2xs font-medium",
                 KIND_META[e.kind].chip,
               )}
             >
@@ -1218,7 +1218,7 @@ function DayView({
               <span className="truncate text-sm font-medium">
                 {KIND_META[kind].label}
               </span>
-              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-2xs font-medium text-muted-foreground">
                 {count}
               </span>
             </div>
@@ -1240,12 +1240,12 @@ function DayView({
             {HOURS.map((h) => (
               <div
                 key={h}
-                className="flex-1 pr-1.5 pt-0.5 text-right text-[10px] leading-none tabular-nums text-muted-foreground"
+                className="flex-1 pr-1.5 pt-0.5 text-right text-2xs leading-none tabular-nums text-muted-foreground"
               >
                 {fmtHour(h)}
               </div>
             ))}
-            <span className="absolute bottom-0 right-1.5 text-[10px] leading-none tabular-nums text-muted-foreground">
+            <span className="absolute bottom-0 right-1.5 text-2xs leading-none tabular-nums text-muted-foreground">
               {fmtHour(GRID_END)}
             </span>
           </div>
@@ -1292,11 +1292,11 @@ function DayView({
                         KIND_META[e.kind].block,
                       )}
                     >
-                      <p className="text-[10px] leading-3 tabular-nums opacity-80">
+                      <p className="text-2xs leading-3 tabular-nums opacity-80">
                         {fmtHour(e.start)} – {fmtHour(e.end)}
                       </p>
                       <p className="truncate text-xs font-medium leading-4">{e.title}</p>
-                      <p className="truncate text-[10px] leading-3 opacity-80">
+                      <p className="truncate text-2xs leading-3 opacity-80">
                         {e.subtitle}
                       </p>
                     </button>
@@ -1304,7 +1304,7 @@ function DayView({
                 })}
                 {laneAll.length === 0 && (
                   <div className="pointer-events-none absolute inset-x-2 top-2 rounded-md border border-dashed border-border py-2 text-center">
-                    <span className="text-[10px] text-muted-foreground/60">
+                    <span className="text-2xs text-muted-foreground/60">
                       No {KIND_META[kind].singular}s — click a slot to add
                     </span>
                   </div>
@@ -1746,13 +1746,13 @@ function EventDetails({
           <span className={cn("h-2.5 w-2.5 shrink-0 rounded-full", KIND_META[ev.kind].dot)} />
           <span
             className={cn(
-              "shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-medium",
+              "shrink-0 rounded border px-1.5 py-0.5 text-2xs font-medium",
               KIND_META[ev.kind].chip,
             )}
           >
             {KIND_META[ev.kind].label}
           </span>
-          <span className="truncate text-[10px] uppercase tracking-wide text-muted-foreground">
+          <span className="truncate text-2xs uppercase tracking-wide text-muted-foreground">
             {ev.raw.status}
           </span>
         </div>
@@ -1802,7 +1802,7 @@ function EventDetails({
       </div>
 
       <div className="flex items-center justify-between gap-2 border-t border-border px-4 py-3">
-        <span className="truncate text-[10px] text-muted-foreground">
+        <span className="truncate text-2xs text-muted-foreground">
           Delete via {KIND_META[ev.kind].manageHint}
         </span>
         <div className="flex shrink-0 gap-2">

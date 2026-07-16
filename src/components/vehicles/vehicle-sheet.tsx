@@ -39,7 +39,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { VehicleImage } from "@/components/shared/vehicle-image";
-import { PageShell } from "@/components/layout/page-shell";
 import { DataGridPagination } from "@/components/data-grid";
 import { LocationBadge } from "@/components/locations/location-badge";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
@@ -858,7 +857,9 @@ export function VehicleSheet({
   }
 
   return (
-    <PageShell wide>
+    // No PageShell here — the dashboard layout already wraps every route in
+    // one, and nesting a second doubled this page's padding (GEN-61).
+    <>
       {/* Bounded viewport height so the table's own container scrolls (and the
           sticky <thead> sticks) instead of the whole page scrolling. */}
       <div className="flex h-[calc(100dvh-8rem)] flex-col gap-3">
@@ -1393,6 +1394,6 @@ export function VehicleSheet({
         )}
       </div>
       {children}
-    </PageShell>
+    </>
   );
 }

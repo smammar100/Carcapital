@@ -135,13 +135,11 @@ export default function AdvertisersPage() {
   }, [load]);
 
   if (permsLoading) {
-    return (
-      <div className="p-6 text-sm text-muted-foreground">Loading session…</div>
-    );
+    return <div className="text-sm text-muted-foreground">Loading session…</div>;
   }
   if (!canRead) {
     return (
-      <div className="p-6 text-sm text-muted-foreground">
+      <div className="text-sm text-muted-foreground">
         You don&apos;t have access to AutoTrader Advertisers.
       </div>
     );
@@ -152,7 +150,9 @@ export default function AdvertisersPage() {
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="space-y-4 p-4 sm:p-6">
+    // Padding comes from the layout's PageShell — pages don't add their own
+    // (GEN-61).
+    <div className="space-y-4">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold">

@@ -432,7 +432,7 @@ function Kpi({
 }) {
   return (
     <Card className="p-4">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </div>
       <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
