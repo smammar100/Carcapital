@@ -169,6 +169,9 @@ export function VehicleImage({
           "bg-gradient-to-br from-muted to-muted/60 text-muted-foreground",
           // Subtle diagonal stripe pattern via CSS gradient
           "[background-image:repeating-linear-gradient(45deg,transparent,transparent_8px,rgba(0,0,0,0.025)_8px,rgba(0,0,0,0.025)_16px)]",
+          // Pure black/white inset ring (never a tinted border token) so the
+          // edge reads as consistent depth against any surface color behind it.
+          "ring-1 ring-inset ring-black/10 dark:ring-white/10",
           sizeClass,
           className,
         )}
@@ -190,6 +193,7 @@ export function VehicleImage({
     <div
       className={cn(
         "relative overflow-hidden bg-muted",
+        "ring-1 ring-inset ring-black/10 dark:ring-white/10",
         sizeClass,
         className,
       )}
