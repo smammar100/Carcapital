@@ -661,7 +661,15 @@ export default function LeadsPage() {
                 />
               </div>
               <div className="flex gap-2">
+                {/* items map: without it the closed trigger renders the raw
+                    value ("all") instead of its label (GEN-47). */}
                 <Select
+                  items={{
+                    all: "All statuses",
+                    ...Object.fromEntries(
+                      STATUS_ORDER.map((s) => [s, LEAD_STATUS_LABEL[s]]),
+                    ),
+                  }}
                   value={statusFilter}
                   onValueChange={(v) =>
                     setStatusFilter(v as LeadStatus | "all")
@@ -680,6 +688,15 @@ export default function LeadsPage() {
                   </SelectContent>
                 </Select>
                 <Select
+                  items={{
+                    all: "All sources",
+                    ...Object.fromEntries(
+                      SOURCES.map((s) => [
+                        s,
+                        s.replace("_", " ").replace(/^\w/, (c) => c.toUpperCase()),
+                      ]),
+                    ),
+                  }}
                   value={sourceFilter}
                   onValueChange={(v) => setSourceFilter(v as LeadSource | "all")}
                 >
