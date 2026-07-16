@@ -282,7 +282,7 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                     />
                   </div>
                   <span
-                    className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium tabular-nums text-muted-foreground"
+                    className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-2xs font-medium tabular-nums text-muted-foreground"
                     data-testid="add-staff-selected-count"
                   >
                     {caps.size}/{ALL_CAPABILITIES.length}

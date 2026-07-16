@@ -1517,7 +1517,7 @@ function FieldShell({
       <div className="flex items-center justify-between">
         <Label>{label}</Label>
         {auto && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
+          <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-2xs font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
             <Sparkles className="size-2.5" /> DVLA
           </span>
         )}

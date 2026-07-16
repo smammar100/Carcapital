@@ -82,7 +82,7 @@ export function PermissionsGridTable({
                 className="border-b border-l bg-muted px-1.5 py-1.5 text-center align-middle"
               >
                 <span
-                  className="line-clamp-2 text-center text-[11px] font-medium leading-[14px] text-muted-foreground"
+                  className="line-clamp-2 text-center text-xs font-medium leading-snug text-muted-foreground"
                   title={CAPABILITY_LABELS[cap]}
                 >
                   {CAPABILITY_LABELS[cap]}
@@ -139,7 +139,7 @@ export function PermissionsGridTable({
                     </div>
                     <span
                       className={cn(
-                        "ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] tabular-nums text-muted-foreground",
+                        "ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-2xs tabular-nums text-muted-foreground",
                         "group-focus-within/member:hidden group-hover/member:hidden",
                       )}
                     >
