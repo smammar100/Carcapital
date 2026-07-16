@@ -72,7 +72,16 @@
   --tw-shadow-color: #000;
 
   /* ── Canonical type scale (4 sizes + 1 locked micro) ─────────────────
-     Tuned for Figtree. Roles:
+     Tuned for Geist Sans. Sizes (rem) are unchanged from the previous
+     Figtree tuning — dozens of components have padding/height assumptions
+     baked in around these exact values, and re-scaling sizes app-wide is a
+     much bigger, riskier change than the font swap itself. What changed is
+     line-height and letter-spacing, recomputed for Geist's own metrics:
+     Geist has a taller x-height and more open default glyph spacing than
+     Figtree, so it needs LESS negative tracking at display/title sizes
+     (Geist is already tight; over-tightening collides ascenders/descenders)
+     and reads comfortably at a slightly looser line-height for body/label
+     text. Roles:
        text-2xl  display — page/modal <h1>, KPI/stat hero numbers
        text-base title   — card/panel/dialog/section titles, key numbers
        text-sm   body    — prose, descriptions, table cells, nav, inputs
@@ -80,17 +89,17 @@
        text-2xs  micro   — LOCKED: glyphs in fixed sub-12px boxes only
      Emphasis is weight (600) + color, never a 5th size. */
   --text-2xl: 1.5rem;
-  --text-2xl--line-height: 1.2;
-  --text-2xl--letter-spacing: -0.022em;
+  --text-2xl--line-height: 1.15;
+  --text-2xl--letter-spacing: -0.02em;
   --text-base: 1.125rem;
-  --text-base--line-height: 1.3;
-  --text-base--letter-spacing: -0.015em;
+  --text-base--line-height: 1.35;
+  --text-base--letter-spacing: -0.012em;
   --text-sm: 0.875rem;
-  --text-sm--line-height: 1.45;
-  --text-sm--letter-spacing: -0.006em;
+  --text-sm--line-height: 1.5;
+  --text-sm--letter-spacing: -0.004em;
   --text-xs: 0.75rem;
-  --text-xs--line-height: 1.35;
-  --text-xs--letter-spacing: 0.01em;
+  --text-xs--line-height: 1.4;
+  --text-xs--letter-spacing: 0.008em;
   --text-2xs: 0.625rem;
   --text-2xs--line-height: 1;
   --text-2xs--letter-spacing: 0.01em;
@@ -196,8 +205,11 @@
    Light `--n-color-*` values come from @nordhealth/css. */
 :root {
   color-scheme: light;
-  /* Use Nord's bundled font (Inter / "Nordhealth Sans") app-wide. */
-  --font-sans: var(--n-font-family);
+  /* Geist Sans app-wide (self-hosted via the `geist` package; layout.tsx sets
+     --font-geist-sans). Overriding --n-font-family too keeps the <nord-*>
+     web components (sidebar, header, selects) on the same typeface. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --n-font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --radius: var(--n-border-radius);
   --background: var(--n-color-background);
   --foreground: var(--n-color-text);
