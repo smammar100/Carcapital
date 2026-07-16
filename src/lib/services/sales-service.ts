@@ -154,7 +154,28 @@ export const salesService = {
         metadata: { dealId: id, stage },
       });
       if (stage === "completed_sale") {
-        await vehicleService.changeStatus(v.id, "sold", actorId);
+        // Stamp the sale onto the vehicle, not just the deal. Dashboard KPIs
+        // ("Sold this month"), Reports and Closed Deals all read the vehicle's
+        // date_sold / selling_price — leaving them null made a completed deal
+        // invisible to every sales number (GEN-43).
+        const received = new Date(v.receivedDate).getTime();
+        await vehicleService.update(
+          v.id,
+          {
+            status: "sold",
+            dateSold: deal.completionDate ?? new Date().toISOString().slice(0, 10),
+            // Deal price wins only when the vehicle has none recorded yet
+            // (invoicing may already have written the definitive figure).
+            sellingPrice:
+              v.sellingPrice ?? deal.agreedPrice ?? deal.offerPrice ?? null,
+            // Freeze days-in-stock at sale time — the grid trusts the stored
+            // value once a vehicle is sold, and quick-add seeds it with 0.
+            daysInStock: Number.isNaN(received)
+              ? v.daysInStock
+              : Math.max(0, Math.floor((Date.now() - received) / 86_400_000)),
+          },
+          actorId,
+        );
         // Only stamp "sold" on a listing that's actually published/live —
         // never promote a draft or archived advert into the sold lifecycle.
         const soldListing = await listingService.getForVehicle(v.id);
