@@ -31,6 +31,7 @@ vi.mock("./activity-service", () => ({
 const vehicleMocks = vi.hoisted(() => ({
   getById: vi.fn(),
   changeStatus: vi.fn(async () => undefined),
+  update: vi.fn(async () => undefined),
 }));
 vi.mock("./vehicle-service", () => ({ vehicleService: vehicleMocks }));
 
@@ -62,6 +63,7 @@ function setup(opts: {
 beforeEach(() => {
   vehicleMocks.getById.mockReset();
   vehicleMocks.changeStatus.mockReset().mockResolvedValue(undefined);
+  vehicleMocks.update.mockReset().mockResolvedValue(undefined);
   listingMocks.getForVehicle.mockReset();
   listingMocks.setStatusForVehicle.mockReset().mockResolvedValue(undefined);
   vi.useFakeTimers();
@@ -83,9 +85,12 @@ describe("updateStage → completed_sale", () => {
     expect(stepArgs(update!, "update")).toEqual([
       { stage: "completed_sale", completion_date: "2026-07-02" },
     ]);
-    expect(vehicleMocks.changeStatus).toHaveBeenCalledWith(
+    // GEN-43: completing a sale stamps the vehicle row itself (status,
+    // date_sold, selling_price, frozen days-in-stock) via update(), not a
+    // bare changeStatus() — the dashboard/reports read those columns.
+    expect(vehicleMocks.update).toHaveBeenCalledWith(
       "veh-0001",
-      "sold",
+      expect.objectContaining({ status: "sold", dateSold: "2026-07-02" }),
       "user-9",
     );
     expect(listingMocks.setStatusForVehicle).toHaveBeenCalledWith(
@@ -97,9 +102,9 @@ describe("updateStage → completed_sale", () => {
   it("never stamps 'sold' on a draft listing", async () => {
     setup({ stage: "completed_sale", listing: { status: "draft" } });
     await salesService.updateStage("deal-0001", "completed_sale", "user-9");
-    expect(vehicleMocks.changeStatus).toHaveBeenCalledWith(
+    expect(vehicleMocks.update).toHaveBeenCalledWith(
       "veh-0001",
-      "sold",
+      expect.objectContaining({ status: "sold" }),
       "user-9",
     );
     expect(listingMocks.setStatusForVehicle).not.toHaveBeenCalled();
