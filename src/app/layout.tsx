@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import { Suspense } from "react";
 // Nord base (design tokens + Inter webfont + FOUC guard for undefined
 // <nord-*> elements) MUST load before globals.css so our token bridge and
@@ -18,15 +19,10 @@ import { Analytics } from "@vercel/analytics/next";
 import { getInitialAuth } from "@/lib/auth-initial";
 import { AuthBoundary } from "@/components/layout/auth-boundary";
 
-// UI font comes from Nord (Inter / "Nordhealth Sans") via @nordhealth/css and
-// the --font-sans → --n-font-family mapping in globals.css. Geist Mono stays
-// for code / monospaced values.
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-  display: "swap",
-  preload: false,
-});
+// UI font is Geist Sans (self-hosted via the `geist` package, exposing
+// --font-geist-sans); globals.css points both --font-sans AND Nord's
+// --n-font-family at it so Tailwind text and <nord-*> components match.
+// Geist Mono (--font-geist-mono) covers code / monospaced values.
 
 export const metadata: Metadata = {
   title: "Car Capital UK",
@@ -72,7 +68,8 @@ export default async function RootLayout({
       className={cn(
         "h-full",
         "antialiased",
-        geistMono.variable,
+        GeistSans.variable,
+        GeistMono.variable,
         "font-sans",
       )}
     >
