@@ -130,7 +130,10 @@ const KPI_DEFS: KpiDef[] = [
   },
   {
     key: "open_claims",
-    label: "Warranty Open Claims",
+    // "Warranty Open Claims" truncated to "WARRANTY OPEN C…" in its tile at
+    // desktop widths (GEN-44); the shield icon + /warranties/claims link carry
+    // the warranty context, so the short label loses nothing.
+    label: "Open Claims",
     icon: ShieldAlert,
     href: "/warranties/claims",
     requiredAnyOf: [
