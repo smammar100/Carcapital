@@ -341,8 +341,9 @@ export default function InvoicingPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Invoicing</h1>
           <p className="text-sm text-muted-foreground">
-            Every invoice in one place: customer sales and refunds, supplier
-            purchase invoices, and external job bills.
+            Every invoice in one place: the company ledger (sales, refunds and
+            recorded purchase invoices), auction purchase bills, and external
+            job bills.
           </p>
         </div>
         {topTab === "sales" && canUpload ? (
@@ -436,10 +437,15 @@ export default function InvoicingPage() {
       </div>
 
       <Tabs value={topTab} onValueChange={(v) => setTopTab(v as TopTab)}>
+        {/* Tab names must say what their dataset IS (GEN-46): the first tab is
+            the company invoice LEDGER (sale/refund/purchase types — the chips
+            below filter it); the other two are the vendor-bill modules. The
+            old "Sales" / "Purchase Invoices" pair meant a purchase invoice
+            lived under "Sales" while "Purchase Invoices" sat empty. */}
         <TabsList>
-          <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="purchase">Purchase Invoices</TabsTrigger>
-          <TabsTrigger value="external_job">External Job Invoices</TabsTrigger>
+          <TabsTrigger value="sales">All Invoices</TabsTrigger>
+          <TabsTrigger value="purchase">Auction Purchases</TabsTrigger>
+          <TabsTrigger value="external_job">External Job Bills</TabsTrigger>
         </TabsList>
 
         <TabsContent value="sales" className="mt-4 flex flex-col gap-4">

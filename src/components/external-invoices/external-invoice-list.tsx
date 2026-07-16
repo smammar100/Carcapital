@@ -77,6 +77,15 @@ export function ExternalInvoiceList({ kind }: Props) {
     () => new Map(vendors.map((v) => [v.id, v])),
     [vendors],
   );
+  // Base UI's SelectValue renders the raw value ("all") unless the Root gets
+  // an items map to resolve labels from.
+  const vendorItems = useMemo(
+    () => [
+      { value: "all", label: "All vendors" },
+      ...vendors.map((v) => ({ value: v.id, label: v.name })),
+    ],
+    [vendors],
+  );
   const vehicleById = useMemo(
     () => new Map(vehicles.map((v) => [v.id, v])),
     [vehicles],
@@ -135,6 +144,7 @@ export function ExternalInvoiceList({ kind }: Props) {
           className="h-9 w-64"
         />
         <Select
+          items={vendorItems}
           value={vendorFilter}
           onValueChange={(v) => setVendorFilter(v as UUID | "all")}
         >
@@ -166,18 +176,19 @@ export function ExternalInvoiceList({ kind }: Props) {
         </div>
       </div>
 
-      {/* Table */}
-      <div className="overflow-hidden rounded-xl border bg-card">
+      {/* Table — header style matches the invoice ledger table on
+          /admin/invoicing so the three tabs read as one page (GEN-46). */}
+      <div className="overflow-hidden rounded-lg border bg-card">
         <table className="w-full border-collapse text-sm">
-          <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+          <thead className="bg-muted/40 text-xs text-muted-foreground">
             <tr>
-              <th className="px-3 py-2 text-left font-medium">Date</th>
-              <th className="px-3 py-2 text-left font-medium">Vendor</th>
-              <th className="px-3 py-2 text-left font-medium">Vehicle</th>
-              <th className="px-3 py-2 text-left font-medium">Invoice #</th>
-              <th className="px-3 py-2 text-left font-medium">Description</th>
-              <th className="px-3 py-2 text-right font-medium">Total</th>
-              <th className="px-3 py-2 text-right font-medium">Actions</th>
+              <th className="px-3 py-2.5 text-left font-medium">Date</th>
+              <th className="px-3 py-2.5 text-left font-medium">Vendor</th>
+              <th className="px-3 py-2.5 text-left font-medium">Vehicle</th>
+              <th className="px-3 py-2.5 text-left font-medium">Invoice #</th>
+              <th className="px-3 py-2.5 text-left font-medium">Description</th>
+              <th className="px-3 py-2.5 text-right font-medium">Total</th>
+              <th className="px-3 py-2.5 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -283,9 +294,26 @@ export function ExternalInvoiceList({ kind }: Props) {
               <tr>
                 <td
                   colSpan={7}
-                  className="px-3 py-10 text-center text-sm italic text-muted-foreground"
+                  className="px-3 py-10 text-center text-sm text-muted-foreground"
                 >
-                  No {INVOICE_KIND_LABELS[kind].toLowerCase()} invoices yet.
+                  <span className="italic">
+                    No {INVOICE_KIND_LABELS[kind].toLowerCase()} invoices yet.
+                  </span>
+                  {/* Supplier purchase docs uploaded to the ledger are a
+                      different dataset — point there so an empty tab never
+                      reads as "the company has no purchase invoices" (GEN-46). */}
+                  {kind === "auction_purchase" ? (
+                    <span className="mt-1 block not-italic">
+                      Uploaded supplier purchase invoices live under{" "}
+                      <Link
+                        href="/admin/invoicing"
+                        className="font-medium text-foreground underline-offset-4 hover:underline"
+                      >
+                        All Invoices → Purchase
+                      </Link>
+                      .
+                    </span>
+                  ) : null}
                 </td>
               </tr>
             )}

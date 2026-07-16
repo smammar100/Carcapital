@@ -18,6 +18,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { claimService } from "@/lib/services/claim-service";
 import { leadService } from "@/lib/services/lead-service";
 import { maintenanceService } from "@/lib/services/maintenance-service";
+import { salesService } from "@/lib/services/sales-service";
 import type { Capability } from "@/lib/capabilities";
 import { DashboardStatCard } from "./dashboard-stat-card";
 
@@ -129,7 +130,10 @@ const KPI_DEFS: KpiDef[] = [
   },
   {
     key: "open_claims",
-    label: "Warranty Open Claims",
+    // "Warranty Open Claims" truncated to "WARRANTY OPEN C…" in its tile at
+    // desktop widths (GEN-44); the shield icon + /warranties/claims link carry
+    // the warranty context, so the short label loses nothing.
+    label: "Open Claims",
     icon: ShieldAlert,
     href: "/warranties/claims",
     requiredAnyOf: [
@@ -162,6 +166,7 @@ export function DashboardKpiRow() {
     claims: Awaited<ReturnType<typeof claimService.getAll>>;
     leads: Awaited<ReturnType<typeof leadService.getAll>>;
     jobs: Awaited<ReturnType<typeof maintenanceService.getAll>>;
+    deals: Awaited<ReturnType<typeof salesService.getAll>>;
   } | null>(null);
 
   useEffect(() => {
@@ -171,8 +176,9 @@ export function DashboardKpiRow() {
       claimService.getAll(company.id),
       leadService.getAll(company.id),
       maintenanceService.getAll(company.id),
-    ]).then(([vehicles, claims, leads, jobs]) => {
-      setData({ vehicles, claims, leads, jobs });
+      salesService.getAll(company.id),
+    ]).then(([vehicles, claims, leads, jobs, deals]) => {
+      setData({ vehicles, claims, leads, jobs, deals });
     });
   }, [company]);
 
@@ -201,9 +207,25 @@ export function DashboardKpiRow() {
     const activeJobs = data.jobs.filter(
       (j) => j.status === "pending" || j.status === "in_progress",
     ).length;
-    const soldThisMonth = data.vehicles.filter(
-      (v) => v.dateSold && new Date(v.dateSold).getTime() >= monthStart,
-    ).length;
+    // A vehicle counts as sold this month if its date_sold says so OR a deal
+    // for it completed this month (historic completions predate the write-back
+    // of date_sold onto the vehicle, GEN-43). Union, deduped per vehicle.
+    const soldVehicleIds = new Set<string>();
+    for (const v of data.vehicles) {
+      if (v.dateSold && new Date(v.dateSold).getTime() >= monthStart) {
+        soldVehicleIds.add(v.id);
+      }
+    }
+    for (const d of data.deals) {
+      if (
+        d.stage === "completed_sale" &&
+        d.completionDate &&
+        new Date(d.completionDate).getTime() >= monthStart
+      ) {
+        soldVehicleIds.add(d.vehicleId);
+      }
+    }
+    const soldThisMonth = soldVehicleIds.size;
     const openClaims = data.claims.filter(
       (c) => c.status === "open" || c.status === "under_review",
     ).length;

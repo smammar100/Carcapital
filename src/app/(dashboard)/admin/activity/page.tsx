@@ -35,15 +35,12 @@ import type {
 } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  FilterBar,
+  matchesFilterState,
+  useFilterState,
+  type SelectFilter,
+} from "@/components/filters/filter-bar";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn, formatRelativeTime } from "@/lib/utils";
 
@@ -156,12 +153,10 @@ export default function ActivityLogPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [users, setUsers] = useState<User[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
-  const [actionFilter, setActionFilter] = useState<ActivityActionType | "all">(
-    "all",
-  );
-  const [userFilter, setUserFilter] = useState<string | "all">("all");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // Shared FilterBar (GEN-22) replaces the page's bespoke Action/User/From/To
+  // row so the audit page filters like Invoicing & Closed Deals — with date
+  // presets, a search box, and labelled selects (GEN-47).
+  const { state: filters, setState: setFilters } = useFilterState();
 
   // Depend on the stable id, NOT the company object: auth revalidation mints
   // a new company object identity, and re-running this effect would clobber
@@ -207,16 +202,51 @@ export default function ActivityLogPage() {
     }
   };
 
+  const selectFilters: SelectFilter[] = useMemo(
+    () => [
+      {
+        key: "action",
+        label: "Action",
+        allLabel: "Any action",
+        options: ACTION_TYPES.map((a) => ({
+          value: a,
+          label: a
+            .replace(/_/g, " ")
+            .replace(/^\w/, (c) => c.toUpperCase()),
+        })),
+      },
+      {
+        key: "user",
+        label: "User",
+        allLabel: "Any user",
+        options: users.map((u) => ({ value: u.id, label: u.name })),
+      },
+    ],
+    [users],
+  );
+
   const filtered = useMemo(() => {
     if (!entries) return null;
-    let out = [...entries];
-    if (actionFilter !== "all")
-      out = out.filter((e) => e.actionType === actionFilter);
-    if (userFilter !== "all") out = out.filter((e) => e.userId === userFilter);
-    if (from) out = out.filter((e) => e.createdAt >= from);
-    if (to) out = out.filter((e) => e.createdAt <= `${to}T23:59:59.999Z`);
-    return out;
-  }, [entries, actionFilter, userFilter, from, to]);
+    return entries.filter((e) =>
+      matchesFilterState(e, filters, {
+        searchText: (row) => {
+          const user = users.find((u) => u.id === row.userId);
+          const vehicle = vehicles.find((v) => v.id === row.vehicleId);
+          return [
+            row.description,
+            row.actionType.replace(/_/g, " "),
+            user?.name,
+            vehicle?.registration,
+          ]
+            .filter(Boolean)
+            .join(" ");
+        },
+        date: (row) => row.createdAt,
+        selectValue: (row, key) =>
+          key === "action" ? row.actionType : key === "user" ? row.userId : null,
+      }),
+    );
+  }, [entries, filters, users, vehicles]);
 
   // Group the (already date-sorted) entries by day for the timeline.
   const groups = useMemo(() => {
@@ -241,61 +271,13 @@ export default function ActivityLogPage() {
         </p>
       </div>
 
-      <Card className="grid gap-3 p-3 sm:grid-cols-4">
-        <div>
-          <Label className="text-xs">Action</Label>
-          <Select
-            value={actionFilter}
-            onValueChange={(v) =>
-              setActionFilter(v as ActivityActionType | "all")
-            }
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All actions</SelectItem>
-              {ACTION_TYPES.map((a) => (
-                <SelectItem key={a} value={a} className="capitalize">
-                  {a.replace(/_/g, " ")}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-xs">User</Label>
-          <Select value={userFilter} onValueChange={setUserFilter}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All users</SelectItem>
-              {users.map((u) => (
-                <SelectItem key={u.id} value={u.id}>
-                  {u.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label className="text-xs">From</Label>
-          <Input
-            type="date"
-            value={from}
-            onChange={(e) => setFrom(e.target.value)}
-          />
-        </div>
-        <div>
-          <Label className="text-xs">To</Label>
-          <Input
-            type="date"
-            value={to}
-            onChange={(e) => setTo(e.target.value)}
-          />
-        </div>
-      </Card>
+      <FilterBar
+        state={filters}
+        onChange={setFilters}
+        searchPlaceholder="Search description, reg, user…"
+        dateLabel="Activity"
+        selects={selectFilters}
+      />
 
       {!groups ? (
         <Skeleton className="h-72" />
@@ -383,12 +365,16 @@ export default function ActivityLogPage() {
           )}
         </Card>
       )}
-      {nextCursor && (from || to || actionFilter !== "all" || userFilter !== "all") && (
-        <p className="text-center text-xs text-muted-foreground">
-          Filters apply to the {entries?.length ?? 0} loaded entries — load
-          older activity to search further back.
-        </p>
-      )}
+      {nextCursor &&
+        (filters.search.trim() !== "" ||
+          filters.date.from !== null ||
+          filters.date.to !== null ||
+          Object.values(filters.selects).some((v) => v !== "")) && (
+          <p className="text-center text-xs text-muted-foreground">
+            Filters apply to the {entries?.length ?? 0} loaded entries — load
+            older activity to search further back.
+          </p>
+        )}
     </div>
   );
 }

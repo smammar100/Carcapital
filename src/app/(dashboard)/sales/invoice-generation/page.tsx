@@ -73,6 +73,16 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
+/** Human labels for the DepositMethod enum — a legal document form must never
+ *  surface raw values like "bank_transfer" (GEN-51). */
+const DEPOSIT_METHOD_OPTIONS: [DepositMethod, string][] = [
+  ["bank_transfer", "Bank Transfer"],
+  ["cash", "Cash"],
+  ["card", "Card"],
+  ["cheque", "Cheque"],
+  ["pdq", "PDQ"],
+];
+
 interface DraftLine {
   uid: string;
   type: InvoiceLineItemType;
@@ -902,7 +912,13 @@ function InvoiceGenerationForm() {
             </div>
             <div>
               <Label>Deposit method</Label>
+              {/* items map: without it Base UI's SelectValue renders the raw
+                  enum ("bank_transfer") in the closed trigger (GEN-51). */}
               <Select
+                items={DEPOSIT_METHOD_OPTIONS.map(([value, label]) => ({
+                  value,
+                  label,
+                }))}
                 value={depositMethod}
                 onValueChange={(v) => setDepositMethod(v as DepositMethod)}
               >
@@ -910,15 +926,7 @@ function InvoiceGenerationForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {(
-                    [
-                      ["bank_transfer", "Bank Transfer"],
-                      ["cash", "Cash"],
-                      ["card", "Card"],
-                      ["cheque", "Cheque"],
-                      ["pdq", "PDQ"],
-                    ] as [DepositMethod, string][]
-                  ).map(([v, l]) => (
+                  {DEPOSIT_METHOD_OPTIONS.map(([v, l]) => (
                     <SelectItem key={v} value={v}>
                       {l}
                     </SelectItem>

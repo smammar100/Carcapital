@@ -157,7 +157,9 @@ export function DashboardRecentDeals() {
                     <td className="px-3 py-2.5 text-right tabular-nums">
                       {formatCurrency(r.total)}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-muted-foreground tabular-nums">
+                    {/* nowrap: the column is narrow enough that "09 Jul"
+                        otherwise breaks onto two lines on every row (GEN-44) */}
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right text-muted-foreground tabular-nums">
                       {fmtDate(r.date)}
                     </td>
                   </tr>

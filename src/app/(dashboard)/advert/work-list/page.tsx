@@ -585,7 +585,17 @@ export default function ListingsPage() {
               />
             </div>
             <div className="flex gap-2">
+              {/* items map: without it the closed trigger renders the raw
+                  value ("all") instead of its label (GEN-47). */}
               <Select
+                items={{
+                  all: "All statuses",
+                  draft: "Draft",
+                  live: "Live",
+                  reserved: "Reserved",
+                  sold: "Sold",
+                  archived: "Archived",
+                }}
                 value={statusFilter}
                 onValueChange={(v) =>
                   setStatusFilter(v as ListingStatus | "all")
@@ -604,6 +614,12 @@ export default function ListingsPage() {
                 </SelectContent>
               </Select>
               <Select
+                items={{
+                  all: "All channels",
+                  ...Object.fromEntries(
+                    CHANNELS.map((c) => [c, CHANNEL_LABELS[c]]),
+                  ),
+                }}
                 value={channelFilter}
                 onValueChange={(v) => setChannelFilter(v as Channel | "all")}
               >
