@@ -195,10 +195,19 @@ export default function PerformancePage() {
       return { ...c, enquiries, liveCount: onChannel.length, top, topEnq };
     });
   }, [live, stats]);
-  const maxChannelEnq = useMemo(
-    () => Math.max(1, ...(channelStats?.map((c) => c.enquiries) ?? [1])),
-    [channelStats],
-  );
+  // Vehicle totals count EVERY lead source; the four cards only count
+  // marketplace channels. Surface the remainder (walk-ins, referrals, …) so
+  // the cards always reconcile with the Total enquiries KPI (GEN-49).
+  const otherEnq = useMemo(() => {
+    if (!kpis || !channelStats) return 0;
+    const channelled = channelStats.reduce((s, c) => s + c.enquiries, 0);
+    return Math.max(0, kpis.totalEnq - channelled);
+  }, [kpis, channelStats]);
+  // Denominator for "Share of enquiries" — all enquiries, so the shares
+  // (incl. Other) sum to 100%. Dividing by the top channel made the labels
+  // read 100/33/0/33 (GEN-49).
+  const shareOf = (n: number) =>
+    kpis && kpis.totalEnq > 0 ? Math.round((n / kpis.totalEnq) * 100) : 0;
 
   const topAdverts = useMemo(
     () => (live ? [...live].sort((a, b) => b.enq - a.enq).slice(0, 5) : []),
@@ -279,12 +288,12 @@ export default function PerformancePage() {
                 <div>
                   <div className="mb-1 flex justify-between text-2xs text-muted-foreground">
                     <span>Share of enquiries</span>
-                    <span>{Math.round((c.enquiries / maxChannelEnq) * 100)}%</span>
+                    <span>{shareOf(c.enquiries)}%</span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
                       className={cn("h-full rounded-full", c.bar)}
-                      style={{ width: `${(c.enquiries / maxChannelEnq) * 100}%` }}
+                      style={{ width: `${shareOf(c.enquiries)}%` }}
                     />
                   </div>
                 </div>
@@ -302,6 +311,37 @@ export default function PerformancePage() {
                 </div>
               </div>
             ))}
+            {/* Non-marketplace leads (walk-in, referral, repeat customer…) so
+                the channel cards always sum to the Total enquiries KPI. */}
+            {otherEnq > 0 && (
+              <div className="flex flex-col gap-3 rounded-xl border border-dashed bg-card p-4">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <span className="size-2.5 rounded-full bg-muted-foreground/50" />
+                  Other sources
+                </div>
+                <div className="flex items-end justify-between">
+                  <div>
+                    <div className="text-2xl font-semibold tabular-nums">{otherEnq}</div>
+                    <div className="text-2xs text-muted-foreground">enquiries</div>
+                  </div>
+                </div>
+                <div>
+                  <div className="mb-1 flex justify-between text-2xs text-muted-foreground">
+                    <span>Share of enquiries</span>
+                    <span>{shareOf(otherEnq)}%</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-muted-foreground/50"
+                      style={{ width: `${shareOf(otherEnq)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="border-t pt-2 text-2xs text-muted-foreground">
+                  Walk-ins, referrals &amp; other non-marketplace leads
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Leaderboards */}
