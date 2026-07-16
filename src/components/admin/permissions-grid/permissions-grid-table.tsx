@@ -147,7 +147,7 @@ export function PermissionsGridTable({
                     </span>
                     <div
                       className={cn(
-                        "ml-auto hidden shrink-0 items-center gap-1.5",
+                        "ml-auto hidden shrink-0 items-center gap-0.5",
                         "group-focus-within/member:flex group-hover/member:flex",
                       )}
                     >
@@ -155,7 +155,7 @@ export function PermissionsGridTable({
                         <button
                           type="button"
                           onClick={() => onEditRoles(u)}
-                          className="text-muted-foreground hover:text-foreground"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                           aria-label={`Edit roles for ${u.name}`}
                           title="Edit roles"
                           data-testid={`edit-roles-${u.id}`}
@@ -167,7 +167,7 @@ export function PermissionsGridTable({
                         <button
                           type="button"
                           onClick={() => onResetPassword(u)}
-                          className="text-muted-foreground hover:text-foreground"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
                           aria-label={`Reset password for ${u.name}`}
                           title="Reset password"
                           data-testid={`reset-password-${u.id}`}
@@ -179,7 +179,7 @@ export function PermissionsGridTable({
                         <button
                           type="button"
                           onClick={() => onRemove(u)}
-                          className="text-muted-foreground hover:text-destructive"
+                          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                           aria-label={`Remove ${u.name}`}
                           title="Remove member"
                           data-testid={`remove-member-${u.id}`}
