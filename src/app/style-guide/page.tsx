@@ -16,7 +16,14 @@
  */
 
 import * as React from "react";
-import { Car, Download, Plus, SlidersHorizontal, Trash2 } from "lucide-react";
+import {
+  Car,
+  Download,
+  Plus,
+  Search,
+  SlidersHorizontal,
+  Trash2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -33,6 +40,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Combobox,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
+} from "@/components/ui/combobox";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -421,6 +436,14 @@ const BTN_VARIANTS = [
   "destructive-outline",
 ] as const;
 const BTN_SIZES = ["xs", "sm", "default", "lg", "xl"] as const;
+const SG_VEHICLES = [
+  { id: "CC-0013", reg: "LG68 OCH", name: "BMW 3 Series", status: "listed" },
+  { id: "CC-0017", reg: "MT67 RLZ", name: "BMW X1", status: "listed" },
+  { id: "CC-0018", reg: "NA66 XGM", name: "BMW X5", status: "ready" },
+  { id: "CC-0019", reg: "HV67 UPS", name: "Citroen C4 Picasso", status: "listed" },
+  { id: "CC-0022", reg: "R500 HNT", name: "Fiat 500", status: "reserved" },
+];
+
 const BADGE_VARIANTS = [
   "default",
   "secondary",
@@ -625,8 +648,57 @@ function Atoms() {
         <p className="mt-3 text-2xs text-muted-foreground [text-wrap:pretty]">
           Raw native <Code>&lt;select&gt;</Code> elements showing a lowercase
           “all” are a defect, not a variant (see GEN-47) — every dropdown goes
-          through this primitive or the shared FilterBar.
+          through this primitive, the Combobox below, or the shared FilterBar.
         </p>
+      </Spec>
+
+      <Spec
+        title="Searchable select (Combobox)"
+        note="When the option list is long enough to hunt through (vehicles, customers, providers), use the Combobox — the search field is embedded in the control itself: type to filter, pick from the popup. Same trigger styling and single down chevron as Select. Used by New Warranty, New Claim and Add Event."
+        className="!block"
+      >
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label>Vehicle picker — type to filter</Label>
+            <Combobox
+              items={SG_VEHICLES}
+              itemToStringLabel={(v: (typeof SG_VEHICLES)[number]) =>
+                `${v.reg} — ${v.name}`
+              }
+            >
+              <ComboboxInput
+                placeholder="Pick a vehicle in stock"
+                startAddon={<Search />}
+                className="w-full"
+              />
+              <ComboboxPopup>
+                <ComboboxEmpty>No vehicles match.</ComboboxEmpty>
+                <ComboboxList>
+                  {(v: (typeof SG_VEHICLES)[number]) => (
+                    <ComboboxItem key={v.id} value={v}>
+                      <div className="flex flex-col">
+                        <span className="text-sm">
+                          {v.reg} — {v.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {v.id} · {v.status}
+                        </span>
+                      </div>
+                    </ComboboxItem>
+                  )}
+                </ComboboxList>
+              </ComboboxPopup>
+            </Combobox>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Rule of thumb</Label>
+            <p className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground [text-wrap:pretty]">
+              ≤ ~10 fixed options → <Code>Select</Code>. Longer or data-driven
+              lists (stock, customers) → <Code>Combobox</Code>, so nobody
+              scrolls a hundred rows to find a reg plate.
+            </p>
+          </div>
+        </div>
       </Spec>
 
       <Spec title="Selection controls">

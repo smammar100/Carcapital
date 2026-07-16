@@ -7,7 +7,6 @@ import { cn } from "@/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import {
   ChevronDownIcon,
-  ChevronsUpDownIcon,
   ChevronUpIcon,
 } from "lucide-react";
 import type * as React from "react";
@@ -77,7 +76,9 @@ export function SelectButton({
         <span className="flex-1 truncate in-data-placeholder:text-muted-foreground/72">
           {children}
         </span>
-        <ChevronsUpDownIcon className={selectTriggerIconClassName} />
+        {/* Single down chevron across every dropdown (design decision
+            2026-07-16) — the double up/down caret read as a stepper. */}
+        <ChevronDownIcon className={selectTriggerIconClassName} />
       </>
     ),
     className: cn(selectTriggerVariants({ size }), "min-w-0", className),
@@ -107,7 +108,9 @@ export function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon data-slot="select-icon">
-        <ChevronsUpDownIcon className={selectTriggerIconClassName} />
+        {/* Single down chevron across every dropdown (design decision
+            2026-07-16) — the double up/down caret read as a stepper. */}
+        <ChevronDownIcon className={selectTriggerIconClassName} />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   );
