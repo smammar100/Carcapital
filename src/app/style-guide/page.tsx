@@ -25,6 +25,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -470,31 +478,174 @@ function Atoms() {
         ))}
       </Spec>
 
-      <Spec title="Form controls" className="!block">
-        <div className="grid max-w-xl gap-4 sm:grid-cols-2">
+      <Spec
+        title="Text input — states"
+        note="Focus and invalid styling are built into the primitive: focus ring from --ring, aria-invalid flips the border/ring to destructive. Never style these per-page."
+        className="!block"
+      >
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
           <div className="grid gap-1.5">
-            <Label>Text input</Label>
+            <Label>Default</Label>
             <Input placeholder="Search reg, make/model…" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Filled</Label>
+            <Input defaultValue="LG68 OCH" />
           </div>
           <div className="grid gap-1.5">
             <Label>Disabled</Label>
             <Input placeholder="Unavailable" disabled />
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-destructive-foreground">
+              Invalid <span className="font-normal">(aria-invalid)</span>
+            </Label>
+            <Input defaultValue="not-an-email" aria-invalid />
+            <p className="text-2xs text-destructive-foreground">
+              Enter a valid email address.
+            </p>
           </div>
           <div className="grid gap-1.5 sm:col-span-2">
             <Label>Textarea</Label>
             <Textarea placeholder="Special requirements…" rows={2} />
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap items-center gap-6">
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <Checkbox checked={checked} onCheckedChange={() => setChecked((v) => !v)} />
-            Checkbox
-          </label>
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <Switch checked={on} onCheckedChange={() => setOn((v) => !v)} />
-            Switch
-          </label>
+      </Spec>
+
+      <Spec
+        title="Numeric · date · time fields"
+        note="Numbers, money, dates and times are the native input types styled by the same Input primitive. Numeric values render tabular-nums so they align in columns; money fields put the unit in the label, not the value."
+        className="!block"
+      >
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-3">
+          <div className="grid gap-1.5">
+            <Label>Number</Label>
+            <Input type="number" defaultValue={68800} className="tabular-nums" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Price (£)</Label>
+            <Input
+              type="number"
+              min={0}
+              step={50}
+              defaultValue={13250}
+              className="tabular-nums"
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Mileage</Label>
+            <Input type="number" min={0} placeholder="0" className="tabular-nums" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Date</Label>
+            <Input type="date" defaultValue="2026-07-16" />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Time — 1h slots, business hours</Label>
+            <Input type="time" defaultValue="10:00" min="09:00" max="17:00" step={3600} />
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Registration (mono)</Label>
+            <Input defaultValue="LG68 OCH" className="font-mono uppercase" />
+          </div>
         </div>
+      </Spec>
+
+      <Spec
+        title="Select (dropdown) — states"
+        note="The app's dropdown is the Base-UI Select composed as Select → SelectTrigger → SelectValue + SelectContent → SelectItem. Same state contract as Input: placeholder, selected, disabled, aria-invalid. Open the first one to see the popup — items show a check on the selected row, and SelectSeparator groups long lists."
+        className="!block"
+      >
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+          <div className="grid gap-1.5">
+            <Label>Placeholder (nothing chosen)</Label>
+            <Select>
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a stock vehicle…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None / free text</SelectItem>
+                <SelectSeparator />
+                <SelectItem value="cc-0013">LG68 OCH — BMW 3 Series</SelectItem>
+                <SelectItem value="cc-0017">MT67 RLZ — BMW X1</SelectItem>
+                <SelectItem value="cc-0018">NA66 XGM — BMW X5</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Selected value</Label>
+            <Select
+              defaultValue="dealer"
+              items={{
+                auction: "BCA Auction",
+                dealer: "Dealer",
+                private: "Private",
+                trade_in: "Trade-in",
+              }}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Source" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="auction">BCA Auction</SelectItem>
+                <SelectItem value="dealer">Dealer</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+                <SelectItem value="trade_in">Trade-in</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label>Disabled</Label>
+            <Select disabled defaultValue="month" items={{ month: "Month" }}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="month">Month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="grid gap-1.5">
+            <Label className="text-destructive-foreground">
+              Invalid <span className="font-normal">(required, empty)</span>
+            </Label>
+            <Select>
+              <SelectTrigger aria-invalid>
+                <SelectValue placeholder="Select a vehicle…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="cc-0013">LG68 OCH — BMW 3 Series</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-2xs text-destructive-foreground">
+              A vehicle is required to generate the invoice.
+            </p>
+          </div>
+        </div>
+        <p className="mt-3 text-2xs text-muted-foreground [text-wrap:pretty]">
+          Raw native <Code>&lt;select&gt;</Code> elements showing a lowercase
+          “all” are a defect, not a variant (see GEN-47) — every dropdown goes
+          through this primitive or the shared FilterBar.
+        </p>
+      </Spec>
+
+      <Spec title="Selection controls">
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Checkbox checked={checked} onCheckedChange={() => setChecked((v) => !v)} />
+          Checkbox
+        </label>
+        <label className="flex items-center gap-2 text-sm opacity-64">
+          <Checkbox checked disabled />
+          Checked + disabled
+        </label>
+        <label className="flex cursor-pointer items-center gap-2 text-sm">
+          <Switch checked={on} onCheckedChange={() => setOn((v) => !v)} />
+          Switch
+        </label>
+        <label className="flex items-center gap-2 text-sm opacity-64">
+          <Switch disabled />
+          Disabled
+        </label>
       </Spec>
 
       <Spec title="Avatar · Skeleton">
