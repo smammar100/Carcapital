@@ -242,7 +242,12 @@ export default function SalesPipelinePage() {
                           {/* Premium image header — plate + price over a
                               gradient, with the movable stage as a glassy chip */}
                           <div className="relative">
-                            {v ? (
+                            {/* A vehicle with no hero image gets the same
+                                clean muted+car-icon placeholder the grids use.
+                                Rendering VehicleImage's striped placeholder
+                                under the photo gradient below produced a murky
+                                grey smear + a duplicate reg plate (GEN-52). */}
+                            {v && v.heroImageUrl ? (
                               <Link
                                 href={`/vehicles/${v.id}`}
                                 title="Open vehicle details"
@@ -254,12 +259,24 @@ export default function SalesPipelinePage() {
                                   className="rounded-none"
                                 />
                               </Link>
+                            ) : v ? (
+                              <Link
+                                href={`/vehicles/${v.id}`}
+                                title="Open vehicle details"
+                                className="grid aspect-[16/10] w-full place-items-center bg-muted text-muted-foreground/50"
+                              >
+                                <Car className="size-8" strokeWidth={1.4} />
+                              </Link>
                             ) : (
-                              <div className="grid aspect-[16/10] w-full place-items-center bg-gradient-to-br from-muted to-muted-foreground/20 text-muted-foreground/50">
+                              <div className="grid aspect-[16/10] w-full place-items-center bg-muted text-muted-foreground/50">
                                 <Car className="size-6" />
                               </div>
                             )}
-                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                            {/* Legibility gradient belongs over PHOTOS only —
+                                on the light placeholder it just muddies it. */}
+                            {v?.heroImageUrl ? (
+                              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                            ) : null}
                             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2.5">
                               {v ? (
                                 <Link
