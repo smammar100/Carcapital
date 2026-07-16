@@ -56,12 +56,17 @@ export default function AdvertisersPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
+  // Load failures must render as an ERROR, not as "No advertisers yet" — a
+  // toast is transient, and an empty-looking list after a 500 tells the user
+  // there are no advertisers when the truth is the data never arrived (GEN-50).
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Imperative reload (used after a sync) — setState here is fine outside an
   // effect. The effect below mirrors this but defers setState into .then so it
   // doesn't fire synchronously inside the effect body.
   const load = useCallback(async (p: number) => {
     setLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch(
         `/api/autotrader/advertisers?page=${p}&pageSize=${PAGE_SIZE}`,
@@ -70,6 +75,7 @@ export default function AdvertisersPage() {
       setData((await res.json()) as AdvertiserPageResponse);
     } catch (e) {
       notify.error(`Couldn't load advertisers: ${String(e)}`);
+      setLoadError(String(e));
       setData(null);
     } finally {
       setLoading(false);
@@ -87,11 +93,13 @@ export default function AdvertisersPage() {
       .then((json) => {
         if (cancelled) return;
         setData(json);
+        setLoadError(null);
         setLoading(false);
       })
       .catch((e) => {
         if (cancelled) return;
         notify.error(`Couldn't load advertisers: ${String(e)}`);
+        setLoadError(String(e));
         setData(null);
         setLoading(false);
       });
@@ -182,6 +190,24 @@ export default function AdvertisersPage() {
                   Loading…
                 </TableCell>
               </TableRow>
+            ) : loadError ? (
+              <TableRow>
+                <TableCell colSpan={6}>
+                  <div className="flex flex-col items-start gap-2 py-4">
+                    <span className="text-sm font-medium text-destructive">
+                      Couldn&apos;t load advertisers ({loadError}).
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void load(page)}
+                    >
+                      <RefreshCw className="size-4" />
+                      Retry
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
             ) : advertisers.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-muted-foreground">
@@ -219,8 +245,11 @@ export default function AdvertisersPage() {
 
       <div className="flex items-center justify-between text-sm text-muted-foreground">
         <span>
-          {total} advertiser{total === 1 ? "" : "s"} · page {data?.page ?? page}{" "}
-          of {totalPages}
+          {loadError
+            ? "—"
+            : `${total} advertiser${total === 1 ? "" : "s"} · page ${
+                data?.page ?? page
+              } of ${totalPages}`}
         </span>
         <div className="flex gap-2">
           <Button
