@@ -61,11 +61,11 @@ export function PermissionsGridTable({
             <col key={cap} style={{ width: CAP_COL_W }} />
           ))}
         </colgroup>
-        <thead className="sticky top-0 z-20 bg-muted">
+        <thead className="sticky top-0 z-20 bg-card">
           <tr>
             <th
               className={cn(
-                "sticky left-0 z-30 border-b border-r bg-muted px-4 text-left",
+                "sticky left-0 z-30 border-b border-r bg-card px-4 text-left",
                 STICKY_SHADOW,
               )}
             >
@@ -79,7 +79,7 @@ export function PermissionsGridTable({
             {caps.map((cap) => (
               <th
                 key={cap}
-                className="border-b border-l bg-muted px-1.5 py-1.5 text-center align-middle"
+                className="border-b border-l bg-card px-1.5 py-1.5 text-center align-middle"
               >
                 <span
                   className="line-clamp-2 text-center text-xs font-medium leading-snug text-muted-foreground"

@@ -188,7 +188,7 @@ export default function SalesPipelinePage() {
               >
                 <div
                   className={cn(
-                    "flex flex-col gap-0.5 rounded-md border border-t-2 bg-muted/40 px-2.5 py-2",
+                    "flex flex-col gap-0.5 rounded-md border border-t-2 bg-card px-2.5 py-2",
                     meta.bar,
                   )}
                 >
@@ -232,7 +232,7 @@ export default function SalesPipelinePage() {
                       return (
                         <Card
                           key={d.id}
-                          className="cursor-grab overflow-hidden border bg-background p-0 transition-shadow hover:shadow-md active:cursor-grabbing"
+                          className="cursor-grab overflow-hidden border bg-card p-0 transition-shadow hover:shadow-md active:cursor-grabbing"
                           draggable
                           onDragStart={(e) => {
                             e.dataTransfer.setData("text/deal-id", d.id);

@@ -171,7 +171,9 @@ export default function AdvertisersPage() {
         ) : null}
       </header>
 
-      <div className="rounded-lg border">
+      {/* bg-card: this wrapper had a border but no surface, so the table sat
+          straight on the page grey (GEN-62). */}
+      <div className="overflow-hidden rounded-lg border bg-card">
         <Table>
           <TableHeader>
             <TableRow>

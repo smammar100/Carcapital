@@ -210,19 +210,19 @@ export function DataGridHeaderRow<T>({
   onSort,
 }: HeaderProps<T>) {
   // Sticky cells need SOLID backgrounds — a translucent sticky cell lets
-  // scrolled-out content show through, corrupting the cell text. The
-  // header row + first sticky column are both sticky on this table, so
-  // we use `bg-muted` (solid) here instead of `bg-muted/60` (translucent).
+  // scrolled-out content show through, corrupting the cell text. `bg-card`
+  // is both opaque and the white table surface (GEN-62); the header still
+  // reads as a band via its borders + font-medium.
   // The right-edge drop shadow marks the boundary between pinned and
   // scrollable content; only the rightmost sticky cell's shadow is
   // visually present at any moment (inner shadows are occluded by the
   // next sticky cell's background via paint order).
   return (
-    <thead className="sticky top-0 z-20 bg-muted">
+    <thead className="sticky top-0 z-20 bg-card">
       <tr>
         {selection ? (
           <th
-            className="sticky left-0 z-30 border-b border-r bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]"
+            className="sticky left-0 z-30 border-b border-r bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)]"
             style={{ width: 40 }}
           >
             <div className="flex h-8 items-center justify-center">
@@ -290,7 +290,7 @@ export function DataGridHeaderRow<T>({
               className={cn(
                 "border-b border-r px-3 text-left font-medium",
                 c.sticky &&
-                  "sticky z-30 bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]",
+                  "sticky z-30 bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)]",
               )}
               style={{ ...widthStyle, ...stickyStyle }}
             >
@@ -388,10 +388,13 @@ export function DataGridRow<T>({
             // sticky stock-ID column produced "CC400072026"-style
             // artifacts). The drop shadow marks the boundary between
             // pinned and scrollable content.
-            "sticky left-0 z-10 border-b border-r bg-background text-center",
+            // bg-card keeps it opaque AND white (GEN-62); the row's tints
+            // are mixed into --card so sticky cells match the normal ones.
+            "sticky left-0 z-10 border-b border-r bg-card text-center",
             "shadow-[2px_0_4px_-2px_var(--shadow-color)]",
-            isSelected && "bg-muted",
-            "group-hover/row:bg-muted",
+            isSelected &&
+              "bg-[color-mix(in_srgb,var(--primary)_5%,var(--card))]",
+            "group-hover/row:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]",
           )}
         >
           <div
@@ -421,12 +424,14 @@ export function DataGridRow<T>({
             key={c.key}
             className={cn(
               "border-b border-r px-3",
-              // Sticky data cells: SOLID bg + drop shadow. The bg-muted
-              // hover and selected states stay solid so scrolled-out
-              // content cannot bleed through during horizontal scroll.
+              // Sticky data cells: SOLID bg + drop shadow. States mix the
+              // row's tints into --card so they stay opaque (no bleed) while
+              // matching the normal cells exactly (GEN-62).
               c.sticky &&
-                "sticky z-10 bg-background shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-muted",
-              isSelected && c.sticky && "bg-muted",
+                "sticky z-10 bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)] group-hover/row:bg-[color-mix(in_srgb,var(--muted)_40%,var(--card))]",
+              isSelected &&
+                c.sticky &&
+                "bg-[color-mix(in_srgb,var(--primary)_5%,var(--card))]",
               // Non-sticky cells keep the translucent hover/select tints
               // — they don't have a bleed problem because nothing slides
               // under them during scroll.

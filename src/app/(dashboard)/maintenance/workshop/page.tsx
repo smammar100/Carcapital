@@ -354,7 +354,7 @@ export default function WorkshopPage() {
                       type="button"
                       onClick={() => setSelectedId(j.id)}
                       className={cn(
-                        "flex items-center gap-2.5 rounded-lg border p-2.5 text-left transition-colors",
+                        "flex items-center gap-2.5 rounded-lg border bg-card p-2.5 text-left transition-colors",
                         isSel
                           ? "border-primary bg-primary/5"
                           : "hover:bg-muted/40",

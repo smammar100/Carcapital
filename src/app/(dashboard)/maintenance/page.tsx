@@ -256,7 +256,7 @@ export default function MaintenancePage() {
                   setOverLane(null);
                 }}
                 className={cn(
-                  "flex min-h-32 flex-col gap-2 rounded-xl bg-muted/40 p-2.5 transition-colors",
+                  "flex min-h-32 flex-col gap-2 rounded-xl border border-border bg-card p-2.5 transition-colors",
                   dragId &&
                     overLane === status.value &&
                     "bg-primary/5 ring-2 ring-primary/40",
@@ -301,7 +301,7 @@ export default function MaintenancePage() {
                             setOverLane(null);
                           }}
                           className={cn(
-                            "flex shrink-0 cursor-grab flex-col overflow-hidden rounded-lg border bg-background shadow-xs transition-shadow hover:shadow-md active:cursor-grabbing",
+                            "flex shrink-0 cursor-grab flex-col overflow-hidden rounded-lg border bg-card shadow-xs transition-shadow hover:shadow-md active:cursor-grabbing",
                             urgency === "overdue" &&
                               "border-rose-200 dark:border-rose-500/30",
                             dragId === j.id && "opacity-50",
