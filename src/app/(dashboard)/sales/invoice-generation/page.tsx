@@ -65,6 +65,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
+import { isValidUkPhone } from "@/lib/formatters";
 import { usePostcodeLookup } from "@/hooks/use-postcode-lookup";
 import { toast } from "@/lib/toast";
 
@@ -531,6 +532,8 @@ function InvoiceGenerationForm() {
     if (!buyerAddress.trim()) return "Buyer address is required";
     if (!buyerPostcode.trim()) return "Buyer post code is required";
     if (!buyerPhone.trim()) return "Buyer phone is required";
+    if (!isValidUkPhone(buyerPhone))
+      return "Buyer phone doesn't look like a UK number (e.g. 07712 345678 or 020 7946 0958)";
     const vp = lines.find((l) => l.type === "vehicle_price");
     if (!vp || vp.quantity * vp.unitPrice <= 0)
       return "A vehicle SALES PRICE greater than zero is required";

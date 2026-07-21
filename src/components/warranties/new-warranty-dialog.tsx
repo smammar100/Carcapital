@@ -5,6 +5,7 @@ import { Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isValidUkPhone } from "@/lib/formatters";
 import { toast } from "@/lib/toast";
 import { useAuth } from "@/contexts/auth-context";
 import { warrantyService } from "@/lib/services/warranty-service";
@@ -61,7 +62,10 @@ const schema = z
     type: z.enum(["in_house", "external"]),
     vehicleId: z.string().min(1, "Pick a vehicle"),
     customerName: z.string().min(1, "Required"),
-    customerPhone: z.string().min(1, "Required"),
+    customerPhone: z
+      .string()
+      .min(1, "Required")
+      .refine(isValidUkPhone, { message: "Enter a valid UK phone number (e.g. 07712 345678 or 020 7946 0958)" }),
     customerEmail: z.string().email().or(z.literal("")),
     provider: z.string().optional(),
     providerReference: z.string().optional(),

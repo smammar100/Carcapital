@@ -17,6 +17,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isValidUkPhone } from "@/lib/formatters";
 import { useAuth } from "@/contexts/auth-context";
 import { leadService } from "@/lib/services/lead-service";
 import { leadChannelService } from "@/lib/services/lead-channel-service";
@@ -100,7 +101,10 @@ const SOURCES: LeadSource[] = [
 
 const createSchema = z.object({
   customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
+  customerPhone: z
+    .string()
+    .min(1, "Phone number is required")
+    .refine(isValidUkPhone, { message: "Enter a valid UK phone number (e.g. 07712 345678 or 020 7946 0958)" }),
   customerEmail: z.string().optional(),
   vehicleInterest: z.string().min(1),
   vehicleId: z.string(),

@@ -15,6 +15,7 @@ import {
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { isValidUkPhone } from "@/lib/formatters";
 import { useAuth } from "@/contexts/auth-context";
 import { workshopService } from "@/lib/services/workshop-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -55,7 +56,10 @@ import { toast } from "@/lib/toast";
 
 const schema = z.object({
   customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
+  customerPhone: z
+    .string()
+    .min(1, "Phone number is required")
+    .refine(isValidUkPhone, { message: "Enter a valid UK phone number (e.g. 07712 345678 or 020 7946 0958)" }),
   vehicleReg: z.string().min(2),
   vehicleDescription: z.string().min(1),
   description: z.string().min(1),

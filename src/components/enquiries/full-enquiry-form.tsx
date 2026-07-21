@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { enquiryService } from "@/lib/services/enquiry-service";
 import type { Customer, EnquiryType, UUID } from "@/lib/types";
 import { notify } from "@/lib/toast";
-import { isValidPostcode, isValidUkMobile } from "@/lib/formatters";
+import { isValidPostcode, isValidUkMobile, isValidUkPhone } from "@/lib/formatters";
 import { CustomerProfileFields } from "./customer-profile-fields";
 import { EnquiryDetailsFields } from "./enquiry-details-fields";
 import { cn } from "@/lib/utils";
@@ -33,7 +33,13 @@ const fullSchema = z
         message: "Enter a valid UK postcode",
       }),
     addressLines: z.array(z.string()),
-    homePhone: z.string().trim().optional(),
+    homePhone: z
+      .string()
+      .trim()
+      .optional()
+      .refine((v) => !v || isValidUkPhone(v), {
+        message: "Enter a valid UK phone number (e.g. 020 7946 0958)",
+      }),
     mobilePhone: z
       .string()
       .trim()
