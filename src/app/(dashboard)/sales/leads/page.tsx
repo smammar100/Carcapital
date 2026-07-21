@@ -65,6 +65,7 @@ import {
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
+import { VehiclePicker } from "@/components/shared/vehicle-picker";
 import { LeadStatusCell } from "@/components/data-grid";
 import { cn, getInitials } from "@/lib/utils";
 import { toast } from "@/lib/toast";
@@ -310,18 +311,6 @@ export default function LeadsPage() {
       ),
     [vehicles],
   );
-  const vehicleItems = useMemo<Record<string, string>>(
-    () => ({
-      none: "Pick a vehicle…",
-      ...Object.fromEntries(
-        eligibleVehicles.map((v) => [
-          v.id,
-          `${v.registration} — ${v.make} ${v.model}`,
-        ]),
-      ),
-    }),
-    [eligibleVehicles],
-  );
 
   function ageOf(createdAt: string): string {
     if (nowTs === null) return "";
@@ -556,49 +545,34 @@ export default function LeadsPage() {
                 </div>
                 <div className="grid gap-1.5">
                   <Label>Vehicle</Label>
-                  <Select
-                    items={{
-                      none: "None / free text",
-                      ...Object.fromEntries(
-                        vehicles.map((v) => [
-                          v.id,
-                          `${v.registration} — ${v.make} ${v.model}`,
-                        ]),
-                      ),
-                    }}
-                    value={create.watch("vehicleId")}
-                    onValueChange={(v) => {
-                      create.setValue("vehicleId", v);
-                      if (v !== "none") {
-                        const veh = vehicles.find((x) => x.id === v);
-                        if (veh)
-                          create.setValue(
-                            "vehicleInterest",
-                            `${veh.make} ${veh.model} (${veh.registration})`,
-                          );
+                  {/* Reg search, not a 120-car scroll (GEN-79). */}
+                  <VehiclePicker
+                    vehicles={eligibleVehicles}
+                    value={
+                      eligibleVehicles.find(
+                        (v) => v.id === create.watch("vehicleId"),
+                      ) ?? null
+                    }
+                    emptyOptionLabel="None / free text"
+                    placeholder="Search by reg, or leave blank for free text"
+                    onChange={(veh) => {
+                      create.setValue("vehicleId", veh?.id ?? "none");
+                      if (veh) {
+                        create.setValue(
+                          "vehicleInterest",
+                          `${veh.make} ${veh.model} (${veh.registration})`,
+                        );
                       }
                     }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Pick a stock vehicle (optional)" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">None / free text</SelectItem>
-                      {eligibleVehicles.map((v) => {
-                        const p = inspectionProgress.get(v.id);
-                        return (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.registration} — {v.make} {v.model}
-                            {p && !p.complete && p.started ? (
-                              <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
-                                · inspection {p.done}/{p.total}
-                              </span>
-                            ) : null}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
+                    renderMeta={(v) => {
+                      const p = inspectionProgress.get(v.id);
+                      return p && !p.complete && p.started ? (
+                        <span className="shrink-0 text-2xs text-amber-600 dark:text-amber-400">
+                          insp {p.done}/{p.total}
+                        </span>
+                      ) : null;
+                    }}
+                  />
                 </div>
                 <div className="grid gap-1.5">
                   <Label>Vehicle interest</Label>
@@ -1043,23 +1017,15 @@ export default function LeadsPage() {
                 {selected && !selected.vehicleId ? (
                   <div className="grid gap-1.5">
                     <Label>Stock vehicle <span className="text-destructive">*</span></Label>
-                    <Select
-                      items={vehicleItems}
-                      value={stVehicleId}
-                      onValueChange={setStVehicleId}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Link a stock vehicle" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Pick a vehicle…</SelectItem>
-                        {eligibleVehicles.map((v) => (
-                          <SelectItem key={v.id} value={v.id}>
-                            {v.registration} — {v.make} {v.model}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <VehiclePicker
+                      vehicles={eligibleVehicles}
+                      value={
+                        eligibleVehicles.find((v) => v.id === stVehicleId) ??
+                        null
+                      }
+                      onChange={(v) => setStVehicleId(v?.id ?? "none")}
+                      placeholder="Search by reg to link a stock vehicle"
+                    />
                   </div>
                 ) : null}
                 <div className="grid gap-3 sm:grid-cols-2">
