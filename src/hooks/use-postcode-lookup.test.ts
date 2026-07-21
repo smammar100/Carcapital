@@ -1,120 +1,137 @@
 /**
- * GEN-68 — postcode lookup responsiveness.
+ * GEN-68 — postcode lookup.
  *
- * The hook's job is to spend as few requests as possible and never let a slow
- * one overwrite a fast one. Tested at the hook's logic level; the provider
- * itself is stubbed.
+ * The hook's job: spend as few requests as possible, never let a slow response
+ * overwrite a fast one, and surface a list the UI can present for selection.
+ * The provider is stubbed.
  */
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
+import type { AddressSuggestion } from "@/lib/services/address-lookup-service";
 
-const lookupAddressByPostcode = vi.fn();
-vi.mock("@/lib/services/customer-service", () => ({
-  customerService: {
-    lookupAddressByPostcode: (pc: string) => lookupAddressByPostcode(pc),
+const search = vi.fn();
+vi.mock("@/lib/services/address-lookup-service", () => ({
+  addressLookupService: {
+    search: (pc: string) => search(pc),
+    get hasPremiseData() {
+      return false;
+    },
+    get providerName() {
+      return "stub";
+    },
+    toAddressLine: (s: AddressSuggestion) =>
+      [s.line1, s.label].filter(Boolean).join(", ").toUpperCase(),
   },
 }));
 
 import { clearPostcodeCache, usePostcodeLookup } from "./use-postcode-lookup";
 
-const ADDRESS = {
+const SUGGESTION: AddressSuggestion = {
+  id: "TW34BZ",
   line1: "",
-  line2: "Heston East",
-  line3: "Hounslow",
-  line4: "London, TW3 4BZ",
+  town: "Hounslow",
+  county: "London",
+  postcode: "TW3 4BZ",
+  label: "Heston East, Hounslow, London",
+  isComplete: false,
 };
 
 beforeEach(() => {
-  // The cache is module-scoped and deliberately lives for the whole session,
-  // so each test has to start from empty.
+  // Module-scoped cache lives for the whole session by design, so each test
+  // has to start from empty.
   clearPostcodeCache();
-  lookupAddressByPostcode.mockReset();
-  lookupAddressByPostcode.mockResolvedValue(ADDRESS);
+  search.mockReset();
+  search.mockResolvedValue([SUGGESTION]);
 });
 
 describe("lookup", () => {
-  it("resolves an address and exposes it", async () => {
+  it("exposes the suggestions for the UI to list", async () => {
     const { result } = renderHook(() => usePostcodeLookup());
     await act(async () => {
       await result.current.lookup("TW3 4BZ");
     });
-    expect(result.current.result).toEqual(ADDRESS);
+    expect(result.current.suggestions).toEqual([SUGGESTION]);
     expect(result.current.notFound).toBe(false);
   });
 
-  it("caches by normalised postcode — spacing and case don't cost a request", async () => {
+  it("caches by normalised postcode — spacing and case cost nothing", async () => {
     const { result } = renderHook(() => usePostcodeLookup());
     await act(async () => {
       await result.current.lookup("TW3 4BZ");
       await result.current.lookup("tw34bz");
       await result.current.lookup("  TW3  4BZ ");
     });
-    expect(lookupAddressByPostcode).toHaveBeenCalledTimes(1);
+    expect(search).toHaveBeenCalledTimes(1);
   });
 
-  it("reports a miss rather than looking like a failure", async () => {
-    lookupAddressByPostcode.mockResolvedValue(null);
+  it("does not cache a miss — a postcode may start resolving later", async () => {
+    search.mockResolvedValue([]);
     const { result } = renderHook(() => usePostcodeLookup());
     await act(async () => {
       await result.current.lookup("ZZ1 1ZZ");
+      await result.current.lookup("ZZ1 1ZZ");
     });
+    expect(search).toHaveBeenCalledTimes(2);
     expect(result.current.notFound).toBe(true);
-    expect(result.current.error).toBeNull();
   });
 
-  it("surfaces a provider outage as an error, not a miss", async () => {
-    lookupAddressByPostcode.mockRejectedValue(new Error("503"));
+  it("separates a provider outage from a genuine miss", async () => {
+    search.mockRejectedValue(new Error("503"));
     const { result } = renderHook(() => usePostcodeLookup());
     await act(async () => {
       await result.current.lookup("TW3 4BZ");
     });
     expect(result.current.error).toBeInstanceOf(Error);
     expect(result.current.notFound).toBe(false);
+    expect(result.current.suggestions).toEqual([]);
   });
 });
 
 describe("lookupDebounced", () => {
-  it("spends nothing on a half-typed postcode", async () => {
+  it("spends nothing until the postcode is worth asking about", async () => {
     const { result } = renderHook(() => usePostcodeLookup());
     act(() => {
-      for (const partial of ["T", "TW", "TW3", "TW3 ", "TW3 4"]) {
+      for (const partial of ["T", "TW"]) {
         result.current.lookupDebounced(partial);
       }
     });
-    await new Promise((r) => setTimeout(r, 500));
-    expect(lookupAddressByPostcode).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 450));
+    expect(search).not.toHaveBeenCalled();
   });
 
-  it("fires once the postcode is complete, and hands back the address", async () => {
-    const onResult = vi.fn();
+  it("fires on a partial postcode — the list shouldn't wait for the last character", async () => {
     const { result } = renderHook(() => usePostcodeLookup());
     act(() => {
-      result.current.lookupDebounced("TW3 4BZ", onResult);
+      result.current.lookupDebounced("UB1 3");
     });
-    await waitFor(() => expect(onResult).toHaveBeenCalledWith(ADDRESS));
-    expect(lookupAddressByPostcode).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
   });
 
   it("collapses a burst of keystrokes into one request", async () => {
     const { result } = renderHook(() => usePostcodeLookup());
     act(() => {
-      // Every one of these is individually valid — without debouncing that's
-      // five requests for one postcode.
       for (let i = 0; i < 5; i++) result.current.lookupDebounced("TW3 4BZ");
     });
-    await waitFor(() =>
-      expect(lookupAddressByPostcode).toHaveBeenCalledTimes(1),
-    );
+    await waitFor(() => expect(search).toHaveBeenCalledTimes(1));
   });
 
-  it("does not call back when the postcode matches nothing", async () => {
-    lookupAddressByPostcode.mockResolvedValue(null);
-    const onResult = vi.fn();
+  it("clears stale suggestions when the postcode is deleted back", async () => {
     const { result } = renderHook(() => usePostcodeLookup());
-    act(() => {
-      result.current.lookupDebounced("ZZ1 1ZZ", onResult);
+    act(() => result.current.lookupDebounced("TW3 4BZ"));
+    await waitFor(() => expect(result.current.suggestions).toHaveLength(1));
+    act(() => result.current.lookupDebounced("TW"));
+    expect(result.current.suggestions).toEqual([]);
+  });
+});
+
+describe("reset", () => {
+  it("clears the list so a picked address doesn't leave the dropdown open", async () => {
+    const { result } = renderHook(() => usePostcodeLookup());
+    await act(async () => {
+      await result.current.lookup("TW3 4BZ");
     });
-    await waitFor(() => expect(result.current.notFound).toBe(true));
-    expect(onResult).not.toHaveBeenCalled();
+    expect(result.current.suggestions).toHaveLength(1);
+    act(() => result.current.reset());
+    expect(result.current.suggestions).toEqual([]);
   });
 });

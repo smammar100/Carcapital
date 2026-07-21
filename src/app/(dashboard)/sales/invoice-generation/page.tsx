@@ -66,6 +66,10 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatCurrency, cn } from "@/lib/utils";
 import { isValidUkPhone } from "@/lib/formatters";
+import {
+  addressLookupService,
+  type AddressSuggestion,
+} from "@/lib/services/address-lookup-service";
 import { usePostcodeLookup } from "@/hooks/use-postcode-lookup";
 import { toast } from "@/lib/toast";
 
@@ -205,12 +209,15 @@ function InvoiceGenerationForm() {
   const [buyerEmail, setBuyerEmail] = useState("");
 
   const {
-    lookup: lookupPostcode,
     lookupDebounced: lookupPostcodeDebounced,
+    suggestions: pcSuggestions,
     isLoading: pcLoading,
     notFound: pcNotFound,
     error: pcError,
+    hasPremiseData: pcHasPremises,
+    reset: resetPostcode,
   } = usePostcodeLookup();
+  const [pcListOpen, setPcListOpen] = useState(false);
 
   // Reg-number / stock / model search over the vehicle picker (the stock list
   // can run to 50+ cars — a plain dropdown isn't navigable).
@@ -233,42 +240,20 @@ function InvoiceGenerationForm() {
   }, [vehicles, vehicleQuery, vehicleId]);
 
   /**
-   * Fill the town/county tail of the address from the postcode, preserving
-   * whatever the user has already typed for the house number and street.
+   * Accept a suggestion the user picked.
    *
-   * postcodes.io has no premise data, so line1 is always theirs to enter —
-   * blindly overwriting the whole field (as this used to) wiped their house
-   * number every time the lookup ran (GEN-68).
+   * Sets the address line outright rather than merging. The previous version
+   * tried to preserve "whatever you typed before the auto-filled part", which
+   * couldn't tell a typed street from an earlier auto-fill — so looking up a
+   * second postcode welded the old locality onto the new address (a TW3
+   * lookup followed by UB1 produced "HESTON EAST, SOUTHALL BROADWAY…"). On a
+   * legal document that is not a cosmetic bug.
    */
-  function applyPostcodeResult(r: {
-    line1: string;
-    line2: string;
-    line3: string;
-    line4: string;
-  }) {
-    const area = [r.line1, r.line2, r.line3, r.line4]
-      .filter(Boolean)
-      .join(", ")
-      .toUpperCase();
-    setBuyerAddress((prev) => {
-      const typed = prev.trim();
-      if (!typed) return area;
-      // Already filled from this postcode — don't append it twice.
-      if (typed.toUpperCase().endsWith(area)) return prev;
-      // Keep only what the user typed before the previous auto-filled tail.
-      const street = typed.split(",")[0].trim();
-      return [street, area].filter(Boolean).join(", ").toUpperCase();
-    });
-  }
-
-  async function handlePostcodeLookup() {
-    if (!buyerPostcode.trim()) {
-      toast.error("Enter a postcode first");
-      return;
-    }
-    const r = await lookupPostcode(buyerPostcode);
-    if (!r) return; // the inline "no match" message says it — no toast needed
-    applyPostcodeResult(r);
+  function acceptAddress(s: AddressSuggestion) {
+    setBuyerAddress(addressLookupService.toAddressLine(s));
+    setBuyerPostcode(s.postcode);
+    setPcListOpen(false);
+    resetPostcode();
   }
 
   const [presentMileage, setPresentMileage] = useState<number>(0);
@@ -770,35 +755,59 @@ function InvoiceGenerationForm() {
               <Label>
                 Post code <span className="text-destructive">*</span>
               </Label>
-              <div className="flex gap-2">
+              {/* No Lookup button: the list appears as you type (GEN-68). */}
+              <div className="relative">
                 <Input
                   value={buyerPostcode}
+                  autoComplete="off"
                   onChange={(e) => {
                     const next = e.target.value.toUpperCase();
                     setBuyerPostcode(next);
-                    // Fires itself once the postcode is well-formed, so the
-                    // Lookup button is a fallback rather than a required step.
-                    lookupPostcodeDebounced(next, applyPostcodeResult);
+                    setPcListOpen(true);
+                    lookupPostcodeDebounced(next);
+                  }}
+                  onFocus={() => setPcListOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setPcListOpen(false);
+                    // One suggestion is the common case on the current
+                    // provider — Enter takes it without reaching for the mouse.
+                    if (e.key === "Enter" && pcSuggestions.length === 1) {
+                      e.preventDefault();
+                      acceptAddress(pcSuggestions[0]);
+                    }
                   }}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handlePostcodeLookup()}
-                  disabled={pcLoading}
-                  className="shrink-0"
-                >
-                  {pcLoading ? "…" : "Lookup"}
-                </Button>
+                {pcListOpen && pcSuggestions.length > 0 ? (
+                  <ul className="absolute inset-x-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover py-1 shadow-lg">
+                    {pcSuggestions.map((sug) => (
+                      <li key={sug.id}>
+                        <button
+                          type="button"
+                          onClick={() => acceptAddress(sug)}
+                          className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                        >
+                          <span className="font-medium">
+                            {sug.line1 || sug.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {sug.line1 ? sug.label : sug.postcode}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {pcLoading
-                  ? "Looking up…"
+                  ? "Searching…"
                   : pcError
-                    ? "Lookup unavailable — enter the address manually."
+                    ? "Address lookup unavailable — enter the address manually."
                     : pcNotFound
                       ? "No match for that postcode — enter the address manually."
-                      : "Town and county fill in automatically. Add the house number and street yourself."}
+                      : pcHasPremises
+                        ? "Start typing a postcode and pick your address."
+                        : "Start typing a postcode and pick the area, then add your house number and street."}
               </p>
             </div>
             <div>
