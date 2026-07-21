@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BarChart3, Download, X } from "lucide-react";
+import { BarChart3, Download, Info, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -197,9 +197,11 @@ function buildReportSheets(args: {
     {
       name: "Purchase source",
       headerRow: true,
-      colWidths: [18, 8, 12, 12],
+      colWidths: [18, 10, 12, 12],
       rows: [
-        ["Source", "Units", "Revenue", "Profit"],
+        // Vehicles counts everything acquired from that source; revenue and
+        // profit only the ones that have since sold.
+        ["Source", "Vehicles", "Revenue", "Profit"],
         ...sources.map((s): CellValue[] => [s.label, s.units, s.revenue, s.profit]),
       ],
     },
@@ -325,21 +327,29 @@ export default function ReportsPage() {
   );
 
   // Purchase-source breakdown over the sold vehicles.
+  // Where the stock came from. Counts every vehicle in the selection, not just
+  // the ones that have sold — you bought a car whether or not it's moved yet,
+  // so a forecourt full of auction stock must not read "no data". Revenue and
+  // profit still only accrue from sold cars.
   const sourceBreakdown = useMemo<SourceRow[]>(() => {
-    if (!sold) return [];
+    if (!filtered) return [];
     const map = new Map<string, { units: number; revenue: number; profit: number }>();
-    for (const v of sold) {
+    for (const v of filtered) {
       const s = sourceLabel(v);
       const row = map.get(s) ?? { units: 0, revenue: 0, profit: 0 };
       row.units += 1;
-      row.revenue += v.sellingPrice ?? 0;
-      row.profit += profitOf(v);
+      // Only a sold car has earned anything. `profitOf` on unsold stock is
+      // minus its cost, which would book the whole forecourt as a loss.
+      if (v.dateSold) {
+        row.revenue += v.sellingPrice ?? 0;
+        row.profit += profitOf(v);
+      }
       map.set(s, row);
     }
     return [...map.entries()]
       .map(([label, r]) => ({ label, ...r }))
       .sort((a, b) => b.units - a.units);
-  }, [sold]);
+  }, [filtered]);
 
   // Aging snapshot: vehicles still in stock, by days-in-stock band.
   const aging = useMemo<AgingRow[]>(
@@ -492,13 +502,37 @@ export default function ReportsPage() {
         </p>
       </div>
 
+      {/* Sales figures read zero whenever nothing in the selection has sold.
+          That's a real answer, but on its own it's indistinguishable from a
+          broken page — so say it, and say what IS there. */}
+      {ready && kpis.units === 0 && kpis.inStock > 0 ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <Info className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Nothing in this selection has sold yet, so every sales figure below
+            is £0 — that&rsquo;s the answer, not a missing number. There{" "}
+            {kpis.inStock === 1 ? "is" : "are"}{" "}
+            <span className="font-medium">
+              {formatNumber(kpis.inStock)} still in stock
+            </span>
+            , averaging {kpis.avgDays} days.
+          </span>
+        </div>
+      ) : null}
+
       {!ready ? (
         <Skeleton className="h-96" />
       ) : (
         <div className="flex flex-col gap-4">
           {/* KPI tiles */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi label="Units sold" value={formatNumber(kpis.units)} sub="All time" />
+            <Kpi
+              label="Units sold"
+              value={formatNumber(kpis.units)}
+              // Said "All time" even with a year filter applied — a KPI that
+              // misstates its own scope is worse than one with no subtitle.
+              sub={year === ALL ? "All time" : `Sold in ${year}`}
+            />
             <Kpi
               label="Revenue"
               value={gbpCompact(kpis.revenue)}
@@ -587,7 +621,7 @@ export default function ReportsPage() {
               <DonutChart
                 data={sourceBreakdown.map((s) => ({ label: s.label, value: s.units }))}
                 format={(v) => formatNumber(v)}
-                centerLabel="units sold"
+                centerLabel="vehicles"
               />
             </ChartCard>
 
@@ -604,7 +638,10 @@ export default function ReportsPage() {
               title="Best-selling models"
               right={
                 <span className="text-xs text-muted-foreground">
-                  Top {Math.min(MODEL_CHART_LIMIT, bestSelling.length)} by units
+                  {/* "Top 0 by units" is nonsense — say nothing instead. */}
+                  {bestSelling.length > 0
+                    ? `Top ${Math.min(MODEL_CHART_LIMIT, bestSelling.length)} by units`
+                    : null}
                 </span>
               }
             >
