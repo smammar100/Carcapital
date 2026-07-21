@@ -9,6 +9,7 @@ import {
   type LogoKind,
 } from "@/lib/services/company-service";
 import { EmptyState } from "@/components/shared/empty-state";
+import { PipelineStageSettings } from "@/components/admin/pipeline-stage-settings";
 import {
   FINANCE_PROVIDERS,
   INSPECTION_ITEMS,
@@ -125,6 +126,7 @@ export default function SettingsPage() {
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="defaults">Defaults</TabsTrigger>
           <TabsTrigger value="inspection">Inspection Checklist</TabsTrigger>
+          <TabsTrigger value="pipeline">Sales Pipeline</TabsTrigger>
         </TabsList>
         <TabsContent value="company" className="mt-3">
           <Card className="grid gap-4 p-5 sm:grid-cols-2">
@@ -237,6 +239,9 @@ export default function SettingsPage() {
               </TableBody>
             </Table>
           </Card>
+        </TabsContent>
+        <TabsContent value="pipeline" className="mt-3">
+          <PipelineStageSettings />
         </TabsContent>
       </Tabs>
       )}

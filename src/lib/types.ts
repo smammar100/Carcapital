@@ -768,15 +768,48 @@ export interface Appointment {
 // SALES PIPELINE
 // ============================================================
 
-export type SalesStage =
+/**
+ * The stages the app ships with. Kept as a union because the service layer
+ * still reasons about these specific slugs (seeding, fallbacks) — but a deal's
+ * stage is NOT limited to them: companies rename, reorder, add and remove
+ * stages from Settings (GEN-65).
+ */
+export type BuiltInSalesStage =
   | "new_lead"
   | "contacted"
   | "test_drive"
-  | "offer_made"
   | "deposit_taken"
   | "collection_delivery"
   | "completed_sale"
   | "lost";
+
+/** A `pipeline_stages.slug` for the deal's company. */
+export type SalesStage = string;
+
+/**
+ * What the app does when a deal enters a stage. Side effects hang off this,
+ * not off the slug, so a renamed stage keeps working and a user-added one can
+ * opt into reserving the car.
+ */
+export type StageBehaviour = "open" | "reserved" | "won" | "lost";
+
+/** A configurable column on the sales pipeline board (migration 0038). */
+export interface PipelineStage {
+  id: UUID;
+  companyId: UUID;
+  /** Stable identifier stored on deals. Never changes once created. */
+  slug: string;
+  /** Human label on the board and in dropdowns. Freely renameable. */
+  label: string;
+  sortOrder: number;
+  /** Disabled stages vanish from the board but keep their deals readable. */
+  enabled: boolean;
+  behaviour: StageBehaviour;
+  /** Seeded stages the app's own logic depends on — renameable, not deletable. */
+  isSystem: boolean;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
 
 export interface SalesDeal {
   id: UUID;

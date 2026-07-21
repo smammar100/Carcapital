@@ -1196,6 +1196,53 @@ export type Database = {
           },
         ]
       }
+      pipeline_stages: {
+        Row: {
+          behaviour: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_system: boolean
+          label: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          behaviour?: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_system?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          behaviour?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_system?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_deals: {
         Row: {
           agreed_price: number | null

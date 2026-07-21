@@ -7,8 +7,14 @@ import { useAuth } from "@/contexts/auth-context";
 import { salesService } from "@/lib/services/sales-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { authService } from "@/lib/services/auth-service";
-import type { SalesDeal, SalesStage, User, Vehicle } from "@/lib/types";
-import { SALES_STAGES } from "@/lib/constants";
+import { pipelineStageService } from "@/lib/services/pipeline-stage-service";
+import type {
+  PipelineStage,
+  SalesDeal,
+  SalesStage,
+  User,
+  Vehicle,
+} from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -27,8 +33,10 @@ import { DealDetailSheet } from "@/components/sales/deal-detail-sheet";
 import { cn, formatCurrency, formatRelativeTime, getInitials } from "@/lib/utils";
 import { toast } from "@/lib/toast";
 
-// Per-stage accent (column top-bar + dot). Keyed by SalesStage.
-const STAGE_META: Record<SalesStage, { dot: string; bar: string }> = {
+// Per-stage accent (column top-bar + dot). The shipped stages keep the colours
+// they've always had; user-added stages cycle through the rest by position, so
+// a new column never renders unstyled (GEN-65).
+const STAGE_META: Record<string, { dot: string; bar: string }> = {
   new_lead: { dot: "bg-slate-400", bar: "border-t-slate-400" },
   contacted: { dot: "bg-blue-500", bar: "border-t-blue-500" },
   test_drive: { dot: "bg-violet-500", bar: "border-t-violet-500" },
@@ -38,6 +46,23 @@ const STAGE_META: Record<SalesStage, { dot: string; bar: string }> = {
   completed_sale: { dot: "bg-emerald-500", bar: "border-t-emerald-500" },
   lost: { dot: "bg-rose-500", bar: "border-t-rose-500" },
 };
+
+const FALLBACK_META: { dot: string; bar: string }[] = [
+  { dot: "bg-sky-500", bar: "border-t-sky-500" },
+  { dot: "bg-fuchsia-500", bar: "border-t-fuchsia-500" },
+  { dot: "bg-lime-500", bar: "border-t-lime-500" },
+  { dot: "bg-cyan-500", bar: "border-t-cyan-500" },
+];
+
+const metaFor = (slug: string, index: number) =>
+  STAGE_META[slug] ?? FALLBACK_META[index % FALLBACK_META.length];
+
+/**
+ * A completed sale drops off the live board a fortnight after it closes —
+ * agreed on the UAT call (GEN-65). It stays in Closed Deals and the master
+ * sheet; this only stops the board turning into an archive.
+ */
+const COMPLETED_VISIBLE_DAYS = 14;
 
 const dealValue = (d: SalesDeal): number | null =>
   d.agreedPrice ?? d.offerPrice ?? null;
@@ -54,6 +79,7 @@ function ageTone(days: number): string {
 export default function SalesPipelinePage() {
   const { user, company } = useAuth();
   const [deals, setDeals] = useState<SalesDeal[] | null>(null);
+  const [stages, setStages] = useState<PipelineStage[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [agentFilter, setAgentFilter] = useState<string | "all">("all");
@@ -64,10 +90,12 @@ export default function SalesPipelinePage() {
     if (!company) return;
     void Promise.all([
       salesService.getAll(company.id),
+      pipelineStageService.getEnabled(company.id),
       vehicleService.getAll(company.id),
       authService.getUsersForCompany(company.id),
-    ]).then(([d, v, u]) => {
+    ]).then(([d, s, v, u]) => {
       setDeals(d);
+      setStages(s);
       setVehicles(v);
       setUsers(u);
       setNowTs(Date.now());
@@ -82,28 +110,43 @@ export default function SalesPipelinePage() {
   }, [deals, agentFilter]);
 
   const grouped = useMemo(() => {
-    if (!filteredDeals) return null;
-    const map: Record<SalesStage, SalesDeal[]> = {
-      new_lead: [],
-      contacted: [],
-      test_drive: [],
-      offer_made: [],
-      deposit_taken: [],
-      collection_delivery: [],
-      completed_sale: [],
-      lost: [],
-    };
-    // Only bucket known stages into the 8 fixed columns; ignore any
-    // unexpected stage value rather than crashing on an undefined bucket.
-    for (const d of filteredDeals) map[d.stage]?.push(d);
+    if (!filteredDeals || stages.length === 0) return null;
+    // `nowTs` is stamped once after the data loads (it also drives the card age
+    // counters) — reading the clock during render is neither pure nor stable.
+    const cutoff = new Date(
+      (nowTs ?? 0) - COMPLETED_VISIBLE_DAYS * 86_400_000,
+    )
+      .toISOString()
+      .slice(0, 10);
+    const wonSlugs = new Set(
+      stages.filter((s) => s.behaviour === "won").map((s) => s.slug),
+    );
+    const map: Record<string, SalesDeal[]> = Object.fromEntries(
+      stages.map((s) => [s.slug, [] as SalesDeal[]]),
+    );
+    for (const d of filteredDeals) {
+      // A closed sale ages off the board after a fortnight.
+      if (
+        wonSlugs.has(d.stage) &&
+        d.completionDate &&
+        d.completionDate < cutoff
+      ) {
+        continue;
+      }
+      // A deal whose stage was deleted or disabled has no column. Rather than
+      // vanish, it falls into the first stage so it stays workable.
+      (map[d.stage] ?? map[stages[0].slug]).push(d);
+    }
     return map;
-  }, [filteredDeals]);
+  }, [filteredDeals, stages, nowTs]);
 
   async function handleMove(id: string, stage: SalesStage) {
     if (!user || !company) return;
     await salesService.updateStage(id, stage, user.id);
     setDeals(await salesService.getAll(company.id));
-    toast.success(`Moved → ${stage.replace(/_/g, " ")}`);
+    // Name the stage the user actually sees, not its slug.
+    const label = stages.find((s) => s.slug === stage)?.label ?? stage;
+    toast.success(`Moved → ${label}`);
   }
 
   return (
@@ -114,8 +157,8 @@ export default function SalesPipelinePage() {
             Sales Pipeline
           </h1>
           <p className="text-sm text-muted-foreground">
-            Track every deal from new lead to completed sale across eight
-            stages, plus anything lost.
+            Track every deal from new lead to completed sale. Stages are
+            yours to shape — rename, reorder, add or remove them in Settings.
           </p>
         </div>
         <Select
@@ -164,13 +207,13 @@ export default function SalesPipelinePage() {
         />
       ) : (
         <div className="grid auto-cols-[244px] grid-flow-col gap-3 overflow-x-auto pb-2">
-          {SALES_STAGES.map((stage) => {
-            const list = grouped[stage.value];
-            const meta = STAGE_META[stage.value];
+          {stages.map((stage, stageIndex) => {
+            const list = grouped[stage.slug] ?? [];
+            const meta = metaFor(stage.slug, stageIndex);
             const total = list.reduce((s, d) => s + (dealValue(d) ?? 0), 0);
             return (
               <div
-                key={stage.value}
+                key={stage.slug}
                 className="flex flex-col gap-2 rounded-lg transition-shadow"
                 onDragOver={(e) => {
                   e.preventDefault();
@@ -183,7 +226,7 @@ export default function SalesPipelinePage() {
                   e.preventDefault();
                   e.currentTarget.classList.remove("ring-1", "ring-primary");
                   const dealId = e.dataTransfer.getData("text/deal-id");
-                  if (dealId) void handleMove(dealId, stage.value);
+                  if (dealId) void handleMove(dealId, stage.slug);
                 }}
               >
                 <div
@@ -226,9 +269,12 @@ export default function SalesPipelinePage() {
                             ),
                           )
                         : 0;
+                      // Invoicing opens once money is committed — any stage
+                      // that reserves the car or completes the sale, whatever
+                      // it has been renamed to (GEN-65).
                       const showInvoiceCta =
-                        d.stage === "deposit_taken" ||
-                        d.stage === "completed_sale";
+                        stage.behaviour === "reserved" ||
+                        stage.behaviour === "won";
                       return (
                         <Card
                           key={d.id}
