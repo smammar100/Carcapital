@@ -1,60 +1,138 @@
 "use client";
 
-import { useCallback, useState } from "react";
-import { customerService } from "@/lib/services/customer-service";
-
-interface CannedAddress {
-  line1: string;
-  line2: string;
-  line3: string;
-  line4: string;
-}
+import { useCallback, useRef, useState } from "react";
+import {
+  addressLookupService,
+  type AddressSuggestion,
+} from "@/lib/services/address-lookup-service";
 
 interface UsePostcodeLookupResult {
-  /** Trigger a lookup. Resolves to the address (or null if not found). */
-  lookup: (postcode: string) => Promise<CannedAddress | null>;
+  /** Trigger a search. Resolves to the suggestions (empty when nothing matched). */
+  lookup: (postcode: string) => Promise<AddressSuggestion[]>;
+  /**
+   * Debounced search — call on every keystroke. Fires as soon as the postcode
+   * has a plausible outward code, so the list appears while typing and there's
+   * no button to press (GEN-68).
+   */
+  lookupDebounced: (postcode: string) => void;
+  /** Addresses to choose from. */
+  suggestions: AddressSuggestion[];
   isLoading: boolean;
-  result: CannedAddress | null;
   error: Error | null;
-  /** Reset state — clears the last result/error. */
+  /** True when a search completed and matched nothing. */
+  notFound: boolean;
+  /** Whether the provider can return per-premise addresses. */
+  hasPremiseData: boolean;
   reset: () => void;
 }
 
+/** Wait this long after the last keystroke before spending a request. */
+const DEBOUNCE_MS = 300;
+
 /**
- * Manual-trigger postcode lookup. The form's "Lookup" button calls
- * `lookup(postcode)` on click — we don't auto-fire on every keystroke
- * because the stub call is intentionally throttled (200ms) and most
- * users want to confirm the postcode before paying for the lookup.
+ * Enough of a postcode to be worth asking about.
  *
- * Backed by `customerService.lookupAddressByPostcode` which currently
- * returns canned data for three demo postcodes. Swap in postcodes.io
- * later — the hook signature won't change.
+ * Deliberately looser than a full-postcode check: the outward code plus the
+ * start of the inward ("UB1 3") is enough for a provider to work with, and
+ * waiting for the last character makes the list feel like it arrives late.
  */
+function isSearchable(postcode: string): boolean {
+  const c = postcode.toUpperCase().replace(/\s+/g, "");
+  return /^[A-Z]{1,2}[0-9][A-Z0-9]?[0-9]?[A-Z]{0,2}$/.test(c) && c.length >= 4;
+}
+
+/**
+ * Suggestions are cached per postcode for the session — postcodes don't move,
+ * and re-checking one you've already looked up should be instant. Misses are
+ * NOT cached: a postcode that starts resolving later must not keep reporting
+ * "no match" until reload.
+ */
+const cache = new Map<string, AddressSuggestion[]>();
+
+const cacheKey = (postcode: string) =>
+  postcode.toUpperCase().replace(/\s+/g, "");
+
+/** Drop the cache. Exists so tests start from a known state. */
+export function clearPostcodeCache(): void {
+  cache.clear();
+}
+
 export function usePostcodeLookup(): UsePostcodeLookupResult {
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<CannedAddress | null>(null);
+  const [suggestions, setSuggestions] = useState<AddressSuggestion[]>([]);
   const [error, setError] = useState<Error | null>(null);
+  const [notFound, setNotFound] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Guards against an earlier, slower request overwriting a later one.
+  const latest = useRef(0);
 
   const lookup = useCallback(async (postcode: string) => {
+    const key = cacheKey(postcode);
+    if (!key) return [];
+
+    const hit = cache.get(key);
+    if (hit) {
+      setSuggestions(hit);
+      setNotFound(hit.length === 0);
+      setError(null);
+      setIsLoading(false);
+      return hit;
+    }
+
+    const ticket = ++latest.current;
     setIsLoading(true);
     setError(null);
+    setNotFound(false);
     try {
-      const address = await customerService.lookupAddressByPostcode(postcode);
-      setResult(address);
-      return address;
+      const found = await addressLookupService.search(postcode);
+      if (found.length > 0) cache.set(key, found);
+      // A stale response must not clobber a newer one.
+      if (ticket !== latest.current) return found;
+      setSuggestions(found);
+      setNotFound(found.length === 0);
+      return found;
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err));
-      setError(e);
-      return null;
+      if (ticket === latest.current) {
+        setError(e);
+        setSuggestions([]);
+      }
+      return [];
     } finally {
-      setIsLoading(false);
+      if (ticket === latest.current) setIsLoading(false);
     }
   }, []);
 
+  const lookupDebounced = useCallback(
+    (postcode: string) => {
+      if (timer.current) clearTimeout(timer.current);
+      if (!isSearchable(postcode)) {
+        // Typing backwards past a usable postcode clears the stale list rather
+        // than leaving suggestions for a postcode no longer on screen.
+        setSuggestions([]);
+        setNotFound(false);
+        return;
+      }
+      timer.current = setTimeout(() => void lookup(postcode), DEBOUNCE_MS);
+    },
+    [lookup],
+  );
+
   const reset = useCallback(() => {
-    setResult(null);
+    if (timer.current) clearTimeout(timer.current);
+    setSuggestions([]);
     setError(null);
+    setNotFound(false);
   }, []);
 
-  return { lookup, isLoading, result, error, reset };
+  return {
+    lookup,
+    lookupDebounced,
+    suggestions,
+    isLoading,
+    error,
+    notFound,
+    hasPremiseData: addressLookupService.hasPremiseData,
+    reset,
+  };
 }

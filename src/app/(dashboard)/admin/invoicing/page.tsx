@@ -720,6 +720,9 @@ export default function InvoicingPage() {
         onOpenChange={(o) => {
           if (!o) setViewing(null);
         }}
+        // A payment can flip the invoice to Paid, so the list behind the
+        // dialog has to re-read it (GEN-73).
+        onChanged={() => void refresh()}
       />
 
       {/* Email modal */}

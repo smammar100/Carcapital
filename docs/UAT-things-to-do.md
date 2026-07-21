@@ -30,6 +30,22 @@ Pre-reqs: signed in as a user with todo create permission; open any vehicle →
 | 19 | Error handling | (Optional) simulate a save failure | Toast "Couldn't add item"; the row is not added; UI stays usable. | ☐ |
 | 20 | Permission gate | As a user **without** todo-create permission | (If enforced) Add is unavailable / the create call is rejected gracefully. | ☐ |
 
+
+## Superseded by GEN-64 (2026-07-21)
+
+The list was render-only: rows could be added but not edited, so nothing a
+user did to an existing item stuck. Every field is now editable in place and
+the car's status rolls up from the list.
+
+The add-row cases below still hold. For the editing, deletion, roll-up and
+inspection-generation cases, see **[UAT-prep-and-repair.md](UAT-prep-and-repair.md)**
+— the same component is now rendered in two places (the vehicle tab and the
+Prep & Repair sheet) and both must behave identically.
+
+One behaviour change to case #9/#10: adding into a non-Pending group now
+inserts at that status directly rather than creating a Pending row and
+promoting it. The observable result is the same; the intermediate row is gone.
+
 ## Verified during build (2026-06-20)
 - #5, #7, #15 confirmed live on vehicle CC-0004: clicking **+ Add** opened the
   inline row; adding "UAT test — brake fluid top up" showed the toast, bumped

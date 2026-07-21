@@ -1,11 +1,33 @@
 import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
-import type { SalesDeal, SalesStage, UUID } from "@/lib/types";
+import type {
+  SalesDeal,
+  SalesStage,
+  StageBehaviour,
+  UUID,
+} from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
 import { listingService } from "./listing-service";
+import { pipelineStageService } from "./pipeline-stage-service";
 
 const NS = "sales:";
+
+/**
+ * Behaviour for the stages the app shipped with, used when a stage row can't
+ * be read (offline seed, a company created before migration 0038 ran). Keeps a
+ * deposit reserving the car even if the catalogue is unavailable.
+ */
+const FALLBACK_BEHAVIOUR: Record<string, StageBehaviour> = {
+  new_lead: "open",
+  contacted: "open",
+  test_drive: "open",
+  offer_made: "open",
+  deposit_taken: "reserved",
+  collection_delivery: "reserved",
+  completed_sale: "won",
+  lost: "lost",
+};
 
 // A listing is "publishable" (publicly visible) once it's live or already
 // tracking the sale lifecycle (reserved). Drafts and archived adverts were
@@ -130,8 +152,19 @@ export const salesService = {
     actorId: UUID,
   ): Promise<SalesDeal> {
     const supabase = createClient();
+    // Stages are configurable, so the sale lifecycle keys off the stage's
+    // declared behaviour rather than its slug (GEN-65). A renamed stage keeps
+    // doing what it did; a user-added one does nothing unless it says it
+    // should. The slug fallbacks below keep pre-migration data working.
+    const existingDeal = await salesService.getById(id);
+    const configured = existingDeal
+      ? await pipelineStageService.getBySlug(existingDeal.companyId, stage)
+      : null;
+    const behaviour: StageBehaviour =
+      configured?.behaviour ?? FALLBACK_BEHAVIOUR[stage] ?? "open";
+
     const updates: TableUpdate<"sales_deals"> = { stage };
-    if (stage === "completed_sale") {
+    if (behaviour === "won") {
       updates.completion_date = new Date().toISOString().slice(0, 10);
     }
     const { data, error } = await supabase
@@ -153,7 +186,7 @@ export const salesService = {
         description: `${v.registration} → ${stage.replace("_", " ")}`,
         metadata: { dealId: id, stage },
       });
-      if (stage === "completed_sale") {
+      if (behaviour === "won") {
         // Stamp the sale onto the vehicle, not just the deal. Dashboard KPIs
         // ("Sold this month"), Reports and Closed Deals all read the vehicle's
         // date_sold / selling_price — leaving them null made a completed deal
@@ -190,10 +223,7 @@ export const salesService = {
           description: `${v.registration} sold to ${deal.customerName}`,
           metadata: { dealId: id },
         });
-      } else if (
-        stage === "deposit_taken" ||
-        stage === "collection_delivery"
-      ) {
+      } else if (behaviour === "reserved") {
         // Reserve the car so it stops showing as available everywhere.
         if (v.status !== "reserved" && v.status !== "sold") {
           await vehicleService.changeStatus(v.id, "reserved", actorId);
@@ -204,7 +234,7 @@ export const salesService = {
         if (reserveListing && isPublishableStatus(reserveListing.status)) {
           await listingService.setStatusForVehicle(v.id, "reserved");
         }
-      } else if (stage === "lost") {
+      } else if (behaviour === "lost") {
         // Deal fell through — release the reservation back to the forecourt.
         if (v.status === "reserved") {
           await vehicleService.changeStatus(v.id, "listed", actorId);

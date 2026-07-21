@@ -21,6 +21,35 @@ const SELECT = `
   createdAt:created_at
 `;
 
+/**
+ * Does this check still need work? True for an explicitly negative result, an
+ * unanswered check, or one deliberately parked as "Pending".
+ */
+export function isOutstandingCheck(status: string): boolean {
+  const s = status.trim();
+  if (!s) return true;
+  if (s.toLowerCase() === "pending") return true;
+  return NEGATIVE_INSPECTION_STATUSES.has(s);
+}
+
+/** How far through its 20-point inspection a vehicle is (GEN-72). */
+export interface InspectionProgress {
+  done: number;
+  total: number;
+  /** Names of the checks still needing attention, in checklist order. */
+  outstanding: string[];
+  complete: boolean;
+  /**
+   * Whether an inspection was ever raised for this vehicle.
+   *
+   * Matters more than it sounds: most imported stock has no inspection rows at
+   * all. "Never inspected in this app" is a different claim from "inspection
+   * under way and unfinished", and conflating them fires a warning on nearly
+   * every car — which trains everyone to ignore it.
+   */
+  started: boolean;
+}
+
 interface SaveInput {
   vehicleId: UUID;
   checkNumber: number;
@@ -41,6 +70,58 @@ export const inspectionService = {
       if (error) throw error;
       return (data ?? []) as unknown as InspectionCheck[];
     });
+  },
+
+  /**
+   * Inspection progress for many vehicles in one query (GEN-72).
+   *
+   * Sales needs to know a car's inspection state without waiting on 50 round
+   * trips — a lead can now be raised against a car that's still being checked,
+   * so the flag has to be cheap enough to render in a list.
+   *
+   * A vehicle with no rows at all hasn't started: 0 of the standard 20.
+   */
+  async getProgressForVehicles(
+    vehicleIds: UUID[],
+  ): Promise<Map<UUID, InspectionProgress>> {
+    const result = new Map<UUID, InspectionProgress>();
+    if (vehicleIds.length === 0) return result;
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("inspection_checks")
+      .select(SELECT)
+      .in("vehicle_id", vehicleIds);
+    if (error) throw error;
+
+    const byVehicle = new Map<string, InspectionCheck[]>();
+    for (const c of (data ?? []) as unknown as InspectionCheck[]) {
+      const list = byVehicle.get(c.vehicleId);
+      if (list) list.push(c);
+      else byVehicle.set(c.vehicleId, [c]);
+    }
+
+    for (const vehicleId of vehicleIds) {
+      const checks = byVehicle.get(vehicleId) ?? [];
+      const total = INSPECTION_ITEMS.length;
+      // Outstanding = anything not signed off clean, same rule the Things to
+      // Do generation uses, plus the checks that were never created at all.
+      const outstanding = checks
+        .filter((c) => isOutstandingCheck(c.status))
+        .map((c) => c.checkItem);
+      const missing = INSPECTION_ITEMS.filter(
+        (item) => !checks.some((c) => c.checkNumber === item.number),
+      ).map((item) => item.item);
+      const all = [...outstanding, ...missing];
+      result.set(vehicleId, {
+        total,
+        outstanding: all,
+        done: Math.max(0, total - all.length),
+        complete: all.length === 0,
+        started: checks.length > 0,
+      });
+    }
+    return result;
   },
 
   async start(vehicleId: UUID, actorId: UUID): Promise<InspectionCheck[]> {
@@ -124,8 +205,13 @@ export const inspectionService = {
       .from("inspection_checks")
       .select(SELECT)
       .eq("vehicle_id", vehicleId);
-    const failing = ((checks ?? []) as unknown as InspectionCheck[]).filter((c) =>
-      NEGATIVE_INSPECTION_STATUSES.has(c.status),
+    // Anything not signed off clean is outstanding work: an explicitly bad
+    // result, a check nobody answered (status ""), or one parked as "Pending"
+    // (the Test Drive option). Previously only the first counted, so an
+    // inspection submitted half-finished produced no Things to Do at all and
+    // the car sailed through to "ready" (GEN-64).
+    const failing = ((checks ?? []) as unknown as InspectionCheck[]).filter(
+      (c) => isOutstandingCheck(c.status),
     );
     const v = await vehicleService.getById(vehicleId);
     if (!v) throw new Error("Vehicle not found");
@@ -152,7 +238,9 @@ export const inspectionService = {
     for (const check of failing) {
       const description = check.actionRequired
         ? `${check.checkItem}: ${check.actionRequired}`
-        : `${check.checkItem} — needs attention (${check.status})`;
+        : check.status.trim()
+          ? `${check.checkItem} — needs attention (${check.status})`
+          : `${check.checkItem} — not checked`;
       await todoService.add({
         vehicleId,
         description,

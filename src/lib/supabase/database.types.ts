@@ -677,6 +677,53 @@ export type Database = {
           },
         ]
       }
+      invoice_receipts: {
+        Row: {
+          amount: number
+          company_id: string
+          created_at: string
+          id: string
+          invoice_id: string
+          method: string | null
+          notes: string | null
+          paid_on: string
+          recorded_by: string | null
+          reference: string | null
+        }
+        Insert: {
+          amount: number
+          company_id: string
+          created_at?: string
+          id?: string
+          invoice_id: string
+          method?: string | null
+          notes?: string | null
+          paid_on?: string
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Update: {
+          amount?: number
+          company_id?: string
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          method?: string | null
+          notes?: string | null
+          paid_on?: string
+          recorded_by?: string | null
+          reference?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_receipts_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           addons_total: number
@@ -1196,6 +1243,53 @@ export type Database = {
           },
         ]
       }
+      pipeline_stages: {
+        Row: {
+          behaviour: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_system: boolean
+          label: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          behaviour?: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_system?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          behaviour?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_system?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pipeline_stages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sales_deals: {
         Row: {
           agreed_price: number | null
@@ -1636,6 +1730,7 @@ export type Database = {
           hero_image_url: string | null
           id: string
           images_count: number
+          prep_assigned_to: string | null
           inspection_charge: number | null
           invoice_date: string | null
           landed_cost: number
@@ -1705,6 +1800,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           images_count?: number
+          prep_assigned_to?: string | null
           inspection_charge?: number | null
           invoice_date?: string | null
           landed_cost?: number
@@ -1774,6 +1870,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           images_count?: number
+          prep_assigned_to?: string | null
           inspection_charge?: number | null
           invoice_date?: string | null
           landed_cost?: number
@@ -1906,6 +2003,7 @@ export type Database = {
           customer_phone: string
           end_date: string
           id: string
+          invoice_id: string | null
           provider: string | null
           provider_reference: string | null
           purchase_status: string | null
@@ -1931,6 +2029,7 @@ export type Database = {
           customer_phone: string
           end_date: string
           id?: string
+          invoice_id?: string | null
           provider?: string | null
           provider_reference?: string | null
           purchase_status?: string | null
@@ -1956,6 +2055,7 @@ export type Database = {
           customer_phone?: string
           end_date?: string
           id?: string
+          invoice_id?: string | null
           provider?: string | null
           provider_reference?: string | null
           purchase_status?: string | null

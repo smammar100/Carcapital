@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -451,6 +452,36 @@ export function VehicleSheet({
   // Per-column width overrides (GEN-20), keyed by colKey → px. Missing keys fall
   // back to the ColDef's default width. Persisted per sheet so a user's resize
   // survives reloads; hydrated post-mount to avoid an SSR hydration mismatch.
+  // Which edges of the grid have more content beyond them. Drives the scroll
+  // shadows (GEN-69) — recomputed on scroll and whenever the container or its
+  // content resizes (column show/hide, window resize, sidebar collapse).
+  const [edges, setEdges] = useState({ left: false, right: false });
+
+  const updateEdges = (el: HTMLElement) => {
+    const left = el.scrollLeft > 4;
+    const right = Math.ceil(el.scrollLeft + el.clientWidth) < el.scrollWidth - 4;
+    setEdges((prev) =>
+      prev.left === left && prev.right === right ? prev : { left, right },
+    );
+  };
+
+  /**
+   * Attach on mount via a ref callback rather than an effect: the table only
+   * renders once the data has loaded, so an effect with `[]` deps runs while
+   * this node is still null and the hint never seeds — you'd see no "more to
+   * the right" shadow until after you'd already scrolled, which defeats it.
+   *
+   * ResizeObserver fires once on observe, so it also covers column show/hide,
+   * window resize and the sidebar collapsing.
+   */
+  const attachGridScroll = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    const ro = new ResizeObserver(() => updateEdges(el));
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, []);
+
   const [colWidths, setColWidths] = useState<Record<string, number>>({});
   const resizeRef = useRef<{
     key: string;
@@ -1059,8 +1090,30 @@ export function VehicleSheet({
             description="Add a vehicle or adjust your filters."
           />
         ) : (
-          <Card className="flex min-h-0 flex-1 flex-col p-0">
-            <div className="relative min-h-0 flex-1 overflow-auto">
+          <Card className="relative flex min-h-0 flex-1 flex-col p-0">
+            {/* Edge shadows: the only thing telling you the grid continues
+                sideways. Scrolling always worked here, but with 13 columns in
+                a ~700px window and macOS hiding its overlay scrollbar until
+                you move it, there was nothing on screen to say so — which
+                reads as "it can't scroll" (GEN-69). */}
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-y-0 left-0 z-40 w-6 bg-gradient-to-r from-black/12 to-transparent transition-opacity dark:from-black/40",
+                edges.left ? "opacity-100" : "opacity-0",
+              )}
+            />
+            <div
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-y-0 right-0 z-40 w-6 bg-gradient-to-l from-black/12 to-transparent transition-opacity dark:from-black/40",
+                edges.right ? "opacity-100" : "opacity-0",
+              )}
+            />
+            <div
+              ref={attachGridScroll}
+              onScroll={(e) => updateEdges(e.currentTarget)}
+              className="relative min-h-0 flex-1 overflow-auto">
               {/* table-fixed makes the colgroup widths authoritative so a
                   resize actually sticks — under auto layout a wide-content
                   column (e.g. Variant) ignored its <col> width and couldn't be

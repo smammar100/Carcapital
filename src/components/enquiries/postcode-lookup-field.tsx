@@ -49,18 +49,20 @@ export function PostcodeLookupField({
       notify.warning("Enter a postcode first");
       return;
     }
-    const result = await lookup(postcode);
-    if (!result) {
+    const [suggestion] = await lookup(postcode);
+    if (!suggestion) {
       notify.info("No address found for that postcode — enter manually");
       return;
     }
+    // Keep whatever house number/street the user already typed on line 1 —
+    // this provider has no premise data to replace it with.
     onAddressLinesChange([
-      result.line1,
-      result.line2,
-      result.line3,
-      result.line4,
+      lines[0],
+      suggestion.town,
+      suggestion.county,
+      suggestion.postcode,
     ]);
-    notify.success("Address filled — review and adjust if needed");
+    notify.success("Area filled — add your house number and street");
   }
 
   return (

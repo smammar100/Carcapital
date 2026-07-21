@@ -121,6 +121,17 @@ export function VehicleDetailShell({
           vehicleId={vehicle.id}
           onExportPdf={onExportPdf}
           exporting={exporting}
+          // Closing the last item can flip the car to "ready" (GEN-64), so the
+          // header/status and the tab's own count both need re-pulling.
+          onChanged={() => {
+            void todoService
+              .getForVehicle(vehicle.id)
+              .then((rows) =>
+                setTodoCount(rows.filter((r) => r.status !== "completed").length),
+              )
+              .catch(() => undefined);
+            onVehicleRefetch?.();
+          }}
         />
       </TabsContent>
       <TabsContent value="inspection">

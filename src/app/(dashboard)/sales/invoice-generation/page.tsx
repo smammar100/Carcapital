@@ -22,6 +22,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { salesService } from "@/lib/services/sales-service";
+import { warrantyService } from "@/lib/services/warranty-service";
 import {
   companyInvoiceFields,
   downloadBlob,
@@ -38,6 +39,7 @@ import type {
   Vehicle,
   VatScheme,
   WarrantyDeclaration,
+  WarrantyType,
 } from "@/lib/types";
 import {
   ADDON_CATEGORY_OPTIONS,
@@ -54,6 +56,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -62,7 +65,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VehiclePicker } from "@/components/shared/vehicle-picker";
 import { formatCurrency, cn } from "@/lib/utils";
+import { isValidUkPhone } from "@/lib/formatters";
+import {
+  addressLookupService,
+  type AddressSuggestion,
+} from "@/lib/services/address-lookup-service";
 import { usePostcodeLookup } from "@/hooks/use-postcode-lookup";
 import { toast } from "@/lib/toast";
 
@@ -190,7 +199,6 @@ function InvoiceGenerationForm() {
 
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
-  const [vehicleQuery, setVehicleQuery] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [deal, setDeal] = useState<SalesDeal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -201,45 +209,46 @@ function InvoiceGenerationForm() {
   const [buyerPhone, setBuyerPhone] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
 
-  const { lookup: lookupPostcode, isLoading: pcLoading } = usePostcodeLookup();
+  const {
+    lookupDebounced: lookupPostcodeDebounced,
+    suggestions: pcSuggestions,
+    isLoading: pcLoading,
+    notFound: pcNotFound,
+    error: pcError,
+    hasPremiseData: pcHasPremises,
+    reset: resetPostcode,
+  } = usePostcodeLookup();
+  const [pcListOpen, setPcListOpen] = useState(false);
 
-  // Reg-number / stock / model search over the vehicle picker (the stock list
-  // can run to 50+ cars — a plain dropdown isn't navigable).
-  const filteredVehicles = useMemo(() => {
-    const q = vehicleQuery.trim().toLowerCase().replace(/\s+/g, "");
-    const list = (vehicles ?? []).filter(
-      // Don't offer already-sold/returned cars for a fresh invoice — except the
-      // one already selected/being edited, so existing invoices still load.
-      (v) =>
-        v.id === vehicleId ||
-        (v.status !== "sold" && v.status !== "returned"),
-    );
-    if (!q) return list;
-    return list.filter((v) =>
-      `${v.stockId}${v.registration}${v.make}${v.model}`
-        .toLowerCase()
-        .replace(/\s+/g, "")
-        .includes(q),
-    );
-  }, [vehicles, vehicleQuery, vehicleId]);
+  // Cars this invoice may be raised against. Searching within them is
+  // VehiclePicker's job (GEN-79) — this only decides what's offerable.
+  const filteredVehicles = useMemo(
+    () =>
+      (vehicles ?? []).filter(
+        // Don't offer already-sold/returned cars for a fresh invoice — except
+        // the one already selected/being edited, so existing invoices load.
+        (v) =>
+          v.id === vehicleId ||
+          (v.status !== "sold" && v.status !== "returned"),
+      ),
+    [vehicles, vehicleId],
+  );
 
-  async function handlePostcodeLookup() {
-    if (!buyerPostcode.trim()) {
-      toast.error("Enter a postcode first");
-      return;
-    }
-    const r = await lookupPostcode(buyerPostcode);
-    if (!r) {
-      toast.error("No address found — enter manually");
-      return;
-    }
-    setBuyerAddress(
-      [r.line1, r.line2, r.line3, r.line4]
-        .filter(Boolean)
-        .join(", ")
-        .toUpperCase(),
-    );
-    toast.success("Address filled — review and adjust");
+  /**
+   * Accept a suggestion the user picked.
+   *
+   * Sets the address line outright rather than merging. The previous version
+   * tried to preserve "whatever you typed before the auto-filled part", which
+   * couldn't tell a typed street from an earlier auto-fill — so looking up a
+   * second postcode welded the old locality onto the new address (a TW3
+   * lookup followed by UB1 produced "HESTON EAST, SOUTHALL BROADWAY…"). On a
+   * legal document that is not a cosmetic bug.
+   */
+  function acceptAddress(s: AddressSuggestion) {
+    setBuyerAddress(addressLookupService.toAddressLine(s));
+    setBuyerPostcode(s.postcode);
+    setPcListOpen(false);
+    resetPostcode();
   }
 
   const [presentMileage, setPresentMileage] = useState<number>(0);
@@ -351,7 +360,9 @@ function InvoiceGenerationForm() {
         setFinanceAmount(inv.financeAmount);
         setFinanceProvider(inv.financeProvider ?? FINANCE_PROVIDERS[0]);
         setBalanceDueBy(inv.balanceDueBy ?? "");
-        setWarranty(inv.warranty ?? defaultWarranty());
+        // Merged over the defaults so an invoice saved before a declaration
+        // field existed (e.g. `type`) still opens with a complete form.
+        setWarranty({ ...defaultWarranty(), ...(inv.warranty ?? {}) });
         setNonWarrantyDisclaimer(inv.nonWarrantyDisclaimerAccepted);
         setPdc(inv.preDeliveryCheck ?? emptyPdc(v));
         setUnitNote(inv.includeUnitStockingNote);
@@ -517,6 +528,9 @@ function InvoiceGenerationForm() {
   );
 
   const hasWarrantyAddon = lines.some((l) => l.addonCategory === "warranty");
+  // Legacy invoices saved before the in-house/external switch existed were
+  // always in-house cover (GEN-66).
+  const warrantyType: WarrantyType = warranty.type ?? "in_house";
 
   function validate(): string | null {
     if (!vehicle) return "Select a vehicle";
@@ -524,6 +538,8 @@ function InvoiceGenerationForm() {
     if (!buyerAddress.trim()) return "Buyer address is required";
     if (!buyerPostcode.trim()) return "Buyer post code is required";
     if (!buyerPhone.trim()) return "Buyer phone is required";
+    if (!isValidUkPhone(buyerPhone))
+      return "Buyer phone doesn't look like a UK number (e.g. 07712 345678 or 020 7946 0958)";
     const vp = lines.find((l) => l.type === "vehicle_price");
     if (!vp || vp.quantity * vp.unitPrice <= 0)
       return "A vehicle SALES PRICE greater than zero is required";
@@ -535,6 +551,12 @@ function InvoiceGenerationForm() {
       return "Finance provider is required when a finance amount is entered";
     if (hasWarrantyAddon && nonWarrantyDisclaimer)
       return "Non-Warranty Disclaimer cannot be ticked alongside a Warranty add-on";
+    if (
+      !nonWarrantyDisclaimer &&
+      warrantyType === "external" &&
+      !warranty.provider.trim()
+    )
+      return "Provider name is required for an external warranty";
     if (pdc.numKeys < 1 || pdc.numKeys > 4)
       return "Number of keys must be between 1 and 4";
     if (
@@ -613,6 +635,10 @@ function InvoiceGenerationForm() {
         editing && invoiceIdParam
           ? await invoiceService.update(invoiceIdParam, payload, user.id)
           : await invoiceService.create(payload, user.id);
+      // Section F is the sale of the cover, so issuing the invoice is what
+      // creates the warranty record — in-house included (GEN-66). Idempotent
+      // on re-save, and cancels the policy if the disclaimer gets ticked.
+      await warrantyService.syncFromInvoice(invoice, user.id, deal?.id ?? null);
       if (draftKey) localStorage.removeItem(draftKey);
       toast.success(
         `Invoice ${invoice.invoiceNumber} ${editing ? "updated" : "created"}`,
@@ -664,39 +690,16 @@ function InvoiceGenerationForm() {
           <Label>
             Vehicle <span className="text-destructive">*</span>
           </Label>
-          <Input
-            value={vehicleQuery}
-            onChange={(e) => setVehicleQuery(e.target.value)}
-            placeholder="Search reg, stock ID, make or model…"
-            className="mb-2 mt-1"
+          {/* One control, not two. This was a search box that filtered a
+              separate dropdown — you typed in one field and picked in
+              another. VehiclePicker does both (GEN-79). */}
+          <VehiclePicker
+            vehicles={filteredVehicles}
+            value={vehicle}
+            onChange={(v) => handleVehicleChange(v?.id ?? "")}
+            placeholder="Search by reg, stock ID or model…"
+            className="mt-1"
           />
-          <Select
-            items={Object.fromEntries(
-              vehicles.map((v) => [
-                v.id,
-                `${v.stockId} — ${v.registration} — ${v.make} ${v.model}`,
-              ]),
-            )}
-            value={vehicleId}
-            onValueChange={handleVehicleChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a vehicle…" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredVehicles.length === 0 ? (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                  No vehicles match that search
-                </div>
-              ) : (
-                filteredVehicles.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.stockId} — {v.registration} — {v.make} {v.model}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
         </Section>
 
         <Section letter="B" title="Buyer Details">
@@ -724,23 +727,60 @@ function InvoiceGenerationForm() {
               <Label>
                 Post code <span className="text-destructive">*</span>
               </Label>
-              <div className="flex gap-2">
+              {/* No Lookup button: the list appears as you type (GEN-68). */}
+              <div className="relative">
                 <Input
                   value={buyerPostcode}
-                  onChange={(e) =>
-                    setBuyerPostcode(e.target.value.toUpperCase())
-                  }
+                  autoComplete="off"
+                  onChange={(e) => {
+                    const next = e.target.value.toUpperCase();
+                    setBuyerPostcode(next);
+                    setPcListOpen(true);
+                    lookupPostcodeDebounced(next);
+                  }}
+                  onFocus={() => setPcListOpen(true)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setPcListOpen(false);
+                    // One suggestion is the common case on the current
+                    // provider — Enter takes it without reaching for the mouse.
+                    if (e.key === "Enter" && pcSuggestions.length === 1) {
+                      e.preventDefault();
+                      acceptAddress(pcSuggestions[0]);
+                    }
+                  }}
                 />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => void handlePostcodeLookup()}
-                  disabled={pcLoading}
-                  className="shrink-0"
-                >
-                  {pcLoading ? "…" : "Lookup"}
-                </Button>
+                {pcListOpen && pcSuggestions.length > 0 ? (
+                  <ul className="absolute inset-x-0 top-full z-50 mt-1 max-h-56 overflow-y-auto rounded-md border bg-popover py-1 shadow-lg">
+                    {pcSuggestions.map((sug) => (
+                      <li key={sug.id}>
+                        <button
+                          type="button"
+                          onClick={() => acceptAddress(sug)}
+                          className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-sm transition-colors hover:bg-muted"
+                        >
+                          <span className="font-medium">
+                            {sug.line1 || sug.label}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {sug.line1 ? sug.label : sug.postcode}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {pcLoading
+                  ? "Searching…"
+                  : pcError
+                    ? "Address lookup unavailable — enter the address manually."
+                    : pcNotFound
+                      ? "No match for that postcode — enter the address manually."
+                      : pcHasPremises
+                        ? "Start typing a postcode and pick your address."
+                        : "Start typing a postcode and pick the area, then add your house number and street."}
+              </p>
             </div>
             <div>
               <Label>
@@ -880,7 +920,10 @@ function InvoiceGenerationForm() {
         </Section>
 
         <Section letter="D" title="VAT Scheme">
-          <div className="flex flex-col gap-2">
+          <RadioGroup
+            value={vatScheme}
+            onValueChange={(v) => setVatScheme(v as VatScheme)}
+          >
             {(
               [
                 ["margin_used", "Margin scheme (UK used-car standard)"],
@@ -888,16 +931,11 @@ function InvoiceGenerationForm() {
                 ["zero_rated", "Zero rated (export / commercial)"],
               ] as [VatScheme, string][]
             ).map(([v, label]) => (
-              <label key={v} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  checked={vatScheme === v}
-                  onChange={() => setVatScheme(v)}
-                />
+              <RadioItem key={v} value={v}>
                 {label}
-              </label>
+              </RadioItem>
             ))}
-          </div>
+          </RadioGroup>
         </Section>
 
         <Section letter="E" title="Payment Breakdown">
@@ -986,6 +1024,82 @@ function InvoiceGenerationForm() {
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-3">
+            <div>
+              <Label>Warranty provided by</Label>
+              <Select
+                items={{
+                  in_house: "Car Capital (in-house)",
+                  external: "External provider",
+                }}
+                value={warrantyType}
+                onValueChange={(v) =>
+                  setWarranty({
+                    ...warranty,
+                    type: v as WarrantyType,
+                    // Swap the provider block wholesale so an in-house invoice
+                    // never carries a stale third-party name into the PDF.
+                    ...(v === "in_house"
+                      ? {
+                          provider: WARRANTY_DEFAULTS.provider,
+                          providerPhone: WARRANTY_DEFAULTS.providerPhone,
+                          providerEmail: WARRANTY_DEFAULTS.providerEmail,
+                        }
+                      : warranty.provider === WARRANTY_DEFAULTS.provider
+                        ? { provider: "", providerPhone: "", providerEmail: "" }
+                        : {}),
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="in_house">
+                    Car Capital (in-house)
+                  </SelectItem>
+                  <SelectItem value="external">External provider</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {warrantyType === "external" ? (
+              <>
+                <div>
+                  <Label>Provider name</Label>
+                  <Input
+                    value={warranty.provider}
+                    onChange={(e) =>
+                      setWarranty({ ...warranty, provider: e.target.value })
+                    }
+                    placeholder="e.g. WarrantyWise"
+                  />
+                </div>
+                <div>
+                  <Label>Provider phone</Label>
+                  <Input
+                    value={warranty.providerPhone}
+                    onChange={(e) =>
+                      setWarranty({
+                        ...warranty,
+                        providerPhone: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Provider email</Label>
+                  <Input
+                    type="email"
+                    value={warranty.providerEmail}
+                    onChange={(e) =>
+                      setWarranty({
+                        ...warranty,
+                        providerEmail: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </>
+            ) : null}
             <div>
               <Label>Cover type</Label>
               <Select
@@ -1094,6 +1208,13 @@ function InvoiceGenerationForm() {
             />
             Non-Warranty Disclaimer accepted (opted out of comprehensive cover)
           </label>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {nonWarrantyDisclaimer
+              ? "No warranty record will be created for this sale."
+              : `Issuing this invoice creates an ${
+                  warrantyType === "external" ? "external" : "in-house"
+                } warranty record, running ${warranty.duration.toLowerCase()} from the invoice date.`}
+          </p>
         </Section>
 
         <Section letter="G" title="Pre-Delivery Check">

@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { RegPlate } from "@/components/shared/reg-plate";
-import { SALES_STAGES } from "@/lib/constants";
+import { salesStageLabel } from "@/lib/constants";
 import type { SalesDeal, User, Vehicle } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -24,7 +24,7 @@ interface Props {
 }
 
 function stageLabel(stage: SalesDeal["stage"]): string {
-  return SALES_STAGES.find((s) => s.value === stage)?.label ?? stage;
+  return salesStageLabel(stage);
 }
 
 /** One labelled row in the deal sheet; renders nothing when the value is empty. */

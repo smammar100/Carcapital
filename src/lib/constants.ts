@@ -36,16 +36,41 @@ export const MAINTENANCE_STATUSES: {
   { value: "stalled", label: "Stalled", subtitle: "Halted, no resolution" },
 ];
 
+/**
+ * The pipeline every company is seeded with (migration 0038). NOT the live
+ * list — stages are configurable, so anything rendering a board or a dropdown
+ * must read `pipelineStageService`. This is the fallback for the places that
+ * only have a slug in hand, and the source of the shipped labels.
+ *
+ * "Offer Made" was dropped and "Test Drive" became "Qualified / Viewing" per
+ * the UAT call (GEN-65). The `offer_made` label survives here so historical
+ * deals and activity entries still render a name rather than a raw slug.
+ */
 export const SALES_STAGES: { value: SalesStage; label: string }[] = [
   { value: "new_lead", label: "New Lead" },
   { value: "contacted", label: "Contacted" },
-  { value: "test_drive", label: "Test Drive" },
-  { value: "offer_made", label: "Offer Made" },
+  { value: "test_drive", label: "Qualified / Viewing" },
   { value: "deposit_taken", label: "Deposit Taken" },
   { value: "collection_delivery", label: "Collection / Delivery" },
   { value: "completed_sale", label: "Completed Sale" },
   { value: "lost", label: "Lost" },
+  { value: "offer_made", label: "Offer Made" },
 ];
+
+/**
+ * Display name for a stage slug. Falls back to a humanised slug so a
+ * user-added stage ("awaiting_finance") reads as "Awaiting Finance" wherever
+ * the live catalogue isn't loaded.
+ */
+export function salesStageLabel(slug: string): string {
+  const known = SALES_STAGES.find((s) => s.value === slug);
+  if (known) return known.label;
+  return slug
+    .split("_")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
 export const BODY_TYPES: BodyType[] = [
   "hatchback",

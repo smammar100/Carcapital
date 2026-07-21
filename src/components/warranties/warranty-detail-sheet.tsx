@@ -15,8 +15,10 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { warrantyService } from "@/lib/services/warranty-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { claimService } from "@/lib/services/claim-service";
+import { invoiceService } from "@/lib/services/invoice-service";
 import { teamService } from "@/lib/services/team-service";
 import type {
+  Invoice,
   User,
   Vehicle,
   Warranty,
@@ -64,6 +66,7 @@ export function WarrantyDetailSheet({
   const { user } = useAuth();
   const { can } = usePermissions();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
+  const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [claims, setClaims] = useState<WarrantyClaim[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
@@ -78,10 +81,15 @@ export function WarrantyDetailSheet({
       vehicleService.getById(warranty.vehicleId),
       claimService.getForWarranty(warranty.id),
       teamService.getAll(warranty.companyId),
-    ]).then(([v, c, u]) => {
+      // Warranties issued by closing a sales invoice link back to it (GEN-66).
+      warranty.invoiceId
+        ? invoiceService.getById(warranty.invoiceId)
+        : Promise.resolve(null),
+    ]).then(([v, c, u, inv]) => {
       setVehicle(v);
       setClaims(c);
       setUsers(u);
+      setInvoice(inv);
     });
   }, [warranty?.id]);
 
@@ -204,6 +212,23 @@ export function WarrantyDetailSheet({
                   {formatDate(warranty.endDate)}
                 </div>
                 <p className="text-sm">{warranty.coverageDetails}</p>
+                {/* Where this cover came from. Warranties issued by closing a
+                    sales invoice link straight back to it (GEN-66); ones
+                    raised by hand in this module have no invoice. */}
+                {invoice ? (
+                  <Link
+                    href={`/sales/invoice-generation?invoiceId=${invoice.id}`}
+                    className="flex items-center justify-between gap-2 rounded-md text-xs text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+                  >
+                    <span>
+                      Issued by invoice{" "}
+                      <span className="font-medium">
+                        {invoice.invoiceNumber}
+                      </span>
+                    </span>
+                    <ExternalLinkIcon className="h-3.5 w-3.5" />
+                  </Link>
+                ) : null}
               </Card>
 
               {/* Pricing */}

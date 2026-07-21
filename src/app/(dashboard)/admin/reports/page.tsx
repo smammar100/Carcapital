@@ -1,13 +1,32 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { BarChart3, Download } from "lucide-react";
+import { BarChart3, Download, Info, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import type { Vehicle } from "@/lib/types";
+import { VEHICLE_STATUSES } from "@/lib/constants";
+import {
+  ALL,
+  bestMarginModels,
+  bestSellingModels,
+  byModel,
+  matchesFilters,
+  profitOf,
+  type ModelRow,
+} from "@/lib/reports";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import {
+  Combobox,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BarChart, DonutChart } from "@/components/charts/simple-charts";
@@ -15,6 +34,9 @@ import { downloadXlsx, type CellValue, type Sheet } from "@/lib/xlsx";
 import { cn, formatCurrency } from "@/lib/utils";
 
 const formatNumber = (n: number): string => n.toLocaleString("en-GB");
+
+const statusLabel = (value: string): string =>
+  VEHICLE_STATUSES.find((s) => s.value === value)?.label ?? value;
 
 /** Compact GBP for KPI headlines + chart axes ("£326k", "£4.2k"). */
 const gbpCompact = (n: number): string => {
@@ -55,8 +77,6 @@ function periodOf(dateSold: string, gran: Gran): { key: string; label: string } 
   return { key: `${y}-${m}`, label: `${MONTHS_SHORT[month - 1]} ${year}` };
 }
 
-const profitOf = (v: Vehicle): number => (v.sellingPrice ?? 0) - v.baseCost;
-
 /** Live days-in-stock for a vehicle still in stock (stored value is unreliable). */
 function liveDaysInStock(v: Vehicle): number {
   const received = new Date(v.receivedDate).getTime();
@@ -93,6 +113,9 @@ function byPeriod(sold: Vehicle[], gran: Gran) {
 
 const sum = (xs: number[]): number => xs.reduce((a, b) => a + b, 0);
 
+/** How many models each chart shows before it stops being readable. */
+const MODEL_CHART_LIMIT = 8;
+
 type Period = ReturnType<typeof byPeriod>[number];
 type SourceRow = { label: string; units: number; revenue: number; profit: number };
 type AgingRow = { label: string; value: number };
@@ -121,17 +144,23 @@ function buildReportSheets(args: {
   periods: Period[];
   sources: SourceRow[];
   aging: AgingRow[];
+  models: ModelRow[];
+  filterSummary: string;
 }): Sheet[] {
-  const { today, gran, kpis, periods, sources, aging } = args;
+  const { today, gran, kpis, periods, sources, aging, models, filterSummary } =
+    args;
   const granLabel = gran.charAt(0).toUpperCase() + gran.slice(1);
   return [
     {
       name: "Summary",
       headerRow: true,
-      colWidths: [26, 16],
+      colWidths: [26, 24],
       rows: [
         ["Metric", "Value"],
         ["Generated", today],
+        // The export must say what it's an export OF — a filtered workbook
+        // that looks all-time is worse than no workbook.
+        ["Filters", filterSummary],
         ["Granularity", granLabel],
         ["Units sold", kpis.units],
         ["Revenue (GBP)", kpis.revenue],
@@ -168,9 +197,11 @@ function buildReportSheets(args: {
     {
       name: "Purchase source",
       headerRow: true,
-      colWidths: [18, 8, 12, 12],
+      colWidths: [18, 10, 12, 12],
       rows: [
-        ["Source", "Units", "Revenue", "Profit"],
+        // Vehicles counts everything acquired from that source; revenue and
+        // profit only the ones that have since sold.
+        ["Source", "Vehicles", "Revenue", "Profit"],
         ...sources.map((s): CellValue[] => [s.label, s.units, s.revenue, s.profit]),
       ],
     },
@@ -181,6 +212,24 @@ function buildReportSheets(args: {
       rows: [
         ["Band", "Vehicles"],
         ...aging.map((a): CellValue[] => [a.label, a.value]),
+      ],
+    },
+    {
+      name: "By model",
+      headerRow: true,
+      colWidths: [26, 8, 12, 12, 10],
+      rows: [
+        ["Model", "Units", "Revenue", "Profit", "Margin %"],
+        // Every model, not just the top slice the charts can show.
+        ...[...models]
+          .sort((a, b) => b.units - a.units)
+          .map((m): CellValue[] => [
+            m.label,
+            m.units,
+            m.revenue,
+            m.profit,
+            Number(m.margin.toFixed(1)),
+          ]),
       ],
     },
   ];
@@ -195,23 +244,81 @@ export default function ReportsPage() {
 
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [gran, setGran] = useState<Gran>("month");
+  const [year, setYear] = useState(ALL);
+  const [make, setMake] = useState(ALL);
+  const [model, setModel] = useState(ALL);
+  const [status, setStatus] = useState(ALL);
 
   useEffect(() => {
     if (!company || !allowed) return;
     void vehicleService.getAll(company.id).then(setVehicles);
   }, [company, allowed]);
 
+  // Filter options come from the data, so a make with no stock never appears.
+  const years = useMemo(() => {
+    if (!vehicles) return [];
+    const set = new Set<string>();
+    for (const v of vehicles) {
+      const iso = v.dateSold ?? v.receivedDate;
+      if (iso) set.add(iso.slice(0, 4));
+    }
+    return [...set].sort((a, b) => b.localeCompare(a));
+  }, [vehicles]);
+
+  const makes = useMemo(() => {
+    if (!vehicles) return [];
+    return [...new Set(vehicles.map((v) => v.make).filter(Boolean))].sort();
+  }, [vehicles]);
+
+  // Models cascade off the selected make — picking "AUDI" shouldn't leave 200
+  // other models in the list.
+  const models = useMemo(() => {
+    if (!vehicles) return [];
+    const pool = make === ALL ? vehicles : vehicles.filter((v) => v.make === make);
+    return [...new Set(pool.map((v) => v.model).filter(Boolean))].sort();
+  }, [vehicles, make]);
+
+  /**
+   * Filters apply to every metric on the page and combine as an intersection.
+   *
+   * Year means "the year this car's event happened": the sale year for a sold
+   * car, the arrival year for one still in stock. Those are the only dates
+   * either half of the page is about.
+   */
+  const filtered = useMemo(() => {
+    if (!vehicles) return null;
+    return vehicles.filter((v) => matchesFilters(v, { year, make, model, status }));
+  }, [vehicles, year, make, model, status]);
+
+  const activeFilters =
+    (year !== ALL ? 1 : 0) +
+    (make !== ALL ? 1 : 0) +
+    (model !== ALL ? 1 : 0) +
+    (status !== ALL ? 1 : 0);
+
+  const filterSummary =
+    activeFilters === 0
+      ? "All time, all stock"
+      : [
+          year !== ALL ? `Year ${year}` : null,
+          make !== ALL ? `Make ${make}` : null,
+          model !== ALL ? `Model ${model}` : null,
+          status !== ALL ? `Status ${statusLabel(status)}` : null,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+
   const sold = useMemo(
-    () => (vehicles ? vehicles.filter((v) => v.dateSold != null) : null),
-    [vehicles],
+    () => (filtered ? filtered.filter((v) => v.dateSold != null) : null),
+    [filtered],
   );
 
   const inStock = useMemo(
     () =>
-      vehicles
-        ? vehicles.filter((v) => v.dateSold == null && v.status !== "sold")
+      filtered
+        ? filtered.filter((v) => v.dateSold == null && v.status !== "sold")
         : [],
-    [vehicles],
+    [filtered],
   );
 
   const periods = useMemo(
@@ -220,21 +327,29 @@ export default function ReportsPage() {
   );
 
   // Purchase-source breakdown over the sold vehicles.
+  // Where the stock came from. Counts every vehicle in the selection, not just
+  // the ones that have sold — you bought a car whether or not it's moved yet,
+  // so a forecourt full of auction stock must not read "no data". Revenue and
+  // profit still only accrue from sold cars.
   const sourceBreakdown = useMemo<SourceRow[]>(() => {
-    if (!sold) return [];
+    if (!filtered) return [];
     const map = new Map<string, { units: number; revenue: number; profit: number }>();
-    for (const v of sold) {
+    for (const v of filtered) {
       const s = sourceLabel(v);
       const row = map.get(s) ?? { units: 0, revenue: 0, profit: 0 };
       row.units += 1;
-      row.revenue += v.sellingPrice ?? 0;
-      row.profit += profitOf(v);
+      // Only a sold car has earned anything. `profitOf` on unsold stock is
+      // minus its cost, which would book the whole forecourt as a loss.
+      if (v.dateSold) {
+        row.revenue += v.sellingPrice ?? 0;
+        row.profit += profitOf(v);
+      }
       map.set(s, row);
     }
     return [...map.entries()]
       .map(([label, r]) => ({ label, ...r }))
       .sort((a, b) => b.units - a.units);
-  }, [sold]);
+  }, [filtered]);
 
   // Aging snapshot: vehicles still in stock, by days-in-stock band.
   const aging = useMemo<AgingRow[]>(
@@ -244,6 +359,26 @@ export default function ReportsPage() {
         value: inStock.filter((v) => b.test(liveDaysInStock(v))).length,
       })),
     [inStock],
+  );
+
+  // Per-model performance — drives the two "which models" reports below.
+  const modelRows = useMemo<ModelRow[]>(
+    () => (sold ? byModel(sold) : []),
+    [sold],
+  );
+
+  const bestSelling = useMemo(
+    () =>
+      bestSellingModels(modelRows, MODEL_CHART_LIMIT),
+    [modelRows],
+  );
+
+  const bestMargin = useMemo(
+    () =>
+      // A single lucky sale isn't a trend, but with small volumes per model
+      // the honest thing is to show it and let the units label qualify it.
+      bestMarginModels(modelRows, MODEL_CHART_LIMIT),
+    [modelRows],
   );
 
   // Headline KPIs.
@@ -270,6 +405,8 @@ export default function ReportsPage() {
       periods,
       sources: sourceBreakdown,
       aging,
+      models: modelRows,
+      filterSummary,
     });
     downloadXlsx(sheets, `reports-analytics-${today}.xlsx`);
   };
@@ -295,8 +432,8 @@ export default function ReportsPage() {
             Reports &amp; Analytics
           </h1>
           <p className="text-sm text-muted-foreground">
-            Sales and stock performance at a glance. Switch the period to
-            re-scale the trend charts.
+            Sales and stock performance at a glance. Filter it down and every
+            number and chart below recalculates.
           </p>
         </div>
         <Button onClick={handleExport} disabled={!ready}>
@@ -305,13 +442,97 @@ export default function ReportsPage() {
         </Button>
       </div>
 
+      {/* Filters — combine as an intersection; everything below reacts. */}
+      <div className="flex flex-wrap items-end gap-2 rounded-xl border border-border bg-card p-3">
+        <FilterSelect
+          label="Year"
+          value={year}
+          onChange={setYear}
+          allLabel="All time"
+          options={years.map((y) => ({ value: y, label: y }))}
+        />
+        <FilterSelect
+          label="Make"
+          value={make}
+          onChange={(v) => {
+            setMake(v);
+            // The old model almost certainly isn't in the new make.
+            setModel(ALL);
+          }}
+          allLabel="All makes"
+          options={makes.map((m) => ({ value: m, label: m }))}
+        />
+        <FilterSelect
+          label="Model"
+          value={model}
+          onChange={setModel}
+          allLabel="All models"
+          options={models.map((m) => ({ value: m, label: m }))}
+        />
+        <FilterSelect
+          label="Status"
+          value={status}
+          onChange={setStatus}
+          allLabel="Any status"
+          options={VEHICLE_STATUSES.map((s) => ({
+            value: s.value,
+            label: s.label,
+          }))}
+        />
+        {activeFilters > 0 ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9"
+            onClick={() => {
+              setYear(ALL);
+              setMake(ALL);
+              setModel(ALL);
+              setStatus(ALL);
+            }}
+          >
+            <X className="mr-1 size-3.5" />
+            Clear {activeFilters} filter{activeFilters === 1 ? "" : "s"}
+          </Button>
+        ) : null}
+        <p className="w-full text-xs text-muted-foreground">
+          Showing <span className="font-medium">{filterSummary}</span>. Year
+          means the year of sale for a sold car, and the year of arrival for
+          one still in stock.
+        </p>
+      </div>
+
+      {/* Sales figures read zero whenever nothing in the selection has sold.
+          That's a real answer, but on its own it's indistinguishable from a
+          broken page — so say it, and say what IS there. */}
+      {ready && kpis.units === 0 && kpis.inStock > 0 ? (
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <Info className="mt-0.5 size-4 shrink-0" />
+          <span>
+            Nothing in this selection has sold yet, so every sales figure below
+            is £0 — that&rsquo;s the answer, not a missing number. There{" "}
+            {kpis.inStock === 1 ? "is" : "are"}{" "}
+            <span className="font-medium">
+              {formatNumber(kpis.inStock)} still in stock
+            </span>
+            , averaging {kpis.avgDays} days.
+          </span>
+        </div>
+      ) : null}
+
       {!ready ? (
         <Skeleton className="h-96" />
       ) : (
         <div className="flex flex-col gap-4">
           {/* KPI tiles */}
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <Kpi label="Units sold" value={formatNumber(kpis.units)} sub="All time" />
+            <Kpi
+              label="Units sold"
+              value={formatNumber(kpis.units)}
+              // Said "All time" even with a year filter applied — a KPI that
+              // misstates its own scope is worse than one with no subtitle.
+              sub={year === ALL ? "All time" : `Sold in ${year}`}
+            />
             <Kpi
               label="Revenue"
               value={gbpCompact(kpis.revenue)}
@@ -400,7 +621,7 @@ export default function ReportsPage() {
               <DonutChart
                 data={sourceBreakdown.map((s) => ({ label: s.label, value: s.units }))}
                 format={(v) => formatNumber(v)}
-                centerLabel="units sold"
+                centerLabel="vehicles"
               />
             </ChartCard>
 
@@ -410,6 +631,50 @@ export default function ReportsPage() {
                 format={(v) => formatNumber(v)}
                 color="var(--chart-4)"
                 emptyLabel="No vehicles in stock."
+              />
+            </ChartCard>
+
+            <ChartCard
+              title="Best-selling models"
+              right={
+                <span className="text-xs text-muted-foreground">
+                  {/* "Top 0 by units" is nonsense — say nothing instead. */}
+                  {bestSelling.length > 0
+                    ? `Top ${Math.min(MODEL_CHART_LIMIT, bestSelling.length)} by units`
+                    : null}
+                </span>
+              }
+            >
+              <BarChart
+                data={bestSelling.map((m) => ({
+                  label: m.label,
+                  value: m.units,
+                }))}
+                format={(v) => `${formatNumber(v)} sold`}
+                color="var(--chart-3)"
+                emptyLabel="No sales for this selection."
+              />
+            </ChartCard>
+
+            <ChartCard
+              title="Profit margin by model"
+              right={
+                <span className="text-xs text-muted-foreground">
+                  Profit as % of revenue
+                </span>
+              }
+            >
+              <BarChart
+                data={bestMargin.map((m) => ({
+                  // The unit count qualifies the percentage — a 40% margin on
+                  // one car is a different claim from 40% on twelve.
+                  label: `${m.label} (${m.units})`,
+                  value: Number(m.margin.toFixed(1)),
+                }))}
+                format={(v) => `${v.toFixed(1)}%`}
+                fmtAxis={(v) => `${Math.round(v)}%`}
+                color="var(--chart-5)"
+                emptyLabel="No sales for this selection."
               />
             </ChartCard>
           </div>
@@ -438,6 +703,75 @@ function Kpi({
       <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-muted-foreground">{sub}</div>}
     </Card>
+  );
+}
+
+/** One labelled dropdown in the filter bar, with an "everything" option. */
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * One filter in the bar.
+ *
+ * Every filter is the same control — a type-ahead — regardless of how many
+ * options it has. Mixing plain selects and comboboxes in one row made four
+ * sibling fields read as two different kinds of thing: solid text next to
+ * placeholder text, and two different heights. Consistency across the row
+ * beats saving a search box on the short lists.
+ *
+ * "All" is the absence of a selection, so clearing the field resets the
+ * filter and there's no sentinel row to scroll past.
+ */
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  allLabel,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  allLabel: string;
+  options: FilterOption[];
+}) {
+  const id = `filter-${label}`;
+  const selected = options.find((o) => o.value === value) ?? null;
+
+  return (
+    <div className="w-40">
+      <Label htmlFor={id} className="text-xs">
+        {label}
+      </Label>
+      <Combobox
+        items={options}
+        value={selected}
+        onValueChange={(o: FilterOption | null) => onChange(o?.value ?? ALL)}
+        itemToStringLabel={(o: FilterOption) => o.label}
+        // Enter picks the top match, so filtering is one uninterrupted
+        // gesture rather than type-then-reach-for-the-mouse.
+        autoHighlight
+      >
+        <ComboboxInput
+          id={id}
+          showClear={selected !== null}
+          placeholder={allLabel}
+          className="w-full"
+        />
+        <ComboboxPopup>
+          <ComboboxEmpty>No {label.toLowerCase()} matches.</ComboboxEmpty>
+          <ComboboxList>
+            {(o: FilterOption) => (
+              <ComboboxItem key={o.value} value={o}>
+                {o.label}
+              </ComboboxItem>
+            )}
+          </ComboboxList>
+        </ComboboxPopup>
+      </Combobox>
+    </div>
   );
 }
 

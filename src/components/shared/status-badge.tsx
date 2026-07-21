@@ -1,5 +1,9 @@
 import { Badge } from "@/components/ui/badge";
-import { VEHICLE_STATUSES, MAINTENANCE_STATUSES, SALES_STAGES } from "@/lib/constants";
+import {
+  VEHICLE_STATUSES,
+  MAINTENANCE_STATUSES,
+  salesStageLabel,
+} from "@/lib/constants";
 import type {
   MaintenanceStatus,
   SalesStage,
@@ -90,7 +94,9 @@ export function MaintenanceStatusBadge({
   );
 }
 
-const STAGE_COLORS: Record<SalesStage, string> = {
+// Stages are user-configurable, so this is a best-effort accent keyed by the
+// shipped slugs; anything unrecognised (a custom stage) falls back to gray.
+const STAGE_COLORS: Record<string, string> = {
   new_lead: "blue",
   contacted: "purple",
   test_drive: "orange",
@@ -107,10 +113,12 @@ interface SalesStageBadgeProps {
 }
 
 export function SalesStageBadge({ stage, className }: SalesStageBadgeProps) {
-  const meta = SALES_STAGES.find((s) => s.value === stage);
   return (
-    <Badge variant="outline" className={cn(COLOR_CLASSES[STAGE_COLORS[stage]], className)}>
-      {meta?.label ?? stage}
+    <Badge
+      variant="outline"
+      className={cn(COLOR_CLASSES[STAGE_COLORS[stage] ?? "gray"], className)}
+    >
+      {salesStageLabel(stage)}
     </Badge>
   );
 }

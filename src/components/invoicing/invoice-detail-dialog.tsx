@@ -16,6 +16,7 @@ import {
   pdfService,
 } from "@/lib/services/pdf-service";
 import { toast } from "@/lib/toast";
+import { InvoicePaymentsPanel } from "./invoice-payments-panel";
 import type { Company, Invoice, Vehicle } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
 
@@ -30,12 +31,15 @@ export function InvoiceDetailDialog({
   company,
   vehicle,
   onOpenChange,
+  onChanged,
 }: {
   invoice: Invoice | null;
   company: Company | null;
   /** Optional linked vehicle so the PDF can render Make/Model/VRM. */
   vehicle?: Vehicle | null;
   onOpenChange: (open: boolean) => void;
+  /** Fired when a payment changes the invoice, so the list can re-read it. */
+  onChanged?: () => void;
 }) {
   async function build(): Promise<Blob | null> {
     if (!company || !invoice) return null;
@@ -112,6 +116,11 @@ export function InvoiceDetailDialog({
                 Total: {formatCurrency(invoice.total)}
               </div>
             </div>
+            {/* Payments + running balance (GEN-73). Sale invoices only —
+                purchase and refund invoices aren't collected against here. */}
+            {invoice.type === "sale" ? (
+              <InvoicePaymentsPanel invoice={invoice} onChanged={onChanged} />
+            ) : null}
             <DialogFooter>
               <Button variant="outline" onClick={() => void download()}>
                 Download PDF
