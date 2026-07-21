@@ -364,7 +364,7 @@ function TodoRow({
         value={item.status}
         onValueChange={(v) => onPatch({ status: v as TodoStatus })}
       >
-        <SelectTrigger className="h-8 w-32 shrink-0 text-xs" aria-label="Status">
+        <SelectTrigger className="h-8 w-28 shrink-0 text-xs" aria-label="Status">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -386,7 +386,7 @@ function TodoRow({
         }}
         aria-label="Description"
         className={cn(
-          "h-8 min-w-[180px] flex-1 border-transparent bg-transparent text-sm shadow-none hover:border-border focus-visible:border-input",
+          "h-8 min-w-[120px] flex-1 border-transparent bg-transparent text-sm shadow-none hover:border-border focus-visible:border-input",
           item.status === "completed" && "line-through",
         )}
       />
@@ -399,7 +399,7 @@ function TodoRow({
         value={item.vendorId ?? "none"}
         onValueChange={(v) => onPatch({ vendorId: v === "none" ? null : v })}
       >
-        <SelectTrigger className="h-8 w-36 shrink-0 text-xs" aria-label="Vendor">
+        <SelectTrigger className="h-8 w-32 shrink-0 text-xs" aria-label="Vendor">
           <SelectValue placeholder={vendorName ?? "No vendor"} />
         </SelectTrigger>
         <SelectContent>
@@ -412,7 +412,12 @@ function TodoRow({
         </SelectContent>
       </Select>
 
-      <span className="w-16 shrink-0 text-right text-2xs capitalize text-muted-foreground">
+      {/* Where the item came from. Least important column, so it's the one
+          that goes when the panel is narrow. */}
+      <span
+        className="hidden w-14 shrink-0 text-right text-2xs capitalize text-muted-foreground sm:inline"
+        title={`Source: ${item.source}`}
+      >
         {item.source}
       </span>
 
@@ -427,7 +432,7 @@ function TodoRow({
         inputMode="decimal"
         placeholder="—"
         aria-label="Cost"
-        className="h-8 w-24 shrink-0 border-transparent bg-transparent text-right text-sm tabular-nums shadow-none hover:border-border focus-visible:border-input"
+        className="h-8 w-20 shrink-0 border-transparent bg-transparent text-right text-sm tabular-nums shadow-none hover:border-border focus-visible:border-input"
       />
 
       <button
