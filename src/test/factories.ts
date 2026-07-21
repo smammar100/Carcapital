@@ -197,6 +197,7 @@ export function makeWarranty(overrides: Partial<Warranty> = {}): Warranty {
     companyId: "co-0001",
     vehicleId: "veh-0001",
     saleDealId: "deal-0001",
+    invoiceId: null,
     customerName: "Sarah Whitfield",
     customerPhone: "07700 900123",
     customerEmail: "sarah@example.co.uk",

@@ -1906,6 +1906,7 @@ export type Database = {
           customer_phone: string
           end_date: string
           id: string
+          invoice_id: string | null
           provider: string | null
           provider_reference: string | null
           purchase_status: string | null
@@ -1931,6 +1932,7 @@ export type Database = {
           customer_phone: string
           end_date: string
           id?: string
+          invoice_id?: string | null
           provider?: string | null
           provider_reference?: string | null
           purchase_status?: string | null
@@ -1956,6 +1958,7 @@ export type Database = {
           customer_phone?: string
           end_date?: string
           id?: string
+          invoice_id?: string | null
           provider?: string | null
           provider_reference?: string | null
           purchase_status?: string | null

@@ -816,6 +816,8 @@ export interface Warranty {
   companyId: UUID;
   vehicleId: UUID;
   saleDealId: UUID | null;
+  /** Sales invoice that issued this cover, when it came from one (GEN-66). */
+  invoiceId: UUID | null;
   customerName: string;
   customerPhone: string;
   customerEmail: string | null;
@@ -941,6 +943,13 @@ export interface InvoiceLineItem {
 
 /** SPEC §3 Section G / §5 — warranty declaration (Page 2 top). */
 export interface WarrantyDeclaration {
+  /**
+   * Who stands behind the cover — Car Capital ("in_house") or a third party
+   * ("external"). Drives which Warranties tab the record lands in and whether
+   * it needs purchasing from a provider (GEN-66). Legacy invoices saved before
+   * this field existed read as "in_house", which is what they were.
+   */
+  type?: WarrantyType;
   provider: string;
   providerPhone: string;
   providerEmail: string;

@@ -22,6 +22,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { salesService } from "@/lib/services/sales-service";
+import { warrantyService } from "@/lib/services/warranty-service";
 import {
   companyInvoiceFields,
   downloadBlob,
@@ -38,6 +39,7 @@ import type {
   Vehicle,
   VatScheme,
   WarrantyDeclaration,
+  WarrantyType,
 } from "@/lib/types";
 import {
   ADDON_CATEGORY_OPTIONS,
@@ -351,7 +353,9 @@ function InvoiceGenerationForm() {
         setFinanceAmount(inv.financeAmount);
         setFinanceProvider(inv.financeProvider ?? FINANCE_PROVIDERS[0]);
         setBalanceDueBy(inv.balanceDueBy ?? "");
-        setWarranty(inv.warranty ?? defaultWarranty());
+        // Merged over the defaults so an invoice saved before a declaration
+        // field existed (e.g. `type`) still opens with a complete form.
+        setWarranty({ ...defaultWarranty(), ...(inv.warranty ?? {}) });
         setNonWarrantyDisclaimer(inv.nonWarrantyDisclaimerAccepted);
         setPdc(inv.preDeliveryCheck ?? emptyPdc(v));
         setUnitNote(inv.includeUnitStockingNote);
@@ -517,6 +521,9 @@ function InvoiceGenerationForm() {
   );
 
   const hasWarrantyAddon = lines.some((l) => l.addonCategory === "warranty");
+  // Legacy invoices saved before the in-house/external switch existed were
+  // always in-house cover (GEN-66).
+  const warrantyType: WarrantyType = warranty.type ?? "in_house";
 
   function validate(): string | null {
     if (!vehicle) return "Select a vehicle";
@@ -535,6 +542,12 @@ function InvoiceGenerationForm() {
       return "Finance provider is required when a finance amount is entered";
     if (hasWarrantyAddon && nonWarrantyDisclaimer)
       return "Non-Warranty Disclaimer cannot be ticked alongside a Warranty add-on";
+    if (
+      !nonWarrantyDisclaimer &&
+      warrantyType === "external" &&
+      !warranty.provider.trim()
+    )
+      return "Provider name is required for an external warranty";
     if (pdc.numKeys < 1 || pdc.numKeys > 4)
       return "Number of keys must be between 1 and 4";
     if (
@@ -613,6 +626,10 @@ function InvoiceGenerationForm() {
         editing && invoiceIdParam
           ? await invoiceService.update(invoiceIdParam, payload, user.id)
           : await invoiceService.create(payload, user.id);
+      // Section F is the sale of the cover, so issuing the invoice is what
+      // creates the warranty record — in-house included (GEN-66). Idempotent
+      // on re-save, and cancels the policy if the disclaimer gets ticked.
+      await warrantyService.syncFromInvoice(invoice, user.id, deal?.id ?? null);
       if (draftKey) localStorage.removeItem(draftKey);
       toast.success(
         `Invoice ${invoice.invoiceNumber} ${editing ? "updated" : "created"}`,
@@ -987,6 +1004,82 @@ function InvoiceGenerationForm() {
           )}
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
+              <Label>Warranty provided by</Label>
+              <Select
+                items={{
+                  in_house: "Car Capital (in-house)",
+                  external: "External provider",
+                }}
+                value={warrantyType}
+                onValueChange={(v) =>
+                  setWarranty({
+                    ...warranty,
+                    type: v as WarrantyType,
+                    // Swap the provider block wholesale so an in-house invoice
+                    // never carries a stale third-party name into the PDF.
+                    ...(v === "in_house"
+                      ? {
+                          provider: WARRANTY_DEFAULTS.provider,
+                          providerPhone: WARRANTY_DEFAULTS.providerPhone,
+                          providerEmail: WARRANTY_DEFAULTS.providerEmail,
+                        }
+                      : warranty.provider === WARRANTY_DEFAULTS.provider
+                        ? { provider: "", providerPhone: "", providerEmail: "" }
+                        : {}),
+                  })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="in_house">
+                    Car Capital (in-house)
+                  </SelectItem>
+                  <SelectItem value="external">External provider</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {warrantyType === "external" ? (
+              <>
+                <div>
+                  <Label>Provider name</Label>
+                  <Input
+                    value={warranty.provider}
+                    onChange={(e) =>
+                      setWarranty({ ...warranty, provider: e.target.value })
+                    }
+                    placeholder="e.g. WarrantyWise"
+                  />
+                </div>
+                <div>
+                  <Label>Provider phone</Label>
+                  <Input
+                    value={warranty.providerPhone}
+                    onChange={(e) =>
+                      setWarranty({
+                        ...warranty,
+                        providerPhone: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+                <div>
+                  <Label>Provider email</Label>
+                  <Input
+                    type="email"
+                    value={warranty.providerEmail}
+                    onChange={(e) =>
+                      setWarranty({
+                        ...warranty,
+                        providerEmail: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </>
+            ) : null}
+            <div>
               <Label>Cover type</Label>
               <Select
                 value={warranty.coverType}
@@ -1094,6 +1187,13 @@ function InvoiceGenerationForm() {
             />
             Non-Warranty Disclaimer accepted (opted out of comprehensive cover)
           </label>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {nonWarrantyDisclaimer
+              ? "No warranty record will be created for this sale."
+              : `Issuing this invoice creates a ${
+                  warrantyType === "external" ? "external" : "in-house"
+                } warranty record, running ${warranty.duration.toLowerCase()} from the invoice date.`}
+          </p>
         </Section>
 
         <Section letter="G" title="Pre-Delivery Check">

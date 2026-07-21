@@ -130,6 +130,8 @@ export const ADDON_CATEGORY_OPTIONS: {
 
 /** Section G defaults (SPEC §3 Section G). */
 export const WARRANTY_DEFAULTS = {
+  // Car Capital covers its own sales unless the seller picks a third party.
+  type: "in_house" as const,
   provider: CAR_CAPITAL_COMPANY.legalName,
   providerPhone: CAR_CAPITAL_COMPANY.warrantyProviderPhone,
   providerEmail: CAR_CAPITAL_COMPANY.warrantyProviderEmail,
