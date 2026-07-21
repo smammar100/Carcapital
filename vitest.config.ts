@@ -4,7 +4,8 @@ import path from "node:path";
 /**
  * Two projects:
  *  - unit:      node env, pure logic + services (src/lib/**, src/app/api/**)
- *  - component: jsdom env, React components (src/components/**)
+ *  - component: jsdom env, React components (src/components/**) and hooks
+ *               (src/hooks/**), both of which need a DOM to render into
  *
  * The legacy node:test file (src/lib/autotrader/*.test.mts) is excluded —
  * it runs under `pnpm test:node` until ported.
@@ -32,7 +33,9 @@ export default defineConfig({
         test: {
           name: "component",
           environment: "jsdom",
-          include: ["src/components/**/*.test.tsx"],
+          // Hooks had no test path at all before GEN-68 — a `src/hooks`
+          // test file simply wasn't picked up by either project.
+          include: ["src/components/**/*.test.tsx", "src/hooks/**/*.test.ts"],
           setupFiles: ["src/test/setup-component.ts"],
         },
       },

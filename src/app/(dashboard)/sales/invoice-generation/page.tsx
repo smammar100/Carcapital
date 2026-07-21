@@ -204,7 +204,13 @@ function InvoiceGenerationForm() {
   const [buyerPhone, setBuyerPhone] = useState("");
   const [buyerEmail, setBuyerEmail] = useState("");
 
-  const { lookup: lookupPostcode, isLoading: pcLoading } = usePostcodeLookup();
+  const {
+    lookup: lookupPostcode,
+    lookupDebounced: lookupPostcodeDebounced,
+    isLoading: pcLoading,
+    notFound: pcNotFound,
+    error: pcError,
+  } = usePostcodeLookup();
 
   // Reg-number / stock / model search over the vehicle picker (the stock list
   // can run to 50+ cars — a plain dropdown isn't navigable).
@@ -226,23 +232,43 @@ function InvoiceGenerationForm() {
     );
   }, [vehicles, vehicleQuery, vehicleId]);
 
+  /**
+   * Fill the town/county tail of the address from the postcode, preserving
+   * whatever the user has already typed for the house number and street.
+   *
+   * postcodes.io has no premise data, so line1 is always theirs to enter —
+   * blindly overwriting the whole field (as this used to) wiped their house
+   * number every time the lookup ran (GEN-68).
+   */
+  function applyPostcodeResult(r: {
+    line1: string;
+    line2: string;
+    line3: string;
+    line4: string;
+  }) {
+    const area = [r.line1, r.line2, r.line3, r.line4]
+      .filter(Boolean)
+      .join(", ")
+      .toUpperCase();
+    setBuyerAddress((prev) => {
+      const typed = prev.trim();
+      if (!typed) return area;
+      // Already filled from this postcode — don't append it twice.
+      if (typed.toUpperCase().endsWith(area)) return prev;
+      // Keep only what the user typed before the previous auto-filled tail.
+      const street = typed.split(",")[0].trim();
+      return [street, area].filter(Boolean).join(", ").toUpperCase();
+    });
+  }
+
   async function handlePostcodeLookup() {
     if (!buyerPostcode.trim()) {
       toast.error("Enter a postcode first");
       return;
     }
     const r = await lookupPostcode(buyerPostcode);
-    if (!r) {
-      toast.error("No address found — enter manually");
-      return;
-    }
-    setBuyerAddress(
-      [r.line1, r.line2, r.line3, r.line4]
-        .filter(Boolean)
-        .join(", ")
-        .toUpperCase(),
-    );
-    toast.success("Address filled — review and adjust");
+    if (!r) return; // the inline "no match" message says it — no toast needed
+    applyPostcodeResult(r);
   }
 
   const [presentMileage, setPresentMileage] = useState<number>(0);
@@ -747,9 +773,13 @@ function InvoiceGenerationForm() {
               <div className="flex gap-2">
                 <Input
                   value={buyerPostcode}
-                  onChange={(e) =>
-                    setBuyerPostcode(e.target.value.toUpperCase())
-                  }
+                  onChange={(e) => {
+                    const next = e.target.value.toUpperCase();
+                    setBuyerPostcode(next);
+                    // Fires itself once the postcode is well-formed, so the
+                    // Lookup button is a fallback rather than a required step.
+                    lookupPostcodeDebounced(next, applyPostcodeResult);
+                  }}
                 />
                 <Button
                   type="button"
@@ -761,6 +791,15 @@ function InvoiceGenerationForm() {
                   {pcLoading ? "…" : "Lookup"}
                 </Button>
               </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {pcLoading
+                  ? "Looking up…"
+                  : pcError
+                    ? "Lookup unavailable — enter the address manually."
+                    : pcNotFound
+                      ? "No match for that postcode — enter the address manually."
+                      : "Town and county fill in automatically. Add the house number and street yourself."}
+              </p>
             </div>
             <div>
               <Label>
