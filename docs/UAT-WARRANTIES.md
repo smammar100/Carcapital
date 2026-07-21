@@ -419,15 +419,40 @@
 
 ---
 
+## GEN-66 — a warranty is created when a sales invoice is closed
+
+Closing a sales invoice declares the buyer's cover in Section F, but until
+GEN-66 nothing wrote a `warranties` row — selecting "in-house" produced a PDF
+and nothing else, so the In-House tab was only ever populated by hand.
+
+Scope: `/sales/invoice-generation` Section F, `warrantyService.syncFromInvoice`,
+migration `0036_warranty_invoice_link.sql`.
+
+| # | Test case | Steps | Expected result | Status |
+|---|-----------|-------|-----------------|--------|
+| 26 | In-house creates a record | Generate a sales invoice with **Warranty provided by = Car Capital (in-house)** | A warranty appears under **Warranties → In-House** for that vehicle and customer. | ☐ |
+| 27 | Record contents | Open it | Type in-house, provider "Car Capital", cover summary matching Section F, start = invoice date, end = start + the declared duration. | ☐ |
+| 28 | Linked to the invoice | On the detail sheet | "Issued by invoice INV-…" links back to it. | ☐ |
+| 29 | External still works | Generate an invoice with **External provider** + a provider name | A record appears under **External**, purchase status **Pending**, so Mark Purchased still applies. | ☐ |
+| 30 | Provider required | Choose External and leave the provider name blank | Blocked: "Provider name is required for an external warranty". | ☐ |
+| 31 | No over-trigger | Generate an invoice with **Non-Warranty Disclaimer** ticked | No warranty record is created. Section F says so before you submit. | ☐ |
+| 32 | No duplicates on re-save | Edit and re-save the same invoice | The existing warranty is updated. There is still exactly one. | ☐ |
+| 33 | Retracted on edit | Edit an invoice that issued cover, tick the disclaimer, save | Its warranty is **cancelled**, not left live behind an invoice that no longer offers it. | ☐ |
+| 34 | Type switch | Edit an in-house invoice to external and save | The record moves to the External tab and its purchase status becomes Pending. An already-purchased policy keeps "purchased". | ☐ |
+| 35 | Price carried over | Invoice with a paid Warranty add-on line | Cost to customer equals the add-on total. A free warranty add-on records £0. | ☐ |
+| 36 | Month clamping | Invoice dated 31 Jan with 3-month cover | Ends **30 Apr**, not 1 May. | ☐ |
+
+---
+
 ## Sign-off
 
 | Field | Value |
 |---|---|
 | Tester | _________________________ |
 | Date | _________________________ |
-| Total cases | 25 |
-| Passed | ___ / 25 |
-| Failed | ___ / 25 |
+| Total cases | 36 |
+| Passed | ___ / 36 |
+| Failed | ___ / 36 |
 | Commit SHA tested | _________________________ |
 | Notes / outstanding items | _________________________ |
 

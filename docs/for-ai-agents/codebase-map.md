@@ -44,6 +44,7 @@ This document is structured for cold-read ingestion. If a row says "owns X", tha
 | `/maintenance` | `src/app/(dashboard)/maintenance/page.tsx` | Maintenance |
 | `/maintenance/calendar` | `src/app/(dashboard)/maintenance/calendar/page.tsx` | Maintenance |
 | `/maintenance/inspection` | `src/app/(dashboard)/maintenance/inspection/page.tsx` | Maintenance |
+| `/maintenance/prep` | `src/app/(dashboard)/maintenance/prep/page.tsx` | Maintenance |
 | `/maintenance/workshop` | `src/app/(dashboard)/maintenance/workshop/page.tsx` | Maintenance |
 | `/maintenance/jobs/[id]` | `src/app/(dashboard)/maintenance/jobs/[id]/page.tsx` | Maintenance |
 | `/advert/work-list` | `src/app/(dashboard)/advert/work-list/page.tsx` | Advert |
@@ -259,7 +260,9 @@ Dynamic detail routes: `/vehicles/[id]/inspection/page.tsx`, `/warranties/[id]/p
 | `maintenance-note-service.ts` | MaintenanceJobNote | Supabase |
 | `workshop-service.ts` | WorkshopJob | Supabase |
 | `vendor-service.ts` | Vendor | Supabase |
-| `todo-service.ts` | TodoItem | Supabase |
+| `todo-service.ts` | TodoItem; owns the car-readiness roll-up | Supabase |
+| `prep-service.ts` | Prep & Repair queue (derived from vehicle status + todos) | Supabase |
+| `pipeline-stage-service.ts` | PipelineStage — the sales board's configurable columns | Supabase |
 | `return-service.ts` | VehicleReturn | Supabase |
 | `activity-service.ts` | ActivityLogEntry | Supabase |
 | `notification-service.ts` | Notification | Supabase |
