@@ -56,6 +56,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -948,7 +949,10 @@ function InvoiceGenerationForm() {
         </Section>
 
         <Section letter="D" title="VAT Scheme">
-          <div className="flex flex-col gap-2">
+          <RadioGroup
+            value={vatScheme}
+            onValueChange={(v) => setVatScheme(v as VatScheme)}
+          >
             {(
               [
                 ["margin_used", "Margin scheme (UK used-car standard)"],
@@ -956,16 +960,11 @@ function InvoiceGenerationForm() {
                 ["zero_rated", "Zero rated (export / commercial)"],
               ] as [VatScheme, string][]
             ).map(([v, label]) => (
-              <label key={v} className="flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  checked={vatScheme === v}
-                  onChange={() => setVatScheme(v)}
-                />
+              <RadioItem key={v} value={v}>
                 {label}
-              </label>
+              </RadioItem>
             ))}
-          </div>
+          </RadioGroup>
         </Section>
 
         <Section letter="E" title="Payment Breakdown">
