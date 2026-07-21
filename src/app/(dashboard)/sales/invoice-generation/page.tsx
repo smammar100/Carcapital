@@ -65,6 +65,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EmptyState } from "@/components/shared/empty-state";
+import { VehiclePicker } from "@/components/shared/vehicle-picker";
 import { formatCurrency, cn } from "@/lib/utils";
 import { isValidUkPhone } from "@/lib/formatters";
 import {
@@ -198,7 +199,6 @@ function InvoiceGenerationForm() {
 
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [vehicleId, setVehicleId] = useState("");
-  const [vehicleQuery, setVehicleQuery] = useState("");
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [deal, setDeal] = useState<SalesDeal | null>(null);
   const [loading, setLoading] = useState(true);
@@ -220,25 +220,19 @@ function InvoiceGenerationForm() {
   } = usePostcodeLookup();
   const [pcListOpen, setPcListOpen] = useState(false);
 
-  // Reg-number / stock / model search over the vehicle picker (the stock list
-  // can run to 50+ cars — a plain dropdown isn't navigable).
-  const filteredVehicles = useMemo(() => {
-    const q = vehicleQuery.trim().toLowerCase().replace(/\s+/g, "");
-    const list = (vehicles ?? []).filter(
-      // Don't offer already-sold/returned cars for a fresh invoice — except the
-      // one already selected/being edited, so existing invoices still load.
-      (v) =>
-        v.id === vehicleId ||
-        (v.status !== "sold" && v.status !== "returned"),
-    );
-    if (!q) return list;
-    return list.filter((v) =>
-      `${v.stockId}${v.registration}${v.make}${v.model}`
-        .toLowerCase()
-        .replace(/\s+/g, "")
-        .includes(q),
-    );
-  }, [vehicles, vehicleQuery, vehicleId]);
+  // Cars this invoice may be raised against. Searching within them is
+  // VehiclePicker's job (GEN-79) — this only decides what's offerable.
+  const filteredVehicles = useMemo(
+    () =>
+      (vehicles ?? []).filter(
+        // Don't offer already-sold/returned cars for a fresh invoice — except
+        // the one already selected/being edited, so existing invoices load.
+        (v) =>
+          v.id === vehicleId ||
+          (v.status !== "sold" && v.status !== "returned"),
+      ),
+    [vehicles, vehicleId],
+  );
 
   /**
    * Accept a suggestion the user picked.
@@ -696,39 +690,16 @@ function InvoiceGenerationForm() {
           <Label>
             Vehicle <span className="text-destructive">*</span>
           </Label>
-          <Input
-            value={vehicleQuery}
-            onChange={(e) => setVehicleQuery(e.target.value)}
-            placeholder="Search reg, stock ID, make or model…"
-            className="mb-2 mt-1"
+          {/* One control, not two. This was a search box that filtered a
+              separate dropdown — you typed in one field and picked in
+              another. VehiclePicker does both (GEN-79). */}
+          <VehiclePicker
+            vehicles={filteredVehicles}
+            value={vehicle}
+            onChange={(v) => handleVehicleChange(v?.id ?? "")}
+            placeholder="Search by reg, stock ID or model…"
+            className="mt-1"
           />
-          <Select
-            items={Object.fromEntries(
-              vehicles.map((v) => [
-                v.id,
-                `${v.stockId} — ${v.registration} — ${v.make} ${v.model}`,
-              ]),
-            )}
-            value={vehicleId}
-            onValueChange={handleVehicleChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select a vehicle…" />
-            </SelectTrigger>
-            <SelectContent>
-              {filteredVehicles.length === 0 ? (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                  No vehicles match that search
-                </div>
-              ) : (
-                filteredVehicles.map((v) => (
-                  <SelectItem key={v.id} value={v.id}>
-                    {v.stockId} — {v.registration} — {v.make} {v.model}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
         </Section>
 
         <Section letter="B" title="Buyer Details">
