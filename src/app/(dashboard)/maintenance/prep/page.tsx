@@ -28,12 +28,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Combobox,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
+} from "@/components/ui/combobox";
 import {
   Sheet,
   SheetContent,
@@ -106,16 +107,12 @@ export default function PrepAndRepairPage() {
 
   const openCar = cars?.find((c) => c.vehicle.id === openCarId) ?? null;
 
-  async function handleAssign(vehicleId: string, userId: string) {
+  async function handleAssign(vehicleId: string, userId: string | null) {
     if (!user) return;
     try {
-      await prepService.assign(
-        vehicleId,
-        userId === "unassigned" ? null : userId,
-        user.id,
-      );
+      await prepService.assign(vehicleId, userId, user.id);
       await refresh();
-      toast.success(userId === "unassigned" ? "Returned to Unassigned" : "Assigned");
+      toast.success(userId ? "Assigned" : "Returned to Unassigned");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Couldn't assign this car");
     }
@@ -279,7 +276,7 @@ function PrepCard({
   users: User[];
   exporting: boolean;
   onOpen: () => void;
-  onAssign: (userId: string) => void;
+  onAssign: (userId: string | null) => void;
   onExport: () => void;
 }) {
   const { vehicle, done, total, open, cost, daysWaiting, status } = car;
@@ -352,29 +349,35 @@ function PrepCard({
       </button>
 
       <div className="flex items-center gap-1.5 border-t px-2.5 py-2">
-        <Select
-          items={{
-            unassigned: "Unassigned",
-            ...Object.fromEntries(users.map((u) => [u.id, u.name])),
-          }}
-          value={vehicle.prepAssignedTo ?? "unassigned"}
-          onValueChange={onAssign}
+        {/* Type-ahead, not a 20-name scroll — the team asked for this shape
+            explicitly (GEN-81). Clearing the field unassigns the car. */}
+        <Combobox
+          items={users}
+          value={assignee}
+          onValueChange={(u: User | null) => onAssign(u?.id ?? null)}
+          itemToStringLabel={(u: User) => u.name}
+          // Type "sara", press Enter, done. Without this the top match isn't
+          // highlighted and Enter does nothing, which reads as a broken field.
+          autoHighlight
         >
-          <SelectTrigger
-            className="h-8 flex-1 text-xs"
+          <ComboboxInput
+            size="sm"
+            showClear={assignee !== null}
+            placeholder="Unassigned"
             aria-label={`Assign ${vehicle.registration}`}
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="unassigned">Unassigned</SelectItem>
-            {users.map((u) => (
-              <SelectItem key={u.id} value={u.id}>
-                {u.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            className="w-full flex-1"
+          />
+          <ComboboxPopup>
+            <ComboboxEmpty>No one by that name.</ComboboxEmpty>
+            <ComboboxList>
+              {(u: User) => (
+                <ComboboxItem key={u.id} value={u}>
+                  {u.name}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxPopup>
+        </Combobox>
 
         {assignee ? (
           <Avatar size="sm" title={assignee.name}>

@@ -26,6 +26,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Combobox,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
+} from "@/components/ui/combobox";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { BarChart, DonutChart } from "@/components/charts/simple-charts";
@@ -669,6 +677,19 @@ function Kpi({
 }
 
 /** One labelled dropdown in the filter bar, with an "everything" option. */
+/**
+ * Past this many options a plain dropdown stops being usable — you're
+ * scrolling for a name you already know. Above it the filter becomes a
+ * type-ahead. Driven by the actual data, so a dealer with four makes still
+ * gets the simpler control.
+ */
+const SEARCHABLE_THRESHOLD = 10;
+
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
 function FilterSelect({
   label,
   value,
@@ -680,19 +701,61 @@ function FilterSelect({
   value: string;
   onChange: (v: string) => void;
   allLabel: string;
-  options: { value: string; label: string }[];
+  options: FilterOption[];
 }) {
+  const id = `filter-${label}`;
+
+  if (options.length > SEARCHABLE_THRESHOLD) {
+    // "All" is the absence of a selection, so clearing the field is what
+    // resets the filter — no sentinel row to scroll past.
+    const selected = options.find((o) => o.value === value) ?? null;
+    return (
+      <div className="w-40">
+        <Label htmlFor={id} className="text-xs">
+          {label}
+        </Label>
+        <Combobox
+          items={options}
+          value={selected}
+          onValueChange={(o: FilterOption | null) => onChange(o?.value ?? ALL)}
+          itemToStringLabel={(o: FilterOption) => o.label}
+          // Enter picks the top match, so filtering is one uninterrupted
+          // gesture rather than type-then-reach-for-the-mouse.
+          autoHighlight
+        >
+          <ComboboxInput
+            id={id}
+            size="sm"
+            showClear={selected !== null}
+            placeholder={allLabel}
+            className="w-full"
+          />
+          <ComboboxPopup>
+            <ComboboxEmpty>No {label.toLowerCase()} matches.</ComboboxEmpty>
+            <ComboboxList>
+              {(o: FilterOption) => (
+                <ComboboxItem key={o.value} value={o}>
+                  {o.label}
+                </ComboboxItem>
+              )}
+            </ComboboxList>
+          </ComboboxPopup>
+        </Combobox>
+      </div>
+    );
+  }
+
   const items = {
     [ALL]: allLabel,
     ...Object.fromEntries(options.map((o) => [o.value, o.label])),
   };
   return (
     <div className="w-40">
-      <Label htmlFor={`filter-${label}`} className="text-xs">
+      <Label htmlFor={id} className="text-xs">
         {label}
       </Label>
       <Select items={items} value={value} onValueChange={onChange}>
-        <SelectTrigger id={`filter-${label}`} className="h-9">
+        <SelectTrigger id={id} className="h-9">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
