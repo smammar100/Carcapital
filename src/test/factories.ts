@@ -79,6 +79,7 @@ export function makeVehicle(overrides: Partial<Vehicle> = {}): Vehicle {
     removedFromWebsiteAt: null,
     daysInStock: 53,
     imagesCount: 24,
+    prepAssignedTo: null,
     heroImageUrl: "/generated/cars/veh-0001/hero.png",
     customFields: {},
     currentLocation: "forecourt",

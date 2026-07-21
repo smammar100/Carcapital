@@ -74,6 +74,7 @@ const SELECT = `
   removedFromWebsiteAt:removed_from_website_at,
   daysInStock:days_in_stock,
   imagesCount:images_count,
+  prepAssignedTo:prep_assigned_to,
   heroImageUrl:hero_image_url,
   customFields:custom_fields,
   legacyData:legacy_data,
@@ -166,6 +167,7 @@ const CAMEL_TO_SNAKE: Record<string, string> = {
   status: "status",
   removedFromWebsiteAt: "removed_from_website_at",
   daysInStock: "days_in_stock",
+  prepAssignedTo: "prep_assigned_to",
   imagesCount: "images_count",
   heroImageUrl: "hero_image_url",
   customFields: "custom_fields",
@@ -358,6 +360,8 @@ export const vehicleService = {
       | "testDriveExpectedBackAt"
       | "legacyData"
       | "isDemo"
+      // Nobody owns a car's prep before it has even been inspected (GEN-63).
+      | "prepAssignedTo"
     >,
     actorId: UUID,
   ): Promise<Vehicle> {

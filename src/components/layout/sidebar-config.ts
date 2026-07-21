@@ -3,6 +3,7 @@ import {
   Car,
   Wrench,
   ClipboardCheck,
+  Hammer,
   Calendar as CalendarIcon,
   Megaphone,
   // Image as ImageIcon, // restore with the Photo Processing nav item
@@ -166,6 +167,18 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/maintenance/inspection",
         icon: ClipboardCheck,
         requiredAnyOf: ["inspection:run", "inspection:add_note"],
+      },
+      // The stage between "inspection complete" and the sales pipeline
+      // (GEN-63) — sits after Inspection Queue because that's what feeds it.
+      {
+        label: "Prep & Repair",
+        href: "/maintenance/prep",
+        icon: Hammer,
+        requiredAnyOf: [
+          "maintenance:create",
+          "maintenance:edit",
+          "maintenance:complete",
+        ],
       },
       {
         label: "Workshop Jobs",

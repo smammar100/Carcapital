@@ -315,6 +315,11 @@ export interface Vehicle {
   removedFromWebsiteAt: ISODateTime | null;
   daysInStock: number;
   imagesCount: number;
+  /**
+   * Who owns this car through Prep & Repair (GEN-63). Null is the "Unassigned"
+   * lane every car lands in when its inspection completes.
+   */
+  prepAssignedTo: UUID | null;
 
   // AI-generated hero image (lazy, persisted to public/generated/cars/<id>/hero.png)
   heroImageUrl: string | null;
@@ -1195,6 +1200,7 @@ export type ActivityActionType =
   | "inspection_completed"
   | "todo_added"
   | "todo_completed"
+  | "prep_assigned"
   | "maintenance_job_created"
   | "maintenance_job_completed"
   | "workshop_job_created"

@@ -1636,6 +1636,7 @@ export type Database = {
           hero_image_url: string | null
           id: string
           images_count: number
+          prep_assigned_to: string | null
           inspection_charge: number | null
           invoice_date: string | null
           landed_cost: number
@@ -1705,6 +1706,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           images_count?: number
+          prep_assigned_to?: string | null
           inspection_charge?: number | null
           invoice_date?: string | null
           landed_cost?: number
@@ -1774,6 +1776,7 @@ export type Database = {
           hero_image_url?: string | null
           id?: string
           images_count?: number
+          prep_assigned_to?: string | null
           inspection_charge?: number | null
           invoice_date?: string | null
           landed_cost?: number
