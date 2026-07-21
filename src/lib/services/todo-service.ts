@@ -28,7 +28,16 @@ interface AddInput {
   cost: number | null;
   source: TodoSource;
   createdBy: UUID;
+  /**
+   * Status to file the item under. Defaults to `pending`. Adding straight into
+   * the target status matters: the old add-then-promote pair could leave a
+   * stray pending row behind if the second call failed (GEN-64).
+   */
+  status?: TodoStatus;
 }
+
+/** Work that still blocks the car: cancelled items are closed, not outstanding. */
+const OPEN_STATUSES: TodoStatus[] = ["pending", "in_progress"];
 
 interface UpdateInput {
   description?: string;
@@ -72,10 +81,16 @@ export const todoService = {
         serial_number: serial,
         description: input.description,
         vendor_id: input.vendorId,
-        status: "pending",
+        status: input.status ?? "pending",
         cost: input.cost,
         source: input.source,
         created_by: input.createdBy,
+        ...(input.status === "completed"
+          ? {
+              completed_by: input.createdBy,
+              completed_at: new Date().toISOString(),
+            }
+          : {}),
       })
       .select(SELECT)
       .single();
@@ -93,6 +108,7 @@ export const todoService = {
         metadata: { todoId: todo.id, source: input.source },
       });
     }
+    await todoService.recomputeReadiness(input.vehicleId, input.createdBy);
     return todo;
   },
 
@@ -144,14 +160,65 @@ export const todoService = {
         });
       }
     }
+    if (patch.status !== undefined) {
+      await todoService.recomputeReadiness(todo.vehicleId, actorId);
+    }
     return todo;
   },
 
-  async remove(id: UUID): Promise<void> {
+  async remove(id: UUID, actorId?: UUID): Promise<void> {
     const supabase = createClient();
+    // Read the row first — after the delete there's no way back to its vehicle,
+    // and the readiness roll-up needs it (deleting the last open item is one of
+    // the ways a car finishes prep).
+    const { data: existing } = await supabase
+      .from("todo_items")
+      .select("vehicle_id")
+      .eq("id", id)
+      .maybeSingle();
     const { error } = await supabase.from("todo_items").delete().eq("id", id);
     if (error) throw error;
     invalidate(NS);
+    const vehicleId = (existing as { vehicle_id: string } | null)?.vehicle_id;
+    if (vehicleId && actorId) {
+      await todoService.recomputeReadiness(vehicleId, actorId);
+    }
+  },
+
+  /** Open (still-blocking) items for a vehicle, plus the done/total split. */
+  async getProgress(vehicleId: UUID): Promise<{
+    open: number;
+    done: number;
+    total: number;
+    complete: boolean;
+  }> {
+    const todos = await todoService.getForVehicle(vehicleId);
+    const open = todos.filter((t) => OPEN_STATUSES.includes(t.status)).length;
+    const done = todos.filter((t) => t.status === "completed").length;
+    return {
+      open,
+      done,
+      total: todos.length,
+      // A car with no items at all has nothing outstanding — it is complete.
+      complete: open === 0,
+    };
+  },
+
+  /**
+   * Roll the car's status up from its Things to Do list (GEN-64 / GEN-63).
+   *
+   * Clearing the last outstanding item is what finishes prep, so a car sitting
+   * in `being_prepared` becomes `ready` — i.e. eligible for the sales pipeline.
+   * Deliberately advance-only: never drag a car that has already moved on
+   * (photos, listed, reserved, sold) backwards because someone logged a job.
+   */
+  async recomputeReadiness(vehicleId: UUID, actorId: UUID): Promise<void> {
+    const { complete } = await todoService.getProgress(vehicleId);
+    if (!complete) return;
+    const v = await vehicleService.getById(vehicleId);
+    if (v?.status === "being_prepared") {
+      await vehicleService.changeStatus(vehicleId, "ready", actorId);
+    }
   },
 
   async getGrandTotal(vehicleId: UUID): Promise<number> {

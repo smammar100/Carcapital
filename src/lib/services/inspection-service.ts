@@ -21,6 +21,17 @@ const SELECT = `
   createdAt:created_at
 `;
 
+/**
+ * Does this check still need work? True for an explicitly negative result, an
+ * unanswered check, or one deliberately parked as "Pending".
+ */
+export function isOutstandingCheck(status: string): boolean {
+  const s = status.trim();
+  if (!s) return true;
+  if (s.toLowerCase() === "pending") return true;
+  return NEGATIVE_INSPECTION_STATUSES.has(s);
+}
+
 interface SaveInput {
   vehicleId: UUID;
   checkNumber: number;
@@ -124,8 +135,13 @@ export const inspectionService = {
       .from("inspection_checks")
       .select(SELECT)
       .eq("vehicle_id", vehicleId);
-    const failing = ((checks ?? []) as unknown as InspectionCheck[]).filter((c) =>
-      NEGATIVE_INSPECTION_STATUSES.has(c.status),
+    // Anything not signed off clean is outstanding work: an explicitly bad
+    // result, a check nobody answered (status ""), or one parked as "Pending"
+    // (the Test Drive option). Previously only the first counted, so an
+    // inspection submitted half-finished produced no Things to Do at all and
+    // the car sailed through to "ready" (GEN-64).
+    const failing = ((checks ?? []) as unknown as InspectionCheck[]).filter(
+      (c) => isOutstandingCheck(c.status),
     );
     const v = await vehicleService.getById(vehicleId);
     if (!v) throw new Error("Vehicle not found");
@@ -152,7 +168,9 @@ export const inspectionService = {
     for (const check of failing) {
       const description = check.actionRequired
         ? `${check.checkItem}: ${check.actionRequired}`
-        : `${check.checkItem} — needs attention (${check.status})`;
+        : check.status.trim()
+          ? `${check.checkItem} — needs attention (${check.status})`
+          : `${check.checkItem} — not checked`;
       await todoService.add({
         vehicleId,
         description,
