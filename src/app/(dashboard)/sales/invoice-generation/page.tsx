@@ -1190,7 +1190,7 @@ function InvoiceGenerationForm() {
           <p className="mt-2 text-xs text-muted-foreground">
             {nonWarrantyDisclaimer
               ? "No warranty record will be created for this sale."
-              : `Issuing this invoice creates a ${
+              : `Issuing this invoice creates an ${
                   warrantyType === "external" ? "external" : "in-house"
                 } warranty record, running ${warranty.duration.toLowerCase()} from the invoice date.`}
           </p>
