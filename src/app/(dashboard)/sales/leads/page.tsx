@@ -8,6 +8,7 @@ import {
   Search,
   Phone,
   Mail,
+  AlertTriangle,
   Car,
   CalendarPlus,
   Clock,
@@ -22,6 +23,10 @@ import { useAuth } from "@/contexts/auth-context";
 import { leadService } from "@/lib/services/lead-service";
 import { leadChannelService } from "@/lib/services/lead-channel-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import {
+  inspectionService,
+  type InspectionProgress,
+} from "@/lib/services/inspection-service";
 import { authService } from "@/lib/services/auth-service";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { salesService } from "@/lib/services/sales-service";
@@ -129,8 +134,11 @@ const normReg = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 /**
  * Best-effort match of a stock vehicle from a lead's free-text vehicle interest.
  * Tries the registration embedded in the text first (e.g. "Audi A3 (LX66 CZK)"),
- * then a unique make+model match. Returns the vehicle id or null. Only considers
- * vehicles that can still be advertised (listed / ready).
+ * then a unique make+model match. Returns the vehicle id or null.
+ *
+ * Considers any car still in the business, not just listed/ready ones — an
+ * enquiry naming a car that's mid-inspection should still link to it, or the
+ * lead silently loses its vehicle (GEN-72).
  */
 function matchVehicleFromInterest(
   interest: string,
@@ -138,7 +146,7 @@ function matchVehicleFromInterest(
 ): string | null {
   if (!interest) return null;
   const eligible = vehicles.filter(
-    (v) => v.status === "listed" || v.status === "ready",
+    (v) => v.status !== "sold" && v.status !== "returned",
   );
   const niReg = normReg(interest);
   const byReg = eligible.find(
@@ -166,6 +174,9 @@ export default function LeadsPage() {
   const { user, company } = useAuth();
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [inspectionProgress, setInspectionProgress] = useState<
+    Map<string, InspectionProgress>
+  >(new Map());
   const [users, setUsers] = useState<User[]>([]);
   const [channels, setChannels] = useState<LeadChannel[]>([]);
   const [statusFilter, setStatusFilter] = useState<LeadStatus | "all">("all");
@@ -227,6 +238,13 @@ export default function LeadsPage() {
       setNowTs(Date.now());
       const sales = u.find((x) => x.role === "sales");
       if (sales) create.setValue("assignedTo", sales.id);
+      // Inspection state for every car, in one query — a lead can be raised
+      // against a car mid-inspection, so the flag has to render in a list
+      // without 50 round trips (GEN-72).
+      void inspectionService
+        .getProgressForVehicles(v.map((x) => x.id))
+        .then(setInspectionProgress)
+        .catch(() => undefined);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [company]);
@@ -282,8 +300,14 @@ export default function LeadsPage() {
   // Vehicles that can still be advertised — the pickable set for the status
   // dialog. `items` lets the Select render the friendly label for a *preset*
   // value (base-ui can't resolve it from an unopened list otherwise).
+  // A buyer can enquire about a car long before it has finished inspection —
+  // blocking the lead just loses the enquiry (GEN-72). Everything still in the
+  // business is offerable; only cars that have left it are not.
   const eligibleVehicles = useMemo(
-    () => vehicles.filter((v) => v.status === "listed" || v.status === "ready"),
+    () =>
+      vehicles.filter(
+        (v) => v.status !== "sold" && v.status !== "returned",
+      ),
     [vehicles],
   );
   const vehicleItems = useMemo<Record<string, string>>(
@@ -560,15 +584,19 @@ export default function LeadsPage() {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="none">None / free text</SelectItem>
-                      {vehicles
-                        .filter(
-                          (v) => v.status === "listed" || v.status === "ready",
-                        )
-                        .map((v) => (
+                      {eligibleVehicles.map((v) => {
+                        const p = inspectionProgress.get(v.id);
+                        return (
                           <SelectItem key={v.id} value={v.id}>
                             {v.registration} — {v.make} {v.model}
+                            {p && !p.complete && p.started ? (
+                              <span className="ml-1.5 text-xs text-amber-600 dark:text-amber-400">
+                                · inspection {p.done}/{p.total}
+                              </span>
+                            ) : null}
                           </SelectItem>
-                        ))}
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>
@@ -836,6 +864,45 @@ export default function LeadsPage() {
                     className="w-full max-w-[260px]"
                   />
                 ) : null}
+
+                {/* Inspection flag — a lead may be raised against a car
+                    that's still being checked (GEN-72), so say so here rather
+                    than blocking it at creation. Shows nothing once the
+                    inspection is clean. */}
+                {(() => {
+                  if (!selected.vehicleId) return null;
+                  const p = inspectionProgress.get(selected.vehicleId);
+                  if (!p || p.complete) return null;
+                  // A car the business already put on sale, with no inspection
+                  // ever raised in the app, isn't "incomplete" — it predates
+                  // this workflow. Warning on those would fire for almost the
+                  // whole forecourt and bury the cars that genuinely are
+                  // mid-inspection.
+                  const v = vehicles.find((x) => x.id === selected.vehicleId);
+                  const preSale =
+                    v?.status === "received" ||
+                    v?.status === "inspection_pending" ||
+                    v?.status === "being_prepared";
+                  if (!p.started && !preSale) return null;
+                  return (
+                    <details className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+                      <summary className="flex cursor-pointer items-center gap-2 font-medium">
+                        <AlertTriangle className="size-4 shrink-0" />
+                        {p.started
+                          ? `Inspection incomplete — ${p.done} of ${p.total} checks signed off`
+                          : "Inspection not started"}
+                        <span className="ml-auto text-xs font-normal underline">
+                          {p.outstanding.length} outstanding
+                        </span>
+                      </summary>
+                      <ul className="mt-2 grid list-disc gap-0.5 pl-8 text-xs sm:grid-cols-2">
+                        {p.outstanding.map((item) => (
+                          <li key={item}>{item}</li>
+                        ))}
+                      </ul>
+                    </details>
+                  );
+                })()}
 
                 {/* Fields */}
                 <div className="grid gap-3 sm:grid-cols-2">
