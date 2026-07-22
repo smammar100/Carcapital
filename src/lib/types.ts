@@ -851,6 +851,19 @@ export interface SalesDeal {
   updatedAt: ISODateTime;
 }
 
+/**
+ * Timestamped, attributed note on a sales deal (GEN-74) — append-only, same
+ * shape as InspectionNote. `SalesDeal.notes` (a single flat text field) is
+ * the pre-existing free-text column and is unrelated to this log.
+ */
+export interface DealNote {
+  id: UUID;
+  dealId: UUID;
+  userId: UUID;
+  content: string;
+  createdAt: ISODateTime;
+}
+
 // ============================================================
 // WARRANTIES & CLAIMS
 // ============================================================
@@ -1290,7 +1303,8 @@ export type ActivityActionType =
   | "vehicle_moved"
   | "external_invoice_created"
   | "external_invoice_updated"
-  | "external_invoice_deleted";
+  | "external_invoice_deleted"
+  | "deal_note_added";
 
 export interface ActivityLogEntry {
   id: UUID;
