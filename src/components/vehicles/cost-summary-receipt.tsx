@@ -154,7 +154,7 @@ function SubItem({ text }: { text: string }) {
   return (
     <tr>
       <td colSpan={2} className="pb-2 pl-3 align-baseline">
-        <span className="text-xs text-muted-foreground">— {text}</span>
+        <span className="text-xs text-muted-foreground">· {text}</span>
       </td>
     </tr>
   );

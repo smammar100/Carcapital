@@ -65,12 +65,12 @@ export function AddVehicleModal({ open, onOpenChange, extraParams }: Props) {
     >
       <h2 slot="header">Add a vehicle</h2>
       <p slot="header" className="text-sm font-normal text-muted-foreground">
-        Start a new stock record — look it up automatically or enter it by hand.
+        Start a new stock record, look it up automatically or enter it by hand.
       </p>
 
       <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">
-          Enter the registration and mileage — we&apos;ll pull make, model,
+          Enter the registration and mileage; we&apos;ll pull make, model,
           derivative, tax, MOT and an AutoTrader valuation automatically.
         </p>
         <div className="grid gap-4 sm:grid-cols-2">

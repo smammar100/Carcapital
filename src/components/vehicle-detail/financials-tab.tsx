@@ -117,7 +117,7 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
       <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
         <DollarSign className="size-3.5 shrink-0" />
         Every cost and every add-on revenue for this car. VAT uses HMRC&apos;s{" "}
-        <strong className="font-medium text-foreground">Margin Scheme</strong> —
+        <strong className="font-medium text-foreground">Margin Scheme</strong>:
         owed only on the profit margin, not the full sale price.
       </p>
 

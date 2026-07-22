@@ -639,7 +639,7 @@ export function VehicleSheet({
     } catch (e) {
       console.warn("[vehicle-sheet] cell update failed", e);
       setVehicles(snapshot); // revert
-      toast.error(`Couldn't save ${c.label} — reverted`);
+      toast.error(`Couldn't save ${c.label}, reverted`);
     } finally {
       setSavingCell(false);
       cancelEdit();
@@ -756,7 +756,7 @@ export function VehicleSheet({
         await dealerPartnerService.assignSupplier(created.id, quick.supplierId);
       }
       setVehicles(await vehicleService.getAll(company.id));
-      toast.success(`${created.stockId} — ${reg} added`);
+      toast.success(`${created.stockId} · ${reg} added`);
       setQuick({ ...EMPTY_QUICK_ADD });
     } catch (e) {
       console.warn("[vehicle-sheet] quick-add failed", e);

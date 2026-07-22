@@ -159,8 +159,8 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
       setLastCompleted({ flagged: result.flagged });
       toast.success(
         result.flagged > 0
-          ? `Inspection complete — ${result.flagged} item${result.flagged === 1 ? "" : "s"} added to Things to Do`
-          : "Inspection complete — all items pass",
+          ? `Inspection complete, ${result.flagged} item${result.flagged === 1 ? "" : "s"} added to Things to Do`
+          : "Inspection complete, all items pass",
       );
       onComplete?.();
     } finally {
@@ -252,8 +252,8 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
           <span>
             Inspection completed
             {lastCompleted.flagged > 0
-              ? ` — ${lastCompleted.flagged} item${lastCompleted.flagged === 1 ? "" : "s"} sent to Things to Do.`
-              : " — all items pass."}{" "}
+              ? `, ${lastCompleted.flagged} item${lastCompleted.flagged === 1 ? "" : "s"} sent to Things to Do.`
+              : ", all items pass."}{" "}
             You can still update any answer below; changes save automatically.
           </span>
         </div>

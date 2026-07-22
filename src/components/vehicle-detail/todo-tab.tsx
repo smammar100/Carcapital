@@ -220,7 +220,7 @@ export function TodoTab({
         {allDone ? (
           <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200">
             <Check className="size-4 shrink-0" />
-            All prep work is complete — this car is ready to move to Sales.
+            All prep work is complete, this car is ready to move to Sales.
           </div>
         ) : null}
 

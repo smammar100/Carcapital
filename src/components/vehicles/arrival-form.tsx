@@ -881,15 +881,15 @@ export function ArrivalForm() {
                     )}
                     {dvlaState === "found" && (
                       <p className="flex items-center gap-1 text-xs text-emerald-600">
-                        <CheckCircle2 className="h-3 w-3" /> Matched — make / model /
+                        <CheckCircle2 className="h-3 w-3" /> Matched: make / model /
                         derivative, tax, MOT &amp; valuation auto-filled from DVLA +
                         AutoTrader.
                       </p>
                     )}
                     {dvlaState === "not_found" && (
                       <p className="flex items-center gap-1 text-xs text-amber-600">
-                        <AlertTriangle className="h-3 w-3" /> The number is incorrect
-                        — please try again, or fill the form in manually.
+                        <AlertTriangle className="h-3 w-3" /> The number is incorrect;
+                        please try again, or fill the form in manually.
                       </p>
                     )}
                     {dvlaState === "duplicate" && duplicate && (
@@ -1386,7 +1386,7 @@ export function ArrivalForm() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <StepHeader icon={Tag} title="Pricing" hint="Optional — can set later" />
+                  <StepHeader icon={Tag} title="Pricing" hint="Optional, can set later" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-2">
                       <Label>Warranty Cost £</Label>
