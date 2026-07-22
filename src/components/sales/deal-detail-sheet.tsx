@@ -15,7 +15,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { salesStageLabel } from "@/lib/constants";
 import { useAuth } from "@/contexts/auth-context";
-import { authService } from "@/lib/services/auth-service";
 import { dealNoteService } from "@/lib/services/deal-note-service";
 import type { DealNote, SalesDeal, User, Vehicle } from "@/lib/types";
 import { formatCurrency, formatDate, formatRelativeTime } from "@/lib/utils";
@@ -24,6 +23,9 @@ interface Props {
   deal: SalesDeal | null;
   vehicle: Vehicle | null;
   agent: User | null;
+  /** Company staff, for resolving note authors — reuse the caller's already-
+   *  loaded list (GEN-70) rather than re-fetching every time the sheet opens. */
+  users: User[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -52,6 +54,7 @@ export function DealDetailSheet({
   deal,
   vehicle,
   agent,
+  users,
   open,
   onOpenChange,
 }: Props) {
@@ -60,26 +63,27 @@ export function DealDetailSheet({
     deal?.stage === "deposit_taken" || deal?.stage === "completed_sale";
 
   const [notes, setNotes] = useState<DealNote[]>([]);
-  const [users, setUsers] = useState<User[]>([]);
   const [newNote, setNewNote] = useState("");
   const [savingNote, setSavingNote] = useState(false);
 
   useEffect(() => {
     if (!deal || !open) return;
     void dealNoteService.getForDeal(deal.id).then(setNotes);
-    void authService.getAllUsers().then(setUsers);
   }, [deal, open]);
 
   async function handleAddNote() {
     if (!user || !deal || !newNote.trim()) return;
     setSavingNote(true);
     try {
-      await dealNoteService.add({
+      // GEN-70: append the row `add` already returns instead of a second
+      // round trip to re-fetch the whole list — the note now appears the
+      // instant the write completes.
+      const note = await dealNoteService.add({
         dealId: deal.id,
         userId: user.id,
         content: newNote.trim(),
       });
-      setNotes(await dealNoteService.getForDeal(deal.id));
+      setNotes((prev) => [...prev, note]);
       setNewNote("");
     } finally {
       setSavingNote(false);

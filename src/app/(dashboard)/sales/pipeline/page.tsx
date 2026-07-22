@@ -141,12 +141,24 @@ export default function SalesPipelinePage() {
   }, [filteredDeals, stages, nowTs]);
 
   async function handleMove(id: string, stage: SalesStage) {
-    if (!user || !company) return;
-    await salesService.updateStage(id, stage, user.id);
-    setDeals(await salesService.getAll(company.id));
-    // Name the stage the user actually sees, not its slug.
+    if (!user || !company || !deals) return;
+    const target = deals.find((d) => d.id === id);
+    if (!target || target.stage === stage) return;
+    const prevDeals = deals;
+    // Optimistic: the card should land in its new column the instant it's
+    // dropped, not after updateStage's write chain + a full refetch resolve
+    // — that round trip previously left the board looking unresponsive
+    // ("clicks not registering") for a second or more (GEN-70).
+    setDeals(deals.map((d) => (d.id === id ? { ...d, stage } : d)));
     const label = stages.find((s) => s.slug === stage)?.label ?? stage;
-    toast.success(`Moved → ${label}`);
+    try {
+      await salesService.updateStage(id, stage, user.id);
+      setDeals(await salesService.getAll(company.id));
+      toast.success(`Moved → ${label}`);
+    } catch (e) {
+      setDeals(prevDeals);
+      toast.error(e instanceof Error ? e.message : "Couldn't move the deal");
+    }
   }
 
   return (
@@ -428,6 +440,7 @@ export default function SalesPipelinePage() {
             ? (users.find((u) => u.id === viewDeal.sellingAgent) ?? null)
             : null
         }
+        users={users}
         open={viewDeal !== null}
         onOpenChange={(o) => {
           if (!o) setViewDeal(null);

@@ -83,12 +83,17 @@ export default function MaintenanceInspectionListPage() {
       inspectionChecklistService.getAll(company.id),
     ]);
     const scope = vs.filter((v) => SCOPE.has(v.status));
-    const out: Row[] = [];
-    for (const v of scope) {
-      const checks = await inspectionService.getForVehicle(v.id);
+    // GEN-70: was one awaited round trip per vehicle in series — on a queue
+    // of any real size that's a visible stall before the page shows
+    // anything. Fire them together instead.
+    const checksByVehicle = await Promise.all(
+      scope.map((v) => inspectionService.getForVehicle(v.id)),
+    );
+    const out: Row[] = scope.map((v, i) => {
+      const checks = checksByVehicle[i];
       const progress = checks.filter((c) => c.status).length;
-      out.push({ vehicle: v, checks, progress, total: checklist.length });
-    }
+      return { vehicle: v, checks, progress, total: checklist.length };
+    });
     setRows(out);
     setUsers(u);
     setItems(checklist);
