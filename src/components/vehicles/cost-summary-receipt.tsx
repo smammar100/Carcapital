@@ -57,7 +57,7 @@ export function CostSummaryReceipt({
 
       {/* Receipt body — torn-paper bottom via clip-path */}
       <div
-        className="relative bg-white px-5 pb-8 pt-7 text-sm leading-snug text-foreground"
+        className="relative bg-card px-5 pb-8 pt-7 text-sm leading-snug text-foreground"
         style={{ clipPath: TEAR }}
       >
         <div className="mb-3 text-left">
