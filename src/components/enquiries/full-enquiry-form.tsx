@@ -189,7 +189,7 @@ export function FullEnquiryForm({
       onComplete();
     } catch (err) {
       notify.error(
-        err instanceof Error ? err.message : "Failed to save enquiry — try again",
+        err instanceof Error ? err.message : "Failed to save enquiry, try again",
       );
     }
   }

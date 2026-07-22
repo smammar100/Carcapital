@@ -90,7 +90,7 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
           )}
         </div>
         <div className="sm:col-span-6">
-          <Label>Company name (optional — B2B / trade)</Label>
+          <Label>Company name (optional, B2B / trade)</Label>
           <Input {...form.register("companyName")} readOnly={readonly} />
         </div>
       </div>

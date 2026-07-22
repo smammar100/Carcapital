@@ -41,7 +41,7 @@ const LIMITS = {
 } as const;
 
 const DEFAULT_STRAPLINE =
-  "Car Capital UK — quality used cars, competitive finance packages, nationwide delivery and part-exchange welcome. Buy with confidence from a trusted, established dealer.";
+  "Car Capital UK: quality used cars, competitive finance packages, nationwide delivery and part-exchange welcome. Buy with confidence from a trusted, established dealer.";
 
 const CHANNELS: { key: ListingChannel; label: string; meta: string }[] = [
   { key: "website", label: "Car Capital UK", meta: "thecarcapital.co.uk" },
@@ -373,7 +373,7 @@ export function AdvertEditor({
               <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Describe the key facts about the vehicle — or hit Generate to draft it with AI."
+                placeholder="Describe the key facts about the vehicle, or hit Generate to draft it with AI."
                 className="min-h-44"
               />
               <div className="mt-2 flex items-center justify-between">

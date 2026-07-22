@@ -60,7 +60,7 @@ export function AttachmentUploader({
 
   async function handleFile(file: File) {
     if (!vehicleId) {
-      toast.error("Pick a vehicle first — attachments are scoped to vehicles.");
+      toast.error("Pick a vehicle first; attachments are scoped to vehicles.");
       return;
     }
     setUploading(true);
@@ -80,7 +80,7 @@ export function AttachmentUploader({
       toast.success("Attachment uploaded");
     } catch (err) {
       const obj = err as { message?: string };
-      toast.error(obj?.message ?? "Upload failed — try again");
+      toast.error(obj?.message ?? "Upload failed, try again");
     } finally {
       setUploading(false);
     }

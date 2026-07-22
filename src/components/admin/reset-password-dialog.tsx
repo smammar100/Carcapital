@@ -110,7 +110,7 @@ export function ResetPasswordDialog({ user, open, onOpenChange }: Props) {
             data-testid="reset-password-creds"
           >
             <p className="font-medium text-emerald-800 dark:text-emerald-300">
-              New password set — relay these
+              New password set, relay these
             </p>
             <div className="mt-2 grid gap-1 font-mono text-xs">
               <div>

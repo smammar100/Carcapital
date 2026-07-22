@@ -179,7 +179,7 @@ export function FeaturePicker({ selected, onChange }: FeaturePickerProps) {
         </div>
         {selected.length === 0 ? (
           <div className="rounded-md border border-dashed px-3 py-3 text-center text-xs text-muted-foreground">
-            No features selected — pick from the categories above.
+            No features selected, pick from the categories above.
           </div>
         ) : (
           <div className="flex max-h-28 flex-wrap gap-1.5 overflow-y-auto">

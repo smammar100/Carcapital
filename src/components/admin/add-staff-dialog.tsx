@@ -161,7 +161,7 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                 Add staff member
               </DialogTitle>
               <p className="truncate text-xs font-normal text-muted-foreground">
-                Username login — no email needed
+                Username login, no email needed
               </p>
             </div>
           </div>
@@ -174,7 +174,7 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
               data-testid="add-staff-creds"
             >
               <p className="font-medium text-emerald-800 dark:text-emerald-300">
-                Staff login created — relay these credentials
+                Staff login created, relay these credentials
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
                 Send these to the staff member (WhatsApp / phone / in person).

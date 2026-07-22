@@ -226,7 +226,7 @@ export default function PerformancePage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Performance</h1>
         <p className="text-sm text-muted-foreground">
-          How your adverts are doing across every marketplace channel —
+          How your adverts are doing across every marketplace channel:
           enquiries, channel reach and the listings that need attention.
         </p>
       </div>
