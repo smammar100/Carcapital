@@ -169,7 +169,7 @@ export function MoveDialog({
         obj?.message ||
         obj?.hint ||
         obj?.details ||
-        "Move failed — try again";
+        "Move failed, try again";
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -181,7 +181,7 @@ export function MoveDialog({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="text-base">
-            Move {vehicle.stockId} — {vehicle.make} {vehicle.model}{" "}
+            Move {vehicle.stockId}: {vehicle.make} {vehicle.model}{" "}
             <span className="font-mono text-sm text-muted-foreground">
               {vehicle.registration}
             </span>

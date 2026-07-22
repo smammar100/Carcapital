@@ -1053,7 +1053,7 @@ export interface PreDeliveryCheck {
   serviceHistoryStatus: string;
   engineServiceDoneDate: ISODate | null;
   engineServiceDoneMileage: number | null;
-  v5Status: "V5C-2 Green Slip" | "V5C — Awaited" | "Not Received";
+  v5Status: "V5C-2 Green Slip" | "V5C Awaited" | "Not Received";
   hpiCheckResult: "Clear" | "Issues Found" | "Pending" | "Not Performed";
 }
 

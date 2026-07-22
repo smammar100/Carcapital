@@ -86,7 +86,7 @@ export function JobCardTemplate({
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        <Text style={styles.h1}>{companyName} — Job Card</Text>
+        <Text style={styles.h1}>{companyName} · Job Card</Text>
         <Text style={styles.meta}>
           Generated {new Date().toLocaleString("en-GB")} · Prepared by {preparedBy}
         </Text>

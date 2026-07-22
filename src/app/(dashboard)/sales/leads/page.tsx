@@ -125,9 +125,9 @@ type CreateOutput = z.output<typeof createSchema>;
 // Allowed status targets shown in the Update-status dialog, with a short hint.
 const STATUS_TARGETS: { value: LeadStatus; label: string; hint: string }[] = [
   { value: "new", label: "New", hint: "Fresh enquiry, not yet actioned" },
-  { value: "contacted", label: "Contacted", hint: "Reached out — awaiting next step" },
+  { value: "contacted", label: "Contacted", hint: "Reached out, awaiting next step" },
   { value: "appointment_booked", label: "Appointment Booked", hint: "Schedules a test-drive on the calendar" },
-  { value: "lost", label: "Lost", hint: "Dead lead — requires a reason" },
+  { value: "lost", label: "Lost", hint: "Dead lead, requires a reason" },
 ];
 
 const normReg = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
@@ -401,7 +401,7 @@ export default function LeadsPage() {
       const vehicleId =
         selected.vehicleId ?? (stVehicleId !== "none" ? stVehicleId : null);
       if (!vehicleId) {
-        setStError("Pick a stock vehicle — an appointment is booked against a car.");
+        setStError("Pick a stock vehicle: an appointment is booked against a car.");
         return;
       }
       if (!stDate || !stTime) {
@@ -426,7 +426,7 @@ export default function LeadsPage() {
           specialRequirements: stSpecial || null,
           createdBy: user.id,
         });
-        toast.success("Appointment booked — added to the calendar ✓");
+        toast.success("Appointment booked, added to the calendar ✓");
         setLeads(await leadService.getAll(company.id));
         setStatusOpen(false);
       } catch (e) {
@@ -449,7 +449,7 @@ export default function LeadsPage() {
         await leadService.changeStatus(selected.id, "lost", user.id, {
           lostReason: reason,
         });
-        toast.success("Lead marked Lost — reason saved");
+        toast.success("Lead marked Lost, reason saved");
         setLeads(await leadService.getAll(company.id));
         setStatusOpen(false);
       } catch (e) {
@@ -489,9 +489,9 @@ export default function LeadsPage() {
         sellingAgent: selected.assignedTo,
       });
       if (existing) {
-        toast.info("Deal already exists for this vehicle — opening pipeline");
+        toast.info("Deal already exists for this vehicle, opening pipeline");
       } else {
-        toast.success("Deal ready — opening pipeline");
+        toast.success("Deal ready, opening pipeline");
       }
       router.push("/sales/pipeline");
     } finally {
@@ -863,7 +863,7 @@ export default function LeadsPage() {
                       <summary className="flex cursor-pointer items-center gap-2 font-medium">
                         <AlertTriangle className="size-4 shrink-0" />
                         {p.started
-                          ? `Inspection incomplete — ${p.done} of ${p.total} checks signed off`
+                          ? `Inspection incomplete: ${p.done} of ${p.total} checks signed off`
                           : "Inspection not started"}
                         <span className="ml-auto text-xs font-normal underline">
                           {p.outstanding.length} outstanding
@@ -945,7 +945,7 @@ export default function LeadsPage() {
                   {selected.status === "appointment_booked" ? (
                     <p className="inline-flex items-center gap-1.5 rounded bg-emerald-50 px-3 py-2 text-xs text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
                       <CalendarPlus className="size-3.5" />
-                      Appointment booked — see the Appointments calendar.
+                      Appointment booked, see the Appointments calendar.
                     </p>
                   ) : null}
                 </div>
@@ -967,7 +967,7 @@ export default function LeadsPage() {
             <DialogTitle>Update lead status</DialogTitle>
             <DialogDescription>
               {selected
-                ? `${selected.customerName} — currently ${LEAD_STATUS_LABEL[selected.status]}`
+                ? `${selected.customerName}, currently ${LEAD_STATUS_LABEL[selected.status]}`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -1067,7 +1067,7 @@ export default function LeadsPage() {
                 <Textarea
                   value={stReason}
                   onChange={(e) => setStReason(e.target.value)}
-                  placeholder="e.g. Bought elsewhere — found a cheaper Q3 at a rival dealer."
+                  placeholder="e.g. Bought elsewhere: found a cheaper Q3 at a rival dealer."
                   className="min-h-20"
                 />
                 <p className="text-2xs text-muted-foreground">

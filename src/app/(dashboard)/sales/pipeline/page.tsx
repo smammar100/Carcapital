@@ -170,7 +170,7 @@ export default function SalesPipelinePage() {
           </h1>
           <p className="text-sm text-muted-foreground">
             Track every deal from new lead to completed sale. Stages are
-            yours to shape — rename, reorder, add or remove them in Settings.
+            yours to shape: rename, reorder, add or remove them in Settings.
           </p>
         </div>
         <Select

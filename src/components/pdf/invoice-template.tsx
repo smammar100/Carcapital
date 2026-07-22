@@ -509,7 +509,7 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
               <Text style={s.totVal}>{money(invoice.salesPrice)}</Text>
             </View>
             <View style={s.totRow}>
-              <Text style={s.totLabel}>GRAND TOTAL — INCL ADD ONS</Text>
+              <Text style={s.totLabel}>GRAND TOTAL (INCL ADD ONS)</Text>
               <Text style={s.totVal}>
                 {money(invoice.grandTotalInclAddons)}
               </Text>
