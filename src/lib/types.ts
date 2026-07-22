@@ -1151,6 +1151,10 @@ export interface ExternalInvoice {
   preVatPence: number;
   description: string;
   notes: string | null;
+  /** Auction-purchase only — the vehicle's previous registered keeper. */
+  previousOwner: string | null;
+  /** Auction-purchase only — reference to the service history pack supplied. */
+  serviceHistoryRef: string | null;
   attachmentUrl: string | null;
   attachmentFilename: string | null;
   attachmentSizeBytes: number | null;

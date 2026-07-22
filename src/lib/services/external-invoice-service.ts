@@ -22,6 +22,8 @@ const SELECT = `
   preVatPence:pre_vat_pence,
   description,
   notes,
+  previousOwner:previous_owner,
+  serviceHistoryRef:service_history_ref,
   attachmentUrl:attachment_url,
   attachmentFilename:attachment_filename,
   attachmentSizeBytes:attachment_size_bytes,
@@ -41,6 +43,10 @@ export interface ExternalInvoiceCreateInput {
   vatPence: number;
   description: string;
   notes?: string | null;
+  /** Auction-purchase only — the vehicle's previous registered keeper. */
+  previousOwner?: string | null;
+  /** Auction-purchase only — reference to the service history pack supplied. */
+  serviceHistoryRef?: string | null;
   /** Storage object path returned by `uploadAttachment`. */
   attachmentUrl?: string | null;
   attachmentFilename?: string | null;
@@ -163,6 +169,8 @@ export const externalInvoiceService = {
         vat_pence: input.vatPence,
         description: input.description,
         notes: input.notes ?? null,
+        previous_owner: input.previousOwner ?? null,
+        service_history_ref: input.serviceHistoryRef ?? null,
         attachment_url: input.attachmentUrl ?? null,
         attachment_filename: input.attachmentFilename ?? null,
         attachment_size_bytes: input.attachmentSizeBytes ?? null,
@@ -219,6 +227,9 @@ export const externalInvoiceService = {
     if (patch.vatPence !== undefined) row.vat_pence = patch.vatPence;
     if (patch.description !== undefined) row.description = patch.description;
     if (patch.notes !== undefined) row.notes = patch.notes;
+    if (patch.previousOwner !== undefined) row.previous_owner = patch.previousOwner;
+    if (patch.serviceHistoryRef !== undefined)
+      row.service_history_ref = patch.serviceHistoryRef;
     if (patch.attachmentUrl !== undefined) row.attachment_url = patch.attachmentUrl;
     if (patch.attachmentFilename !== undefined) row.attachment_filename = patch.attachmentFilename;
     if (patch.attachmentSizeBytes !== undefined) row.attachment_size_bytes = patch.attachmentSizeBytes;
