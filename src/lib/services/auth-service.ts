@@ -29,7 +29,9 @@ const COMPANY_SELECT = `
   logoUrl:logo_url,
   logoMarkUrl:logo_mark_url,
   stockIdPrefix:stock_id_prefix,
-  nextStockSeq:next_stock_seq
+  nextStockSeq:next_stock_seq,
+  workingHoursStart:working_hours_start,
+  workingHoursEnd:working_hours_end
 `;
 
 export const authService = {

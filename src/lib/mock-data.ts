@@ -81,6 +81,8 @@ export const mockCompanies: Company[] = [
     logoMarkUrl: null,
     stockIdPrefix: "CC",
     nextStockSeq: 115,
+    workingHoursStart: "09:00",
+    workingHoursEnd: "18:00",
   },
 ];
 

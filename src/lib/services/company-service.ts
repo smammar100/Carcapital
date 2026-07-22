@@ -14,7 +14,9 @@ const SELECT = `
   logoUrl:logo_url,
   logoMarkUrl:logo_mark_url,
   stockIdPrefix:stock_id_prefix,
-  nextStockSeq:next_stock_seq
+  nextStockSeq:next_stock_seq,
+  workingHoursStart:working_hours_start,
+  workingHoursEnd:working_hours_end
 `;
 
 /** Which brand lockup an upload targets — see uploadLogo. */
@@ -31,6 +33,9 @@ export interface UpdateCompanyInput {
   logoUrl?: string | null;
   /** Square logo mark (sidebar). Empty string clears it. */
   logoMarkUrl?: string | null;
+  /** Business day window, "HH:mm" (24h) — drives the Appointment Book grid. */
+  workingHoursStart?: string;
+  workingHoursEnd?: string;
 }
 
 const LOGO_BUCKET = "company-logos";
@@ -61,10 +66,14 @@ export const companyService = {
   ): Promise<Company> {
     const supabase = createClient();
 
-    // logo_mark_url isn't in the generated TableUpdate type yet (added in
-    // migration 0035); extend locally rather than regenerate the 2k-line file.
-    const patch: TableUpdate<"companies"> & { logo_mark_url?: string | null } =
-      {};
+    // logo_mark_url and working_hours_* aren't in the generated TableUpdate
+    // type yet (added in migrations 0035, 0040); extend locally rather than
+    // regenerate the 2k-line file.
+    const patch: TableUpdate<"companies"> & {
+      logo_mark_url?: string | null;
+      working_hours_start?: string;
+      working_hours_end?: string;
+    } = {};
     if (input.name !== undefined) patch.name = input.name;
     if (input.address !== undefined) patch.address = input.address;
     if (input.vatNumber !== undefined)
@@ -75,12 +84,16 @@ export const companyService = {
       patch.logo_url = input.logoUrl === "" ? null : input.logoUrl;
     if (input.logoMarkUrl !== undefined)
       patch.logo_mark_url = input.logoMarkUrl === "" ? null : input.logoMarkUrl;
+    if (input.workingHoursStart !== undefined)
+      patch.working_hours_start = input.workingHoursStart;
+    if (input.workingHoursEnd !== undefined)
+      patch.working_hours_end = input.workingHoursEnd;
 
     const { data, error } = await supabase
       .from("companies")
-      // Cast drops the local logo_mark_url extension so supabase-js's
-      // excess-property guard passes; the column exists (migration 0035) and is
-      // sent at runtime. Remove once database.types.ts is regenerated.
+      // Cast drops the local extensions above so supabase-js's excess-property
+      // guard passes; the columns exist (migrations 0035, 0040) and are sent at
+      // runtime. Remove once database.types.ts is regenerated.
       .update(patch as TableUpdate<"companies">)
       .eq("id", companyId)
       .select(SELECT)

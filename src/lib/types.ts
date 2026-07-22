@@ -25,6 +25,9 @@ export interface Company {
   logoMarkUrl: string | null;
   stockIdPrefix: string; // "CC" — single-tenant in v1
   nextStockSeq: number;  // monotonic counter for stock IDs (Phase 2)
+  /** Business day window, "HH:mm" (24h) — drives the Appointment Book grid. */
+  workingHoursStart: string;
+  workingHoursEnd: string;
 }
 
 export type UserRole =

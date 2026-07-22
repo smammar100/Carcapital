@@ -52,6 +52,12 @@ export default function SettingsPage() {
   const [logoMarkUrl, setLogoMarkUrl] = useState<string | null>(
     company?.logoMarkUrl ?? null,
   );
+  const [hoursStart, setHoursStart] = useState(
+    company?.workingHoursStart ?? "09:00",
+  );
+  const [hoursEnd, setHoursEnd] = useState(
+    company?.workingHoursEnd ?? "18:00",
+  );
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingMark, setUploadingMark] = useState(false);
   const [defaultProvider, setDefaultProvider] = useState("next_gear");
@@ -80,6 +86,10 @@ export default function SettingsPage() {
 
   async function handleSave() {
     if (!user || !company) return;
+    if (hoursEnd <= hoursStart) {
+      toast.error("Working hours end must be after the start time");
+      return;
+    }
     setSaving(true);
     try {
       await companyService.update(
@@ -91,6 +101,8 @@ export default function SettingsPage() {
           stockIdPrefix: stockPrefix,
           logoUrl: logoUrl ?? "",
           logoMarkUrl: logoMarkUrl ?? "",
+          workingHoursStart: hoursStart,
+          workingHoursEnd: hoursEnd,
         },
         user.id,
       );
@@ -169,6 +181,28 @@ export default function SettingsPage() {
                 value={stockPrefix}
                 onChange={(e) => setStockPrefix(e.target.value)}
                 maxLength={4}
+              />
+            </div>
+            <div>
+              <Label>Working hours start</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Drives the visible range on the Appointment Book calendar.
+              </p>
+              <Input
+                type="time"
+                value={hoursStart}
+                onChange={(e) => setHoursStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Working hours end</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Appointments can be booked up to one hour before this time.
+              </p>
+              <Input
+                type="time"
+                value={hoursEnd}
+                onChange={(e) => setHoursEnd(e.target.value)}
               />
             </div>
             <div className="sm:col-span-2 flex justify-end">
@@ -274,7 +308,7 @@ function LogoField({
       <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
       <div className="flex items-center gap-4">
         <div
-          className={`grid shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/30 ${previewClassName}`}
+          className={`grid shrink-0 place-items-center overflow-hidden rounded-md ${url ? "" : "border bg-muted/30"} ${previewClassName}`}
         >
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element
