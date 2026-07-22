@@ -44,9 +44,10 @@ export function ChannelDropdown({
     ? channels
     : channels.filter((c) => c.enabled);
   const ordered = [...visible].sort((a, b) => a.sortOrder - b.sortOrder);
+  const items = Object.fromEntries(ordered.map((c) => [c.id, c.label]));
 
   return (
-    <Select value={value} onValueChange={onValueChange}>
+    <Select items={items} value={value} onValueChange={onValueChange}>
       <SelectTrigger
         className={cn(className)}
         aria-invalid={invalid ? true : undefined}
