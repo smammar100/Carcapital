@@ -54,9 +54,11 @@ const s = StyleSheet.create({
   logoBox: {
     width: 60,
     height: 36,
-    border: `1pt solid ${RULE}`,
     alignItems: "center",
     justifyContent: "center",
+  },
+  logoBoxEmpty: {
+    border: `1pt solid ${RULE}`,
   },
   logoTxt: { fontSize: 7, color: LABEL, textAlign: "center" },
   logoImg: { width: "100%", height: "100%", objectFit: "contain" },
@@ -425,7 +427,7 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
             <Text style={s.brand}>{CO.legalName}</Text>
             <Text style={s.brandSmall}>{CO.addressLines.join("\n")}</Text>
           </View>
-          <View style={s.logoBox}>
+          <View style={[s.logoBox, logoUrl ? {} : s.logoBoxEmpty]}>
             {logoUrl ? (
               <Image src={logoUrl} style={s.logoImg} />
             ) : (
@@ -634,7 +636,13 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
             <Text style={[s.brand, { fontSize: 13 }]}>{CO.legalName}</Text>
             <Text style={s.brandSmall}>{CO.addressLines.join(", ")}</Text>
           </View>
-          <View style={[s.logoBox, { width: 46, height: 28 }]}>
+          <View
+            style={[
+              s.logoBox,
+              { width: 46, height: 28 },
+              logoUrl ? {} : s.logoBoxEmpty,
+            ]}
+          >
             {logoUrl ? (
               <Image src={logoUrl} style={s.logoImg} />
             ) : (
