@@ -160,7 +160,7 @@ export function InspectionChecklistSettings() {
           <h3 className="text-sm font-semibold">Inspection checklist</h3>
           <p className="text-xs text-muted-foreground">
             These are the points on the vehicle inspection, in order. Renaming
-            an item or its status options is safe at any time — inspections
+            an item or its status options is safe at any time; inspections
             already recorded keep what was answered.
           </p>
         </div>

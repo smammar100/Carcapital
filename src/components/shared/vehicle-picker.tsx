@@ -56,7 +56,7 @@ function searchLabel(v: Vehicle): string {
     squashed === v.registration.toUpperCase()
       ? v.registration
       : `${v.registration} ${squashed}`;
-  return `${reg} — ${v.make} ${v.model} (${v.stockId})`;
+  return `${reg} · ${v.make} ${v.model} (${v.stockId})`;
 }
 
 interface VehiclePickerProps {
@@ -126,7 +126,7 @@ export function VehiclePicker({
       <ComboboxPopup className="w-(--anchor-width) max-w-(--anchor-width)">
         <ComboboxEmpty>
           {emptyOptionLabel
-            ? "No vehicle matches — leave blank to use free text."
+            ? "No vehicle matches, leave blank to use free text."
             : "No vehicle matches that reg."}
         </ComboboxEmpty>
         <ComboboxList>

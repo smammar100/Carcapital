@@ -426,7 +426,7 @@ export function ExternalInvoiceForm({
                 items={Object.fromEntries(
                   vehicles.map((v) => [
                     v.id,
-                    `${v.stockId} · ${v.registration} — ${v.make} ${v.model}`,
+                    `${v.stockId} · ${v.registration} · ${v.make} ${v.model}`,
                   ]),
                 )}
                 value={vehicleId}
@@ -438,7 +438,7 @@ export function ExternalInvoiceForm({
                 <SelectContent className="max-h-72">
                   {vehicles.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
-                      {v.stockId} · {v.registration} — {v.make} {v.model}
+                      {v.stockId} · {v.registration} · {v.make} {v.model}
                     </SelectItem>
                   ))}
                 </SelectContent>

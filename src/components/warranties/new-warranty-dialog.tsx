@@ -223,7 +223,7 @@ export function NewWarrantyDialog({
                     })
                   }
                   itemToStringLabel={(v: Vehicle) =>
-                    `${v.registration} — ${v.make} ${v.model}`
+                    `${v.registration} · ${v.make} ${v.model}`
                   }
                 >
                   <ComboboxInput
@@ -238,7 +238,7 @@ export function NewWarrantyDialog({
                         <ComboboxItem key={v.id} value={v}>
                           <div className="flex flex-col">
                             <span className="text-sm">
-                              {v.registration} — {v.make} {v.model}
+                              {v.registration} · {v.make} {v.model}
                             </span>
                             <span className="text-xs text-muted-foreground">
                               {v.stockId} · {v.status}

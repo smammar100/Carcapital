@@ -65,7 +65,7 @@ export default function SettingsPage() {
     try {
       const url = await companyService.uploadLogo(file, company.id, kind);
       setUrl(url);
-      toast.success("Uploaded — click Save to apply it");
+      toast.success("Uploaded, click Save to apply it");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't upload image");
     } finally {
@@ -133,7 +133,7 @@ export default function SettingsPage() {
           <Card className="grid gap-4 p-5 sm:grid-cols-2">
             <LogoField
               label="Full logo"
-              hint="Shown on generated invoices (logo + wordmark). PNG or JPG — large images are automatically resized."
+              hint="Shown on generated invoices (logo + wordmark). PNG or JPG; large images are automatically resized."
               url={logoUrl}
               previewClassName="h-16 w-24"
               uploading={uploadingLogo}

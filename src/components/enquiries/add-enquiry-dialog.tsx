@@ -69,7 +69,7 @@ export function AddEnquiryDialog({
   }, [open, vehicleId]);
 
   const vehicleLabel = vehicle
-    ? `${vehicle.registration} — ${vehicle.make} ${vehicle.model} (${vehicle.stockId})`
+    ? `${vehicle.registration} · ${vehicle.make} ${vehicle.model} (${vehicle.stockId})`
     : null;
 
   function handleSelect(customer: Customer | null, id: string) {
@@ -92,7 +92,7 @@ export function AddEnquiryDialog({
   const descriptionByStep: Record<Step, string> = {
     search: "We'll dedup against your existing customers before we create anything.",
     actions: "Quick is for hot leads. Full captures the whole profile.",
-    quick: "Just the essentials — you can always come back and complete the profile later.",
+    quick: "Just the essentials; you can always come back and complete the profile later.",
     full: "Full customer profile plus the enquiry details.",
   };
 

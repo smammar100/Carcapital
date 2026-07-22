@@ -510,7 +510,7 @@ export default function ReportsPage() {
           <Info className="mt-0.5 size-4 shrink-0" />
           <span>
             Nothing in this selection has sold yet, so every sales figure below
-            is £0 — that&rsquo;s the answer, not a missing number. There{" "}
+            is £0; that&rsquo;s the answer, not a missing number. There{" "}
             {kpis.inStock === 1 ? "is" : "are"}{" "}
             <span className="font-medium">
               {formatNumber(kpis.inStock)} still in stock

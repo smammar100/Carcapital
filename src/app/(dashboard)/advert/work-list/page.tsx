@@ -380,7 +380,7 @@ export default function ListingsPage() {
         detail?: string;
       };
       if (res.ok && body.stockId) {
-        toast.success(`Published to AutoTrader — Stock ID ${body.stockId}`);
+        toast.success(`Published to AutoTrader (Stock ID ${body.stockId})`);
         if (body.warnings?.length) {
           for (const w of body.warnings) toast.warning(w);
         }
@@ -448,7 +448,7 @@ export default function ListingsPage() {
                     items={Object.fromEntries(
                       readyVehicles.map((v) => [
                         v.id,
-                        `${v.registration} — ${v.make} ${v.model}`,
+                        `${v.registration} · ${v.make} ${v.model}`,
                       ]),
                     )}
                     value={form.watch("vehicleId")}
@@ -465,7 +465,7 @@ export default function ListingsPage() {
                       ) : (
                         readyVehicles.map((v) => (
                           <SelectItem key={v.id} value={v.id}>
-                            {v.registration} — {v.make} {v.model}
+                            {v.registration} · {v.make} {v.model}
                           </SelectItem>
                         ))
                       )}
@@ -502,9 +502,8 @@ export default function ListingsPage() {
                         }
                         className="text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
                       >
-                        AutoTrader retail: £
-                        {selectedVehicle.atRetailValuation.toLocaleString()} —
-                        use
+                        Use AutoTrader retail: £
+                        {selectedVehicle.atRetailValuation.toLocaleString()}
                       </button>
                     )}
                   </div>
@@ -959,14 +958,14 @@ export default function ListingsPage() {
                 {deleteTarget?.vehicle?.registration ?? deleteTarget?.title}
               </strong>
               {deleteTarget?.status === "live" ? " and takes it offline" : ""}.
-              The vehicle and its photos are kept — it returns to the Work List
-              as ready to advertise.
+              The vehicle and its photos are kept, and it returns to the Work
+              List as ready to advertise.
             </p>
             {deleteTarget?.atStockId ? (
               <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
                 Note: this listing is synced to AutoTrader (Stock ID{" "}
                 {deleteTarget.atStockId.slice(0, 8)}). Deleting here removes the
-                local advert only — remove it on AutoTrader separately.
+                local advert only; remove it on AutoTrader separately.
               </p>
             ) : null}
           </DialogPanel>

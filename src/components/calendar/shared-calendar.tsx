@@ -473,7 +473,7 @@ export function SharedCalendar({
   const vehicleLine = useCallback(
     (vehicleId: UUID | null): string => {
       const v = vehicles.find((x) => x.id === vehicleId);
-      return v ? `${v.registration} — ${v.make} ${v.model}` : "";
+      return v ? `${v.registration} · ${v.make} ${v.model}` : "";
     },
     [vehicles],
   );
@@ -501,7 +501,7 @@ export function SharedCalendar({
         kind: "workshop",
         id: j.id,
         title: j.customerName,
-        subtitle: `${j.vehicleReg} — ${j.vehicleDescription}`,
+        subtitle: `${j.vehicleReg} · ${j.vehicleDescription}`,
         date: j.scheduledDate,
         start,
         end: start + MARKER_DURATION,
@@ -1374,7 +1374,7 @@ function DayView({
                 {laneAll.length === 0 && (
                   <div className="pointer-events-none absolute inset-x-2 top-2 rounded-md border border-dashed border-border py-2 text-center">
                     <span className="text-2xs text-muted-foreground/60">
-                      No {KIND_META[kind].singular}s — click a slot to add
+                      No {KIND_META[kind].singular}s, click a slot to add
                     </span>
                   </div>
                 )}
@@ -1560,7 +1560,7 @@ function EventForm({
       <option value="">Select a vehicle…</option>
       {vehicles.map((v) => (
         <option key={v.id} value={v.id}>
-          {v.registration} — {v.make} {v.model}
+          {v.registration} · {v.make} {v.model}
         </option>
       ))}
     </nord-select>

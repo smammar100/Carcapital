@@ -89,7 +89,7 @@ export default function ResetPasswordPage() {
       toast.error(error.message);
       return;
     }
-    toast.success("Password updated — you are signed in");
+    toast.success("Password updated, you are signed in");
     router.replace("/dashboard");
   }
 

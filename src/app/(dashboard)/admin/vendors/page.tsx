@@ -532,7 +532,7 @@ function DealerPartnersTab({
     });
     if (!result) {
       toast.error(
-        "Couldn't save — apply migration 0002 (dealer_partners) to the database first.",
+        "Couldn't save: apply migration 0002 (dealer_partners) to the database first.",
       );
       return;
     }

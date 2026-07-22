@@ -371,7 +371,7 @@ export default function ActivityLogPage() {
           filters.date.to !== null ||
           Object.values(filters.selects).some((v) => v !== "")) && (
           <p className="text-center text-xs text-muted-foreground">
-            Filters apply to the {entries?.length ?? 0} loaded entries — load
+            Filters apply to the {entries?.length ?? 0} loaded entries; load
             older activity to search further back.
           </p>
         )}
