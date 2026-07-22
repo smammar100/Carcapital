@@ -471,6 +471,22 @@ export interface InspectionCheck {
   createdAt: ISODateTime;
 }
 
+/**
+ * A configurable checklist point (GEN-78). `number` is the stable identity
+ * that `InspectionCheck.checkNumber` stores — it's assigned once and never
+ * reused, independent of `sortOrder` which the Settings screen reorders.
+ */
+export interface InspectionChecklistItem {
+  id: UUID;
+  companyId: UUID;
+  number: number;
+  item: string;
+  statusOptions: string[];
+  sortOrder: number;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
 /** Inspection notes — v4.1 §11.5 / Gap 4. Append-only sub-entity. */
 export interface InspectionNote {
   id: UUID;

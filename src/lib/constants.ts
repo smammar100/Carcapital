@@ -154,88 +154,9 @@ export const USER_ROLES: { value: UserRole; label: string }[] = [
   { value: "sales", label: "Sales" },
 ];
 
-export const INSPECTION_ITEMS: {
-  number: number;
-  item: string;
-  statusOptions: string[];
-}[] = [
-  {
-    number: 1,
-    item: "MOT Expiry",
-    statusOptions: ["Valid", "Expiring Soon", "Expired", "N/A"],
-  },
-  {
-    number: 2,
-    item: "Oil Condition",
-    statusOptions: ["Good", "Fair", "Poor", "Needs Replacing"],
-  },
-  {
-    number: 3,
-    item: "Coolant / Other Fluids",
-    statusOptions: ["Good", "Low", "Contaminated"],
-  },
-  {
-    number: 4,
-    item: "General Body Work",
-    statusOptions: ["Good", "Minor Damage", "Major Damage"],
-  },
-  {
-    number: 5,
-    item: "Tyres Condition",
-    statusOptions: ["Good", "Fair", "Replace"],
-  },
-  {
-    number: 6,
-    item: "Spare Wheel",
-    statusOptions: ["Present", "Missing", "Space Saver"],
-  },
-  { number: 7, item: "Lock Nut", statusOptions: ["Present", "Missing"] },
-  { number: 8, item: "Key Battery", statusOptions: ["Good", "Low", "Dead"] },
-  {
-    number: 9,
-    item: "Ignition / Battery",
-    statusOptions: ["Good", "Weak", "Needs Replacing"],
-  },
-  { number: 10, item: "Warning Lights", statusOptions: ["None", "Active"] },
-  {
-    number: 11,
-    item: "Speedo / Odo (mph)",
-    statusOptions: ["Working", "Faulty"],
-  },
-  { number: 12, item: "Engine Noise", statusOptions: ["Normal", "Abnormal"] },
-  {
-    number: 13,
-    item: "Under Body Noise",
-    statusOptions: ["Normal", "Abnormal"],
-  },
-  {
-    number: 14,
-    item: "Gearbox Observe",
-    statusOptions: ["Smooth", "Rough", "Slipping"],
-  },
-  {
-    number: 15,
-    item: "Wipers",
-    statusOptions: ["Working", "Faulty", "Needs Replacing"],
-  },
-  {
-    number: 16,
-    item: "Exterior Lights",
-    statusOptions: ["All Working", "Faulty"],
-  },
-  {
-    number: 17,
-    item: "Radio / Nav",
-    statusOptions: ["Working", "Faulty", "Missing"],
-  },
-  { number: 18, item: "AirCon Working", statusOptions: ["Yes", "No", "Weak"] },
-  {
-    number: 19,
-    item: "Interior Condition",
-    statusOptions: ["Good", "Fair", "Poor"],
-  },
-  { number: 20, item: "Test Drive", statusOptions: ["Pass", "Fail", "Pending"] },
-];
+// The 20-point checklist used to live here as a hard-coded constant. It's
+// per-company, configurable data now (GEN-78) — see
+// inspection-checklist-service.ts / migration 0042.
 
 export const NEGATIVE_INSPECTION_STATUSES = new Set([
   "Expired",

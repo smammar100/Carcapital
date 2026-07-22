@@ -10,11 +10,8 @@ import {
 } from "@/lib/services/company-service";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PipelineStageSettings } from "@/components/admin/pipeline-stage-settings";
-import {
-  FINANCE_PROVIDERS,
-  INSPECTION_ITEMS,
-  VAT_RATE,
-} from "@/lib/constants";
+import { InspectionChecklistSettings } from "@/components/admin/inspection-checklist-settings";
+import { FINANCE_PROVIDERS, VAT_RATE } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
@@ -251,28 +240,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
         <TabsContent value="inspection" className="mt-3">
-          <Card className="p-0 overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Status options</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {INSPECTION_ITEMS.map((item) => (
-                  <TableRow key={item.number}>
-                    <TableCell>{item.number}</TableCell>
-                    <TableCell className="font-medium">{item.item}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.statusOptions.join(" · ")}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <InspectionChecklistSettings />
         </TabsContent>
         <TabsContent value="pipeline" className="mt-3">
           <PipelineStageSettings />

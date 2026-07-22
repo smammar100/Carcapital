@@ -5,9 +5,16 @@ import { Check, ClipboardCheck, Loader2, Plus, AlertTriangle } from "lucide-reac
 import { useAuth } from "@/contexts/auth-context";
 import { inspectionService } from "@/lib/services/inspection-service";
 import { inspectionNoteService } from "@/lib/services/inspection-note-service";
+import { inspectionChecklistService } from "@/lib/services/inspection-checklist-service";
 import { authService } from "@/lib/services/auth-service";
-import { INSPECTION_ITEMS, NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
-import type { InspectionCheck, InspectionNote, User, Vehicle } from "@/lib/types";
+import { NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
+import type {
+  InspectionCheck,
+  InspectionChecklistItem,
+  InspectionNote,
+  User,
+  Vehicle,
+} from "@/lib/types";
 import { Textarea } from "@/components/ui/textarea";
 import { formatRelativeTime } from "@/lib/utils";
 // onComplete callback lets a side-panel host close the panel instead of
@@ -65,6 +72,7 @@ function ProgressRing({ percent }: { percent: number }) {
 export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
   const { user } = useAuth();
   const [checks, setChecks] = useState<InspectionCheck[] | null>(null);
+  const [items, setItems] = useState<InspectionChecklistItem[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState<InspectionNote[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -81,7 +89,8 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
     void inspectionService.getForVehicle(vehicle.id).then(setChecks);
     void inspectionNoteService.getForVehicle(vehicle.id).then(setNotes);
     void authService.getAllUsers().then(setUsers);
-  }, [vehicle.id]);
+    void inspectionChecklistService.getAll(vehicle.companyId).then(setItems);
+  }, [vehicle.id, vehicle.companyId]);
 
   async function handleAddNote() {
     if (!user || !newNote.trim()) return;
@@ -187,7 +196,7 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
   }
 
   const completed = checks.filter((c) => c.status).length;
-  const total = INSPECTION_ITEMS.length;
+  const total = items.length;
   const percent = Math.round((completed / total) * 100);
   const flagged = checks.filter(
     (c) => c.status && NEGATIVE_INSPECTION_STATUSES.has(c.status),
@@ -252,7 +261,7 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
 
       <Card className="overflow-hidden p-0">
         <div className="divide-y">
-          {INSPECTION_ITEMS.map((item) => {
+          {items.map((item) => {
             const check = checks.find((c) => c.checkNumber === item.number);
             const status = check?.status ?? "";
             const isNegative = !!status && NEGATIVE_INSPECTION_STATUSES.has(status);

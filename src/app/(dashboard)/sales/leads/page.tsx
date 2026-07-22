@@ -243,7 +243,7 @@ export default function LeadsPage() {
       // against a car mid-inspection, so the flag has to render in a list
       // without 50 round trips (GEN-72).
       void inspectionService
-        .getProgressForVehicles(v.map((x) => x.id))
+        .getProgressForVehicles(v.map((x) => x.id), company.id)
         .then(setInspectionProgress)
         .catch(() => undefined);
     });

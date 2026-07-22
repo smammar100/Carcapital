@@ -5,9 +5,10 @@ import { ClipboardCheck, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { inspectionService } from "@/lib/services/inspection-service";
+import { inspectionChecklistService } from "@/lib/services/inspection-checklist-service";
 import { authService } from "@/lib/services/auth-service";
-import { INSPECTION_ITEMS, NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
-import type { InspectionCheck, User, Vehicle } from "@/lib/types";
+import { NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
+import type { InspectionCheck, InspectionChecklistItem, User, Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -41,9 +42,12 @@ interface Row {
 
 type SquareKind = "pass" | "flag" | "empty";
 
-/** Per-point square state across all 20 items: passed / flagged / not done. */
-function buildSquares(checks: InspectionCheck[]): SquareKind[] {
-  return INSPECTION_ITEMS.map((item) => {
+/** Per-point square state across all checklist items: passed / flagged / not done. */
+function buildSquares(
+  checks: InspectionCheck[],
+  items: InspectionChecklistItem[],
+): SquareKind[] {
+  return items.map((item) => {
     const c = checks.find((x) => x.checkNumber === item.number);
     if (!c || !c.status) return "empty";
     return NEGATIVE_INSPECTION_STATUSES.has(c.status) ? "flag" : "pass";
@@ -67,23 +71,26 @@ export default function MaintenanceInspectionListPage() {
   const { company } = useAuth();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [items, setItems] = useState<InspectionChecklistItem[]>([]);
   const [selected, setSelected] = useState<Vehicle | null>(null);
 
   async function load() {
     if (!company) return;
-    const [vs, u] = await Promise.all([
+    const [vs, u, checklist] = await Promise.all([
       vehicleService.getAll(company.id),
       authService.getUsersForCompany(company.id),
+      inspectionChecklistService.getAll(company.id),
     ]);
     const scope = vs.filter((v) => SCOPE.has(v.status));
     const out: Row[] = [];
     for (const v of scope) {
       const checks = await inspectionService.getForVehicle(v.id);
       const progress = checks.filter((c) => c.status).length;
-      out.push({ vehicle: v, checks, progress, total: INSPECTION_ITEMS.length });
+      out.push({ vehicle: v, checks, progress, total: checklist.length });
     }
     setRows(out);
     setUsers(u);
+    setItems(checklist);
   }
 
   useEffect(() => {
@@ -143,6 +150,7 @@ export default function MaintenanceInspectionListPage() {
               <QueueTable
                 rows={pending}
                 users={users}
+                items={items}
                 mode="pending"
                 onOpen={setSelected}
               />
@@ -160,6 +168,7 @@ export default function MaintenanceInspectionListPage() {
               <QueueTable
                 rows={completed}
                 users={users}
+                items={items}
                 mode="completed"
                 onOpen={setSelected}
               />
@@ -244,11 +253,13 @@ function ProgressSquares({
 function QueueTable({
   rows,
   users,
+  items,
   mode,
   onOpen,
 }: {
   rows: Row[];
   users: User[];
+  items: InspectionChecklistItem[];
   mode: "pending" | "completed";
   onOpen: (v: Vehicle) => void;
 }) {
@@ -269,7 +280,7 @@ function QueueTable({
         <TableBody>
           {rows.map(({ vehicle, checks, progress, total }) => {
             const wait = waitInfo(vehicle.receivedDate);
-            const squares = buildSquares(checks);
+            const squares = buildSquares(checks, items);
             const flagged = flaggedCount(checks);
             // The actual person who recorded the checks for THIS vehicle, not a
             // single global inspector applied to every row.
