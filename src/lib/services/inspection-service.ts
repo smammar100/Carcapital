@@ -252,8 +252,8 @@ export const inspectionService = {
       const description = check.actionRequired
         ? `${check.checkItem}: ${check.actionRequired}`
         : check.status.trim()
-          ? `${check.checkItem} — needs attention (${check.status})`
-          : `${check.checkItem} — not checked`;
+          ? `${check.checkItem}: needs attention (${check.status})`
+          : `${check.checkItem}: not checked`;
       await todoService.add({
         vehicleId,
         description,
@@ -322,8 +322,8 @@ export const inspectionService = {
       actionType: "inspection_completed",
       description:
         failing.length > 0
-          ? `Inspection completed for ${v.registration} — ${failing.length} items need attention`
-          : `Inspection completed for ${v.registration} — all clear`,
+          ? `Inspection completed for ${v.registration}: ${failing.length} items need attention`
+          : `Inspection completed for ${v.registration}, all clear`,
       metadata: { flagged: failing.length },
     });
     return { flagged: failing.length };

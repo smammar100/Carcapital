@@ -112,7 +112,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error:
-            "Cannot remove the last super-administrator — promote someone else first.",
+            "Cannot remove the last super-administrator; promote someone else first.",
         },
         { status: 400 },
       );

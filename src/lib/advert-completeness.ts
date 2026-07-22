@@ -56,7 +56,7 @@ export function computeAdvertChecks(
       name: "Vehicle Description",
       meta: hasDescription
         ? `${listing!.description.length.toLocaleString()} chars`
-        : "Empty — generate with AI",
+        : "Empty, generate with AI",
       state: hasDescription ? "done" : "warn",
     },
     {

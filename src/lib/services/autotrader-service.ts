@@ -220,7 +220,7 @@ async function atFetch(
       logRay(service, 401, ray);
       throw new AutotraderError(
         "unauthorized",
-        `AutoTrader ${service} unauthorized (401) — token rejected`,
+        `AutoTrader ${service} unauthorized (401): token rejected`,
         401,
         ray,
       );

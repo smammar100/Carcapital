@@ -173,7 +173,7 @@ export const enquiryService = {
       userId: input.actorId,
       vehicleId: input.enquiry.vehicleId,
       actionType: "lead_created",
-      description: `${input.enquiry.source.replace(/_/g, " ")} enquiry — ${customer.firstName} ${customer.lastName}`,
+      description: `${input.enquiry.source.replace(/_/g, " ")} enquiry: ${customer.firstName} ${customer.lastName}`,
       metadata: {
         enquiryId: enquiry.id,
         customerId: customer.id,

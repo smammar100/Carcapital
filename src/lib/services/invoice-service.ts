@@ -627,7 +627,7 @@ export const invoiceService = {
       userId: actorId,
       vehicleId: input.vehicleId,
       actionType: "invoice_created",
-      description: `Invoice ${created.invoiceNumber} (${input.type}) created — ${input.partyName}`,
+      description: `Invoice ${created.invoiceNumber} (${input.type}) created: ${input.partyName}`,
       metadata: { invoiceId: created.id, total: created.total },
     });
     return created;
@@ -730,7 +730,7 @@ export const invoiceService = {
       userId: actorId,
       vehicleId: input.vehicleId,
       actionType: "invoice_created",
-      description: `Invoice ${updated.invoiceNumber} (${input.type}) updated — ${input.partyName}`,
+      description: `Invoice ${updated.invoiceNumber} (${input.type}) updated: ${input.partyName}`,
       metadata: { invoiceId: updated.id, total: updated.total },
     });
     return updated;

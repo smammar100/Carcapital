@@ -82,7 +82,7 @@ export function buildStockCreateBody({
 
   if (!vehicle.atDerivativeId) {
     warnings.push(
-      "No AutoTrader derivativeId on this vehicle — re-run the DVLA/AutoTrader lookup so the advert maps to the correct taxonomy.",
+      "No AutoTrader derivativeId on this vehicle: re-run the DVLA/AutoTrader lookup so the advert maps to the correct taxonomy.",
     );
   }
   if (vehicle.imagesCount === 0 || !vehicle.heroImageUrl) {

@@ -187,7 +187,7 @@ export const externalInvoiceService = {
       userId: actorId,
       vehicleId: input.vehicleId,
       actionType: "external_invoice_created",
-      description: `External invoice — ${input.invoiceKind.replace("_", " ")} · £${(input.totalPence / 100).toFixed(2)}`,
+      description: `External invoice: ${input.invoiceKind.replace("_", " ")} · £${(input.totalPence / 100).toFixed(2)}`,
       metadata: { invoiceId: inv.id, kind: input.invoiceKind, vendorId: input.vendorId },
     });
     return inv;
@@ -263,7 +263,7 @@ export const externalInvoiceService = {
       userId: actorId,
       vehicleId: inv.vehicleId,
       actionType: "external_invoice_updated",
-      description: `External invoice updated — £${(inv.totalPence / 100).toFixed(2)}`,
+      description: `External invoice updated, £${(inv.totalPence / 100).toFixed(2)}`,
       metadata: { invoiceId: inv.id, patch: Object.keys(patch) },
     });
     return inv;
@@ -307,7 +307,7 @@ export const externalInvoiceService = {
         userId: actorId,
         vehicleId: existing.vehicleId,
         actionType: "external_invoice_deleted",
-        description: `External invoice deleted — £${(existing.totalPence / 100).toFixed(2)}`,
+        description: `External invoice deleted, £${(existing.totalPence / 100).toFixed(2)}`,
         metadata: { invoiceId: id },
       });
     }

@@ -97,8 +97,8 @@ describe("calculateVat — zero rated", () => {
 
 describe("formatVatLabel", () => {
   it.each([
-    ["margin_used", "Margin Scheme — Used Vehicle"],
-    ["margin", "Margin Scheme — Used Vehicle"],
+    ["margin_used", "Margin Scheme: Used Vehicle"],
+    ["margin", "Margin Scheme: Used Vehicle"],
     ["standard_20", "Standard 20% VAT"],
     ["zero_rated", "Zero Rated"],
   ] as const)("%s → %s", (scheme, label) => {

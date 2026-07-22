@@ -248,7 +248,7 @@ export async function lookupMotHistory(
     if (res.status === 429) {
       throw new DvsaError(
         "rate_limited",
-        "DVSA rate limit exceeded — try again shortly",
+        "DVSA rate limit exceeded, try again shortly",
         429,
       );
     }

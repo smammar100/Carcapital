@@ -134,7 +134,7 @@ export async function GET(request: Request) {
         notification: {
           type,
           title: `${check.label} ${when}: ${v.registration}`,
-          body: `${name} (${v.registration}) — ${check.label.toLowerCase()} ${check.date.slice(0, 10)}.`,
+          body: `${name} (${v.registration}): ${check.label.toLowerCase()} ${check.date.slice(0, 10)}.`,
           link,
         },
       });

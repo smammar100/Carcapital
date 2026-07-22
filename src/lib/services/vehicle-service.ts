@@ -395,7 +395,7 @@ export const vehicleService = {
       .insert({
         company_id: vehicle.companyId,
         vehicle_id: vehicle.id,
-        description: "New stock — needs inspection + readiness",
+        description: "New stock, needs inspection + readiness",
         estimated_duration_hours: 2,
         due_date: dueDate.toISOString().slice(0, 10),
         status: "pending",

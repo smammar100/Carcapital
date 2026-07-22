@@ -203,14 +203,14 @@ export async function POST(request: Request) {
   if (upstream.status === 429) {
     console.warn("[dvla] rate-limited by upstream");
     return NextResponse.json(
-      { error: "DVLA rate limit exceeded — try again shortly" },
+      { error: "DVLA rate limit exceeded, try again shortly" },
       { status: 429 },
     );
   }
 
   if (upstream.status === 403) {
     return NextResponse.json(
-      { error: "DVLA rejected the API key — rotate the key and retry" },
+      { error: "DVLA rejected the API key, rotate the key and retry" },
       { status: 502 },
     );
   }

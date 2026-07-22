@@ -215,7 +215,7 @@ export async function lookupDvlaVehicle(
     if (res.status === 429) {
       throw new DvlaError(
         "rate_limited",
-        "DVLA rate limit exceeded — try again shortly",
+        "DVLA rate limit exceeded, try again shortly",
         429,
       );
     }
