@@ -1,15 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { Check, Search } from "lucide-react";
 import type { Vehicle } from "@/lib/types";
 import {
   Combobox,
   ComboboxEmpty,
   ComboboxInput,
-  ComboboxItem,
   ComboboxList,
   ComboboxPopup,
+  ComboboxPrimitive,
 } from "@/components/ui/combobox";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { cn } from "@/lib/utils";
@@ -117,7 +117,13 @@ export function VehiclePicker({
         showClear={value !== null}
         className={cn("w-full", className)}
       />
-      <ComboboxPopup>
+      {/*
+       * The shared ComboboxPopup only sets a *min* width against the trigger,
+       * so wide rows (reg + make/model + stock ID) push it past the input's
+       * own width — and past the edge of whatever dialog it's opened inside
+       * (GEN-85). Pin it to the trigger's exact width instead.
+       */}
+      <ComboboxPopup className="w-(--anchor-width) max-w-(--anchor-width)">
         <ComboboxEmpty>
           {emptyOptionLabel
             ? "No vehicle matches — leave blank to use free text."
@@ -125,7 +131,16 @@ export function VehiclePicker({
         </ComboboxEmpty>
         <ComboboxList>
           {(v: Vehicle) => (
-            <ComboboxItem key={v.id} value={v}>
+            // Not the shared ComboboxItem: it reserves a leading indicator
+            // column on every row for a checkmark this list doesn't need,
+            // which reads as an unexplained dead gutter (GEN-85). Selection
+            // is marked with a trailing check instead, so unselected rows
+            // stay flush with the search icon above them.
+            <ComboboxPrimitive.Item
+              key={v.id}
+              value={v}
+              className="relative grid min-h-8 cursor-default items-center rounded-sm py-1 ps-3 pe-7 text-base outline-none data-disabled:pointer-events-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm"
+            >
               <span className="flex min-w-0 items-center gap-2">
                 <RegPlate registration={v.registration} size="sm" />
                 <span className="truncate">
@@ -136,7 +151,10 @@ export function VehiclePicker({
                 </span>
                 {renderMeta?.(v)}
               </span>
-            </ComboboxItem>
+              <ComboboxPrimitive.ItemIndicator className="absolute end-2 top-1/2 -translate-y-1/2">
+                <Check className="size-4" />
+              </ComboboxPrimitive.ItemIndicator>
+            </ComboboxPrimitive.Item>
           )}
         </ComboboxList>
       </ComboboxPopup>
