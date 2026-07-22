@@ -7,6 +7,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { inspectionService } from "@/lib/services/inspection-service";
 import { inspectionChecklistService } from "@/lib/services/inspection-checklist-service";
 import { authService } from "@/lib/services/auth-service";
+import { motFlagFor } from "@/lib/services/mot-derivation";
 import { NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
 import type { InspectionCheck, InspectionChecklistItem, User, Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
@@ -250,6 +251,29 @@ function ProgressSquares({
   );
 }
 
+const MOT_TONE: Record<string, string> = {
+  expired: "bg-rose-100 text-rose-700 dark:bg-rose-500/15 dark:text-rose-300",
+  expiring: "bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300",
+  unknown: "bg-muted text-muted-foreground",
+};
+
+/** MOT expiry flag (GEN-75) — silent for a valid, not-soon-expiring MOT. */
+function MotBadge({ motExpiry }: { motExpiry: string | null }) {
+  const flag = motFlagFor(motExpiry);
+  if (flag.tone === "ok") return <span className="text-muted-foreground">—</span>;
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        MOT_TONE[flag.tone],
+      )}
+    >
+      {flag.tone !== "unknown" && <AlertTriangle className="size-3" />}
+      {flag.label}
+    </span>
+  );
+}
+
 function QueueTable({
   rows,
   users,
@@ -271,6 +295,7 @@ function QueueTable({
             <TableHead>Reg</TableHead>
             <TableHead>Vehicle</TableHead>
             <TableHead>Waiting</TableHead>
+            <TableHead>MOT</TableHead>
             <TableHead>Inspector</TableHead>
             <TableHead>Progress</TableHead>
             <TableHead>Flagged</TableHead>
@@ -313,6 +338,9 @@ function QueueTable({
                     {wait.urgent && <AlertTriangle className="size-3" />}
                     {wait.days}d waiting
                   </span>
+                </TableCell>
+                <TableCell>
+                  <MotBadge motExpiry={vehicle.motExpiry} />
                 </TableCell>
                 <TableCell>
                   {inspector ? (

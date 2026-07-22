@@ -56,3 +56,34 @@ export function deriveExpiryDate(tests: MotTest[]): string | null {
     .sort();
   return passedExpiries.at(-1) ?? null;
 }
+
+// ─── GEN-75: inspection-queue MOT expiry flag ────────────────────────────
+
+/** A vehicle is flagged "expiring soon" inside this many days of its MOT date. */
+export const MOT_EXPIRING_SOON_DAYS = 30;
+
+export type MotFlagTone = "expired" | "expiring" | "ok" | "unknown";
+
+export interface MotFlag {
+  tone: MotFlagTone;
+  label: string;
+}
+
+/**
+ * Inspection-queue MOT badge, derived purely from the vehicle's already-
+ * stored `motExpiry` date — no live DVLA/DVSA call at render time. "unknown"
+ * covers both "no MOT history yet" and "MOT-exempt" (DVLA doesn't
+ * distinguish the two in `motStatus`); either way there's nothing dated to
+ * flag, so showing "no data" beats guessing.
+ */
+export function motFlagFor(motExpiry: string | null): MotFlag {
+  if (!motExpiry) return { tone: "unknown", label: "MOT: no data" };
+  const days = Math.floor(
+    (new Date(motExpiry).getTime() - Date.now()) / 86_400_000,
+  );
+  if (days < 0) return { tone: "expired", label: "MOT expired" };
+  if (days <= MOT_EXPIRING_SOON_DAYS) {
+    return { tone: "expiring", label: `MOT expires in ${days}d` };
+  }
+  return { tone: "ok", label: "MOT valid" };
+}
