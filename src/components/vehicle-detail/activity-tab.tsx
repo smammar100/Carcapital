@@ -24,6 +24,7 @@ import {
   Settings,
   Shield,
   ShieldAlert,
+  StickyNote,
   Tag,
   TrendingUp,
   Trophy,
@@ -165,6 +166,7 @@ const ACTION_VISUAL: Record<ActivityActionType, { icon: LucideIcon; tone: Tone }
   external_invoice_created: { icon: Receipt, tone: "violet" },
   external_invoice_updated: { icon: Receipt, tone: "amber" },
   external_invoice_deleted: { icon: Receipt, tone: "rose" },
+  deal_note_added: { icon: StickyNote, tone: "slate" },
 };
 
 function categoryOf(a: ActivityActionType): Cat {

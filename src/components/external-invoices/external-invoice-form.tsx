@@ -95,6 +95,8 @@ export function ExternalInvoiceForm({
   const [vat, setVat] = useState("");
   const [description, setDescription] = useState("");
   const [notes, setNotes] = useState("");
+  const [previousOwner, setPreviousOwner] = useState("");
+  const [serviceHistoryRef, setServiceHistoryRef] = useState("");
   const [attachment, setAttachment] = useState<{
     path: string | null;
     filename: string | null;
@@ -146,6 +148,8 @@ export function ExternalInvoiceForm({
       setVat(penceToPounds(editing.vatPence));
       setDescription(editing.description);
       setNotes(editing.notes ?? "");
+      setPreviousOwner(editing.previousOwner ?? "");
+      setServiceHistoryRef(editing.serviceHistoryRef ?? "");
       setAttachment({
         path: editing.attachmentUrl,
         filename: editing.attachmentFilename,
@@ -164,6 +168,8 @@ export function ExternalInvoiceForm({
       setVat("");
       setDescription("");
       setNotes("");
+      setPreviousOwner("");
+      setServiceHistoryRef("");
       setAttachment({
         path: null,
         filename: null,
@@ -255,6 +261,10 @@ export function ExternalInvoiceForm({
         vatPence,
         description: description.trim(),
         notes: notes.trim() || null,
+        previousOwner:
+          kind === "auction_purchase" ? previousOwner.trim() || null : null,
+        serviceHistoryRef:
+          kind === "auction_purchase" ? serviceHistoryRef.trim() || null : null,
         attachmentUrl: attachment.path,
         attachmentFilename: attachment.filename,
         attachmentSizeBytes: attachment.sizeBytes,
@@ -363,6 +373,28 @@ export function ExternalInvoiceForm({
             </div>
           </div>
 
+          {/* Auction-specific details — only meaningful for an auction purchase */}
+          {kind === "auction_purchase" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-1">
+                <Label>Previous owner</Label>
+                <Input
+                  value={previousOwner}
+                  onChange={(e) => setPreviousOwner(e.target.value)}
+                  placeholder="If disclosed by the auction house"
+                />
+              </div>
+              <div className="grid gap-1">
+                <Label>Service history reference</Label>
+                <Input
+                  value={serviceHistoryRef}
+                  onChange={(e) => setServiceHistoryRef(e.target.value)}
+                  placeholder="Booklet / pack reference"
+                />
+              </div>
+            </div>
+          )}
+
           {/* Vehicle — read-only chip when locked to one car, else a picker */}
           <div className="grid gap-1.5">
             <Label>
@@ -394,7 +426,7 @@ export function ExternalInvoiceForm({
                 items={Object.fromEntries(
                   vehicles.map((v) => [
                     v.id,
-                    `${v.stockId} · ${v.registration} — ${v.make} ${v.model}`,
+                    `${v.stockId} · ${v.registration} · ${v.make} ${v.model}`,
                   ]),
                 )}
                 value={vehicleId}
@@ -406,7 +438,7 @@ export function ExternalInvoiceForm({
                 <SelectContent className="max-h-72">
                   {vehicles.map((v) => (
                     <SelectItem key={v.id} value={v.id}>
-                      {v.stockId} · {v.registration} — {v.make} {v.model}
+                      {v.stockId} · {v.registration} · {v.make} {v.model}
                     </SelectItem>
                   ))}
                 </SelectContent>

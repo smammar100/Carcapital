@@ -110,7 +110,7 @@ function LoginInner() {
             Sign in to your account
           </h1>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            Welcome back — let&apos;s get to work.
+            Welcome back, let&apos;s get to work.
           </p>
 
           <form onSubmit={handleFormSubmit} className="mt-7 flex flex-col gap-4">
@@ -172,7 +172,7 @@ function LoginInner() {
             Run your forecourt, end to end.
           </div>
           <p className="mt-3 max-w-md text-sm text-white/85">
-            Inventory, inspections, sales and warranties — one platform for the
+            Inventory, inspections, sales and warranties: one platform for the
             whole dealership.
           </p>
         </div>

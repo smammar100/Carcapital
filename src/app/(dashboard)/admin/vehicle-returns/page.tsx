@@ -145,7 +145,7 @@ type FormOutput = z.output<typeof schema>;
 
 type LookupState = "idle" | "loading" | "ok" | "not_found" | "not_sold";
 
-/** Human-readable refund block embedded in the refund invoice's notes —
+/** Human-readable refund block embedded in the refund invoice's notes;
  * the PDF renders this verbatim under the "Refund / Cancellation" heading. */
 function buildRefundNotes(ret: VehicleReturn, reg: string): string {
   const path = ret.resolutionPath.replace(/_/g, " ");
@@ -153,9 +153,9 @@ function buildRefundNotes(ret: VehicleReturn, reg: string): string {
     `Refund / cancellation for ${reg}.`,
     `Reason for return: ${
       ret.reasonCode ? RETURN_REASON_LABELS[ret.reasonCode] : "—"
-    }${ret.reason ? ` — ${ret.reason}` : ""}`,
+    }${ret.reason ? ` (${ret.reason})` : ""}`,
     `Resolution path: ${path}${
-      ret.resolutionNotes ? ` — ${ret.resolutionNotes}` : ""
+      ret.resolutionNotes ? ` (${ret.resolutionNotes})` : ""
     }`,
     "",
     "Refund bank details:",
@@ -297,7 +297,7 @@ export default function ReturnsPage() {
       setLookupMsg(
         orig
           ? null
-          : "No sale invoice on file for this vehicle — enter the customer + refund details manually.",
+          : "No sale invoice on file for this vehicle; enter the customer + refund details manually.",
       );
     } catch {
       setLookup("not_found");
@@ -353,7 +353,7 @@ export default function ReturnsPage() {
     );
     setReturns(await returnService.getAll(company.id));
     setVehicles(await vehicleService.getAll(company.id));
-    toast.success("Return processed — vehicle status flipped to returned");
+    toast.success("Return processed, vehicle status flipped to returned");
     setOpen(false);
     resetDialog();
   }
@@ -424,7 +424,7 @@ export default function ReturnsPage() {
               {
                 type: "addon_paid",
                 addonCategory: null,
-                description: `Refund — ${reg} (${ret.reason})`,
+                description: `Refund for ${reg} (${ret.reason})`,
                 quantity: 1,
                 unitPrice: amount,
                 total: amount,
@@ -460,7 +460,7 @@ export default function ReturnsPage() {
 
       if (createdRefund) {
         toast.success(
-          `Resolved — refund invoice ${createdRefund.invoiceNumber} generated`,
+          `Resolved, refund invoice ${createdRefund.invoiceNumber} generated`,
         );
         try {
           const blob = await pdfService.generateInvoice({

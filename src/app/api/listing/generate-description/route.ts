@@ -66,7 +66,7 @@ function templateDescription(b: GenerateBody): string {
     }`,
     featSentence,
     `Supplied with a comprehensive history and prepared to the highest standard, this vehicle has been fully inspected by our workshop ahead of sale.`,
-    `Part-exchange welcome and competitive finance packages available — please contact our friendly sales team today to arrange a viewing or test drive.`,
+    `Part-exchange welcome and competitive finance packages available. Please contact our friendly sales team today to arrange a viewing or test drive.`,
   ]
     .filter(Boolean)
     .join("\n\n");

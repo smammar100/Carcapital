@@ -54,7 +54,7 @@ export function StepActions({
           icon={Zap}
           title="Quick"
           subtitle="≈ 30 seconds"
-          description="Just the essentials — name, contact, source, type. Use for hot leads where you need to dial out fast."
+          description="Just the essentials: name, contact, source, type. Use for hot leads where you need to dial out fast."
           onClick={onPickQuick}
           accent="primary"
         />

@@ -194,7 +194,7 @@ export const teamService = {
     const target = await teamService.getById(userId);
     if (!target) throw new Error("User not found");
     if (target.acceptedAt !== null) {
-      throw new Error("Cannot revoke — user has already accepted");
+      throw new Error("Cannot revoke: user has already accepted");
     }
     const { error } = await supabase.from("users").delete().eq("id", userId);
     if (error) throw error;

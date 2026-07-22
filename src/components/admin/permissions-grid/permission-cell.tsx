@@ -62,7 +62,7 @@ export function PermissionCell({
               <span className="inline-flex">{box}</span>
             </TooltipTrigger>
             <TooltipContent>
-              Super-user — all capabilities, cannot be edited here.
+              Super-user: all capabilities, cannot be edited here.
             </TooltipContent>
           </Tooltip>
         ) : roleGranted ? (
@@ -71,7 +71,7 @@ export function PermissionCell({
               <span className="inline-flex">{box}</span>
             </TooltipTrigger>
             <TooltipContent>
-              Granted by role — edit the member&apos;s roles to change this.
+              Granted by role: edit the member&apos;s roles to change this.
             </TooltipContent>
           </Tooltip>
         ) : (

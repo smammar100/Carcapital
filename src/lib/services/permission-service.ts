@@ -104,7 +104,7 @@ export const permissionService = {
         userId: actorId,
         vehicleId: null,
         actionType: "user_invited",
-        description: `Permissions updated for ${target.name} — ${capabilities.length} capabilities granted`,
+        description: `Permissions updated for ${target.name}: ${capabilities.length} capabilities granted`,
         metadata: { targetUserId: userId, capabilities },
       });
     }

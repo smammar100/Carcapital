@@ -301,7 +301,7 @@ export function PhotosTab({ vehicle, onVehicleRefetch }: PhotosTabProps) {
       {/* Gallery + select toolbar */}
       <Panel
         title={`Photos${count ? ` · ${count}` : ""}`}
-        subtitle="Upload real photos of this vehicle — stored securely and ready for the listing."
+        subtitle="Upload real photos of this vehicle, stored securely and ready for the listing."
         action={
           <Button
             size="sm"

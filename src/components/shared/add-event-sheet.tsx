@@ -293,7 +293,7 @@ export function AddEventSheet({
                   setVehicleId(v?.id ?? "")
                 }
                 itemToStringLabel={(v: Vehicle) =>
-                  `${v.registration} — ${v.make} ${v.model}`
+                  `${v.registration} · ${v.make} ${v.model}`
                 }
               >
                 <ComboboxInput
@@ -306,7 +306,7 @@ export function AddEventSheet({
                   <ComboboxList>
                     {(v: Vehicle) => (
                       <ComboboxItem key={v.id} value={v}>
-                        {v.registration} — {v.make} {v.model}
+                        {v.registration} · {v.make} {v.model}
                       </ComboboxItem>
                     )}
                   </ComboboxList>

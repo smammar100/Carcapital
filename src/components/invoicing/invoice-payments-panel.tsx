@@ -92,8 +92,8 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
       setAdding(false);
       toast.success(
         next.settled
-          ? "Paid in full — invoice marked Paid"
-          : `Payment recorded — ${formatCurrency(next.balanceDue)} still due`,
+          ? "Paid in full, invoice marked Paid"
+          : `Payment recorded, ${formatCurrency(next.balanceDue)} still due`,
       );
       onChanged?.();
     } catch (e) {

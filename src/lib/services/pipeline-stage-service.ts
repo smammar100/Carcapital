@@ -270,7 +270,7 @@ export const pipelineStageService = {
       vehicleId: null,
       actionType: "company_setting_changed",
       description: `Pipeline stage "${stage.label}" removed${
-        movedDeals > 0 ? ` — ${movedDeals} deal(s) moved to ${target.label}` : ""
+        movedDeals > 0 ? `, ${movedDeals} deal(s) moved to ${target.label}` : ""
       }`,
       metadata: {
         stageId: id,

@@ -10,11 +10,8 @@ import {
 } from "@/lib/services/company-service";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PipelineStageSettings } from "@/components/admin/pipeline-stage-settings";
-import {
-  FINANCE_PROVIDERS,
-  INSPECTION_ITEMS,
-  VAT_RATE,
-} from "@/lib/constants";
+import { InspectionChecklistSettings } from "@/components/admin/inspection-checklist-settings";
+import { FINANCE_PROVIDERS, VAT_RATE } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,14 +24,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
@@ -51,6 +40,12 @@ export default function SettingsPage() {
   );
   const [logoMarkUrl, setLogoMarkUrl] = useState<string | null>(
     company?.logoMarkUrl ?? null,
+  );
+  const [hoursStart, setHoursStart] = useState(
+    company?.workingHoursStart ?? "09:00",
+  );
+  const [hoursEnd, setHoursEnd] = useState(
+    company?.workingHoursEnd ?? "18:00",
   );
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingMark, setUploadingMark] = useState(false);
@@ -70,7 +65,7 @@ export default function SettingsPage() {
     try {
       const url = await companyService.uploadLogo(file, company.id, kind);
       setUrl(url);
-      toast.success("Uploaded — click Save to apply it");
+      toast.success("Uploaded, click Save to apply it");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Couldn't upload image");
     } finally {
@@ -80,6 +75,10 @@ export default function SettingsPage() {
 
   async function handleSave() {
     if (!user || !company) return;
+    if (hoursEnd <= hoursStart) {
+      toast.error("Working hours end must be after the start time");
+      return;
+    }
     setSaving(true);
     try {
       await companyService.update(
@@ -91,6 +90,8 @@ export default function SettingsPage() {
           stockIdPrefix: stockPrefix,
           logoUrl: logoUrl ?? "",
           logoMarkUrl: logoMarkUrl ?? "",
+          workingHoursStart: hoursStart,
+          workingHoursEnd: hoursEnd,
         },
         user.id,
       );
@@ -132,7 +133,7 @@ export default function SettingsPage() {
           <Card className="grid gap-4 p-5 sm:grid-cols-2">
             <LogoField
               label="Full logo"
-              hint="Shown on generated invoices (logo + wordmark). PNG or JPG — large images are automatically resized."
+              hint="Shown on generated invoices (logo + wordmark). PNG or JPG; large images are automatically resized."
               url={logoUrl}
               previewClassName="h-16 w-24"
               uploading={uploadingLogo}
@@ -169,6 +170,28 @@ export default function SettingsPage() {
                 value={stockPrefix}
                 onChange={(e) => setStockPrefix(e.target.value)}
                 maxLength={4}
+              />
+            </div>
+            <div>
+              <Label>Working hours start</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Drives the visible range on the Appointment Book calendar.
+              </p>
+              <Input
+                type="time"
+                value={hoursStart}
+                onChange={(e) => setHoursStart(e.target.value)}
+              />
+            </div>
+            <div>
+              <Label>Working hours end</Label>
+              <p className="mb-2 text-xs text-muted-foreground">
+                Appointments can be booked up to one hour before this time.
+              </p>
+              <Input
+                type="time"
+                value={hoursEnd}
+                onChange={(e) => setHoursEnd(e.target.value)}
               />
             </div>
             <div className="sm:col-span-2 flex justify-end">
@@ -217,28 +240,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
         <TabsContent value="inspection" className="mt-3">
-          <Card className="p-0 overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Item</TableHead>
-                  <TableHead>Status options</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {INSPECTION_ITEMS.map((item) => (
-                  <TableRow key={item.number}>
-                    <TableCell>{item.number}</TableCell>
-                    <TableCell className="font-medium">{item.item}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {item.statusOptions.join(" · ")}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
+          <InspectionChecklistSettings />
         </TabsContent>
         <TabsContent value="pipeline" className="mt-3">
           <PipelineStageSettings />
@@ -274,7 +276,7 @@ function LogoField({
       <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
       <div className="flex items-center gap-4">
         <div
-          className={`grid shrink-0 place-items-center overflow-hidden rounded-md border bg-muted/30 ${previewClassName}`}
+          className={`grid shrink-0 place-items-center overflow-hidden rounded-md ${url ? "" : "border bg-muted/30"} ${previewClassName}`}
         >
           {url ? (
             // eslint-disable-next-line @next/next/no-img-element

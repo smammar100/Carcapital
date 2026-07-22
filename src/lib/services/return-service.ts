@@ -190,7 +190,7 @@ export const returnService = {
         userId: actorId,
         vehicleId: v.id,
         actionType: "vehicle_returned",
-        description: `${input.customerName} returned ${v.registration} — ${input.resolutionPath.replace("_", " ")}`,
+        description: `${input.customerName} returned ${v.registration}: ${input.resolutionPath.replace("_", " ")}`,
         metadata: { returnId: ret.id, resolutionPath: input.resolutionPath },
       });
     }

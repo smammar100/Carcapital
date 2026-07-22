@@ -60,15 +60,15 @@ export const ENQUIRY_TYPES_ACTIVE = [
 ] as const;
 
 export const ENQUIRY_TYPES_LOST = [
-  { value: "lost_price", label: "Lost — Price", reason: "price" as LostReason },
-  { value: "lost_vehicle_sold", label: "Lost — Vehicle Sold", reason: "vehicle_sold" as LostReason },
-  { value: "lost_finance", label: "Lost — Finance", reason: "finance" as LostReason },
-  { value: "lost_contact", label: "Lost — Contact", reason: "contact" as LostReason },
-  { value: "lost_px", label: "Lost — PX", reason: "px" as LostReason },
-  { value: "lost_product", label: "Lost — Product", reason: "product" as LostReason },
-  { value: "lost_people", label: "Lost — People", reason: "people" as LostReason },
-  { value: "lost_purchased", label: "Lost — Purchased", reason: "purchased" as LostReason },
-  { value: "lost_duplicate", label: "Lost — Duplicate", reason: "duplicate" as LostReason },
+  { value: "lost_price", label: "Lost: Price", reason: "price" as LostReason },
+  { value: "lost_vehicle_sold", label: "Lost: Vehicle Sold", reason: "vehicle_sold" as LostReason },
+  { value: "lost_finance", label: "Lost: Finance", reason: "finance" as LostReason },
+  { value: "lost_contact", label: "Lost: Contact", reason: "contact" as LostReason },
+  { value: "lost_px", label: "Lost: PX", reason: "px" as LostReason },
+  { value: "lost_product", label: "Lost: Product", reason: "product" as LostReason },
+  { value: "lost_people", label: "Lost: People", reason: "people" as LostReason },
+  { value: "lost_purchased", label: "Lost: Purchased", reason: "purchased" as LostReason },
+  { value: "lost_duplicate", label: "Lost: Duplicate", reason: "duplicate" as LostReason },
 ] as const;
 
 export type EnquiryActiveTypeValue = (typeof ENQUIRY_TYPES_ACTIVE)[number]["value"];

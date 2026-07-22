@@ -82,7 +82,7 @@ export default function SetPasswordPage() {
         .eq("id", user.id);
       await revalidate();
     }
-    toast.success("Password set — welcome");
+    toast.success("Password set, welcome");
     router.replace("/dashboard");
   }
 
@@ -94,7 +94,7 @@ export default function SetPasswordPage() {
             CC
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome — set your password
+            Welcome, set your password
           </h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Choose your own password to continue to the dashboard.

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Receipt, Car } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Receipt, Car, Loader2, Plus } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -10,15 +11,21 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { salesStageLabel } from "@/lib/constants";
-import type { SalesDeal, User, Vehicle } from "@/lib/types";
-import { formatCurrency, formatDate } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
+import { dealNoteService } from "@/lib/services/deal-note-service";
+import type { DealNote, SalesDeal, User, Vehicle } from "@/lib/types";
+import { formatCurrency, formatDate, formatRelativeTime } from "@/lib/utils";
 
 interface Props {
   deal: SalesDeal | null;
   vehicle: Vehicle | null;
   agent: User | null;
+  /** Company staff, for resolving note authors — reuse the caller's already-
+   *  loaded list (GEN-70) rather than re-fetching every time the sheet opens. */
+  users: User[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
@@ -47,11 +54,41 @@ export function DealDetailSheet({
   deal,
   vehicle,
   agent,
+  users,
   open,
   onOpenChange,
 }: Props) {
+  const { user } = useAuth();
   const canInvoice =
     deal?.stage === "deposit_taken" || deal?.stage === "completed_sale";
+
+  const [notes, setNotes] = useState<DealNote[]>([]);
+  const [newNote, setNewNote] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  useEffect(() => {
+    if (!deal || !open) return;
+    void dealNoteService.getForDeal(deal.id).then(setNotes);
+  }, [deal, open]);
+
+  async function handleAddNote() {
+    if (!user || !deal || !newNote.trim()) return;
+    setSavingNote(true);
+    try {
+      // GEN-70: append the row `add` already returns instead of a second
+      // round trip to re-fetch the whole list — the note now appears the
+      // instant the write completes.
+      const note = await dealNoteService.add({
+        dealId: deal.id,
+        userId: user.id,
+        content: newNote.trim(),
+      });
+      setNotes((prev) => [...prev, note]);
+      setNewNote("");
+    } finally {
+      setSavingNote(false);
+    }
+  }
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -149,7 +186,65 @@ export function DealDetailSheet({
                   }
                 />
                 <Row label="Selling agent" value={agent?.name ?? null} />
-                <Row label="Notes" value={deal.notes} />
+              </section>
+
+              {/* Notes — timestamped, attributed running log (GEN-74) */}
+              <section>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Notes
+                  </h3>
+                  <span className="text-2xs text-muted-foreground">
+                    {notes.length} note{notes.length === 1 ? "" : "s"}
+                  </span>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <Textarea
+                    value={newNote}
+                    onChange={(e) => setNewNote(e.target.value)}
+                    placeholder="Add a note, e.g. offered £500 discount"
+                    className="min-h-16 text-sm"
+                  />
+                  <div className="flex justify-end">
+                    <Button
+                      size="sm"
+                      onClick={handleAddNote}
+                      disabled={savingNote || !newNote.trim()}
+                    >
+                      {savingNote ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <Plus className="mr-1 h-3 w-3" />
+                      )}
+                      Add Note
+                    </Button>
+                  </div>
+                </div>
+                {notes.length > 0 && (
+                  <div className="mt-3 flex flex-col gap-2 border-t pt-3">
+                    {[...notes].reverse().map((n) => {
+                      const author = users.find((u) => u.id === n.userId);
+                      return (
+                        <div
+                          key={n.id}
+                          className="rounded border bg-muted/30 p-2.5 text-sm"
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium">
+                              {author?.name ?? "Unknown"}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatRelativeTime(n.createdAt)}
+                            </span>
+                          </div>
+                          <p className="mt-1 whitespace-pre-wrap">
+                            {n.content}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
 
               {canInvoice && (

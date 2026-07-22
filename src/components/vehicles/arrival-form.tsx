@@ -44,7 +44,16 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
 import { dvlaService } from "@/lib/services/dvla-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
-import type { DealerPartner } from "@/lib/types";
+import { teamService } from "@/lib/services/team-service";
+import type { DealerPartner, User } from "@/lib/types";
+import {
+  Combobox,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxItem,
+  ComboboxList,
+  ComboboxPopup,
+} from "@/components/ui/combobox";
 import {
   AUCTION_HOUSES,
   BODY_TYPES,
@@ -149,6 +158,7 @@ const schema = z.object({
 
   // Section 5 — Receiving
   receivedDate: z.string().min(1, "Received date required"),
+  receivedBy: z.string().min(1, "Received by is required"),
 
   // Section 7 — Pricing (optional)
   warrantyCost: z.coerce.number().min(0).optional(),
@@ -259,12 +269,19 @@ export function ArrivalForm() {
   const [selectedPartnerId, setSelectedPartnerId] = useState<string>(
     searchParams.get("dealerPartner") ?? "",
   );
+  // GEN-81 — employee list for the "Received By" type-ahead.
+  const [users, setUsers] = useState<User[]>([]);
 
   useEffect(() => {
     if (!company) return;
     void dealerPartnerService
       .getAll(company.id)
       .then((p) => setPartners(p.filter((x) => x.active)));
+  }, [company]);
+
+  useEffect(() => {
+    if (!company) return;
+    void teamService.getAll(company.id).then(setUsers);
   }, [company]);
 
   const today = new Date().toISOString().slice(0, 10);
@@ -310,6 +327,7 @@ export function ArrivalForm() {
       otherCharges: 0,
       financeProvider: "none",
       receivedDate: today,
+      receivedBy: user?.id ?? "",
       warrantyCost: 0,
       minimumSalePrice: undefined,
       listingPrice: undefined,
@@ -624,7 +642,7 @@ export function ArrivalForm() {
           transmission: values.transmission,
           engineSizeCC: values.engineSizeCC ? Number(values.engineSizeCC) : null,
           receivedDate: values.receivedDate,
-          receivedBy: user.id,
+          receivedBy: values.receivedBy,
           sellerName: values.sellerName,
           sellerPhone: values.sellerPhone ?? "",
           purchaseSource: values.purchaseSource === "trade_in" ? "trade_in" : values.purchaseSource,
@@ -863,15 +881,15 @@ export function ArrivalForm() {
                     )}
                     {dvlaState === "found" && (
                       <p className="flex items-center gap-1 text-xs text-emerald-600">
-                        <CheckCircle2 className="h-3 w-3" /> Matched — make / model /
+                        <CheckCircle2 className="h-3 w-3" /> Matched: make / model /
                         derivative, tax, MOT &amp; valuation auto-filled from DVLA +
                         AutoTrader.
                       </p>
                     )}
                     {dvlaState === "not_found" && (
                       <p className="flex items-center gap-1 text-xs text-amber-600">
-                        <AlertTriangle className="h-3 w-3" /> The number is incorrect
-                        — please try again, or fill the form in manually.
+                        <AlertTriangle className="h-3 w-3" /> The number is incorrect;
+                        please try again, or fill the form in manually.
                       </p>
                     )}
                     {dvlaState === "duplicate" && duplicate && (
@@ -1297,8 +1315,24 @@ export function ArrivalForm() {
                       <Input type="date" {...form.register("receivedDate")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Received By</Label>
-                      <Input value={user?.name ?? "—"} readOnly disabled />
+                      <Label>Received By *</Label>
+                      <Controller
+                        control={form.control}
+                        name="receivedBy"
+                        render={({ field }) => (
+                          <EmployeeCombobox
+                            id="received-by"
+                            users={users}
+                            value={users.find((u) => u.id === field.value) ?? null}
+                            onChange={(u) => field.onChange(u?.id ?? "")}
+                          />
+                        )}
+                      />
+                      {form.formState.errors.receivedBy && (
+                        <p className="text-xs text-destructive">
+                          {form.formState.errors.receivedBy.message}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1352,7 +1386,7 @@ export function ArrivalForm() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <StepHeader icon={Tag} title="Pricing" hint="Optional — can set later" />
+                  <StepHeader icon={Tag} title="Pricing" hint="Optional, can set later" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-2">
                       <Label>Warranty Cost £</Label>
@@ -1477,6 +1511,48 @@ export function ArrivalForm() {
 
       {confirmDialog}
     </div>
+  );
+}
+
+/**
+ * Type-ahead employee search for "Received By" (GEN-81) — the team asked
+ * for type-and-select rather than a long static dropdown. Only a selected
+ * employee commits a value; typing without picking a result never sets one,
+ * so the field can't silently hold free text as if it were a real employee.
+ */
+function EmployeeCombobox({
+  users,
+  value,
+  onChange,
+  id,
+}: {
+  users: User[];
+  value: User | null;
+  onChange: (user: User | null) => void;
+  id?: string;
+}) {
+  return (
+    <Combobox
+      items={users}
+      value={value}
+      onValueChange={onChange}
+      itemToStringLabel={(u: User) => u.name}
+      autoHighlight
+    >
+      <ComboboxInput
+        id={id}
+        placeholder="Search employees…"
+        startAddon={<Search />}
+        showClear={value !== null}
+        className="w-full"
+      />
+      <ComboboxPopup>
+        <ComboboxEmpty>No employee matches.</ComboboxEmpty>
+        <ComboboxList>
+          {(u: User) => <ComboboxItem key={u.id} value={u}>{u.name}</ComboboxItem>}
+        </ComboboxList>
+      </ComboboxPopup>
+    </Combobox>
   );
 }
 

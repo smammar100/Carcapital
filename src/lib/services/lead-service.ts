@@ -125,7 +125,7 @@ export const leadService = {
       userId: actorId,
       vehicleId: input.vehicleId,
       actionType: "lead_created",
-      description: `Lead from ${input.source.replace("_", " ")} — ${input.customerName} interested in ${input.vehicleInterest}`,
+      description: `Lead from ${input.source.replace("_", " ")}: ${input.customerName} interested in ${input.vehicleInterest}`,
       metadata: { leadId: lead.id },
     });
     // Fire-and-forget bell fan-out to lead-working teammates. Goes via a
@@ -219,7 +219,7 @@ export const leadService = {
         actionType: "lead_status_changed",
         description:
           status === "lost"
-            ? `Lead ${current.customerName} marked Lost — ${opts?.lostReason?.trim() ?? ""}`
+            ? `Lead ${current.customerName} marked Lost: ${opts?.lostReason?.trim() ?? ""}`
             : `Lead ${current.customerName} moved ${current.status.replace("_", " ")} → ${status.replace("_", " ")}`,
         metadata: { leadId: id, from: current.status, to: status },
       });

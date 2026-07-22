@@ -68,11 +68,11 @@ export function HealthIndicator() {
   const label =
     state === "red"
       ? !online
-        ? "Offline — reconnecting…"
-        : "Session expired — reload to sign in again"
+        ? "Offline, reconnecting…"
+        : "Session expired, reload to sign in again"
       : state === "amber"
         ? "Reconnecting…"
-        : `Connected — last sync ${formatRelativeTime(lastSync)}`;
+        : `Connected, last sync ${formatRelativeTime(lastSync)}`;
 
   return (
     <span

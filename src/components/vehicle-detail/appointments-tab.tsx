@@ -195,7 +195,7 @@ function EnquiriesTable({
           No enquiries on this vehicle yet
         </div>
         <p className="mx-auto mt-1 max-w-md text-xs leading-relaxed text-muted-foreground">
-          Click <strong className="text-foreground">+ Add Enquiry</strong> —
+          Click <strong className="text-foreground">+ Add Enquiry</strong>;
           we&apos;ll dedup against your existing customers first so repeat buyers
           stay attached to their record.
         </p>
@@ -289,7 +289,7 @@ function LostReasonInsight() {
         </div>
         <p className="mt-0.5 text-xs leading-relaxed">
           <strong>41% of lost enquiries</strong> (25 of 61) over the last 90 days
-          were driven by <strong>Price</strong> or <strong>Finance</strong> —
+          were driven by <strong>Price</strong> or <strong>Finance</strong>:
           both operational levers you control directly.
         </p>
       </div>
@@ -337,19 +337,19 @@ function RecommendedActions() {
   const actions = [
     {
       title: "Review pricing on aged stock",
-      text: "14 enquiries lost to price this quarter — the largest single bucket. Consider sharper web prices on vehicles over 60 days in stock.",
+      text: "14 enquiries lost to price this quarter, the largest single bucket. Consider sharper web prices on vehicles over 60 days in stock.",
       cta: "View aged stock",
       href: "/vehicles?sort=oldest",
     },
     {
       title: "Audit finance partner conversion",
-      text: "11 enquiries lost to Finance — could indicate one provider is over-declining. Review approval rates by partner.",
+      text: "11 enquiries lost to Finance: could indicate one provider is over-declining. Review approval rates by partner.",
       cta: "Open report",
       href: "/admin/activity",
     },
     {
       title: "Implement 24-hour callback rule",
-      text: "9 enquiries lost simply because nobody followed up in time. Set a hard SLA — every new enquiry gets a call within 24 hours.",
+      text: "9 enquiries lost simply because nobody followed up in time. Set a hard SLA: every new enquiry gets a call within 24 hours.",
       cta: "Configure SLA",
       href: "/admin/settings",
     },

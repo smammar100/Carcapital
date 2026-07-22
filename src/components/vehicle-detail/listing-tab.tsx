@@ -77,7 +77,7 @@ export function ListingTab({ vehicle }: ListingTabProps) {
       <div className="flex items-start gap-2 rounded-lg bg-violet-50 px-3 py-2 text-xs leading-relaxed text-violet-900 dark:bg-violet-500/10 dark:text-violet-200">
         <Megaphone className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          Mapped to AutoTrader&apos;s taxonomy — get it wrong and the advert is
+          Mapped to AutoTrader&apos;s taxonomy: get it wrong and the advert is
           filtered out of search results entirely. This is how buyers see the
           car across AutoTrader, the website and partner channels.
         </span>
@@ -125,7 +125,7 @@ export function ListingTab({ vehicle }: ListingTabProps) {
         <div className="text-sm leading-relaxed text-foreground/80">
           {listing.description || (
             <span className="italic text-muted-foreground">
-              No description yet — add one in the Advert editor.
+              No description yet, add one in the Advert editor.
             </span>
           )}
         </div>
@@ -148,7 +148,7 @@ export function ListingTab({ vehicle }: ListingTabProps) {
           </ul>
         ) : (
           <p className="text-sm italic text-muted-foreground">
-            No highlights yet — add up to 5 in the Advert editor.
+            No highlights yet, add up to 5 in the Advert editor.
           </p>
         )}
       </Panel>

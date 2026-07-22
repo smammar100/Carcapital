@@ -526,7 +526,7 @@ export default function PrototypePage() {
       <div className="mx-auto flex max-w-5xl flex-col gap-10">
         <header>
           <h1 className="text-2xl font-semibold tracking-tight">
-            Reports &amp; Analytics — 5 variations
+            Reports &amp; Analytics: 5 variations
           </h1>
           <p className="text-sm text-muted-foreground">
             Bounded charts with a real Y-axis, restrained sizing. Pick A–E.
@@ -536,7 +536,7 @@ export default function PrototypePage() {
           <section key={v.key} className="flex flex-col gap-3">
             <div className="flex items-baseline gap-2 border-b border-border pb-2">
               <span className="text-sm font-semibold">Variation {v.key}</span>
-              <span className="text-sm text-foreground">— {v.name}</span>
+              <span className="text-sm text-foreground">· {v.name}</span>
               <span className="text-xs text-muted-foreground">({v.note})</span>
             </div>
             {v.el}

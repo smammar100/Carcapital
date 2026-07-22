@@ -84,7 +84,7 @@ export function calculateVat(input: CalculateVatInput): CalculateVatResult {
 export function formatVatLabel(scheme: AnyVatScheme): string {
   switch (normalizeVatScheme(scheme)) {
     case "margin":
-      return "Margin Scheme — Used Vehicle";
+      return "Margin Scheme: Used Vehicle";
     case "standard":
       return "Standard 20% VAT";
     case "zero_rated":

@@ -189,7 +189,7 @@ export const appointmentService = {
       userId: actorId,
       vehicleId: appt.vehicleId,
       actionType: "appointment_completed",
-      description: `${appt.customerName} — outcome: ${outcome.replace("_", " ")}`,
+      description: `${appt.customerName}, outcome: ${outcome.replace("_", " ")}`,
       metadata: { appointmentId: id, outcome },
     });
     return appt;

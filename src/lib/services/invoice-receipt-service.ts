@@ -124,7 +124,7 @@ export const invoiceReceiptService = {
       actionType: "invoice_paid",
       description: balance.settled
         ? `${invoice.invoiceNumber} paid in full`
-        : `Payment received on ${invoice.invoiceNumber} — ${balance.balanceDue.toFixed(2)} still due`,
+        : `Payment received on ${invoice.invoiceNumber}, ${balance.balanceDue.toFixed(2)} still due`,
       metadata: {
         invoiceId: invoice.id,
         receiptId: receipt.id,

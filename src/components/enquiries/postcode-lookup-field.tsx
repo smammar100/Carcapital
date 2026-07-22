@@ -51,7 +51,7 @@ export function PostcodeLookupField({
     }
     const [suggestion] = await lookup(postcode);
     if (!suggestion) {
-      notify.info("No address found for that postcode — enter manually");
+      notify.info("No address found for that postcode, enter manually");
       return;
     }
     // Keep whatever house number/street the user already typed on line 1 —
@@ -62,7 +62,7 @@ export function PostcodeLookupField({
       suggestion.county,
       suggestion.postcode,
     ]);
-    notify.success("Area filled — add your house number and street");
+    notify.success("Area filled, add your house number and street");
   }
 
   return (

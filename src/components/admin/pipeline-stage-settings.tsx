@@ -168,7 +168,7 @@ export function PipelineStageSettings() {
       setRemoving(null);
       toast.success(
         movedDeals > 0
-          ? `"${stage.label}" removed — ${movedDeals} deal${movedDeals === 1 ? "" : "s"} moved`
+          ? `"${stage.label}" removed, ${movedDeals} deal${movedDeals === 1 ? "" : "s"} moved`
           : `"${stage.label}" removed`,
       );
     });
@@ -183,7 +183,7 @@ export function PipelineStageSettings() {
           <h3 className="text-sm font-semibold">Pipeline stages</h3>
           <p className="text-xs text-muted-foreground">
             These are the columns on the sales board, in order. Renaming a
-            stage is safe at any time — deals keep their place.
+            stage is safe at any time; deals keep their place.
           </p>
         </div>
 
@@ -320,7 +320,7 @@ export function PipelineStageSettings() {
                   ? "Nothing is sitting in this stage."
                   : `${removalCount} deal${removalCount === 1 ? " is" : "s are"} in this stage. ${removalCount === 1 ? "It" : "They"} will be moved, not deleted.`}
               {removing?.isSystem
-                ? " This is a built-in stage, so it will be hidden from the board rather than deleted — the sale lifecycle still refers to it."
+                ? " This is a built-in stage, so it will be hidden from the board rather than deleted: the sale lifecycle still refers to it."
                 : ""}
             </DialogDescription>
           </DialogHeader>

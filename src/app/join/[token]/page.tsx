@@ -69,7 +69,7 @@ export default function JoinPage() {
         return;
       }
       setDone(true);
-      toast.success("Account created — you can now sign in");
+      toast.success("Account created, you can now sign in");
       setTimeout(() => router.replace("/login"), 1200);
     } catch {
       toast.error("Could not complete sign-up");

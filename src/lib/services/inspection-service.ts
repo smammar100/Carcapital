@@ -1,11 +1,12 @@
 import { createClient } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
-import { INSPECTION_ITEMS, NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
+import { NEGATIVE_INSPECTION_STATUSES } from "@/lib/constants";
 import type { InspectionCheck, UUID, VehicleStatus } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { vehicleService } from "./vehicle-service";
 import { todoService } from "./todo-service";
 import { maintenanceService } from "./maintenance-service";
+import { inspectionChecklistService } from "./inspection-checklist-service";
 
 const NS = "inspections:";
 
@@ -83,19 +84,26 @@ export const inspectionService = {
    */
   async getProgressForVehicles(
     vehicleIds: UUID[],
+    companyId: UUID,
   ): Promise<Map<UUID, InspectionProgress>> {
     const result = new Map<UUID, InspectionProgress>();
     if (vehicleIds.length === 0) return result;
 
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from("inspection_checks")
-      .select(SELECT)
-      .in("vehicle_id", vehicleIds);
-    if (error) throw error;
+    const [rows, items] = await Promise.all([
+      (async () => {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("inspection_checks")
+          .select(SELECT)
+          .in("vehicle_id", vehicleIds);
+        if (error) throw error;
+        return (data ?? []) as unknown as InspectionCheck[];
+      })(),
+      inspectionChecklistService.getAll(companyId),
+    ]);
 
     const byVehicle = new Map<string, InspectionCheck[]>();
-    for (const c of (data ?? []) as unknown as InspectionCheck[]) {
+    for (const c of rows) {
       const list = byVehicle.get(c.vehicleId);
       if (list) list.push(c);
       else byVehicle.set(c.vehicleId, [c]);
@@ -103,15 +111,15 @@ export const inspectionService = {
 
     for (const vehicleId of vehicleIds) {
       const checks = byVehicle.get(vehicleId) ?? [];
-      const total = INSPECTION_ITEMS.length;
+      const total = items.length;
       // Outstanding = anything not signed off clean, same rule the Things to
       // Do generation uses, plus the checks that were never created at all.
       const outstanding = checks
         .filter((c) => isOutstandingCheck(c.status))
         .map((c) => c.checkItem);
-      const missing = INSPECTION_ITEMS.filter(
-        (item) => !checks.some((c) => c.checkNumber === item.number),
-      ).map((item) => item.item);
+      const missing = items
+        .filter((item) => !checks.some((c) => c.checkNumber === item.number))
+        .map((item) => item.item);
       const all = [...outstanding, ...missing];
       result.set(vehicleId, {
         total,
@@ -131,7 +139,8 @@ export const inspectionService = {
     // Clear any prior rows (re-start support) then bulk insert.
     await supabase.from("inspection_checks").delete().eq("vehicle_id", vehicleId);
     const today = new Date().toISOString().slice(0, 10);
-    const rows = INSPECTION_ITEMS.map((item) => ({
+    const items = await inspectionChecklistService.getAll(v.companyId);
+    const rows = items.map((item) => ({
       vehicle_id: vehicleId,
       check_number: item.number,
       check_item: item.item,
@@ -176,8 +185,12 @@ export const inspectionService = {
       return updated as unknown as InspectionCheck;
     }
 
-    // Otherwise insert.
-    const item = INSPECTION_ITEMS.find((i) => i.number === input.checkNumber);
+    // Otherwise insert. No existing row means saveCheck was called before
+    // start() ever ran for this vehicle (unusual, but not assumed away) —
+    // resolve the company from the vehicle to look up its checklist label.
+    const v = await vehicleService.getById(input.vehicleId);
+    const items = v ? await inspectionChecklistService.getAll(v.companyId) : [];
+    const item = items.find((i) => i.number === input.checkNumber);
     const { data, error } = await supabase
       .from("inspection_checks")
       .insert({
@@ -239,8 +252,8 @@ export const inspectionService = {
       const description = check.actionRequired
         ? `${check.checkItem}: ${check.actionRequired}`
         : check.status.trim()
-          ? `${check.checkItem} — needs attention (${check.status})`
-          : `${check.checkItem} — not checked`;
+          ? `${check.checkItem}: needs attention (${check.status})`
+          : `${check.checkItem}: not checked`;
       await todoService.add({
         vehicleId,
         description,
@@ -309,8 +322,8 @@ export const inspectionService = {
       actionType: "inspection_completed",
       description:
         failing.length > 0
-          ? `Inspection completed for ${v.registration} — ${failing.length} items need attention`
-          : `Inspection completed for ${v.registration} — all clear`,
+          ? `Inspection completed for ${v.registration}: ${failing.length} items need attention`
+          : `Inspection completed for ${v.registration}, all clear`,
       metadata: { flagged: failing.length },
     });
     return { flagged: failing.length };

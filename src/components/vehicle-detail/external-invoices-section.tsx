@@ -181,7 +181,7 @@ export function ExternalInvoicesSection({ vehicleId }: Props) {
           </>
         ) : rows.length === 0 ? (
           <div className="px-4 py-4 text-xs text-muted-foreground">
-            No external invoices logged yet — use{" "}
+            No external invoices logged yet, use{" "}
             <span className="font-medium text-foreground">Purchase</span> or{" "}
             <span className="font-medium text-foreground">External Job</span> above to add one.
           </div>

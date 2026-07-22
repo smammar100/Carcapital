@@ -22,6 +22,7 @@ import { maintenanceService } from "@/lib/services/maintenance-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import type {
   Appointment,
+  Company,
   MaintenanceJob,
   UUID,
   Vehicle,
@@ -188,15 +189,38 @@ function overlapDepths(timed: CalEvent[]): Map<string, number> {
 
 /* ----------------------------------------------------------- time-grid cfg */
 
-// Working-day window for the day/week grids. Starts at 9am per the dealership's
-// hours (UAT request). Events entirely before GRID_START are not shown; ones
-// that merely start earlier are clamped to the top of the grid.
-const GRID_START = 9;
-const GRID_END = 18;
-const HOURS: number[] = Array.from(
-  { length: GRID_END - GRID_START },
-  (_, i) => GRID_START + i,
-);
+// Working-day window for the day/week grids. Falls back to 9am-6pm when the
+// company hasn't configured working hours (GEN-83) — was previously hardcoded
+// regardless of any configured hours. Events entirely before the start are
+// not shown; ones that merely start earlier are clamped to the top of the grid.
+const DEFAULT_GRID_START = 9;
+const DEFAULT_GRID_END = 18;
+
+/** Resolve the day/week grid's business-hours window from company settings. */
+function resolveGridRange(company: Company | null): {
+  start: number;
+  end: number;
+} {
+  const start =
+    typeof company?.workingHoursStart === "string"
+      ? hmToDec(company.workingHoursStart)
+      : NaN;
+  const end =
+    typeof company?.workingHoursEnd === "string"
+      ? hmToDec(company.workingHoursEnd)
+      : NaN;
+  // Guard against unset/invalid config (e.g. end before start) rather than
+  // rendering a zero- or negative-height grid.
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end - start < 1) {
+    return { start: DEFAULT_GRID_START, end: DEFAULT_GRID_END };
+  }
+  return { start, end };
+}
+
+function buildHours(start: number, end: number): number[] {
+  return Array.from({ length: end - start }, (_, i) => start + i);
+}
+
 const WEEK_HOUR_PX = 48;
 const DAY_HOUR_PX = 56;
 // Appointments / workshop jobs have no real stored duration. Render them as
@@ -209,8 +233,6 @@ const MARKER_DURATION = 0.5;
 // fine-grained 30-min MARKER_DURATION.
 const APPT_DURATION = 1;
 
-// Total business hours the grid spans (09:00–18:00 → 9).
-const TOTAL_HOURS = GRID_END - GRID_START;
 // Minimum pixel height for an event pill so its content is never clipped, even
 // for a short or late-in-day slot (GEN-33). Week pills show up to two lines
 // (time + name), Day pills three (time range + name + vehicle), so they need
@@ -229,26 +251,31 @@ function clampTop(top: string, minPx: number): string {
 // so the hour rows can flex-grow to fill the calendar card (GEN-32) while events
 // stay aligned to their times. Returns null when the event falls outside the
 // business-hours window. `top`/`height` are CSS percentage strings.
-function spanPct(ev: CalEvent): { top: string; height: string } | null {
-  if (ev.end <= GRID_START || ev.start >= GRID_END) return null;
-  const s = Math.max(ev.start, GRID_START);
-  const e = Math.min(ev.end, GRID_END);
+function spanPct(
+  ev: CalEvent,
+  gridStart: number,
+  gridEnd: number,
+): { top: string; height: string } | null {
+  if (ev.end <= gridStart || ev.start >= gridEnd) return null;
+  const totalHours = gridEnd - gridStart;
+  const s = Math.max(ev.start, gridStart);
+  const e = Math.min(ev.end, gridEnd);
   return {
-    top: `${((s - GRID_START) / TOTAL_HOURS) * 100}%`,
-    height: `${((e - s) / TOTAL_HOURS) * 100}%`,
+    top: `${((s - gridStart) / totalHours) * 100}%`,
+    height: `${((e - s) / totalHours) * 100}%`,
   };
 }
 
-const TIME_OPTIONS: string[] = Array.from(
-  { length: (GRID_END - GRID_START) * 2 },
-  (_, i) => decToHm(GRID_START + i / 2),
-);
+function buildTimeOptions(start: number, end: number): string[] {
+  return Array.from({ length: (end - start) * 2 }, (_, i) =>
+    decToHm(start + i / 2),
+  );
+}
 // Appointment booking offers whole-hour start slots within business hours
-// (last slot 17:00, ending 18:00 at GRID_END). Workshop uses TIME_OPTIONS.
-const APPT_TIME_OPTIONS: string[] = Array.from(
-  { length: GRID_END - GRID_START },
-  (_, i) => decToHm(GRID_START + i),
-);
+// (last slot one hour before the end). Workshop uses buildTimeOptions.
+function buildApptTimeOptions(start: number, end: number): string[] {
+  return Array.from({ length: end - start }, (_, i) => decToHm(start + i));
+}
 
 /* ------------------------------------------------------------- modal state */
 
@@ -366,6 +393,22 @@ export function SharedCalendar({
   lockCreateKind = false,
 }: SharedCalendarProps): React.ReactElement {
   const { company, user } = useAuth();
+  const { start: gridStart, end: gridEnd } = useMemo(
+    () => resolveGridRange(company),
+    [company],
+  );
+  const hours = useMemo(
+    () => buildHours(gridStart, gridEnd),
+    [gridStart, gridEnd],
+  );
+  const timeOptions = useMemo(
+    () => buildTimeOptions(gridStart, gridEnd),
+    [gridStart, gridEnd],
+  );
+  const apptTimeOptions = useMemo(
+    () => buildApptTimeOptions(gridStart, gridEnd),
+    [gridStart, gridEnd],
+  );
   const [appts, setAppts] = useState<Appointment[]>([]);
   const [shop, setShop] = useState<WorkshopJob[]>([]);
   const [maint, setMaint] = useState<MaintenanceJob[]>([]);
@@ -430,7 +473,7 @@ export function SharedCalendar({
   const vehicleLine = useCallback(
     (vehicleId: UUID | null): string => {
       const v = vehicles.find((x) => x.id === vehicleId);
-      return v ? `${v.registration} — ${v.make} ${v.model}` : "";
+      return v ? `${v.registration} · ${v.make} ${v.model}` : "";
     },
     [vehicles],
   );
@@ -458,7 +501,7 @@ export function SharedCalendar({
         kind: "workshop",
         id: j.id,
         title: j.customerName,
-        subtitle: `${j.vehicleReg} — ${j.vehicleDescription}`,
+        subtitle: `${j.vehicleReg} · ${j.vehicleDescription}`,
         date: j.scheduledDate,
         start,
         end: start + MARKER_DURATION,
@@ -727,7 +770,11 @@ export function SharedCalendar({
               type="button"
               suppressHydrationWarning
               onClick={() =>
-                openCreate({ date: toISO(anchor), time: "10:00", kind: defaultKind })
+                openCreate({
+                  date: toISO(anchor),
+                  time: decToHm(hours[0] ?? gridStart),
+                  kind: defaultKind,
+                })
               }
             >
               <Plus slot="start" className="h-4 w-4" />
@@ -787,6 +834,9 @@ export function SharedCalendar({
             todayISO={todayISO}
             now={now}
             defaultKind={defaultKind}
+            gridStart={gridStart}
+            gridEnd={gridEnd}
+            hours={hours}
             onOpenDay={openDay}
             onOpenEvent={openEvent}
             onCreateAt={openCreate}
@@ -799,6 +849,9 @@ export function SharedCalendar({
             todayISO={todayISO}
             now={now}
             kinds={kinds}
+            gridStart={gridStart}
+            gridEnd={gridEnd}
+            hours={hours}
             onOpenEvent={openEvent}
             onCreateAt={openCreate}
           />
@@ -813,6 +866,8 @@ export function SharedCalendar({
           saving={saving}
           createHeading={ctaLabel}
           lockCreateKind={lockCreateKind}
+          timeOptions={timeOptions}
+          apptTimeOptions={apptTimeOptions}
           onClose={() => setModal(null)}
           onSubmit={handleSubmit}
           onEdit={(ev) => setModal({ mode: "edit", ev })}
@@ -948,6 +1003,9 @@ function WeekView({
   todayISO,
   now,
   defaultKind,
+  gridStart,
+  gridEnd,
+  hours,
   onOpenDay,
   onOpenEvent,
   onCreateAt,
@@ -957,10 +1015,14 @@ function WeekView({
   todayISO: string;
   now: Date | null;
   defaultKind: Kind;
+  gridStart: number;
+  gridEnd: number;
+  hours: number[];
   onOpenDay: (d: Date) => void;
   onOpenEvent: (ev: CalEvent) => void;
   onCreateAt: (p: { date: string; time: string; kind: Kind }) => void;
 }): React.ReactElement {
+  const totalHours = gridEnd - gridStart;
   const nowDecimal = now ? now.getHours() + now.getMinutes() / 60 : null;
 
   return (
@@ -1051,10 +1113,10 @@ function WeekView({
           events stay aligned to their times. */}
       <div
         className="flex min-h-0 flex-1"
-        style={{ minHeight: TOTAL_HOURS * WEEK_HOUR_PX }}
+        style={{ minHeight: totalHours * WEEK_HOUR_PX }}
       >
         <div className="flex w-12 shrink-0 flex-col">
-          {HOURS.map((h) => (
+          {hours.map((h) => (
             <div
               key={h}
               className="flex-1 border-b border-border/60 pr-1.5 pt-0.5 text-right text-2xs leading-none tabular-nums text-muted-foreground"
@@ -1070,8 +1132,8 @@ function WeekView({
           const showNow =
             iso === todayISO &&
             nowDecimal !== null &&
-            nowDecimal >= GRID_START &&
-            nowDecimal <= GRID_END;
+            nowDecimal >= gridStart &&
+            nowDecimal <= gridEnd;
           return (
             <div
               key={iso}
@@ -1080,7 +1142,7 @@ function WeekView({
                 i >= 5 && "bg-muted/30",
               )}
             >
-              {HOURS.map((h) => (
+              {hours.map((h) => (
                 <button
                   key={h}
                   type="button"
@@ -1092,7 +1154,7 @@ function WeekView({
                 />
               ))}
               {timed.map((e) => {
-                const span = spanPct(e);
+                const span = spanPct(e, gridStart, gridEnd);
                 if (!span) return null;
                 return (
                   <button
@@ -1131,7 +1193,7 @@ function WeekView({
                 <div
                   className="pointer-events-none absolute inset-x-0 z-10"
                   style={{
-                    top: `${((nowDecimal - GRID_START) / TOTAL_HOURS) * 100}%`,
+                    top: `${((nowDecimal - gridStart) / totalHours) * 100}%`,
                   }}
                 >
                   <div className="relative h-px bg-red-500/70">
@@ -1155,6 +1217,9 @@ function DayView({
   todayISO,
   now,
   kinds,
+  gridStart,
+  gridEnd,
+  hours,
   onOpenEvent,
   onCreateAt,
 }: {
@@ -1163,9 +1228,13 @@ function DayView({
   todayISO: string;
   now: Date | null;
   kinds: Kind[];
+  gridStart: number;
+  gridEnd: number;
+  hours: number[];
   onOpenEvent: (ev: CalEvent) => void;
   onCreateAt: (p: { date: string; time: string; kind: Kind }) => void;
 }): React.ReactElement {
+  const totalHours = gridEnd - gridStart;
   const iso = toISO(anchor);
   const dayEvents = events.filter((e) => e.date === iso);
   const allDay = dayEvents.filter((e) => e.allDay);
@@ -1173,8 +1242,8 @@ function DayView({
   const showNow =
     iso === todayISO &&
     nowDecimal !== null &&
-    nowDecimal >= GRID_START &&
-    nowDecimal <= GRID_END;
+    nowDecimal >= gridStart &&
+    nowDecimal <= gridEnd;
   const laneCols = `3rem repeat(${kinds.length}, minmax(0, 1fr))`;
 
   return (
@@ -1234,10 +1303,10 @@ function DayView({
             off the same grid via spanPct so they stay aligned to their times. */}
         <div
           className="relative flex min-h-0 flex-1"
-          style={{ minHeight: TOTAL_HOURS * DAY_HOUR_PX }}
+          style={{ minHeight: totalHours * DAY_HOUR_PX }}
         >
           <div className="relative flex w-12 shrink-0 flex-col">
-            {HOURS.map((h) => (
+            {hours.map((h) => (
               <div
                 key={h}
                 className="flex-1 pr-1.5 pt-0.5 text-right text-2xs leading-none tabular-nums text-muted-foreground"
@@ -1246,7 +1315,7 @@ function DayView({
               </div>
             ))}
             <span className="absolute bottom-0 right-1.5 text-2xs leading-none tabular-nums text-muted-foreground">
-              {fmtHour(GRID_END)}
+              {fmtHour(gridEnd)}
             </span>
           </div>
 
@@ -1259,7 +1328,7 @@ function DayView({
                 key={kind}
                 className="relative flex min-w-0 flex-1 flex-col border-l border-border"
               >
-                {HOURS.map((h) => (
+                {hours.map((h) => (
                   <button
                     key={h}
                     type="button"
@@ -1271,7 +1340,7 @@ function DayView({
                   />
                 ))}
                 {timed.map((e) => {
-                  const span = spanPct(e);
+                  const span = spanPct(e, gridStart, gridEnd);
                   if (!span) return null;
                   return (
                     <button
@@ -1305,7 +1374,7 @@ function DayView({
                 {laneAll.length === 0 && (
                   <div className="pointer-events-none absolute inset-x-2 top-2 rounded-md border border-dashed border-border py-2 text-center">
                     <span className="text-2xs text-muted-foreground/60">
-                      No {KIND_META[kind].singular}s — click a slot to add
+                      No {KIND_META[kind].singular}s, click a slot to add
                     </span>
                   </div>
                 )}
@@ -1317,7 +1386,7 @@ function DayView({
             <div
               className="pointer-events-none absolute right-0 z-20"
               style={{
-                top: `${((nowDecimal - GRID_START) / TOTAL_HOURS) * 100}%`,
+                top: `${((nowDecimal - gridStart) / totalHours) * 100}%`,
                 left: "3rem",
               }}
             >
@@ -1341,6 +1410,8 @@ function EventModal({
   saving,
   createHeading,
   lockCreateKind,
+  timeOptions,
+  apptTimeOptions,
   onClose,
   onSubmit,
   onEdit,
@@ -1351,6 +1422,8 @@ function EventModal({
   saving: boolean;
   createHeading: string;
   lockCreateKind: boolean;
+  timeOptions: string[];
+  apptTimeOptions: string[];
   onClose: () => void;
   onSubmit: (fields: FormFields) => void;
   onEdit: (ev: CalEvent) => void;
@@ -1391,6 +1464,8 @@ function EventModal({
             kinds={kinds}
             vehicles={vehicles}
             saving={saving}
+            timeOptions={timeOptions}
+            apptTimeOptions={apptTimeOptions}
             initial={{
               ...EMPTY_FIELDS,
               kind: state.prefill.kind,
@@ -1409,6 +1484,8 @@ function EventModal({
             kinds={kinds}
             vehicles={vehicles}
             saving={saving}
+            timeOptions={timeOptions}
+            apptTimeOptions={apptTimeOptions}
             initial={fieldsForEvent(state.ev)}
             onSubmit={onSubmit}
             onClose={onClose}
@@ -1433,6 +1510,8 @@ function EventForm({
   kinds,
   vehicles,
   saving,
+  timeOptions,
+  apptTimeOptions,
   initial,
   onSubmit,
   onClose,
@@ -1443,6 +1522,8 @@ function EventForm({
   kinds: Kind[];
   vehicles: Vehicle[];
   saving: boolean;
+  timeOptions: string[];
+  apptTimeOptions: string[];
   initial: FormFields;
   onSubmit: (fields: FormFields) => void;
   onClose: () => void;
@@ -1463,9 +1544,8 @@ function EventForm({
   };
 
   // Appointments book in whole-hour slots; workshop keeps 30-min granularity.
-  const baseTimeOptions =
-    fields.kind === "appt" ? APPT_TIME_OPTIONS : TIME_OPTIONS;
-  const timeOptions = baseTimeOptions.includes(fields.time)
+  const baseTimeOptions = fields.kind === "appt" ? apptTimeOptions : timeOptions;
+  const selectableTimeOptions = baseTimeOptions.includes(fields.time)
     ? baseTimeOptions
     : [fields.time, ...baseTimeOptions];
 
@@ -1480,7 +1560,7 @@ function EventForm({
       <option value="">Select a vehicle…</option>
       {vehicles.map((v) => (
         <option key={v.id} value={v.id}>
-          {v.registration} — {v.make} {v.model}
+          {v.registration} · {v.make} {v.model}
         </option>
       ))}
     </nord-select>
@@ -1519,7 +1599,7 @@ function EventForm({
         suppressHydrationWarning
         className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
-        {timeOptions.map((t) => (
+        {selectableTimeOptions.map((t) => (
           <option key={t} value={t}>
             {fmtHour(hmToDec(t))}
           </option>

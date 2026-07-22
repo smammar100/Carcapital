@@ -168,11 +168,11 @@ function EmptyOverview({
         <Rocket className="h-7 w-7" />
       </span>
       <div className="mt-4 text-lg font-semibold">
-        New to stock — let&apos;s get it sale-ready
+        New to stock, let&apos;s get it sale-ready
       </div>
       <p className="mt-1 max-w-md text-sm text-muted-foreground">
         There&apos;s no advert, valuation or pricing yet. The first step is a
-        quick inspection — everything else follows from what it finds.
+        quick inspection: everything else follows from what it finds.
       </p>
       <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
         <Button size="sm" onClick={() => onNavigate?.("inspection")}>
@@ -405,7 +405,7 @@ function ValuationPanel({
       await vehicleService.updateValuation(vehicle.id, patch);
       onVehiclePatch?.(patch);
       toast.success(
-        `AutoTrader valuation updated — retail ${formatCurrency(data.retailValuation)}`,
+        `AutoTrader valuation updated, retail ${formatCurrency(data.retailValuation)}`,
       );
     } catch (e) {
       toast.error(`Valuation refresh failed: ${String(e)}`);
@@ -420,7 +420,7 @@ function ValuationPanel({
       subtitle={
         hasValuation
           ? `${updatedLabel(vehicle.atValuationAt)} · live feed`
-          : "Not yet valued — refresh to pull live"
+          : "Not yet valued, refresh to pull live"
       }
       action={
         <Button

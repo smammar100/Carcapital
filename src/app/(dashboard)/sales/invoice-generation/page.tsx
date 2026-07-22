@@ -126,7 +126,7 @@ const emptyPdc = (v: Vehicle | null): PreDeliveryCheck => ({
     : "Full - Provided",
   engineServiceDoneDate: null,
   engineServiceDoneMileage: null,
-  v5Status: v?.v5Received ? "V5C-2 Green Slip" : "V5C — Awaited",
+  v5Status: v?.v5Received ? "V5C-2 Green Slip" : "V5C Awaited",
   hpiCheckResult: "Clear",
 });
 
@@ -413,7 +413,7 @@ function InvoiceGenerationForm() {
       if (Array.isArray(d.lines)) setLines(d.lines as DraftLine[]);
       if (d.vatScheme) setVatScheme(d.vatScheme as VatScheme);
       if (d.customNote) setCustomNote(d.customNote as string);
-      toast("Draft restored — a saved draft for this invoice was loaded");
+      toast("Draft restored: a saved draft for this invoice was loaded");
     } catch {
       /* ignore corrupt draft */
     }
@@ -774,9 +774,9 @@ function InvoiceGenerationForm() {
                 {pcLoading
                   ? "Searching…"
                   : pcError
-                    ? "Address lookup unavailable — enter the address manually."
+                    ? "Address lookup unavailable, enter the address manually."
                     : pcNotFound
-                      ? "No match for that postcode — enter the address manually."
+                      ? "No match for that postcode, enter the address manually."
                       : pcHasPremises
                         ? "Start typing a postcode and pick your address."
                         : "Start typing a postcode and pick the area, then add your house number and street."}
@@ -1020,7 +1020,7 @@ function InvoiceGenerationForm() {
         <Section letter="F" title="Warranty Declaration">
           {hasWarrantyAddon && (
             <p className="mb-2 text-xs text-amber-600">
-              A Warranty add-on is present — this section is required.
+              A Warranty add-on is present, so this section is required.
             </p>
           )}
           <div className="grid gap-3 sm:grid-cols-3">
@@ -1306,7 +1306,7 @@ function InvoiceGenerationForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {["V5C-2 Green Slip", "V5C — Awaited", "Not Received"].map(
+                  {["V5C-2 Green Slip", "V5C Awaited", "Not Received"].map(
                     (o) => (
                       <SelectItem key={o} value={o}>
                         {o}

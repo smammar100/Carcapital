@@ -25,6 +25,9 @@ export interface Company {
   logoMarkUrl: string | null;
   stockIdPrefix: string; // "CC" — single-tenant in v1
   nextStockSeq: number;  // monotonic counter for stock IDs (Phase 2)
+  /** Business day window, "HH:mm" (24h) — drives the Appointment Book grid. */
+  workingHoursStart: string;
+  workingHoursEnd: string;
 }
 
 export type UserRole =
@@ -468,6 +471,22 @@ export interface InspectionCheck {
   createdAt: ISODateTime;
 }
 
+/**
+ * A configurable checklist point (GEN-78). `number` is the stable identity
+ * that `InspectionCheck.checkNumber` stores — it's assigned once and never
+ * reused, independent of `sortOrder` which the Settings screen reorders.
+ */
+export interface InspectionChecklistItem {
+  id: UUID;
+  companyId: UUID;
+  number: number;
+  item: string;
+  statusOptions: string[];
+  sortOrder: number;
+  createdAt: ISODateTime;
+  updatedAt: ISODateTime;
+}
+
 /** Inspection notes — v4.1 §11.5 / Gap 4. Append-only sub-entity. */
 export interface InspectionNote {
   id: UUID;
@@ -832,6 +851,19 @@ export interface SalesDeal {
   updatedAt: ISODateTime;
 }
 
+/**
+ * Timestamped, attributed note on a sales deal (GEN-74) — append-only, same
+ * shape as InspectionNote. `SalesDeal.notes` (a single flat text field) is
+ * the pre-existing free-text column and is unrelated to this log.
+ */
+export interface DealNote {
+  id: UUID;
+  dealId: UUID;
+  userId: UUID;
+  content: string;
+  createdAt: ISODateTime;
+}
+
 // ============================================================
 // WARRANTIES & CLAIMS
 // ============================================================
@@ -1021,7 +1053,7 @@ export interface PreDeliveryCheck {
   serviceHistoryStatus: string;
   engineServiceDoneDate: ISODate | null;
   engineServiceDoneMileage: number | null;
-  v5Status: "V5C-2 Green Slip" | "V5C — Awaited" | "Not Received";
+  v5Status: "V5C-2 Green Slip" | "V5C Awaited" | "Not Received";
   hpiCheckResult: "Clear" | "Issues Found" | "Pending" | "Not Performed";
 }
 
@@ -1148,6 +1180,10 @@ export interface ExternalInvoice {
   preVatPence: number;
   description: string;
   notes: string | null;
+  /** Auction-purchase only — the vehicle's previous registered keeper. */
+  previousOwner: string | null;
+  /** Auction-purchase only — reference to the service history pack supplied. */
+  serviceHistoryRef: string | null;
   attachmentUrl: string | null;
   attachmentFilename: string | null;
   attachmentSizeBytes: number | null;
@@ -1267,7 +1303,8 @@ export type ActivityActionType =
   | "vehicle_moved"
   | "external_invoice_created"
   | "external_invoice_updated"
-  | "external_invoice_deleted";
+  | "external_invoice_deleted"
+  | "deal_note_added";
 
 export interface ActivityLogEntry {
   id: UUID;

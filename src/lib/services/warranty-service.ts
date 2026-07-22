@@ -400,7 +400,7 @@ export const warrantyService = {
       userId: actorId,
       vehicleId: w.vehicleId,
       actionType: "warranty_cancelled",
-      description: `Cancelled warranty for ${w.customerName}${reason ? ` — ${reason}` : ""}`,
+      description: `Cancelled warranty for ${w.customerName}${reason ? ` (${reason})` : ""}`,
       metadata: { warrantyId: w.id, reason: reason ?? null, event: "warranty_cancelled" },
     });
     return w;

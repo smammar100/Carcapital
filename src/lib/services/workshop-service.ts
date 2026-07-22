@@ -94,7 +94,7 @@ export const workshopService = {
       userId: actorId,
       vehicleId: null,
       actionType: "workshop_job_created",
-      description: `Walk-in workshop job: ${input.customerName} — ${input.description}`,
+      description: `Walk-in workshop job: ${input.customerName} (${input.description})`,
       metadata: { jobId: job.id, vehicleReg: input.vehicleReg },
     });
     return job;

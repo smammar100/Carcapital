@@ -48,7 +48,7 @@ export function CreateNewCustomerRow({
         <span className="text-sm font-medium">Create new customer</span>
         <p className="truncate text-xs text-muted-foreground">
           {trimmed
-            ? `No good match for "${trimmed}" — capture a fresh record.`
+            ? `No good match for "${trimmed}", capture a fresh record.`
             : "Capture a brand-new customer record."}
         </p>
       </div>
