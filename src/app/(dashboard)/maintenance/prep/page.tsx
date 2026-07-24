@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Car,
   CheckCircle2,
@@ -23,6 +24,7 @@ import {
 import { authService } from "@/lib/services/auth-service";
 import { vendorService } from "@/lib/services/vendor-service";
 import { downloadBlob, pdfService } from "@/lib/services/pdf-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type { User } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -71,6 +73,7 @@ function waitTone(days: number): string {
  * Things to Do item moves it to Ready and releases it to Sales.
  */
 export default function PrepAndRepairPage() {
+  const pathname = usePathname();
   const { company, user } = useAuth();
   const [cars, setCars] = useState<PrepCar[] | null>(null);
   const [users, setUsers] = useState<User[]>([]);
@@ -241,7 +244,7 @@ export default function PrepAndRepairPage() {
                 </SheetTitle>
                 <SheetDescription>
                   <Link
-                    href={`/vehicles/${openCar.vehicle.id}`}
+                    href={vehicleDetailHref(openCar.vehicle.id, pathname)}
                     className="underline underline-offset-2"
                   >
                     Open the full vehicle record
@@ -279,6 +282,7 @@ function PrepCard({
   onAssign: (userId: string | null) => void;
   onExport: () => void;
 }) {
+  const pathname = usePathname();
   const { vehicle, done, total, open, cost, daysWaiting, status } = car;
   const assignee = users.find((u) => u.id === vehicle.prepAssignedTo) ?? null;
   const percent = total === 0 ? 100 : Math.round((done / total) * 100);
@@ -287,7 +291,7 @@ function PrepCard({
     <article className="flex flex-col overflow-hidden rounded-lg border bg-card shadow-xs transition-shadow hover:shadow-md">
       <div className="flex items-center justify-between gap-2 border-b bg-muted/50 px-3 py-2">
         <Link
-          href={`/vehicles/${vehicle.id}`}
+          href={vehicleDetailHref(vehicle.id, pathname)}
           className="min-w-0 truncate"
           title="Open vehicle details"
         >

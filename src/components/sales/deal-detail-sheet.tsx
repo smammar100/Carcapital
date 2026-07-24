@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Receipt, Car, Loader2, Plus } from "lucide-react";
 import {
@@ -18,6 +19,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { dealNoteService } from "@/lib/services/deal-note-service";
 import type { DealNote, SalesDeal, User, Vehicle } from "@/lib/types";
 import { formatCurrency, formatDate, formatRelativeTime } from "@/lib/utils";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 
 interface Props {
   deal: SalesDeal | null;
@@ -59,6 +61,7 @@ export function DealDetailSheet({
   onOpenChange,
 }: Props) {
   const { user } = useAuth();
+  const pathname = usePathname();
   const canInvoice =
     deal?.stage === "deposit_taken" || deal?.stage === "completed_sale";
 
@@ -115,7 +118,7 @@ export function DealDetailSheet({
                 </h3>
                 {vehicle ? (
                   <Link
-                    href={`/vehicles/${vehicle.id}`}
+                    href={vehicleDetailHref(vehicle.id, pathname)}
                     className="flex items-center gap-2 rounded-md border p-2.5 transition-colors hover:bg-muted/40"
                   >
                     <RegPlate registration={vehicle.registration} size="sm" />

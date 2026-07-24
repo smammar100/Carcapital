@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -44,6 +44,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { todoService } from "@/lib/services/todo-service";
 import { dvlaService } from "@/lib/services/dvla-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { teamService } from "@/lib/services/team-service";
 import type { DealerPartner, User } from "@/lib/types";
 import {
@@ -189,6 +190,7 @@ function deriveAtPriceIndicator(
 export function ArrivalForm() {
   const { user, company } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const { confirm, confirmDialog } = useConfirm();
   const [submitting, setSubmitting] = useState(false);
   // Variation E — guided wizard. Sections are grouped into 5 steps; fields
@@ -734,7 +736,7 @@ export function ArrivalForm() {
         await dealerPartnerService.assignSupplier(v.id, selectedPartnerId);
       }
       toast.success(`Vehicle ${v.stockId} added`);
-      router.push(`/vehicles/${v.id}`);
+      router.push(vehicleDetailHref(v.id, pathname));
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to save");
     } finally {
@@ -898,7 +900,7 @@ export function ArrivalForm() {
                         <span>
                           This car is already in your stock book as{" "}
                           <Link
-                            href={`/vehicles/${duplicate.id}`}
+                            href={vehicleDetailHref(duplicate.id, pathname)}
                             className="font-semibold underline underline-offset-2"
                           >
                             {duplicate.stockId}

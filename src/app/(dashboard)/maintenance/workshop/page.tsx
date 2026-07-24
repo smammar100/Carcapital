@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Plus,
   Wrench,
@@ -19,6 +19,7 @@ import { isValidUkPhone } from "@/lib/formatters";
 import { useAuth } from "@/contexts/auth-context";
 import { workshopService } from "@/lib/services/workshop-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { authService } from "@/lib/services/auth-service";
 import { useConfirm } from "@/components/ui/confirm-dialog";
 import type {
@@ -81,6 +82,7 @@ const STATUS_DOT: Record<MaintenanceStatus, string> = {
 
 export default function WorkshopPage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { confirm, confirmDialog } = useConfirm();
   const { user, company } = useAuth();
   const [jobs, setJobs] = useState<WorkshopJob[] | null>(null);
@@ -184,7 +186,7 @@ export default function WorkshopPage() {
         reg,
         company?.id,
       );
-      if (vehicle) router.push(`/vehicles/${vehicle.id}`);
+      if (vehicle) router.push(vehicleDetailHref(vehicle.id, pathname));
       else toast.error(`No stock vehicle matches ${reg}.`);
     } catch {
       toast.error("Couldn't look up that vehicle.");

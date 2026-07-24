@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import {
   Sheet,
@@ -11,6 +12,7 @@ import {
 } from "@/components/ui/sheet";
 import { RegPlate } from "@/components/shared/reg-plate";
 import { InspectionChecklist } from "@/components/vehicles/inspection-checklist";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type { Vehicle } from "@/lib/types";
 
 interface Props {
@@ -27,6 +29,7 @@ interface Props {
  */
 export function InspectionSidePanel({ vehicle, open, onOpenChange, onComplete }: Props) {
   const { user } = useAuth();
+  const pathname = usePathname();
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -40,7 +43,7 @@ export function InspectionSidePanel({ vehicle, open, onOpenChange, onComplete }:
               <SheetTitle className="flex items-center gap-2">
                 20-point Inspection
                 <Link
-                  href={`/vehicles/${vehicle.id}`}
+                  href={vehicleDetailHref(vehicle.id, pathname)}
                   className="transition-opacity hover:opacity-80"
                   title="Open vehicle details"
                 >

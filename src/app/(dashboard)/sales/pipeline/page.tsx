@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Receipt, TrendingUp, Clock, Check, Car } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { salesService } from "@/lib/services/sales-service";
@@ -31,6 +32,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { DealDetailSheet } from "@/components/sales/deal-detail-sheet";
 import { cn, formatCurrency, formatRelativeTime, getInitials } from "@/lib/utils";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { toast } from "@/lib/toast";
 
 // Per-stage accent (column top-bar + dot). The shipped stages keep the colours
@@ -77,6 +79,7 @@ function ageTone(days: number): string {
 }
 
 export default function SalesPipelinePage() {
+  const pathname = usePathname();
   const { user, company } = useAuth();
   const [deals, setDeals] = useState<SalesDeal[] | null>(null);
   const [stages, setStages] = useState<PipelineStage[]>([]);
@@ -307,7 +310,7 @@ export default function SalesPipelinePage() {
                                 grey smear + a duplicate reg plate (GEN-52). */}
                             {v && v.heroImageUrl ? (
                               <Link
-                                href={`/vehicles/${v.id}`}
+                                href={vehicleDetailHref(v.id, pathname)}
                                 title="Open vehicle details"
                                 className="block"
                               >
@@ -319,7 +322,7 @@ export default function SalesPipelinePage() {
                               </Link>
                             ) : v ? (
                               <Link
-                                href={`/vehicles/${v.id}`}
+                                href={vehicleDetailHref(v.id, pathname)}
                                 title="Open vehicle details"
                                 className="grid aspect-[16/10] w-full place-items-center bg-muted text-muted-foreground/50"
                               >
@@ -338,7 +341,7 @@ export default function SalesPipelinePage() {
                             <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-2 p-2.5">
                               {v ? (
                                 <Link
-                                  href={`/vehicles/${v.id}`}
+                                  href={vehicleDetailHref(v.id, pathname)}
                                   title="Open vehicle details"
                                   className="pointer-events-auto transition-opacity hover:opacity-80"
                                 >

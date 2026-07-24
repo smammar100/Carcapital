@@ -15,28 +15,37 @@ import { useConfirm } from "@/components/ui/confirm-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VehicleHeaderCard } from "@/components/vehicle-detail/vehicle-header-card";
 import { VehicleDetailShell } from "@/components/vehicle-detail/vehicle-detail-shell";
+import { titleFromPath } from "@/components/layout/sidebar-config";
 import { toast } from "@/lib/toast";
 
 /**
- * Lists a vehicle can be opened from, keyed by their route. The grid stamps
- * the originating path as `?from=` (see VehicleSheet.openVehicle) so Back
- * returns to the exact list the user came from instead of always Inventory.
+ * Custom labels for routes whose sidebar label would otherwise be ambiguous
+ * or absent (e.g. both Sales and Maintenance have a page labelled "Pipeline").
+ * Every other route a vehicle can be opened from stamps its own path as
+ * `?from=` (see `vehicleDetailHref` in `@/lib/vehicle-nav`) and falls back
+ * to `titleFromPath` — the same sidebar-route registry the header title
+ * uses — so Back returns to the exact page the user came from instead of
+ * always Inventory (GEN-88), even from global search or the command palette.
  */
 const BACK_TARGETS: Record<string, string> = {
   "/vehicles": "All Vehicles",
-  "/admin/master-sheet": "Master Sheet",
-  "/advert/work-list": "Work List",
+  "/sales/pipeline": "Sales Pipeline",
+  "/maintenance": "Maintenance Pipeline",
+  "/admin/activity": "Activity Log",
+  "/advert/photo-processing": "Photo Processing",
+  "/inventory/add-vehicle": "Add Vehicle",
 };
 
-/** Resolve the Back link target from the `from` query param. Only known
- *  in-app list routes are honoured; anything else falls back to Inventory. */
+/** Resolve the Back link target from the `from` query param. Known routes use
+ *  a disambiguated label; any other in-app route falls back to its sidebar
+ *  title; anything unrecognised falls back to Inventory. */
 function resolveBack(from: string | null): { href: string; label: string } {
   if (from) {
     const path = from.split("?")[0];
-    const label = BACK_TARGETS[path];
-    if (label) return { href: from, label };
+    const label = BACK_TARGETS[path] ?? titleFromPath(path);
+    if (label && label !== "Car Capital UK") return { href: from, label };
   }
-  return { href: "/vehicles", label: "inventory" };
+  return { href: "/vehicles", label: "Inventory" };
 }
 
 /**

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   AlertTriangle,
   Ban,
@@ -17,6 +18,7 @@ import { vehicleService } from "@/lib/services/vehicle-service";
 import { claimService } from "@/lib/services/claim-service";
 import { invoiceService } from "@/lib/services/invoice-service";
 import { teamService } from "@/lib/services/team-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type {
   Invoice,
   User,
@@ -65,6 +67,7 @@ export function WarrantyDetailSheet({
 }: WarrantyDetailSheetProps) {
   const { user } = useAuth();
   const { can } = usePermissions();
+  const pathname = usePathname();
   const [vehicle, setVehicle] = useState<Vehicle | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [claims, setClaims] = useState<WarrantyClaim[]>([]);
@@ -149,7 +152,7 @@ export function WarrantyDetailSheet({
                 </h4>
                 {vehicle ? (
                   <Link
-                    href={`/vehicles/${vehicle.id}`}
+                    href={vehicleDetailHref(vehicle.id, pathname)}
                     className="flex items-center justify-between gap-2 rounded-md transition-colors hover:bg-accent/40"
                   >
                     <div className="flex items-center gap-2">

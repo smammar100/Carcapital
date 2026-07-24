@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Image as ImageIcon, Loader2, Wand2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type { Vehicle } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +34,7 @@ const BACKGROUNDS = [
 ];
 
 export default function PhotoProcessingPage() {
+  const pathname = usePathname();
   const { user, company } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -220,7 +223,9 @@ export default function PhotoProcessingPage() {
                       Mark Photos Ready
                     </Button>
                     <Button asChild size="sm" variant="outline">
-                      <Link href={`/vehicles/${vehicle.id}`}>Open vehicle</Link>
+                      <Link href={vehicleDetailHref(vehicle.id, pathname)}>
+                        Open vehicle
+                      </Link>
                     </Button>
                   </div>
                 </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Camera,
   Car,
@@ -19,6 +20,7 @@ import type { ActivityActionType, ActivityLogEntry } from "@/lib/types";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 
 function categorize(type: ActivityActionType): {
   Icon: LucideIcon;
@@ -79,6 +81,7 @@ function timeAgo(iso: string): string {
 
 export function DashboardRecentActivity() {
   const { company } = useAuth();
+  const pathname = usePathname();
   const [entries, setEntries] = useState<ActivityLogEntry[] | null>(null);
 
   useEffect(() => {
@@ -112,7 +115,7 @@ export function DashboardRecentActivity() {
           {entries.map((e) => {
             const { Icon, tag, tint } = categorize(e.actionType);
             const href = e.vehicleId
-              ? `/vehicles/${e.vehicleId}`
+              ? vehicleDetailHref(e.vehicleId, pathname)
               : "/admin/activity";
             return (
               <li key={e.id}>

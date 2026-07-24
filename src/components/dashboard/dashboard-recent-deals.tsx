@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/contexts/auth-context";
 import { salesService } from "@/lib/services/sales-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { formatCurrency } from "@/lib/utils";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 
 interface DealRow extends SalesDeal {
   vehicle: Vehicle | null;
@@ -46,6 +47,7 @@ function fmtDate(iso: string): string {
 export function DashboardRecentDeals() {
   const { company } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const [deals, setDeals] = useState<SalesDeal[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
 
@@ -121,7 +123,8 @@ export function DashboardRecentDeals() {
                   <tr
                     key={r.id}
                     onClick={() =>
-                      r.vehicle && router.push(`/vehicles/${r.vehicle.id}`)
+                      r.vehicle &&
+                      router.push(vehicleDetailHref(r.vehicle.id, pathname))
                     }
                     className="cursor-pointer border-b border-border/60 transition-colors last:border-0 hover:bg-accent/40"
                   >

@@ -22,6 +22,7 @@ import {
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { dealerPartnerService } from "@/lib/services/dealer-partner-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type { DealerPartner, Vehicle, VehicleStatus } from "@/lib/types";
 import { VEHICLE_STATUSES } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
@@ -844,7 +845,7 @@ export function VehicleSheet({
   /** Open a vehicle's detail page, stamping the originating list path as
    *  `?from=` so the detail Back button returns here (not always Inventory). */
   function openVehicle(id: string) {
-    router.push(`/vehicles/${id}?from=${encodeURIComponent(pathname)}`);
+    router.push(vehicleDetailHref(id, pathname));
   }
 
   function toggleRow(id: string) {

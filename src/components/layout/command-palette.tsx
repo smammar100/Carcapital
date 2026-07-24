@@ -16,12 +16,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Command } from "cmdk";
 import { Car, CornerDownLeft, Plus, UserPlus } from "lucide-react";
 import { SIDEBAR_GROUPS } from "@/components/layout/sidebar-config";
 import { usePermissions } from "@/hooks/use-permissions";
 import { createClient } from "@/lib/supabase/client";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type { Capability } from "@/lib/capabilities";
 
 interface VehicleHit {
@@ -55,6 +56,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 export function CommandPalette() {
   const router = useRouter();
+  const pathname = usePathname();
   const { can, isSuperUser } = usePermissions();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -211,7 +213,7 @@ export function CommandPalette() {
                 // Server-filtered rows must always survive cmdk's client
                 // filter — include the live query in the value so it matches.
                 value={`vehicle ${query} ${v.registration}`}
-                onSelect={() => go(`/vehicles/${v.id}`)}
+                onSelect={() => go(vehicleDetailHref(v.id, pathname))}
                 className="flex cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-2 text-sm data-[selected=true]:bg-muted"
               >
                 <Car className="h-4 w-4 text-muted-foreground" />

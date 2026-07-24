@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { FileText, Image as ImageIcon, Paperclip, Plus, Trash2 } from "lucide-react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ import type {
 } from "@/lib/types";
 import { INVOICE_KIND_LABELS } from "@/lib/types";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { ExternalInvoiceForm } from "./external-invoice-form";
 
 interface Props {
@@ -41,6 +43,7 @@ interface Props {
  * Delete actions gated by `external_invoice:*` caps.
  */
 export function ExternalInvoiceList({ kind }: Props) {
+  const pathname = usePathname();
   const { company, user } = useAuth();
   const { can, isSuperUser } = usePermissions();
   const canCreate = isSuperUser || can("external_invoice:create");
@@ -212,7 +215,7 @@ export function ExternalInvoiceList({ kind }: Props) {
                     <td className="px-3 py-2 align-top text-xs">
                       {veh ? (
                         <Link
-                          href={`/vehicles/${veh.id}`}
+                          href={vehicleDetailHref(veh.id, pathname)}
                           className="font-medium hover:underline"
                         >
                           {veh.stockId}

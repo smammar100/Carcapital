@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   Wrench,
   Plus,
@@ -19,6 +19,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { maintenanceService } from "@/lib/services/maintenance-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { vendorService } from "@/lib/services/vendor-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { authService } from "@/lib/services/auth-service";
 import type {
   MaintenanceJob,
@@ -109,6 +110,7 @@ function UrgencyBadge({ urgency }: { urgency: Urgency }) {
 
 export default function MaintenancePage() {
   const router = useRouter();
+  const pathname = usePathname();
   const { confirm, confirmDialog } = useConfirm();
   const { user, company } = useAuth();
   const [jobs, setJobs] = useState<MaintenanceJob[] | null>(null);
@@ -313,7 +315,7 @@ export default function MaintenancePage() {
                               {v ? (
                                 <>
                                   <Link
-                                    href={`/vehicles/${v.id}`}
+                                    href={vehicleDetailHref(v.id, pathname)}
                                     className="truncate font-mono text-base font-bold tracking-tight hover:underline"
                                   >
                                     {formatRegPlate(v.registration)}

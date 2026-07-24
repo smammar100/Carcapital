@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Clock, Download, MoveRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
   type User,
 } from "@/lib/types";
 import { locationService } from "@/lib/services/location-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { exportCsv } from "@/components/data-grid";
 import { LocationBadge } from "./location-badge";
 
@@ -115,6 +117,7 @@ export function LocationTab({
   refreshToken = 0,
   onRequestMove,
 }: LocationTabProps) {
+  const pathname = usePathname();
   const [rows, setRows] = useState<TabRow[] | null>(null);
   const [query, setQuery] = useState("");
   const [filterId, setFilterId] = useState<UUID | null>(null);
@@ -302,7 +305,7 @@ export function LocationTab({
                 <RegPlate registration={r.registration} size="sm" />
                 <div className="min-w-0 flex-1">
                   <Link
-                    href={`/vehicles/${r.id}`}
+                    href={vehicleDetailHref(r.id, pathname)}
                     className="block truncate text-sm font-medium hover:underline"
                   >
                     {r.make} {r.model}

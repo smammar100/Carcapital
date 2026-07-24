@@ -8,6 +8,7 @@ import { HealthIndicator } from "./health-indicator";
 import { useAuth } from "@/contexts/auth-context";
 import { useNotifications } from "@/contexts/notifications-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { toast } from "@/lib/toast";
 
 export function AppHeader() {
@@ -25,7 +26,7 @@ export function AppHeader() {
     if (!trimmed) return;
     const v = await vehicleService.getByRegistration(trimmed);
     if (v) {
-      router.push(`/vehicles/${v.id}`);
+      router.push(vehicleDetailHref(v.id, pathname));
       setSearchValue("");
     } else {
       router.push(`/vehicles?q=${encodeURIComponent(trimmed)}`);

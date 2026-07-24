@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Banknote,
   Calendar,
@@ -27,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { activityService } from "@/lib/services/activity-service";
 import { authService } from "@/lib/services/auth-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
+import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import type {
   ActivityActionType,
   ActivityLogEntry,
@@ -147,6 +149,7 @@ function dayLabel(iso: string): string {
 const PAGE_SIZE = 100;
 
 export default function ActivityLogPage() {
+  const pathname = usePathname();
   const { company } = useAuth();
   const [entries, setEntries] = useState<ActivityLogEntry[] | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -326,7 +329,7 @@ export default function ActivityLogPage() {
                             <span className="font-medium">{e.description}</span>
                             {vehicle && (
                               <Link
-                                href={`/vehicles/${vehicle.id}`}
+                                href={vehicleDetailHref(vehicle.id, pathname)}
                                 className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground/80 hover:text-primary"
                               >
                                 {vehicle.registration}
