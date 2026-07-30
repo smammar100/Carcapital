@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import { toast } from "@/lib/toast";
+import { useAutoFocus } from "@/hooks/use-auto-focus";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,10 +63,13 @@ export function VendorInlineAdd({
   const [speciality, setSpeciality] = useState<string>("general");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  // Ids so each <Label> actually focuses its control on click.
   const baseId = useId();
   const nameId = `${baseId}-name`;
   const specialityId = `${baseId}-speciality`;
   const phoneId = `${baseId}-phone`;
+  // Desktop-only focus on open — see useAutoFocus.
+  const nameRef = useAutoFocus<HTMLInputElement>(open);
 
   async function save() {
     const trimmed = name.trim();
@@ -135,15 +139,23 @@ export function VendorInlineAdd({
         <DialogHeader>
           <DialogTitle>New vendor</DialogTitle>
         </DialogHeader>
+        {/* A real <form> so Enter submits — previously these inputs sat loose
+            in the panel and Enter silently did nothing. */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
         <DialogPanel className="grid gap-4">
           <div className="grid gap-1.5">
             <Label htmlFor={nameId}>Name *</Label>
             <Input
               id={nameId}
+              ref={nameRef}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Ali's Garage"
-              autoFocus
             />
           </div>
           <div className="grid gap-1.5">
@@ -165,6 +177,7 @@ export function VendorInlineAdd({
             <Label htmlFor={phoneId}>Phone (optional)</Label>
             <Input
               id={phoneId}
+              type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="02085711234"
@@ -181,10 +194,19 @@ export function VendorInlineAdd({
           >
             Cancel
           </Button>
-          <Button type="button" onClick={save} disabled={saving}>
+          <Button type="button" onClick={() => void save()} loading={saving}>
             {saving ? "Saving…" : "Add vendor"}
           </Button>
         </DialogFooter>
+        {/* Clicking a <nord-button type="submit"> does submit — Nord wires that
+            up itself. But the element is not form-associated
+            (customElements.get("nord-button").formAssociated === false), so the
+            browser's IMPLICIT submission algorithm can't see it, and Enter in a
+            field would do nothing. This hidden native submit is what makes
+            Enter work; the visible Button stays type="button" so the two paths
+            can't both fire. */}
+        <button aria-hidden="true" className="hidden" tabIndex={-1} type="submit" />
+        </form>
       </DialogContent>
     </Dialog>
   );

@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { todoService } from "@/lib/services/todo-service";
 import { vendorService } from "@/lib/services/vendor-service";
 import { toast } from "@/lib/toast";
+import { useAutoFocus } from "@/hooks/use-auto-focus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -464,6 +465,8 @@ function AddRow({
   const [vendorId, setVendorId] = useState<string>("none");
   const [cost, setCost] = useState("");
   const [saving, setSaving] = useState(false);
+  // Desktop-only focus when the add-row appears — see useAutoFocus.
+  const descriptionRef = useAutoFocus<HTMLInputElement>();
 
   function submit() {
     const desc = description.trim();
@@ -482,7 +485,7 @@ function AddRow({
   return (
     <div className="flex flex-wrap items-center gap-2 bg-muted/20 px-4 py-2.5">
       <Input
-        autoFocus
+        ref={descriptionRef}
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         onKeyDown={(e) => {

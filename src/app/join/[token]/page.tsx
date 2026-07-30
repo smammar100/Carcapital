@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "@/lib/toast";
+import { useAutoFocusField } from "@/hooks/use-auto-focus";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,10 @@ export default function JoinPage() {
     resolver: zodResolver(schema),
     defaultValues: { name: "", email: "", password: "", confirm: "" },
   });
+
+  // Focus the field on desktop only — see useAutoFocusField. Targets "email"
+  // rather than the first field, matching the previous autoFocus placement.
+  useAutoFocusField(form.setFocus, "email");
 
   async function onSubmit(values: FormValues) {
     try {
@@ -132,7 +137,6 @@ export default function JoinPage() {
                         <Input
                           type="email"
                           autoComplete="email"
-                          autoFocus
                           {...field}
                         />
                       </FormControl>

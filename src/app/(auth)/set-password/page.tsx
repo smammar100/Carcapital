@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "@/lib/toast";
+import { useAutoFocusField } from "@/hooks/use-auto-focus";
 import { createClient } from "@/lib/supabase/client";
 import { useAuth } from "@/contexts/auth-context";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,9 @@ export default function SetPasswordPage() {
     resolver: zodResolver(schema),
     defaultValues: { password: "", confirm: "" },
   });
+
+  // Focus the field on desktop only — see useAutoFocusField.
+  useAutoFocusField(form.setFocus, "password");
 
   async function onSubmit(values: FormValues) {
     const supabase = createClient();
@@ -117,7 +121,6 @@ export default function SetPasswordPage() {
                       <Input
                         type="password"
                         autoComplete="new-password"
-                        autoFocus
                         {...field}
                       />
                     </FormControl>

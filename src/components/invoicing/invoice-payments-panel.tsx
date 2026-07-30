@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { useAutoFocus } from "@/hooks/use-auto-focus";
 
 const METHODS: [DepositMethod, string][] = [
   ["bank_transfer", "Bank Transfer"],
@@ -54,6 +55,8 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
   const [open, setOpen] = useState(true);
   const [adding, setAdding] = useState(false);
   const [amount, setAmount] = useState("");
+  // Desktop-only focus when the add-payment row opens — see useAutoFocus.
+  const amountRef = useAutoFocus<HTMLInputElement>(adding);
   const [paidOn, setPaidOn] = useState(() =>
     new Date().toISOString().slice(0, 10),
   );
@@ -247,7 +250,7 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
                 <Label htmlFor={amountId} className="text-xs">Amount</Label>
                 <Input
                   id={amountId}
-                  autoFocus
+                  ref={amountRef}
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   onKeyDown={(e) => {

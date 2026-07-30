@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "@/lib/toast";
+import { useAutoFocusField } from "@/hooks/use-auto-focus";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,6 +33,9 @@ export default function ForgotPasswordPage() {
     resolver: zodResolver(schema),
     defaultValues: { email: "" },
   });
+
+  // Focus the field on desktop only — see useAutoFocusField.
+  useAutoFocusField(form.setFocus, "email", !sent);
 
   async function onSubmit(values: FormValues) {
     const supabase = createClient();
@@ -93,7 +97,6 @@ export default function ForgotPasswordPage() {
                           type="email"
                           autoComplete="email"
                           placeholder="you@carcapital.uk"
-                          autoFocus
                           {...field}
                         />
                       </FormControl>

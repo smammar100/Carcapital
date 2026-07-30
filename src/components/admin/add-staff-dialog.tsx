@@ -23,6 +23,7 @@ import {
   suggestUsername,
 } from "@/lib/auth/username";
 import { toast } from "@/lib/toast";
+import { useAutoFocus } from "@/hooks/use-auto-focus";
 
 // Crypto-random, human-relayable temporary password (no ambiguous chars).
 function generatePassword(): string {
@@ -50,6 +51,9 @@ interface Props {
  * flat view list on the right (Linear / Height-style settings dialog).
  */
 export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
+  // Focus the first field when the dialog opens — desktop only, so a phone
+  // doesn't get the keyboard thrown at it. See useAutoFocus.
+  const nameRef = useAutoFocus<HTMLInputElement>(open);
   const [name, setName] = useState("");
   // null => follow the auto-suggestion derived from `name`; string => admin-edited.
   const [usernameOverride, setUsernameOverride] = useState<string | null>(null);
@@ -224,7 +228,7 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Ahmed Khan"
-                    autoFocus
+                    ref={nameRef}
                     data-testid="add-staff-name"
                   />
                 </div>
