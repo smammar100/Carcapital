@@ -344,11 +344,28 @@
 
   /* :root pins --muted-foreground to a literal oklch() for the light-mode
      contrast fix (GEN-58), which would otherwise leak that light value into
-     dark mode — this block only re-declares --n-color-*, so the var()
-     indirection has to be restored explicitly. Dark's own weaker text
-     (rgb 143,148,158) already clears AA on every surface (4.78 on --muted),
-     so it needs no nudge. */
-  --muted-foreground: var(--n-color-text-weaker);
+     dark mode — this block only re-declares --n-color-*, so the value has to
+     be restated here.
+
+     Nord's dark weaker text is rgb(143,148,158) = oklch(0.666 0.016 264.46).
+     It clears WCAG 2 comfortably (5.12:1 on --muted, 5.87 on --background) but
+     reaches only APCA Lc 41–43 against the 60 floor for body text. That gap is
+     WCAG 2's known blind spot: it systematically overstates contrast for light
+     text on dark grounds, which is exactly this pairing. Raise LIGHTNESS ONLY
+     (0.666 → 0.785), holding chroma and hue: Lc 60.8 on --muted/--accent (its
+     worst surfaces, 8.20:1) and 62.9 on --background (9.35:1), with no shift
+     in tone. Still clearly subordinate to --foreground at L 0.90. */
+  --muted-foreground: oklch(0.785 0.016 264.46);
+
+  /* Nord's dark accent is rgb(42,70,157) = oklch(0.426 0.146 266.63). As a
+     FILL behind white text that is fine, so --primary keeps it — but --ring is
+     a focus indicator drawn AGAINST the dark canvas, where it measured 1.97:1
+     / Lc 11.8 on --background, well under the 3:1 WCAG 1.4.11 floor for
+     non-text UI. Keyboard focus was effectively invisible in dark mode.
+     Lightness only again (0.426 → 0.597), chroma and hue untouched: 4.31:1 /
+     Lc 32.5 on --background, 3.76 / 30.3 on --muted (worst case). Scoped to
+     --ring so --primary and the <nord-*> components keep Nord's own accent. */
+  --ring: oklch(0.597 0.146 266.63);
 }
 
 @layer base {
@@ -383,6 +400,53 @@
   h5,
   h6 {
     line-height: 1.1;
+    /* Default greedy wrapping breaks a two-line heading as "six words / one
+       word", and a stranded last word reads as a mistake. `balance` evens the
+       lines out. Cheap here: the browser only applies it up to a handful of
+       lines, which every heading in this app is. */
+    text-wrap: balance;
+  }
+
+  /* Selection is a design surface, not a browser default. Primary at 24% keeps
+     the brand in reading without dropping text below AA. Worst case is over
+     --muted, where --foreground still measures 12.22:1 / APCA Lc 77.6 in light
+     and 11.21:1 / Lc 81.9 in dark. Tailwind emits a solid-primary fallback
+     ahead of the color-mix version; that path is unreachable in practice,
+     since the table hover/selected states already require color-mix. */
+  ::selection {
+    background-color: --alpha(var(--color-primary) / 24%);
+  }
+
+  /* Nord ships `transition: all` on <nord-button> (verified:
+     getComputedStyle(btn).transitionProperty === "all"). That animates width,
+     height and every other property it touches, so any state change can drive
+     a layout recalculation. Author rules targeting the host outrank the
+     component's own :host rules, so we can narrow it to the properties Nord
+     actually animates without forking the component.
+
+     The same rule adds the press state the app was missing entirely — there
+     was not one :active transform anywhere, which is why buttons felt dead on
+     click. `scale` is used rather than `transform` so it can't collide with
+     any transform Nord sets, and 0.96 is the floor: below 0.95 reads as
+     exaggerated. */
+  nord-button {
+    transition-property: color, background-color, border-color, box-shadow,
+      opacity, scale;
+    transition-duration: 150ms;
+    transition-timing-function: ease-out;
+  }
+
+  nord-button:active:not([disabled]):not([loading]) {
+    scale: 0.96;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    nord-button {
+      transition-duration: 0s;
+    }
+    nord-button:active:not([disabled]):not([loading]) {
+      scale: 1;
+    }
   }
 
   code,
