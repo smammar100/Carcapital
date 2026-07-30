@@ -429,7 +429,12 @@ export function PhotosTab({ vehicle, onVehicleRefetch }: PhotosTabProps) {
                       void reorderTo(p.id);
                     }}
                     className={cn(
-                      "group relative aspect-[4/3] cursor-grab overflow-hidden rounded-lg border bg-muted active:cursor-grabbing",
+                      // The photo fills this tile edge-to-edge, so the tile's
+                      // own line IS the image's edge treatment: pure black/white
+                      // at 10%, not the tinted --border token. Drawn as an
+                      // inset outline rather than a ring so it can't collide
+                      // with the ring-2 ring-primary selection state below.
+                      "group relative aspect-[4/3] cursor-grab overflow-hidden rounded-lg bg-muted outline-1 -outline-offset-1 outline-black/10 active:cursor-grabbing dark:outline-white/10",
                       isSel && "ring-2 ring-primary ring-offset-1",
                       dragId === p.id && "opacity-40",
                       overId === p.id && "ring-2 ring-primary",

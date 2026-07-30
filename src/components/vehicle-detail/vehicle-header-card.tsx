@@ -102,7 +102,11 @@ export function VehicleHeaderCard({
             <img
               src={heroUrl}
               alt={`${vehicle.make} ${vehicle.model}`}
-              className="h-28 w-44 shrink-0 rounded-md border object-cover"
+              // Pure black/white inset outline, matching the VehicleImage
+              // fallback rendered directly below. `border` here was the tinted
+              // --border token, which picks up whatever surface sits behind the
+              // photo and reads as grime along the edge rather than a boundary.
+              className="-outline-offset-1 h-28 w-44 shrink-0 rounded-md object-cover outline-1 outline-black/10 dark:outline-white/10"
             />
           ) : (
             <VehicleImage

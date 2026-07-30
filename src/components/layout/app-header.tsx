@@ -67,7 +67,13 @@ export function AppHeader() {
 
         <HealthIndicator />
 
+        {/* Nord renders these square icon buttons at 36x36, under the 40px
+            desktop / 44px touch floor for a hit target. The ::before bleeds the
+            clickable area out to 44x44 without affecting layout. Neighbours sit
+            8px apart, so -4px per side makes the two areas meet exactly and
+            never overlap — the largest non-colliding extension. */}
         <nord-button
+          className="relative before:absolute before:-inset-1"
           square
           variant="plain"
           aria-label="Toggle dark mode"
@@ -81,6 +87,7 @@ export function AppHeader() {
 
         <nord-dropdown>
           <nord-button
+            className="relative before:absolute before:-inset-1"
             slot="toggle"
             square
             variant="plain"
