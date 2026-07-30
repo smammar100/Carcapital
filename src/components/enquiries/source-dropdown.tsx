@@ -24,6 +24,7 @@ interface SourceDropdownProps {
   onChange: (value: EnquirySourceValue) => void;
   placeholder?: string;
   invalid?: boolean;
+  id?: string;
 }
 
 /**
@@ -37,6 +38,7 @@ export function SourceDropdown({
   onChange,
   placeholder = "Choose source",
   invalid,
+  id,
 }: SourceDropdownProps) {
   const [open, setOpen] = useState(false);
   const selected = ENQUIRY_SOURCES.find((s) => s.value === value);
@@ -45,6 +47,7 @@ export function SourceDropdown({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           role="combobox"

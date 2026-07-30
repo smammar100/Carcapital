@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { toast } from "@/lib/toast";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -62,6 +62,10 @@ export function VendorInlineAdd({
   const [speciality, setSpeciality] = useState<string>("general");
   const [phone, setPhone] = useState("");
   const [saving, setSaving] = useState(false);
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const specialityId = `${baseId}-speciality`;
+  const phoneId = `${baseId}-phone`;
 
   async function save() {
     const trimmed = name.trim();
@@ -133,8 +137,9 @@ export function VendorInlineAdd({
         </DialogHeader>
         <DialogPanel className="grid gap-4">
           <div className="grid gap-1.5">
-            <Label>Name *</Label>
+            <Label htmlFor={nameId}>Name *</Label>
             <Input
+              id={nameId}
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Ali's Garage"
@@ -142,9 +147,9 @@ export function VendorInlineAdd({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label>Speciality</Label>
+            <Label htmlFor={specialityId}>Speciality</Label>
             <Select value={speciality} onValueChange={setSpeciality}>
-              <SelectTrigger className="w-full">
+              <SelectTrigger id={specialityId} className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -157,8 +162,9 @@ export function VendorInlineAdd({
             </Select>
           </div>
           <div className="grid gap-1.5">
-            <Label>Phone (optional)</Label>
+            <Label htmlFor={phoneId}>Phone (optional)</Label>
             <Input
+              id={phoneId}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="02085711234"

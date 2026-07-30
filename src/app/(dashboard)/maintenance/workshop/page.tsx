@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   Plus,
@@ -81,6 +81,17 @@ const STATUS_DOT: Record<MaintenanceStatus, string> = {
 };
 
 export default function WorkshopPage() {
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const phoneId = `${baseId}-phone`;
+  const regId = `${baseId}-reg`;
+  const descVehicleId = `${baseId}-desc-vehicle`;
+  const jobDescId = `${baseId}-job-desc`;
+  const assignedId = `${baseId}-assigned`;
+  const costId = `${baseId}-cost`;
+  const dateId = `${baseId}-date`;
+  const timeId = `${baseId}-time`;
+  const notesId = `${baseId}-notes`;
   const router = useRouter();
   const pathname = usePathname();
   const { confirm, confirmDialog } = useConfirm();
@@ -246,37 +257,40 @@ export default function WorkshopPage() {
             <form onSubmit={form.handleSubmit(onSubmit)}>
               <div className="grid gap-4 px-6 pb-2 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Customer name</Label>
-                  <Input {...form.register("customerName")} />
+                  <Label htmlFor={nameId}>Customer name</Label>
+                  <Input id={nameId} {...form.register("customerName")} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Customer phone</Label>
-                  <Input {...form.register("customerPhone")} />
+                  <Label htmlFor={phoneId}>Customer phone</Label>
+                  <Input id={phoneId} {...form.register("customerPhone")} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Vehicle reg</Label>
+                  <Label htmlFor={regId}>Vehicle reg</Label>
                   <Input
+                    id={regId}
                     {...form.register("vehicleReg")}
                     className="uppercase font-mono"
                     placeholder="AB12 CDE"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Vehicle description</Label>
+                  <Label htmlFor={descVehicleId}>Vehicle description</Label>
                   <Input
+                    id={descVehicleId}
                     {...form.register("vehicleDescription")}
                     placeholder="Vauxhall Corsa 2014"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <Label>Job description</Label>
+                  <Label htmlFor={jobDescId}>Job description</Label>
                   <Input
+                    id={jobDescId}
                     {...form.register("description")}
                     placeholder="AC re-gas + cabin filter"
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Assigned to</Label>
+                  <Label htmlFor={assignedId}>Assigned to</Label>
                   <Select
                     items={{
                       none: "Unassigned",
@@ -285,7 +299,7 @@ export default function WorkshopPage() {
                     value={form.watch("assignedTo")}
                     onValueChange={(v) => form.setValue("assignedTo", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={assignedId}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -299,24 +313,25 @@ export default function WorkshopPage() {
                   </Select>
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Estimated cost</Label>
+                  <Label htmlFor={costId}>Estimated cost</Label>
                   <Input
+                    id={costId}
                     type="number"
                     step="0.01"
                     {...form.register("estimatedCost")}
                   />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Date</Label>
-                  <Input type="date" {...form.register("scheduledDate")} />
+                  <Label htmlFor={dateId}>Date</Label>
+                  <Input id={dateId} type="date" {...form.register("scheduledDate")} />
                 </div>
                 <div className="flex flex-col gap-1.5">
-                  <Label>Time</Label>
-                  <Input type="time" {...form.register("scheduledTime")} />
+                  <Label htmlFor={timeId}>Time</Label>
+                  <Input id={timeId} type="time" {...form.register("scheduledTime")} />
                 </div>
                 <div className="flex flex-col gap-1.5 sm:col-span-2">
-                  <Label>Notes</Label>
-                  <Textarea {...form.register("notes")} className="min-h-16" />
+                  <Label htmlFor={notesId}>Notes</Label>
+                  <Textarea id={notesId} {...form.register("notes")} className="min-h-16" />
                 </div>
               </div>
               <DialogFooter>

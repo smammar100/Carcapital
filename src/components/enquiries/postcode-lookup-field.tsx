@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Label } from "@/components/ui/label";
 import { Loader2, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { usePostcodeLookup } from "@/hooks/use-postcode-lookup";
 import { notify } from "@/lib/toast";
 import { cn } from "@/lib/utils";
@@ -98,7 +98,7 @@ export function PostcodeLookupField({
         </Button>
       </div>
       <div className="sm:col-span-3">
-        <Label>Address</Label>
+        <p>Address</p>
         <div className="flex flex-col gap-2">
           {lines.map((line, i) => (
             <Input

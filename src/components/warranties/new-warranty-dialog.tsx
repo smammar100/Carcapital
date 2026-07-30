@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { cloneElement, isValidElement, useEffect, useId, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -105,6 +105,9 @@ export function NewWarrantyDialog({
 }: NewWarrantyDialogProps) {
   const { user, company } = useAuth();
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const vehicleFieldId = useId();
+  const providerFieldId = useId();
+  const durationFieldId = useId();
 
   const todayIso = new Date().toISOString().slice(0, 10);
 
@@ -213,7 +216,7 @@ export function NewWarrantyDialog({
             <h3 className="text-sm font-semibold">Vehicle &amp; customer</h3>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="flex flex-col gap-1.5">
-                <Label>Vehicle</Label>
+                <Label htmlFor={vehicleFieldId}>Vehicle</Label>
                 <Combobox
                   items={vehicles}
                   value={selectedVehicle}
@@ -227,6 +230,7 @@ export function NewWarrantyDialog({
                   }
                 >
                   <ComboboxInput
+                    id={vehicleFieldId}
                     placeholder="Pick a vehicle in stock"
                     startAddon={<Search />}
                     className="w-full"
@@ -278,14 +282,14 @@ export function NewWarrantyDialog({
               <h3 className="text-sm font-semibold">Provider</h3>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="flex flex-col gap-1.5">
-                  <Label>Provider</Label>
+                  <Label htmlFor={providerFieldId}>Provider</Label>
                   <Select
                     value={form.watch("provider") ?? ""}
                     onValueChange={(v) =>
                       form.setValue("provider", v, { shouldValidate: true })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={providerFieldId}>
                       <SelectValue placeholder="Choose provider" />
                     </SelectTrigger>
                     <SelectContent>
@@ -317,7 +321,7 @@ export function NewWarrantyDialog({
             <h3 className="text-sm font-semibold">Coverage</h3>
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="flex flex-col gap-1.5">
-                <Label>Duration</Label>
+                <Label htmlFor={durationFieldId}>Duration</Label>
                 <Select
                   items={Object.fromEntries(
                     DURATIONS.map((d) => [d.value, d.label]),
@@ -327,7 +331,7 @@ export function NewWarrantyDialog({
                     form.setValue("durationMonths", v, { shouldDirty: true })
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id={durationFieldId}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -408,12 +412,13 @@ function Field({
 }: {
   label: string;
   error?: string;
-  children: React.ReactNode;
+  children: React.ReactElement<{ id?: string }>;
 }) {
+  const id = useId();
   return (
     <div className="flex flex-col gap-1.5">
-      <Label>{label}</Label>
-      {children}
+      <Label htmlFor={id}>{label}</Label>
+      {isValidElement(children) ? cloneElement(children, { id }) : children}
       {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   );

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useForm, Controller } from "react-hook-form";
@@ -188,6 +188,41 @@ function deriveAtPriceIndicator(
 }
 
 export function ArrivalForm() {
+  const baseId = useId();
+  const registrationFieldId = `${baseId}-registration`;
+  const mileageFieldId = `${baseId}-mileage`;
+  const makeFieldId = `${baseId}-make`;
+  const modelFieldId = `${baseId}-model`;
+  const variantNameFieldId = `${baseId}-variant-name`;
+  const variantCodeFieldId = `${baseId}-variant-code`;
+  const yearFieldId = `${baseId}-year`;
+  const colourFieldId = `${baseId}-colour`;
+  const vehicleTypeFieldId = `${baseId}-vehicle-type`;
+  const bodyTypeFieldId = `${baseId}-body-type`;
+  const fuelTypeFieldId = `${baseId}-fuel-type`;
+  const transmissionFieldId = `${baseId}-transmission`;
+  const engineSizeFieldId = `${baseId}-engine-size`;
+  const motExpiryFieldId = `${baseId}-mot-expiry`;
+  const sellerNameFieldId = `${baseId}-seller-name`;
+  const sellerPhoneFieldId = `${baseId}-seller-phone`;
+  const sourceTypeFieldId = `${baseId}-source-type`;
+  const dealerPartnerFieldId = `${baseId}-dealer-partner`;
+  const localOrImportFieldId = `${baseId}-local-or-import`;
+  const auctionHouseFieldId = `${baseId}-auction-house`;
+  const ownedByFieldId = `${baseId}-owned-by`;
+  const invoiceDateFieldId = `${baseId}-invoice-date`;
+  const v5ReceivedFieldId = `${baseId}-v5-received`;
+  const serviceHistoryFieldId = `${baseId}-service-history`;
+  const numKeysFieldId = `${baseId}-num-keys`;
+  const lockNutFieldId = `${baseId}-lock-nut`;
+  const financeProviderFieldId = `${baseId}-finance-provider`;
+  const receivedDateFieldId = `${baseId}-received-date`;
+  const receivedByFieldId = `${baseId}-received-by`;
+  const newTodoDescriptionFieldId = `${baseId}-new-todo-description`;
+  const newTodoCostFieldId = `${baseId}-new-todo-cost`;
+  const warrantyCostFieldId = `${baseId}-warranty-cost`;
+  const minimumSalePriceFieldId = `${baseId}-minimum-sale-price`;
+  const listingPriceFieldId = `${baseId}-listing-price`;
   const { user, company } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -836,11 +871,12 @@ export function ArrivalForm() {
                 <div className="rounded-xl border bg-gradient-to-br from-primary/5 to-transparent p-4 sm:p-5">
                   <div className="flex flex-wrap items-end gap-x-4 gap-y-3">
                     <div className="min-w-0">
-                      <Label>Registration *</Label>
+                      <Label htmlFor={registrationFieldId}>Registration *</Label>
                       <div className="mt-1.5 flex items-center gap-2">
                         <div className="relative w-[200px]">
                           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
                           <Input
+                            id={registrationFieldId}
                             {...form.register("registration")}
                             onBlur={() => void handleDvlaLookup()}
                             placeholder="GK66 6NX"
@@ -917,37 +953,37 @@ export function ArrivalForm() {
                   <StepHeader icon={Car} title="Vehicle Identity" hint="Auto-filled from DVLA + AutoTrader" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                      <Label>Mileage *</Label>
-                      <Input type="number" {...form.register("mileage")} />
+                      <Label htmlFor={mileageFieldId}>Mileage *</Label>
+                      <Input id={mileageFieldId} type="number" {...form.register("mileage")} />
                     </div>
-                    <FieldShell label="Make *" auto={dvlaState === "found"}>
-                      <Input {...form.register("make")} />
+                    <FieldShell label="Make *" htmlFor={makeFieldId} auto={dvlaState === "found"}>
+                      <Input id={makeFieldId} {...form.register("make")} />
                     </FieldShell>
-                    <FieldShell label="Model *" auto={dvlaState === "found"}>
-                      <Input {...form.register("model")} />
+                    <FieldShell label="Model *" htmlFor={modelFieldId} auto={dvlaState === "found"}>
+                      <Input id={modelFieldId} {...form.register("model")} />
                     </FieldShell>
                     <div className="flex flex-col gap-2">
-                      <Label>Variant Name</Label>
-                      <Input {...form.register("variantName")} />
+                      <Label htmlFor={variantNameFieldId}>Variant Name</Label>
+                      <Input id={variantNameFieldId} {...form.register("variantName")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Variant Code</Label>
-                      <Input {...form.register("variantCode")} />
+                      <Label htmlFor={variantCodeFieldId}>Variant Code</Label>
+                      <Input id={variantCodeFieldId} {...form.register("variantCode")} />
                     </div>
-                    <FieldShell label="Year" auto={dvlaState === "found"}>
-                      <Input type="number" {...form.register("year")} />
+                    <FieldShell label="Year" htmlFor={yearFieldId} auto={dvlaState === "found"}>
+                      <Input id={yearFieldId} type="number" {...form.register("year")} />
                     </FieldShell>
-                    <FieldShell label="Colour" auto={dvlaState === "found"}>
-                      <Input {...form.register("colour")} />
+                    <FieldShell label="Colour" htmlFor={colourFieldId} auto={dvlaState === "found"}>
+                      <Input id={colourFieldId} {...form.register("colour")} />
                     </FieldShell>
                     <div className="flex flex-col gap-2">
-                      <Label>Vehicle Type</Label>
+                      <Label htmlFor={vehicleTypeFieldId}>Vehicle Type</Label>
                       <Controller
                         control={form.control}
                         name="vehicleType"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={vehicleTypeFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -962,13 +998,13 @@ export function ArrivalForm() {
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Body Type</Label>
+                      <Label htmlFor={bodyTypeFieldId}>Body Type</Label>
                       <Controller
                         control={form.control}
                         name="bodyType"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={bodyTypeFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -982,13 +1018,13 @@ export function ArrivalForm() {
                         )}
                       />
                     </div>
-                    <FieldShell label="Fuel Type" auto={dvlaState === "found"}>
+                    <FieldShell label="Fuel Type" htmlFor={fuelTypeFieldId} auto={dvlaState === "found"}>
                       <Controller
                         control={form.control}
                         name="fuelType"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={fuelTypeFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1003,13 +1039,13 @@ export function ArrivalForm() {
                       />
                     </FieldShell>
                     <div className="flex flex-col gap-2">
-                      <Label>Transmission</Label>
+                      <Label htmlFor={transmissionFieldId}>Transmission</Label>
                       <Controller
                         control={form.control}
                         name="transmission"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={transmissionFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1024,12 +1060,12 @@ export function ArrivalForm() {
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Engine Size CC</Label>
-                      <Input type="number" {...form.register("engineSizeCC")} />
+                      <Label htmlFor={engineSizeFieldId}>Engine Size CC</Label>
+                      <Input id={engineSizeFieldId} type="number" {...form.register("engineSizeCC")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>MOT Expiry</Label>
-                      <Input type="date" {...form.register("motExpiry")} />
+                      <Label htmlFor={motExpiryFieldId}>MOT Expiry</Label>
+                      <Input id={motExpiryFieldId} type="date" {...form.register("motExpiry")} />
                     </div>
                   </div>
                 </div>
@@ -1092,21 +1128,21 @@ export function ArrivalForm() {
                   <StepHeader icon={FileText} title="Source / Seller" hint="Where the car came from" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                      <Label>Seller Name *</Label>
-                      <Input {...form.register("sellerName")} />
+                      <Label htmlFor={sellerNameFieldId}>Seller Name *</Label>
+                      <Input id={sellerNameFieldId} {...form.register("sellerName")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Seller Phone</Label>
-                      <Input {...form.register("sellerPhone")} />
+                      <Label htmlFor={sellerPhoneFieldId}>Seller Phone</Label>
+                      <Input id={sellerPhoneFieldId} {...form.register("sellerPhone")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Source Type</Label>
+                      <Label htmlFor={sourceTypeFieldId}>Source Type</Label>
                       <Controller
                         control={form.control}
                         name="purchaseSource"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={sourceTypeFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1122,9 +1158,9 @@ export function ArrivalForm() {
                     </div>
                     {watchedSource === "dealer" && (
                       <div className="flex flex-col gap-2">
-                        <Label>Dealer Partner</Label>
+                        <Label htmlFor={dealerPartnerFieldId}>Dealer Partner</Label>
                         <Select value={selectedPartnerId} onValueChange={setSelectedPartnerId}>
-                          <SelectTrigger className="w-full">
+                          <SelectTrigger id={dealerPartnerFieldId} className="w-full">
                             <SelectValue placeholder="Select dealer partner…" />
                           </SelectTrigger>
                           <SelectContent>
@@ -1145,13 +1181,13 @@ export function ArrivalForm() {
                       </div>
                     )}
                     <div className="flex flex-col gap-2">
-                      <Label>Local or Import</Label>
+                      <Label htmlFor={localOrImportFieldId}>Local or Import</Label>
                       <Controller
                         control={form.control}
                         name="localOrImport"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={localOrImportFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1164,13 +1200,13 @@ export function ArrivalForm() {
                     </div>
                     {watchedSource === "auction" && (
                       <div className="flex flex-col gap-2">
-                        <Label>Auction House</Label>
+                        <Label htmlFor={auctionHouseFieldId}>Auction House</Label>
                         <Controller
                           control={form.control}
                           name="auctionHouse"
                           render={({ field }) => (
                             <Select value={field.value} onValueChange={field.onChange}>
-                              <SelectTrigger className="w-full">
+                              <SelectTrigger id={auctionHouseFieldId} className="w-full">
                                 <SelectValue placeholder="Pick an auction house" />
                               </SelectTrigger>
                               <SelectContent>
@@ -1186,12 +1222,12 @@ export function ArrivalForm() {
                       </div>
                     )}
                     <div className="flex flex-col gap-2">
-                      <Label>Owned By</Label>
-                      <Input {...form.register("ownedBy")} />
+                      <Label htmlFor={ownedByFieldId}>Owned By</Label>
+                      <Input id={ownedByFieldId} {...form.register("ownedBy")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Invoice Date</Label>
-                      <Input type="date" {...form.register("invoiceDate")} />
+                      <Label htmlFor={invoiceDateFieldId}>Invoice Date</Label>
+                      <Input id={invoiceDateFieldId} type="date" {...form.register("invoiceDate")} />
                     </div>
                   </div>
                 </div>
@@ -1200,25 +1236,25 @@ export function ArrivalForm() {
                   <StepHeader icon={FileText} title="Documentation" hint="Paperwork & keys" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                      <Label>V5 Received</Label>
+                      <Label htmlFor={v5ReceivedFieldId}>V5 Received</Label>
                       <div className="flex h-9 items-center rounded-md border bg-background px-3">
                         <Controller
                           control={form.control}
                           name="v5Received"
                           render={({ field }) => (
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            <Switch id={v5ReceivedFieldId} checked={field.value} onCheckedChange={field.onChange} />
                           )}
                         />
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Service History</Label>
+                      <Label htmlFor={serviceHistoryFieldId}>Service History</Label>
                       <Controller
                         control={form.control}
                         name="serviceHistory"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={serviceHistoryFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1233,29 +1269,29 @@ export function ArrivalForm() {
                       />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Number of Keys</Label>
-                      <Input type="number" min={1} max={4} {...form.register("numKeys")} />
+                      <Label htmlFor={numKeysFieldId}>Number of Keys</Label>
+                      <Input id={numKeysFieldId} type="number" min={1} max={4} {...form.register("numKeys")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Lock Nut</Label>
+                      <Label htmlFor={lockNutFieldId}>Lock Nut</Label>
                       <div className="flex h-9 items-center rounded-md border bg-background px-3">
                         <Controller
                           control={form.control}
                           name="lockNut"
                           render={({ field }) => (
-                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                            <Switch id={lockNutFieldId} checked={field.value} onCheckedChange={field.onChange} />
                           )}
                         />
                       </div>
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Finance Provider</Label>
+                      <Label htmlFor={financeProviderFieldId}>Finance Provider</Label>
                       <Controller
                         control={form.control}
                         name="financeProvider"
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-full">
+                            <SelectTrigger id={financeProviderFieldId} className="w-full">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
@@ -1313,17 +1349,17 @@ export function ArrivalForm() {
                   <StepHeader icon={Tag} title="Receiving" hint="When the car arrived" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-2">
                     <div className="flex flex-col gap-2">
-                      <Label>Received Date *</Label>
-                      <Input type="date" {...form.register("receivedDate")} />
+                      <Label htmlFor={receivedDateFieldId}>Received Date *</Label>
+                      <Input id={receivedDateFieldId} type="date" {...form.register("receivedDate")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Received By *</Label>
+                      <Label htmlFor={receivedByFieldId}>Received By *</Label>
                       <Controller
                         control={form.control}
                         name="receivedBy"
                         render={({ field }) => (
                           <EmployeeCombobox
-                            id="received-by"
+                            id={receivedByFieldId}
                             users={users}
                             value={users.find((u) => u.id === field.value) ?? null}
                             onChange={(u) => field.onChange(u?.id ?? "")}
@@ -1365,15 +1401,17 @@ export function ArrivalForm() {
                   )}
                   <div className="mt-4 flex items-end gap-2">
                     <div className="flex flex-1 flex-col gap-2">
-                      <Label>Description</Label>
+                      <Label htmlFor={newTodoDescriptionFieldId}>Description</Label>
                       <Input
+                        id={newTodoDescriptionFieldId}
                         value={newTodo.description}
                         onChange={(e) => setNewTodo((p) => ({ ...p, description: e.target.value }))}
                       />
                     </div>
                     <div className="flex w-24 flex-col gap-2">
-                      <Label>Cost £</Label>
+                      <Label htmlFor={newTodoCostFieldId}>Cost £</Label>
                       <Input
+                        id={newTodoCostFieldId}
                         type="number"
                         step="0.01"
                         value={newTodo.cost}
@@ -1391,16 +1429,16 @@ export function ArrivalForm() {
                   <StepHeader icon={Tag} title="Pricing" hint="Optional, can set later" />
                   <div className="mt-4 grid gap-x-4 gap-y-4 sm:grid-cols-3">
                     <div className="flex flex-col gap-2">
-                      <Label>Warranty Cost £</Label>
-                      <Input type="number" step="0.01" {...form.register("warrantyCost")} />
+                      <Label htmlFor={warrantyCostFieldId}>Warranty Cost £</Label>
+                      <Input id={warrantyCostFieldId} type="number" step="0.01" {...form.register("warrantyCost")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Minimum Sale Price £</Label>
-                      <Input type="number" step="0.01" {...form.register("minimumSalePrice")} />
+                      <Label htmlFor={minimumSalePriceFieldId}>Minimum Sale Price £</Label>
+                      <Input id={minimumSalePriceFieldId} type="number" step="0.01" {...form.register("minimumSalePrice")} />
                     </div>
                     <div className="flex flex-col gap-2">
-                      <Label>Listing Price £</Label>
-                      <Input type="number" step="0.01" {...form.register("listingPrice")} />
+                      <Label htmlFor={listingPriceFieldId}>Listing Price £</Label>
+                      <Input id={listingPriceFieldId} type="number" step="0.01" {...form.register("listingPrice")} />
                     </div>
                   </div>
                 </div>
@@ -1583,17 +1621,19 @@ function StepHeader({
 /** Field wrapper that shows a small "DVLA" pill above auto-filled fields. */
 function FieldShell({
   label,
+  htmlFor,
   auto,
   children,
 }: {
   label: string;
+  htmlFor?: string;
   auto?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="relative flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <Label>{label}</Label>
+        <Label htmlFor={htmlFor}>{label}</Label>
         {auto && (
           <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-1.5 py-0.5 text-2xs font-medium text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">
             <Sparkles className="size-2.5" /> DVLA
@@ -1677,16 +1717,20 @@ function CostRow({
 }) {
   const value = Number(form.watch(name)) || 0;
   const vat = showVat ? Math.round(value * VAT_RATE * 100) / 100 : null;
+  const fieldId = `cost-row-${name}`;
   return (
     <tr className="border-b last:border-b-0">
       <td className="py-1.5 pr-2">
-        <Label className="text-xs font-normal">{label}</Label>
+        <Label className="text-xs font-normal" htmlFor={fieldId}>
+          {label}
+        </Label>
       </td>
       <td className="py-1.5 pr-2 text-right text-xs text-muted-foreground tabular-nums">
         {vat !== null ? formatCurrency(vat) : "—"}
       </td>
       <td className="py-1.5 pr-2 text-right">
         <Input
+          id={fieldId}
           type="number"
           step="0.01"
           {...form.register(name)}

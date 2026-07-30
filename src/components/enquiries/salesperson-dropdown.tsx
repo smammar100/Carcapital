@@ -17,6 +17,7 @@ interface SalespersonDropdownProps {
   value: string;
   onChange: (userId: string) => void;
   invalid?: boolean;
+  id?: string;
 }
 
 /**
@@ -28,6 +29,7 @@ export function SalespersonDropdown({
   value,
   onChange,
   invalid,
+  id,
 }: SalespersonDropdownProps) {
   const { company } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
@@ -57,6 +59,7 @@ export function SalespersonDropdown({
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
+        id={id}
         aria-invalid={invalid}
         className={cn(invalid && "border-destructive")}
       >

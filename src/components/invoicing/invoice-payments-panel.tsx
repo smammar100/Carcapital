@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { ChevronDown, Plus, Trash2 } from "lucide-react";
 import type { DepositMethod, Invoice } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
@@ -59,6 +59,10 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
   );
   const [method, setMethod] = useState<DepositMethod>("bank_transfer");
   const [saving, setSaving] = useState(false);
+  const baseId = useId();
+  const amountId = `${baseId}-amount`;
+  const dateId = `${baseId}-date`;
+  const methodId = `${baseId}-method`;
 
   useEffect(() => {
     void invoiceReceiptService
@@ -240,8 +244,9 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
           {adding ? (
             <div className="flex flex-wrap items-end gap-2 border-t px-3 py-2">
               <div className="w-28">
-                <Label className="text-xs">Amount</Label>
+                <Label htmlFor={amountId} className="text-xs">Amount</Label>
                 <Input
+                  id={amountId}
                   autoFocus
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
@@ -255,8 +260,9 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
                 />
               </div>
               <div className="w-36">
-                <Label className="text-xs">Date</Label>
+                <Label htmlFor={dateId} className="text-xs">Date</Label>
                 <Input
+                  id={dateId}
                   type="date"
                   value={paidOn}
                   onChange={(e) => setPaidOn(e.target.value)}
@@ -264,13 +270,13 @@ export function InvoicePaymentsPanel({ invoice, onChanged }: Props) {
                 />
               </div>
               <div className="w-36">
-                <Label className="text-xs">Method</Label>
+                <Label htmlFor={methodId} className="text-xs">Method</Label>
                 <Select
                   items={Object.fromEntries(METHODS)}
                   value={method}
                   onValueChange={(v) => setMethod(v as DepositMethod)}
                 >
-                  <SelectTrigger className="h-8 text-sm">
+                  <SelectTrigger id={methodId} className="h-8 text-sm">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

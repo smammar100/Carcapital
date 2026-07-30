@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { use, useCallback, useEffect, useId, useMemo, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, ChevronDown, Plus } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
@@ -62,6 +62,14 @@ export default function DealerPartnerDetailPage({
   const [notesDraft, setNotesDraft] = useState("");
   const [edit, setEdit] = useState<DraftPartner | null>(null);
   const [busy, setBusy] = useState(false);
+  const notesId = useId();
+  const editIdBase = useId();
+  const editNameId = `${editIdBase}-name`;
+  const editPhoneId = `${editIdBase}-phone`;
+  const editEmailId = `${editIdBase}-email`;
+  const editCompanyNameId = `${editIdBase}-company-name`;
+  const editCompanyAddressId = `${editIdBase}-company-address`;
+  const editVatNumberId = `${editIdBase}-vat-number`;
 
   const loadStock = useCallback(
     (cid: string) => {
@@ -355,8 +363,9 @@ export default function DealerPartnerDetailPage({
           </div>
 
           <Card className="flex flex-col gap-2 p-5">
-            <Label className="text-sm font-semibold">Notes</Label>
+            <Label htmlFor={notesId} className="text-sm font-semibold">Notes</Label>
             <Textarea
+              id={notesId}
               value={notesDraft}
               onChange={(e) => setNotesDraft(e.target.value)}
               className="min-h-24"
@@ -389,8 +398,9 @@ export default function DealerPartnerDetailPage({
               </DialogHeader>
               <div className="grid gap-3">
                 <div>
-                  <Label>Contact name</Label>
+                  <Label htmlFor={editNameId}>Contact name</Label>
                   <Input
+                    id={editNameId}
                     value={edit.name}
                     onChange={(e) =>
                       setEdit({ ...edit, name: e.target.value })
@@ -399,8 +409,9 @@ export default function DealerPartnerDetailPage({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <Label>Phone</Label>
+                    <Label htmlFor={editPhoneId}>Phone</Label>
                     <Input
+                      id={editPhoneId}
                       value={edit.phone}
                       onChange={(e) =>
                         setEdit({ ...edit, phone: e.target.value })
@@ -408,8 +419,9 @@ export default function DealerPartnerDetailPage({
                     />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label htmlFor={editEmailId}>Email</Label>
                     <Input
+                      id={editEmailId}
                       value={edit.email}
                       onChange={(e) =>
                         setEdit({ ...edit, email: e.target.value })
@@ -418,8 +430,9 @@ export default function DealerPartnerDetailPage({
                   </div>
                 </div>
                 <div>
-                  <Label>Company name</Label>
+                  <Label htmlFor={editCompanyNameId}>Company name</Label>
                   <Input
+                    id={editCompanyNameId}
                     value={edit.companyName}
                     onChange={(e) =>
                       setEdit({ ...edit, companyName: e.target.value })
@@ -427,8 +440,9 @@ export default function DealerPartnerDetailPage({
                   />
                 </div>
                 <div>
-                  <Label>Company address</Label>
+                  <Label htmlFor={editCompanyAddressId}>Company address</Label>
                   <Input
+                    id={editCompanyAddressId}
                     value={edit.companyAddress}
                     onChange={(e) =>
                       setEdit({ ...edit, companyAddress: e.target.value })
@@ -436,8 +450,9 @@ export default function DealerPartnerDetailPage({
                   />
                 </div>
                 <div>
-                  <Label>VAT number</Label>
+                  <Label htmlFor={editVatNumberId}>VAT number</Label>
                   <Input
+                    id={editVatNumberId}
                     value={edit.vatNumber}
                     onChange={(e) =>
                       setEdit({ ...edit, vatNumber: e.target.value })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -55,6 +55,12 @@ export function MarkPurchasedDialog({
 }: MarkPurchasedDialogProps) {
   const { user, company } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
+  const baseId = useId();
+  const purchaseDateId = `${baseId}-purchase-date`;
+  const purchasedById = `${baseId}-purchased-by`;
+  const providerReferenceId = `${baseId}-provider-reference`;
+  const amountPaidId = `${baseId}-amount-paid`;
+  const notesId = `${baseId}-notes`;
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -119,12 +125,16 @@ export function MarkPurchasedDialog({
           className="flex flex-col gap-4 px-6"
         >
           <div className="flex flex-col gap-1.5">
-            <Label>Purchase date</Label>
-            <Input type="date" {...form.register("purchaseDate")} />
+            <Label htmlFor={purchaseDateId}>Purchase date</Label>
+            <Input
+              id={purchaseDateId}
+              type="date"
+              {...form.register("purchaseDate")}
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Paid by</Label>
+            <Label htmlFor={purchasedById}>Paid by</Label>
             <Select
               items={Object.fromEntries(users.map((u) => [u.id, u.name]))}
               value={form.watch("purchasedBy")}
@@ -132,7 +142,7 @@ export function MarkPurchasedDialog({
                 form.setValue("purchasedBy", v, { shouldValidate: true })
               }
             >
-              <SelectTrigger>
+              <SelectTrigger id={purchasedById}>
                 <SelectValue placeholder="Pick a team member" />
               </SelectTrigger>
               <SelectContent>
@@ -151,16 +161,18 @@ export function MarkPurchasedDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Provider reference (optional)</Label>
+            <Label htmlFor={providerReferenceId}>Provider reference (optional)</Label>
             <Input
+              id={providerReferenceId}
               {...form.register("providerReference")}
               placeholder="Policy / quote no."
             />
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Amount paid (£)</Label>
+            <Label htmlFor={amountPaidId}>Amount paid (£)</Label>
             <Input
+              id={amountPaidId}
               type="number"
               step="0.01"
               {...form.register("amountPaid")}
@@ -168,8 +180,12 @@ export function MarkPurchasedDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Notes (optional)</Label>
-            <Textarea {...form.register("notes")} className="min-h-16" />
+            <Label htmlFor={notesId}>Notes (optional)</Label>
+            <Textarea
+              id={notesId}
+              {...form.register("notes")}
+              className="min-h-16"
+            />
           </div>
 
           <DialogFooter className="-mx-6 mt-2">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { useFormContext, type FieldValues } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,12 @@ interface EnquiryDetailsFieldsProps {
 export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps) {
   const form = useFormContext<FieldValues>();
   const errors = form.formState.errors;
+  const baseId = useId();
+  const sourceId = `${baseId}-source`;
+  const salespersonId = `${baseId}-salesperson`;
+  const typeId = `${baseId}-type`;
+  const nextActionDueId = `${baseId}-next-action-due`;
+  const notesId = `${baseId}-notes`;
 
   return (
     <div className="flex flex-col gap-4">
@@ -41,8 +48,9 @@ export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label>Source</Label>
+          <Label htmlFor={sourceId}>Source</Label>
           <SourceDropdown
+            id={sourceId}
             value={(form.watch("source") as EnquirySourceValue) ?? ""}
             onChange={(v) =>
               form.setValue("source", v, { shouldValidate: true, shouldDirty: true })
@@ -57,8 +65,9 @@ export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps
         </div>
 
         <div>
-          <Label>Salesperson</Label>
+          <Label htmlFor={salespersonId}>Salesperson</Label>
           <SalespersonDropdown
+            id={salespersonId}
             value={(form.watch("salespersonId") as string) ?? ""}
             onChange={(v) =>
               form.setValue("salespersonId", v, {
@@ -76,8 +85,9 @@ export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps
         </div>
 
         <div>
-          <Label>Type</Label>
+          <Label htmlFor={typeId}>Type</Label>
           <EnquiryTypeDropdown
+            id={typeId}
             value={(form.watch("type") as EnquiryType) ?? ""}
             onChange={(v) =>
               form.setValue("type", v, { shouldValidate: true, shouldDirty: true })
@@ -92,8 +102,9 @@ export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps
         </div>
 
         <div>
-          <Label>Next action due (optional)</Label>
+          <Label htmlFor={nextActionDueId}>Next action due (optional)</Label>
           <Input
+            id={nextActionDueId}
             type="datetime-local"
             {...form.register("nextActionDueAt")}
           />
@@ -119,8 +130,9 @@ export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps
       </div>
 
       <div>
-        <Label>Notes (optional)</Label>
+        <Label htmlFor={notesId}>Notes (optional)</Label>
         <Textarea
+          id={notesId}
           {...form.register("notes")}
           placeholder="Anything we should remember next time we speak…"
           className={cn("min-h-20", errors.notes && "border-destructive")}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Loader2, RefreshCw, Copy, Search, UserPlus } from "lucide-react";
 import {
   Dialog,
@@ -62,6 +62,10 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
     username: string;
     password: string;
   } | null>(null);
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const usernameId = `${baseId}-username`;
+  const passwordId = `${baseId}-password`;
 
   // Reset the form each time the dialog opens (component stays mounted for the
   // open/close animation, so a reset effect is required).
@@ -213,8 +217,9 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
               {/* Identity column */}
               <div className="flex flex-col gap-4 border-b p-5 sm:overflow-y-auto sm:border-b-0 sm:border-r">
                 <div>
-                  <Label className="text-sm font-medium">Name</Label>
+                  <Label htmlFor={nameId} className="text-sm font-medium">Name</Label>
                   <Input
+                    id={nameId}
                     className="mt-1.5"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
@@ -225,8 +230,9 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">Username</Label>
+                  <Label htmlFor={usernameId} className="text-sm font-medium">Username</Label>
                   <Input
+                    id={usernameId}
                     className="mt-1.5 font-mono"
                     value={username}
                     onChange={(e) =>
@@ -243,9 +249,10 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                 </div>
 
                 <div>
-                  <Label className="text-sm font-medium">Temporary password</Label>
+                  <Label htmlFor={passwordId} className="text-sm font-medium">Temporary password</Label>
                   <div className="mt-1.5 flex gap-2">
                     <Input
+                      id={passwordId}
                       className="flex-1 font-mono"
                       value={password}
                       readOnly

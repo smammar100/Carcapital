@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { useFormContext, type FieldValues } from "react-hook-form";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,12 +37,20 @@ const TITLES = ["Mr", "Mrs", "Ms", "Miss", "Mx", "Dr"] as const;
 export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) {
   const form = useFormContext<FieldValues>();
   const errors = form.formState.errors;
+  const baseId = useId();
+  const titleId = `${baseId}-title`;
+  const firstNameId = `${baseId}-first-name`;
+  const lastNameId = `${baseId}-last-name`;
+  const companyNameId = `${baseId}-company-name`;
+  const mobileId = `${baseId}-mobile`;
+  const homePhoneId = `${baseId}-home-phone`;
+  const emailId = `${baseId}-email`;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-6">
         <div className="sm:col-span-2">
-          <Label>Title</Label>
+          <Label htmlFor={titleId}>Title</Label>
           <Select
             value={(form.watch("title") as string) ?? ""}
             onValueChange={(v) =>
@@ -49,7 +58,7 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
             }
             disabled={readonly}
           >
-            <SelectTrigger>
+            <SelectTrigger id={titleId}>
               <SelectValue placeholder="—" />
             </SelectTrigger>
             <SelectContent>
@@ -62,8 +71,9 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
           </Select>
         </div>
         <div className="sm:col-span-2">
-          <Label>First name</Label>
+          <Label htmlFor={firstNameId}>First name</Label>
           <Input
+            id={firstNameId}
             {...form.register("firstName")}
             readOnly={readonly}
             aria-invalid={!!errors.firstName}
@@ -76,8 +86,9 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
           )}
         </div>
         <div className="sm:col-span-2">
-          <Label>Last name</Label>
+          <Label htmlFor={lastNameId}>Last name</Label>
           <Input
+            id={lastNameId}
             {...form.register("lastName")}
             readOnly={readonly}
             aria-invalid={!!errors.lastName}
@@ -90,8 +101,8 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
           )}
         </div>
         <div className="sm:col-span-6">
-          <Label>Company name (optional, B2B / trade)</Label>
-          <Input {...form.register("companyName")} readOnly={readonly} />
+          <Label htmlFor={companyNameId}>Company name (optional, B2B / trade)</Label>
+          <Input id={companyNameId} {...form.register("companyName")} readOnly={readonly} />
         </div>
       </div>
 
@@ -114,8 +125,9 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
-          <Label>Mobile</Label>
+          <Label htmlFor={mobileId}>Mobile</Label>
           <Input
+            id={mobileId}
             {...form.register("mobilePhone")}
             placeholder="07…"
             inputMode="tel"
@@ -129,12 +141,13 @@ export function CustomerProfileFields({ readonly }: CustomerProfileFieldsProps) 
           )}
         </div>
         <div>
-          <Label>Home phone (optional)</Label>
-          <Input {...form.register("homePhone")} inputMode="tel" />
+          <Label htmlFor={homePhoneId}>Home phone (optional)</Label>
+          <Input id={homePhoneId} {...form.register("homePhone")} inputMode="tel" />
         </div>
         <div className="sm:col-span-2">
-          <Label>Email</Label>
+          <Label htmlFor={emailId}>Email</Label>
           <Input
+            id={emailId}
             type="email"
             {...form.register("email")}
             aria-invalid={!!errors.email}

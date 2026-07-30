@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
   Banknote,
   Car,
@@ -169,6 +169,22 @@ function buildRefundNotes(ret: VehicleReturn, reg: string): string {
 }
 
 export default function ReturnsPage() {
+  const baseId = useId();
+  const registrationFieldId = `${baseId}-registration`;
+  const customerNameFieldId = `${baseId}-customer-name`;
+  const customerPhoneFieldId = `${baseId}-customer-phone`;
+  const returnDateFieldId = `${baseId}-return-date`;
+  const reasonCodeFieldId = `${baseId}-reason-code`;
+  const reasonDetailFieldId = `${baseId}-reason-detail`;
+  const refundAmountFieldId = `${baseId}-refund-amount`;
+  const resolutionPathFieldId = `${baseId}-resolution-path`;
+  const resolutionNotesFieldId = `${baseId}-resolution-notes`;
+  const refundBankAccountNameFieldId = `${baseId}-refund-bank-account-name`;
+  const refundBankNameFieldId = `${baseId}-refund-bank-name`;
+  const refundSortCodeFieldId = `${baseId}-refund-sort-code`;
+  const refundAccountNumberFieldId = `${baseId}-refund-account-number`;
+  const resolveAmountFieldId = `${baseId}-resolve-amount`;
+  const resolveNotesFieldId = `${baseId}-resolve-notes`;
   const { user, company } = useAuth();
   const [returns, setReturns] = useState<VehicleReturn[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -516,9 +532,10 @@ export default function ReturnsPage() {
               {/* Vehicle ------------------------------------------------- */}
               <section>
                 <SectionHead icon={Car}>Vehicle</SectionHead>
-                <Label>Registration of sold vehicle</Label>
+                <Label htmlFor={registrationFieldId}>Registration of sold vehicle</Label>
                 <div className="flex gap-2">
                   <Input
+                    id={registrationFieldId}
                     {...form.register("registration")}
                     placeholder="e.g. LF62 LGX"
                     autoComplete="off"
@@ -574,16 +591,18 @@ export default function ReturnsPage() {
                 <SectionHead icon={User}>Customer</SectionHead>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <Label>Customer name</Label>
+                    <Label htmlFor={customerNameFieldId}>Customer name</Label>
                     <Input
+                      id={customerNameFieldId}
                       {...form.register("customerName")}
                       readOnly={prefilled}
                       className={prefilled ? "bg-muted/50" : undefined}
                     />
                   </div>
                   <div>
-                    <Label>Phone</Label>
+                    <Label htmlFor={customerPhoneFieldId}>Phone</Label>
                     <Input
+                      id={customerPhoneFieldId}
                       {...form.register("customerPhone")}
                       readOnly={prefilled}
                       className={prefilled ? "bg-muted/50" : undefined}
@@ -598,18 +617,18 @@ export default function ReturnsPage() {
                 <div className="grid gap-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <Label>Return date</Label>
-                      <Input type="date" {...form.register("returnDate")} />
+                      <Label htmlFor={returnDateFieldId}>Return date</Label>
+                      <Input id={returnDateFieldId} type="date" {...form.register("returnDate")} />
                     </div>
                     <div>
-                      <Label>Reason</Label>
+                      <Label htmlFor={reasonCodeFieldId}>Reason</Label>
                       <Select
                         value={form.watch("reasonCode")}
                         onValueChange={(v) =>
                           form.setValue("reasonCode", v as ReturnReason)
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={reasonCodeFieldId}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -625,13 +644,14 @@ export default function ReturnsPage() {
                     </div>
                   </div>
                   <div>
-                    <Label>
+                    <Label htmlFor={reasonDetailFieldId}>
                       Reason detail
                       {form.watch("reasonCode") === "other" && (
                         <span className="text-destructive"> *</span>
                       )}
                     </Label>
                     <Textarea
+                      id={reasonDetailFieldId}
                       {...form.register("reason")}
                       className="min-h-16"
                       placeholder="Describe the reason for the return…"
@@ -651,15 +671,16 @@ export default function ReturnsPage() {
                 <div className="grid gap-3">
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div>
-                      <Label>Refund (£)</Label>
+                      <Label htmlFor={refundAmountFieldId}>Refund (£)</Label>
                       <Input
+                        id={refundAmountFieldId}
                         type="number"
                         step="0.01"
                         {...form.register("refundAmount")}
                       />
                     </div>
                     <div>
-                      <Label>Resolution path</Label>
+                      <Label htmlFor={resolutionPathFieldId}>Resolution path</Label>
                       <Select
                         value={form.watch("resolutionPath")}
                         onValueChange={(v) =>
@@ -669,7 +690,7 @@ export default function ReturnsPage() {
                           )
                         }
                       >
-                        <SelectTrigger>
+                        <SelectTrigger id={resolutionPathFieldId}>
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -683,8 +704,9 @@ export default function ReturnsPage() {
                     </div>
                   </div>
                   <div>
-                    <Label>Resolution notes</Label>
+                    <Label htmlFor={resolutionNotesFieldId}>Resolution notes</Label>
                     <Textarea
+                      id={resolutionNotesFieldId}
                       {...form.register("resolutionNotes")}
                       className="min-h-16"
                     />
@@ -695,23 +717,25 @@ export default function ReturnsPage() {
                     </p>
                     <div className="grid gap-3 sm:grid-cols-2">
                       <div>
-                        <Label>Account name</Label>
-                        <Input {...form.register("refundBankAccountName")} />
+                        <Label htmlFor={refundBankAccountNameFieldId}>Account name</Label>
+                        <Input id={refundBankAccountNameFieldId} {...form.register("refundBankAccountName")} />
                       </div>
                       <div>
-                        <Label>Bank name</Label>
-                        <Input {...form.register("refundBankName")} />
+                        <Label htmlFor={refundBankNameFieldId}>Bank name</Label>
+                        <Input id={refundBankNameFieldId} {...form.register("refundBankName")} />
                       </div>
                       <div>
-                        <Label>Sort code</Label>
+                        <Label htmlFor={refundSortCodeFieldId}>Sort code</Label>
                         <Input
+                          id={refundSortCodeFieldId}
                           {...form.register("refundSortCode")}
                           placeholder="00-00-00"
                         />
                       </div>
                       <div>
-                        <Label>Account number</Label>
+                        <Label htmlFor={refundAccountNumberFieldId}>Account number</Label>
                         <Input
+                          id={refundAccountNumberFieldId}
                           {...form.register("refundAccountNumber")}
                           placeholder="12345678"
                         />
@@ -988,8 +1012,9 @@ export default function ReturnsPage() {
                   details and the 14-working-day statement.
                 </p>
                 <div>
-                  <Label>Refund amount (£)</Label>
+                  <Label htmlFor={resolveAmountFieldId}>Refund amount (£)</Label>
                   <Input
+                    id={resolveAmountFieldId}
                     type="number"
                     step="0.01"
                     value={resolveAmount}
@@ -997,8 +1022,9 @@ export default function ReturnsPage() {
                   />
                 </div>
                 <div>
-                  <Label>Resolution notes</Label>
+                  <Label htmlFor={resolveNotesFieldId}>Resolution notes</Label>
                   <Textarea
+                    id={resolveNotesFieldId}
                     value={resolveNotes}
                     onChange={(e) => setResolveNotes(e.target.value)}
                     className="min-h-20"

@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronDown,
@@ -185,6 +185,38 @@ export default function InvoiceGenerationPage() {
 }
 
 function InvoiceGenerationForm() {
+  const baseId = useId();
+  const vehicleFieldId = `${baseId}-vehicle`;
+  const buyerNameId = `${baseId}-buyer-name`;
+  const buyerPhoneId = `${baseId}-buyer-phone`;
+  const buyerPostcodeId = `${baseId}-buyer-postcode`;
+  const buyerAddressId = `${baseId}-buyer-address`;
+  const buyerEmailId = `${baseId}-buyer-email`;
+  const invoiceDateId = `${baseId}-invoice-date`;
+  const presentMileageId = `${baseId}-present-mileage`;
+  const dorDateId = `${baseId}-dor-date`;
+  const depositAmountId = `${baseId}-deposit-amount`;
+  const depositMethodId = `${baseId}-deposit-method`;
+  const depositReceivedDateId = `${baseId}-deposit-received-date`;
+  const financeAmountId = `${baseId}-finance-amount`;
+  const financeProviderId = `${baseId}-finance-provider`;
+  const balanceDueById = `${baseId}-balance-due-by`;
+  const warrantyProviderTypeId = `${baseId}-warranty-provider-type`;
+  const warrantyProviderNameId = `${baseId}-warranty-provider-name`;
+  const warrantyProviderPhoneId = `${baseId}-warranty-provider-phone`;
+  const warrantyProviderEmailId = `${baseId}-warranty-provider-email`;
+  const warrantyCoverTypeId = `${baseId}-warranty-cover-type`;
+  const warrantyClaimLimitId = `${baseId}-warranty-claim-limit`;
+  const warrantyDiagnosticsCoverId = `${baseId}-warranty-diagnostics-cover`;
+  const warrantyDurationId = `${baseId}-warranty-duration`;
+  const warrantyExcessPercentId = `${baseId}-warranty-excess-percent`;
+  const numKeysId = `${baseId}-num-keys`;
+  const serviceHistoryId = `${baseId}-service-history`;
+  const engineServiceDateId = `${baseId}-engine-service-date`;
+  const engineServiceMileageId = `${baseId}-engine-service-mileage`;
+  const v5StatusId = `${baseId}-v5-status`;
+  const hpiCheckResultId = `${baseId}-hpi-check-result`;
+  const customNoteId = `${baseId}-custom-note`;
   const router = useRouter();
   const { confirm, confirmDialog } = useConfirm();
   const searchParams = useSearchParams();
@@ -687,13 +719,14 @@ function InvoiceGenerationForm() {
         </div>
 
         <Section letter="A" title="Vehicle">
-          <Label>
+          <Label htmlFor={vehicleFieldId}>
             Vehicle <span className="text-destructive">*</span>
           </Label>
           {/* One control, not two. This was a search box that filtered a
               separate dropdown — you typed in one field and picked in
               another. VehiclePicker does both (GEN-79). */}
           <VehiclePicker
+            id={vehicleFieldId}
             vehicles={filteredVehicles}
             value={vehicle}
             onChange={(v) => handleVehicleChange(v?.id ?? "")}
@@ -705,31 +738,34 @@ function InvoiceGenerationForm() {
         <Section letter="B" title="Buyer Details">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>
+              <Label htmlFor={buyerNameId}>
                 Buyer name (e.g. MR JOHN SMITH){" "}
                 <span className="text-destructive">*</span>
               </Label>
               <Input
+                id={buyerNameId}
                 value={buyerName}
                 onChange={(e) => setBuyerName(e.target.value.toUpperCase())}
               />
             </div>
             <div>
-              <Label>
+              <Label htmlFor={buyerPhoneId}>
                 Phone <span className="text-destructive">*</span>
               </Label>
               <Input
+                id={buyerPhoneId}
                 value={buyerPhone}
                 onChange={(e) => setBuyerPhone(e.target.value)}
               />
             </div>
             <div>
-              <Label>
+              <Label htmlFor={buyerPostcodeId}>
                 Post code <span className="text-destructive">*</span>
               </Label>
               {/* No Lookup button: the list appears as you type (GEN-68). */}
               <div className="relative">
                 <Input
+                  id={buyerPostcodeId}
                   value={buyerPostcode}
                   autoComplete="off"
                   onChange={(e) => {
@@ -783,17 +819,19 @@ function InvoiceGenerationForm() {
               </p>
             </div>
             <div>
-              <Label>
+              <Label htmlFor={buyerAddressId}>
                 Address line <span className="text-destructive">*</span>
               </Label>
               <Input
+                id={buyerAddressId}
                 value={buyerAddress}
                 onChange={(e) => setBuyerAddress(e.target.value.toUpperCase())}
               />
             </div>
             <div>
-              <Label>Email (optional)</Label>
+              <Label htmlFor={buyerEmailId}>Email (optional)</Label>
               <Input
+                id={buyerEmailId}
                 value={buyerEmail}
                 onChange={(e) => setBuyerEmail(e.target.value)}
               />
@@ -804,24 +842,27 @@ function InvoiceGenerationForm() {
         <Section letter="C" title="Sale Details (Date + Line Items)">
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label>Invoice date</Label>
+              <Label htmlFor={invoiceDateId}>Invoice date</Label>
               <Input
+                id={invoiceDateId}
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
               />
             </div>
             <div>
-              <Label>Present mileage</Label>
+              <Label htmlFor={presentMileageId}>Present mileage</Label>
               <Input
+                id={presentMileageId}
                 type="number"
                 value={presentMileage}
                 onChange={(e) => setPresentMileage(Number(e.target.value))}
               />
             </div>
             <div>
-              <Label>D.O.R (first registered)</Label>
+              <Label htmlFor={dorDateId}>D.O.R (first registered)</Label>
               <Input
+                id={dorDateId}
                 type="date"
                 value={dorDate}
                 onChange={(e) => setDorDate(e.target.value)}
@@ -836,14 +877,16 @@ function InvoiceGenerationForm() {
                 className="flex flex-wrap items-end gap-2 rounded-md border p-2"
               >
                 <div className="w-28">
-                  <Label className="text-xs">Type</Label>
+                  <p className="text-xs">Type</p>
                   <div className="text-sm font-medium capitalize">
                     {l.type.replace("_", " ")}
                   </div>
                 </div>
                 {(l.type === "addon_paid" || l.type === "addon_free") && (
                   <div className="w-40">
-                    <Label className="text-xs">Category</Label>
+                    <Label className="text-xs" htmlFor={`${l.uid}-category`}>
+                      Category
+                    </Label>
                     <Select
                       value={l.addonCategory ?? "custom"}
                       onValueChange={(v) => {
@@ -857,7 +900,7 @@ function InvoiceGenerationForm() {
                         });
                       }}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id={`${l.uid}-category`}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -871,8 +914,11 @@ function InvoiceGenerationForm() {
                   </div>
                 )}
                 <div className="flex-1 min-w-[160px]">
-                  <Label className="text-xs">Description</Label>
+                  <Label className="text-xs" htmlFor={`${l.uid}-description`}>
+                    Description
+                  </Label>
                   <Input
+                    id={`${l.uid}-description`}
                     value={l.description}
                     onChange={(e) =>
                       updateLine(l.uid, { description: e.target.value })
@@ -881,8 +927,11 @@ function InvoiceGenerationForm() {
                 </div>
                 {l.type !== "addon_free" && (
                   <div className="w-24">
-                    <Label className="text-xs">Unit £</Label>
+                    <Label className="text-xs" htmlFor={`${l.uid}-unit-price`}>
+                      Unit £
+                    </Label>
                     <Input
+                      id={`${l.uid}-unit-price`}
                       type="number"
                       value={l.unitPrice}
                       onChange={(e) =>
@@ -941,15 +990,16 @@ function InvoiceGenerationForm() {
         <Section letter="E" title="Payment Breakdown">
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Customer deposit (£)</Label>
+              <Label htmlFor={depositAmountId}>Customer deposit (£)</Label>
               <Input
+                id={depositAmountId}
                 type="number"
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(Number(e.target.value))}
               />
             </div>
             <div>
-              <Label>Deposit method</Label>
+              <Label htmlFor={depositMethodId}>Deposit method</Label>
               {/* items map: without it Base UI's SelectValue renders the raw
                   enum ("bank_transfer") in the closed trigger (GEN-51). */}
               <Select
@@ -960,7 +1010,7 @@ function InvoiceGenerationForm() {
                 value={depositMethod}
                 onValueChange={(v) => setDepositMethod(v as DepositMethod)}
               >
-                <SelectTrigger>
+                <SelectTrigger id={depositMethodId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -973,28 +1023,32 @@ function InvoiceGenerationForm() {
               </Select>
             </div>
             <div>
-              <Label>Deposit received date</Label>
+              <Label htmlFor={depositReceivedDateId}>
+                Deposit received date
+              </Label>
               <Input
+                id={depositReceivedDateId}
                 type="date"
                 value={depositReceivedDate}
                 onChange={(e) => setDepositReceivedDate(e.target.value)}
               />
             </div>
             <div>
-              <Label>Finance amount (£)</Label>
+              <Label htmlFor={financeAmountId}>Finance amount (£)</Label>
               <Input
+                id={financeAmountId}
                 type="number"
                 value={financeAmount}
                 onChange={(e) => setFinanceAmount(Number(e.target.value))}
               />
             </div>
             <div>
-              <Label>Finance provider</Label>
+              <Label htmlFor={financeProviderId}>Finance provider</Label>
               <Select
                 value={financeProvider}
                 onValueChange={setFinanceProvider}
               >
-                <SelectTrigger>
+                <SelectTrigger id={financeProviderId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1007,8 +1061,9 @@ function InvoiceGenerationForm() {
               </Select>
             </div>
             <div>
-              <Label>Balance due by</Label>
+              <Label htmlFor={balanceDueById}>Balance due by</Label>
               <Input
+                id={balanceDueById}
                 type="date"
                 value={balanceDueBy}
                 onChange={(e) => setBalanceDueBy(e.target.value)}
@@ -1025,7 +1080,9 @@ function InvoiceGenerationForm() {
           )}
           <div className="grid gap-3 sm:grid-cols-3">
             <div>
-              <Label>Warranty provided by</Label>
+              <Label htmlFor={warrantyProviderTypeId}>
+                Warranty provided by
+              </Label>
               <Select
                 items={{
                   in_house: "Car Capital (in-house)",
@@ -1050,7 +1107,7 @@ function InvoiceGenerationForm() {
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id={warrantyProviderTypeId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1064,8 +1121,9 @@ function InvoiceGenerationForm() {
             {warrantyType === "external" ? (
               <>
                 <div>
-                  <Label>Provider name</Label>
+                  <Label htmlFor={warrantyProviderNameId}>Provider name</Label>
                   <Input
+                    id={warrantyProviderNameId}
                     value={warranty.provider}
                     onChange={(e) =>
                       setWarranty({ ...warranty, provider: e.target.value })
@@ -1074,8 +1132,11 @@ function InvoiceGenerationForm() {
                   />
                 </div>
                 <div>
-                  <Label>Provider phone</Label>
+                  <Label htmlFor={warrantyProviderPhoneId}>
+                    Provider phone
+                  </Label>
                   <Input
+                    id={warrantyProviderPhoneId}
                     value={warranty.providerPhone}
                     onChange={(e) =>
                       setWarranty({
@@ -1086,8 +1147,11 @@ function InvoiceGenerationForm() {
                   />
                 </div>
                 <div>
-                  <Label>Provider email</Label>
+                  <Label htmlFor={warrantyProviderEmailId}>
+                    Provider email
+                  </Label>
                   <Input
+                    id={warrantyProviderEmailId}
                     type="email"
                     value={warranty.providerEmail}
                     onChange={(e) =>
@@ -1101,7 +1165,7 @@ function InvoiceGenerationForm() {
               </>
             ) : null}
             <div>
-              <Label>Cover type</Label>
+              <Label htmlFor={warrantyCoverTypeId}>Cover type</Label>
               <Select
                 value={warranty.coverType}
                 onValueChange={(v) =>
@@ -1111,7 +1175,7 @@ function InvoiceGenerationForm() {
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id={warrantyCoverTypeId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1126,8 +1190,9 @@ function InvoiceGenerationForm() {
               </Select>
             </div>
             <div>
-              <Label>Claim limit (£)</Label>
+              <Label htmlFor={warrantyClaimLimitId}>Claim limit (£)</Label>
               <Input
+                id={warrantyClaimLimitId}
                 type="number"
                 value={warranty.claimLimit}
                 onChange={(e) =>
@@ -1139,8 +1204,11 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>Diagnostics cover (£)</Label>
+              <Label htmlFor={warrantyDiagnosticsCoverId}>
+                Diagnostics cover (£)
+              </Label>
               <Input
+                id={warrantyDiagnosticsCoverId}
                 type="number"
                 value={warranty.diagnosticsCover}
                 onChange={(e) =>
@@ -1152,7 +1220,7 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>Duration</Label>
+              <Label htmlFor={warrantyDurationId}>Duration</Label>
               <Select
                 value={warranty.duration}
                 onValueChange={(v) =>
@@ -1162,7 +1230,7 @@ function InvoiceGenerationForm() {
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id={warrantyDurationId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1177,8 +1245,9 @@ function InvoiceGenerationForm() {
               </Select>
             </div>
             <div>
-              <Label>Excess (%)</Label>
+              <Label htmlFor={warrantyExcessPercentId}>Excess (%)</Label>
               <Input
+                id={warrantyExcessPercentId}
                 type="number"
                 value={warranty.excessPercent}
                 onChange={(e) =>
@@ -1245,8 +1314,9 @@ function InvoiceGenerationForm() {
               Lock nut
             </label>
             <div>
-              <Label>No. of keys</Label>
+              <Label htmlFor={numKeysId}>No. of keys</Label>
               <Input
+                id={numKeysId}
                 type="number"
                 value={pdc.numKeys}
                 onChange={(e) =>
@@ -1255,8 +1325,9 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>Service history</Label>
+              <Label htmlFor={serviceHistoryId}>Service history</Label>
               <Input
+                id={serviceHistoryId}
                 value={pdc.serviceHistoryStatus}
                 onChange={(e) =>
                   setPdc({ ...pdc, serviceHistoryStatus: e.target.value })
@@ -1264,8 +1335,9 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>Engine service date</Label>
+              <Label htmlFor={engineServiceDateId}>Engine service date</Label>
               <Input
+                id={engineServiceDateId}
                 type="date"
                 value={pdc.engineServiceDoneDate ?? ""}
                 onChange={(e) =>
@@ -1277,8 +1349,11 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>Engine service mileage</Label>
+              <Label htmlFor={engineServiceMileageId}>
+                Engine service mileage
+              </Label>
               <Input
+                id={engineServiceMileageId}
                 type="number"
                 value={pdc.engineServiceDoneMileage ?? ""}
                 onChange={(e) =>
@@ -1292,7 +1367,7 @@ function InvoiceGenerationForm() {
               />
             </div>
             <div>
-              <Label>V5 status</Label>
+              <Label htmlFor={v5StatusId}>V5 status</Label>
               <Select
                 value={pdc.v5Status}
                 onValueChange={(v) =>
@@ -1302,7 +1377,7 @@ function InvoiceGenerationForm() {
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id={v5StatusId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1317,7 +1392,7 @@ function InvoiceGenerationForm() {
               </Select>
             </div>
             <div>
-              <Label>HPI / history check</Label>
+              <Label htmlFor={hpiCheckResultId}>HPI / history check</Label>
               <Select
                 value={pdc.hpiCheckResult}
                 onValueChange={(v) =>
@@ -1327,7 +1402,7 @@ function InvoiceGenerationForm() {
                   })
                 }
               >
-                <SelectTrigger>
+                <SelectTrigger id={hpiCheckResultId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1368,8 +1443,9 @@ function InvoiceGenerationForm() {
               Include service-history note
             </label>
             <div>
-              <Label>Custom note</Label>
+              <Label htmlFor={customNoteId}>Custom note</Label>
               <Textarea
+                id={customNoteId}
                 value={customNote}
                 onChange={(e) => setCustomNote(e.target.value)}
               />

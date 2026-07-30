@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
@@ -172,6 +172,20 @@ function errMsg(e: unknown): string {
 }
 
 export default function LeadsPage() {
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const phoneId = `${baseId}-phone`;
+  const emailId = `${baseId}-email`;
+  const vehicleId_ = `${baseId}-vehicle`;
+  const vehicleInterestId = `${baseId}-vehicle-interest`;
+  const channelId = `${baseId}-channel`;
+  const assignId = `${baseId}-assign`;
+  const notesId = `${baseId}-notes`;
+  const stVehicleFieldId = `${baseId}-st-vehicle`;
+  const stDateId = `${baseId}-st-date`;
+  const stTimeId = `${baseId}-st-time`;
+  const stSpecialId = `${baseId}-st-special`;
+  const stReasonId = `${baseId}-st-reason`;
   const { user, company } = useAuth();
   const [leads, setLeads] = useState<Lead[] | null>(null);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
@@ -531,22 +545,23 @@ export default function LeadsPage() {
               <DialogPanel className="grid gap-4">
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Name</Label>
-                    <Input {...create.register("customerName")} />
+                    <Label htmlFor={nameId}>Name</Label>
+                    <Input id={nameId} {...create.register("customerName")} />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Phone</Label>
-                    <Input {...create.register("customerPhone")} />
+                    <Label htmlFor={phoneId}>Phone</Label>
+                    <Input id={phoneId} {...create.register("customerPhone")} />
                   </div>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Email</Label>
-                  <Input type="email" {...create.register("customerEmail")} />
+                  <Label htmlFor={emailId}>Email</Label>
+                  <Input id={emailId} type="email" {...create.register("customerEmail")} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Vehicle</Label>
+                  <Label htmlFor={vehicleId_}>Vehicle</Label>
                   {/* Reg search, not a 120-car scroll (GEN-79). */}
                   <VehiclePicker
+                    id={vehicleId_}
                     vehicles={eligibleVehicles}
                     value={
                       eligibleVehicles.find(
@@ -575,14 +590,15 @@ export default function LeadsPage() {
                   />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Vehicle interest</Label>
-                  <Input {...create.register("vehicleInterest")} />
+                  <Label htmlFor={vehicleInterestId}>Vehicle interest</Label>
+                  <Input id={vehicleInterestId} {...create.register("vehicleInterest")} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>
+                  <Label htmlFor={channelId}>
                     Lead Channel <span className="text-destructive">*</span>
                   </Label>
                   <ChannelDropdown
+                    id={channelId}
                     channels={channels}
                     value={create.watch("leadChannelId") || undefined}
                     onValueChange={(id) =>
@@ -608,13 +624,13 @@ export default function LeadsPage() {
                   ) : null}
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Assign to</Label>
+                  <Label htmlFor={assignId}>Assign to</Label>
                   <Select
                     items={Object.fromEntries(users.map((u) => [u.id, u.name]))}
                     value={create.watch("assignedTo")}
                     onValueChange={(v) => create.setValue("assignedTo", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={assignId}>
                       <SelectValue placeholder="Pick a user" />
                     </SelectTrigger>
                     <SelectContent>
@@ -627,8 +643,8 @@ export default function LeadsPage() {
                   </Select>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Notes</Label>
-                  <Textarea {...create.register("notes")} className="min-h-16" />
+                  <Label htmlFor={notesId}>Notes</Label>
+                  <Textarea id={notesId} {...create.register("notes")} className="min-h-16" />
                 </div>
               </DialogPanel>
               <DialogFooter>
@@ -1016,8 +1032,9 @@ export default function LeadsPage() {
                 </p>
                 {selected && !selected.vehicleId ? (
                   <div className="grid gap-1.5">
-                    <Label>Stock vehicle <span className="text-destructive">*</span></Label>
+                    <Label htmlFor={stVehicleFieldId}>Stock vehicle <span className="text-destructive">*</span></Label>
                     <VehiclePicker
+                      id={stVehicleFieldId}
                       vehicles={eligibleVehicles}
                       value={
                         eligibleVehicles.find((v) => v.id === stVehicleId) ??
@@ -1030,15 +1047,16 @@ export default function LeadsPage() {
                 ) : null}
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Date</Label>
-                    <Input type="date" value={stDate} onChange={(e) => setStDate(e.target.value)} />
+                    <Label htmlFor={stDateId}>Date</Label>
+                    <Input id={stDateId} type="date" value={stDate} onChange={(e) => setStDate(e.target.value)} />
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>Time</Label>
+                    <Label htmlFor={stTimeId}>Time</Label>
                     {/* Business books hourly appointment slots (09:00–17:00,
                         ending by 18:00). step=3600 nudges the picker to whole
                         hours; the calendar renders each as a 1-hour block. */}
                     <Input
+                      id={stTimeId}
                       type="time"
                       value={stTime}
                       min="09:00"
@@ -1052,8 +1070,8 @@ export default function LeadsPage() {
                   </div>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Special requirements</Label>
-                  <Input value={stSpecial} onChange={(e) => setStSpecial(e.target.value)} />
+                  <Label htmlFor={stSpecialId}>Special requirements</Label>
+                  <Input id={stSpecialId} value={stSpecial} onChange={(e) => setStSpecial(e.target.value)} />
                 </div>
               </div>
             ) : null}
@@ -1061,10 +1079,11 @@ export default function LeadsPage() {
             {/* Conditional: Lost → required reason */}
             {stTarget === "lost" ? (
               <div className="grid gap-1.5">
-                <Label>
+                <Label htmlFor={stReasonId}>
                   Reason lost <span className="text-destructive">*</span>
                 </Label>
                 <Textarea
+                  id={stReasonId}
                   value={stReason}
                   onChange={(e) => setStReason(e.target.value)}
                   placeholder="e.g. Bought elsewhere: found a cheaper Q3 at a rival dealer."

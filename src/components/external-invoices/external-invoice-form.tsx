@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { toast } from "@/lib/toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +79,18 @@ export function ExternalInvoiceForm({
   editing,
   onSaved,
 }: Props) {
+  const baseId = useId();
+  const vendorFieldId = `${baseId}-vendor`;
+  const previousOwnerFieldId = `${baseId}-previous-owner`;
+  const serviceHistoryRefFieldId = `${baseId}-service-history-ref`;
+  const vehicleFieldId = `${baseId}-vehicle`;
+  const invoiceNumberFieldId = `${baseId}-invoice-number`;
+  const invoiceDateFieldId = `${baseId}-invoice-date`;
+  const totalFieldId = `${baseId}-total`;
+  const vatFieldId = `${baseId}-vat`;
+  const preVatFieldId = `${baseId}-pre-vat`;
+  const descriptionFieldId = `${baseId}-description`;
+  const notesFieldId = `${baseId}-notes`;
   const { company, user } = useAuth();
 
   const [vendors, setVendors] = useState<Vendor[]>([]);
@@ -315,7 +327,9 @@ export function ExternalInvoiceForm({
         <DialogPanel className="grid gap-4">
           {/* Kind toggle */}
           <div className="grid gap-1">
-            <Label>Kind</Label>
+            <p className="inline-flex items-center gap-2 font-medium text-base/4.5 text-foreground sm:text-sm/4">
+              Kind
+            </p>
             <div className="flex gap-2">
               {(["auction_purchase", "external_job"] as InvoiceKind[]).map((k) => (
                 <button
@@ -337,7 +351,7 @@ export function ExternalInvoiceForm({
 
           {/* Vendor + inline add */}
           <div className="grid gap-1">
-            <Label>
+            <Label htmlFor={vendorFieldId}>
               Vendor <span className="text-destructive">*</span>
             </Label>
             <div className="flex gap-2">
@@ -346,7 +360,7 @@ export function ExternalInvoiceForm({
                 value={vendorId}
                 onValueChange={setVendorId}
               >
-                <SelectTrigger className="flex-1">
+                <SelectTrigger id={vendorFieldId} className="flex-1">
                   <SelectValue placeholder="Pick a vendor…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -377,16 +391,18 @@ export function ExternalInvoiceForm({
           {kind === "auction_purchase" && (
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="grid gap-1">
-                <Label>Previous owner</Label>
+                <Label htmlFor={previousOwnerFieldId}>Previous owner</Label>
                 <Input
+                  id={previousOwnerFieldId}
                   value={previousOwner}
                   onChange={(e) => setPreviousOwner(e.target.value)}
                   placeholder="If disclosed by the auction house"
                 />
               </div>
               <div className="grid gap-1">
-                <Label>Service history reference</Label>
+                <Label htmlFor={serviceHistoryRefFieldId}>Service history reference</Label>
                 <Input
+                  id={serviceHistoryRefFieldId}
                   value={serviceHistoryRef}
                   onChange={(e) => setServiceHistoryRef(e.target.value)}
                   placeholder="Booklet / pack reference"
@@ -397,7 +413,7 @@ export function ExternalInvoiceForm({
 
           {/* Vehicle — read-only chip when locked to one car, else a picker */}
           <div className="grid gap-1.5">
-            <Label>
+            <Label htmlFor={fixedVehicleId ? undefined : vehicleFieldId}>
               Vehicle <span className="text-destructive">*</span>
             </Label>
             {fixedVehicleId ? (
@@ -432,7 +448,7 @@ export function ExternalInvoiceForm({
                 value={vehicleId}
                 onValueChange={setVehicleId}
               >
-                <SelectTrigger>
+                <SelectTrigger id={vehicleFieldId}>
                   <SelectValue placeholder="Pick a vehicle…" />
                 </SelectTrigger>
                 <SelectContent className="max-h-72">
@@ -449,18 +465,20 @@ export function ExternalInvoiceForm({
           {/* Invoice number + date */}
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="grid gap-1">
-              <Label>Invoice number</Label>
+              <Label htmlFor={invoiceNumberFieldId}>Invoice number</Label>
               <Input
+                id={invoiceNumberFieldId}
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
                 placeholder="vendor's reference"
               />
             </div>
             <div className="grid gap-1">
-              <Label>
+              <Label htmlFor={invoiceDateFieldId}>
                 Invoice date <span className="text-destructive">*</span>
               </Label>
               <Input
+                id={invoiceDateFieldId}
                 type="date"
                 value={invoiceDate}
                 onChange={(e) => setInvoiceDate(e.target.value)}
@@ -471,10 +489,11 @@ export function ExternalInvoiceForm({
           {/* Money trio */}
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="grid gap-1">
-              <Label>
+              <Label htmlFor={totalFieldId}>
                 Total (inc. VAT) <span className="text-destructive">*</span>
               </Label>
               <Input
+                id={totalFieldId}
                 inputMode="decimal"
                 value={total}
                 onChange={(e) => setTotal(e.target.value)}
@@ -482,8 +501,9 @@ export function ExternalInvoiceForm({
               />
             </div>
             <div className="grid gap-1">
-              <Label>VAT</Label>
+              <Label htmlFor={vatFieldId}>VAT</Label>
               <Input
+                id={vatFieldId}
                 inputMode="decimal"
                 value={vat}
                 onChange={(e) => setVat(e.target.value)}
@@ -492,8 +512,11 @@ export function ExternalInvoiceForm({
               />
             </div>
             <div className="grid gap-1">
-              <Label className="text-muted-foreground">Pre-VAT (auto)</Label>
+              <Label className="text-muted-foreground" htmlFor={preVatFieldId}>
+                Pre-VAT (auto)
+              </Label>
               <Input
+                id={preVatFieldId}
                 value={penceToPounds(preVatPence)}
                 readOnly
                 tabIndex={-1}
@@ -509,10 +532,11 @@ export function ExternalInvoiceForm({
 
           {/* Description */}
           <div className="grid gap-1">
-            <Label>
+            <Label htmlFor={descriptionFieldId}>
               Description <span className="text-destructive">*</span>
             </Label>
             <Textarea
+              id={descriptionFieldId}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="What was the job / what was purchased?"
@@ -522,8 +546,9 @@ export function ExternalInvoiceForm({
 
           {/* Notes */}
           <div className="grid gap-1">
-            <Label>Notes (optional)</Label>
+            <Label htmlFor={notesFieldId}>Notes (optional)</Label>
             <Textarea
+              id={notesFieldId}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               className="min-h-12"
@@ -532,7 +557,9 @@ export function ExternalInvoiceForm({
 
           {/* Attachment */}
           <div className="grid gap-1">
-            <Label>Attachment (optional)</Label>
+            <p className="inline-flex items-center gap-2 font-medium text-base/4.5 text-foreground sm:text-sm/4">
+              Attachment (optional)
+            </p>
             <AttachmentUploader
               companyId={company.id}
               vehicleId={vehicleId || null}

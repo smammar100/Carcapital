@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { ShieldX, ImageIcon, Upload, X } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -27,6 +27,15 @@ import {
 import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const addressId = `${baseId}-address`;
+  const vatId = `${baseId}-vat`;
+  const stockPrefixId = `${baseId}-stock-prefix`;
+  const hoursStartId = `${baseId}-hours-start`;
+  const hoursEndId = `${baseId}-hours-end`;
+  const financeProviderId = `${baseId}-finance-provider`;
+  const defaultVatId = `${baseId}-default-vat`;
   const { user, company, revalidate } = useAuth();
   const { can, isSuperUser, isLoading } = usePermissions();
   const canManage = isSuperUser || can("admin:manage_settings");
@@ -150,45 +159,49 @@ export default function SettingsPage() {
               onClear={() => setLogoMarkUrl(null)}
             />
             <div className="sm:col-span-2">
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <Label htmlFor={nameId}>Name</Label>
+              <Input id={nameId} value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="sm:col-span-2">
-              <Label>Address</Label>
+              <Label htmlFor={addressId}>Address</Label>
               <Input
+                id={addressId}
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
               />
             </div>
             <div>
-              <Label>VAT number</Label>
-              <Input value={vat} onChange={(e) => setVat(e.target.value)} />
+              <Label htmlFor={vatId}>VAT number</Label>
+              <Input id={vatId} value={vat} onChange={(e) => setVat(e.target.value)} />
             </div>
             <div>
-              <Label>Stock ID prefix</Label>
+              <Label htmlFor={stockPrefixId}>Stock ID prefix</Label>
               <Input
+                id={stockPrefixId}
                 value={stockPrefix}
                 onChange={(e) => setStockPrefix(e.target.value)}
                 maxLength={4}
               />
             </div>
             <div>
-              <Label>Working hours start</Label>
+              <Label htmlFor={hoursStartId}>Working hours start</Label>
               <p className="mb-2 text-xs text-muted-foreground">
                 Drives the visible range on the Appointment Book calendar.
               </p>
               <Input
+                id={hoursStartId}
                 type="time"
                 value={hoursStart}
                 onChange={(e) => setHoursStart(e.target.value)}
               />
             </div>
             <div>
-              <Label>Working hours end</Label>
+              <Label htmlFor={hoursEndId}>Working hours end</Label>
               <p className="mb-2 text-xs text-muted-foreground">
                 Appointments can be booked up to one hour before this time.
               </p>
               <Input
+                id={hoursEndId}
                 type="time"
                 value={hoursEnd}
                 onChange={(e) => setHoursEnd(e.target.value)}
@@ -204,12 +217,12 @@ export default function SettingsPage() {
         <TabsContent value="defaults" className="mt-3">
           <Card className="grid gap-4 p-5 sm:grid-cols-2">
             <div>
-              <Label>Default finance provider</Label>
+              <Label htmlFor={financeProviderId}>Default finance provider</Label>
               <Select
                 value={defaultProvider}
                 onValueChange={setDefaultProvider}
               >
-                <SelectTrigger>
+                <SelectTrigger id={financeProviderId}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -222,8 +235,9 @@ export default function SettingsPage() {
               </Select>
             </div>
             <div>
-              <Label>Default VAT rate</Label>
+              <Label htmlFor={defaultVatId}>Default VAT rate</Label>
               <Input
+                id={defaultVatId}
                 value={defaultVat}
                 onChange={(e) => setDefaultVat(e.target.value)}
               />
@@ -270,9 +284,10 @@ function LogoField({
   onClear: () => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const fieldId = useId();
   return (
     <div className="sm:col-span-2">
-      <Label>{label}</Label>
+      <Label htmlFor={fieldId}>{label}</Label>
       <p className="mb-2 text-xs text-muted-foreground">{hint}</p>
       <div className="flex items-center gap-4">
         <div
@@ -291,6 +306,7 @@ function LogoField({
         </div>
         <div className="flex items-center gap-2">
           <input
+            id={fieldId}
             ref={inputRef}
             type="file"
             accept="image/png,image/jpeg"

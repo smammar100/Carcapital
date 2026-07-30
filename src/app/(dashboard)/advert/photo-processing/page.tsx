@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Image as ImageIcon, Loader2, Wand2 } from "lucide-react";
@@ -40,6 +40,7 @@ export default function PhotoProcessingPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [bgRemoved, setBgRemoved] = useState(false);
   const [bg, setBg] = useState("white");
+  const bgProcessingId = useId();
 
   useEffect(() => {
     if (!company) return;
@@ -270,8 +271,9 @@ export default function PhotoProcessingPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      <Label className="text-xs">Background processing</Label>
+                      <Label htmlFor={bgProcessingId} className="text-xs">Background processing</Label>
                       <Switch
+                        id={bgProcessingId}
                         checked={bgRemoved}
                         onCheckedChange={setBgRemoved}
                       />
@@ -281,9 +283,9 @@ export default function PhotoProcessingPage() {
                     </div>
 
                     <div>
-                      <Label className="mb-2 block text-xs">
+                      <p className="mb-2 block text-xs">
                         Replacement background
-                      </Label>
+                      </p>
                       <div className="grid grid-cols-5 gap-2 sm:grid-cols-10">
                         {BACKGROUNDS.map((b) => (
                           <button

@@ -20,6 +20,7 @@ interface Props {
   /** Disable enabled-only filtering — show every channel including disabled. */
   includeDisabled?: boolean;
   className?: string;
+  id?: string;
 }
 
 /**
@@ -39,6 +40,7 @@ export function ChannelDropdown({
   invalid,
   includeDisabled,
   className,
+  id,
 }: Props) {
   const visible = includeDisabled
     ? channels
@@ -49,6 +51,7 @@ export function ChannelDropdown({
   return (
     <Select items={items} value={value} onValueChange={onValueChange}>
       <SelectTrigger
+        id={id}
         className={cn(className)}
         aria-invalid={invalid ? true : undefined}
       >

@@ -21,6 +21,7 @@ interface EnquiryTypeDropdownProps {
   value: EnquiryType | "";
   onChange: (value: EnquiryType) => void;
   invalid?: boolean;
+  id?: string;
 }
 
 /**
@@ -34,10 +35,12 @@ export function EnquiryTypeDropdown({
   value,
   onChange,
   invalid,
+  id,
 }: EnquiryTypeDropdownProps) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as EnquiryType)}>
       <SelectTrigger
+        id={id}
         aria-invalid={invalid}
         className={cn(invalid && "border-destructive")}
       >

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { AlertTriangle, Search } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -61,6 +61,11 @@ export function NewClaimDialog({
 }: NewClaimDialogProps) {
   const { user, company } = useAuth();
   const [warranties, setWarranties] = useState<Warranty[]>([]);
+  const baseId = useId();
+  const warrantyFieldId = `${baseId}-warranty`;
+  const issueDescriptionId = `${baseId}-issue-description`;
+  const estimatedCostId = `${baseId}-estimated-cost`;
+  const isComplaintId = `${baseId}-is-complaint`;
 
   const form = useForm<FormInput, unknown, FormOutput>({
     resolver: zodResolver(schema),
@@ -144,7 +149,7 @@ export function NewClaimDialog({
         >
           {!warrantyId && (
             <div className="flex flex-col gap-1.5">
-              <Label>Warranty</Label>
+              <Label htmlFor={warrantyFieldId}>Warranty</Label>
               <Combobox
                 items={warranties}
                 value={selected}
@@ -158,6 +163,7 @@ export function NewClaimDialog({
                 }
               >
                 <ComboboxInput
+                  id={warrantyFieldId}
                   placeholder="Pick an active warranty"
                   startAddon={<Search />}
                   className="w-full"
@@ -188,8 +194,9 @@ export function NewClaimDialog({
           )}
 
           <div className="flex flex-col gap-1.5">
-            <Label>Issue description</Label>
+            <Label htmlFor={issueDescriptionId}>Issue description</Label>
             <Textarea
+              id={issueDescriptionId}
               {...form.register("issueDescription")}
               placeholder="What's the customer reporting?"
               className="min-h-24"
@@ -202,8 +209,9 @@ export function NewClaimDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label>Estimated cost (£)</Label>
+            <Label htmlFor={estimatedCostId}>Estimated cost (£)</Label>
             <Input
+              id={estimatedCostId}
               type="number"
               step="0.01"
               {...form.register("estimatedCost")}
@@ -225,7 +233,7 @@ export function NewClaimDialog({
                   )}
                 />
                 <div>
-                  <Label className="text-sm font-medium">
+                  <Label htmlFor={isComplaintId} className="text-sm font-medium">
                     Flag as customer complaint
                   </Label>
                   <p className="mt-0.5 text-xs text-muted-foreground">
@@ -235,6 +243,7 @@ export function NewClaimDialog({
                 </div>
               </div>
               <Switch
+                id={isComplaintId}
                 checked={isComplaint}
                 onCheckedChange={(v) =>
                   form.setValue("isComplaint", v, { shouldDirty: true })

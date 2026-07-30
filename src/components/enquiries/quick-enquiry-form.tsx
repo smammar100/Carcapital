@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -75,6 +75,15 @@ export function QuickEnquiryForm({
   onBack,
 }: QuickEnquiryFormProps) {
   const { user, company } = useAuth();
+  const baseId = useId();
+  const firstNameId = `${baseId}-first-name`;
+  const lastNameId = `${baseId}-last-name`;
+  const mobileId = `${baseId}-mobile`;
+  const emailId = `${baseId}-email`;
+  const sourceId = `${baseId}-source`;
+  const salespersonId = `${baseId}-salesperson`;
+  const typeId = `${baseId}-type`;
+  const notesId = `${baseId}-notes`;
 
   const defaults: FormValues = useMemo(
     () => ({
@@ -154,8 +163,9 @@ export function QuickEnquiryForm({
           <h3 className="text-sm font-semibold">Customer</h3>
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>First name</Label>
+              <Label htmlFor={firstNameId}>First name</Label>
               <Input
+                id={firstNameId}
                 {...form.register("firstName")}
                 aria-invalid={!!errors.firstName}
                 className={cn(errors.firstName && "border-destructive")}
@@ -167,8 +177,9 @@ export function QuickEnquiryForm({
               )}
             </div>
             <div>
-              <Label>Last name</Label>
+              <Label htmlFor={lastNameId}>Last name</Label>
               <Input
+                id={lastNameId}
                 {...form.register("lastName")}
                 aria-invalid={!!errors.lastName}
                 className={cn(errors.lastName && "border-destructive")}
@@ -180,8 +191,9 @@ export function QuickEnquiryForm({
               )}
             </div>
             <div>
-              <Label>Mobile</Label>
+              <Label htmlFor={mobileId}>Mobile</Label>
               <Input
+                id={mobileId}
                 inputMode="tel"
                 placeholder="07…"
                 {...form.register("mobilePhone")}
@@ -195,8 +207,9 @@ export function QuickEnquiryForm({
               )}
             </div>
             <div>
-              <Label>Email</Label>
+              <Label htmlFor={emailId}>Email</Label>
               <Input
+                id={emailId}
                 type="email"
                 {...form.register("email")}
                 aria-invalid={!!errors.email}
@@ -221,8 +234,9 @@ export function QuickEnquiryForm({
           )}
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label>Source</Label>
+              <Label htmlFor={sourceId}>Source</Label>
               <SourceDropdown
+                id={sourceId}
                 value={(form.watch("source") as EnquirySourceValue) ?? ""}
                 onChange={(v) =>
                   form.setValue("source", v, {
@@ -239,8 +253,9 @@ export function QuickEnquiryForm({
               )}
             </div>
             <div>
-              <Label>Salesperson</Label>
+              <Label htmlFor={salespersonId}>Salesperson</Label>
               <SalespersonDropdown
+                id={salespersonId}
                 value={form.watch("salespersonId") ?? ""}
                 onChange={(v) =>
                   form.setValue("salespersonId", v, {
@@ -257,8 +272,9 @@ export function QuickEnquiryForm({
               )}
             </div>
             <div>
-              <Label>Type</Label>
+              <Label htmlFor={typeId}>Type</Label>
               <EnquiryTypeDropdown
+                id={typeId}
                 value={(form.watch("type") as EnquiryType) ?? ""}
                 onChange={(v) =>
                   form.setValue("type", v, {
@@ -275,8 +291,9 @@ export function QuickEnquiryForm({
               )}
             </div>
             <div className="sm:col-span-2">
-              <Label>Notes (optional)</Label>
+              <Label htmlFor={notesId}>Notes (optional)</Label>
               <Textarea
+                id={notesId}
                 {...form.register("notes")}
                 placeholder="Anything we should remember next time we speak…"
                 className="min-h-20"

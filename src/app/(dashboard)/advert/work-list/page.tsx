@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Car,
@@ -169,6 +169,13 @@ type FormOutput = z.output<typeof schema>;
 export default function ListingsPage() {
   const { user, company } = useAuth();
   const router = useRouter();
+  const formIdBase = useId();
+  const vehicleFieldId = `${formIdBase}-vehicle`;
+  const titleFieldId = `${formIdBase}-title`;
+  const descriptionFieldId = `${formIdBase}-description`;
+  const priceFieldId = `${formIdBase}-price`;
+  const atIndicatorFieldId = `${formIdBase}-at-indicator`;
+  const specialFeaturesFieldId = `${formIdBase}-special-features`;
   const { can, isSuperUser } = usePermissions();
   const canPublishAT = isSuperUser || can("listing:publish_autotrader");
   const [listings, setListings] = useState<Listing[] | null>(null);
@@ -443,7 +450,7 @@ export default function ListingsPage() {
               </DialogHeader>
               <DialogPanel className="grid gap-4">
                 <div className="grid gap-1.5">
-                  <Label>Vehicle</Label>
+                  <Label htmlFor={vehicleFieldId}>Vehicle</Label>
                   <Select
                     items={Object.fromEntries(
                       readyVehicles.map((v) => [
@@ -454,7 +461,7 @@ export default function ListingsPage() {
                     value={form.watch("vehicleId")}
                     onValueChange={(v) => form.setValue("vehicleId", v)}
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={vehicleFieldId}>
                       <SelectValue placeholder="Pick a ready / listed vehicle" />
                     </SelectTrigger>
                     <SelectContent>
@@ -473,20 +480,22 @@ export default function ListingsPage() {
                   </Select>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Title</Label>
-                  <Input {...form.register("title")} />
+                  <Label htmlFor={titleFieldId}>Title</Label>
+                  <Input id={titleFieldId} {...form.register("title")} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Description</Label>
+                  <Label htmlFor={descriptionFieldId}>Description</Label>
                   <Textarea
+                    id={descriptionFieldId}
                     {...form.register("description")}
                     className="min-h-24"
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="grid gap-1.5">
-                    <Label>Price</Label>
+                    <Label htmlFor={priceFieldId}>Price</Label>
                     <Input
+                      id={priceFieldId}
                       type="number"
                       step="0.01"
                       {...form.register("price")}
@@ -508,7 +517,7 @@ export default function ListingsPage() {
                     )}
                   </div>
                   <div className="grid gap-1.5">
-                    <Label>AT indicator</Label>
+                    <Label htmlFor={atIndicatorFieldId}>AT indicator</Label>
                     <Select
                       value={form.watch("atPriceIndicator")}
                       onValueChange={(v) =>
@@ -518,7 +527,7 @@ export default function ListingsPage() {
                         )
                       }
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id={atIndicatorFieldId}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -532,11 +541,16 @@ export default function ListingsPage() {
                   </div>
                 </div>
                 <div className="grid gap-1.5">
-                  <Label>Special features</Label>
-                  <Input {...form.register("specialFeatures")} />
+                  <Label htmlFor={specialFeaturesFieldId}>Special features</Label>
+                  <Input
+                    id={specialFeaturesFieldId}
+                    {...form.register("specialFeatures")}
+                  />
                 </div>
                 <div className="grid gap-2">
-                  <Label>Publish channels</Label>
+                  <p className="text-sm font-medium leading-none">
+                    Publish channels
+                  </p>
                   <div className="flex flex-wrap gap-x-5 gap-y-2.5">
                     {CHANNELS.map((c) => (
                       <label

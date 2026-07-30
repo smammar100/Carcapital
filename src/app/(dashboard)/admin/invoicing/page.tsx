@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
@@ -81,6 +81,15 @@ function parseTopTab(v: string | null): TopTab {
 }
 
 export default function InvoicingPage() {
+  const baseId = useId();
+  const uploadTypeId = `${baseId}-upload-type`;
+  const partyNameId = `${baseId}-party-name`;
+  const invoiceDateId = `${baseId}-invoice-date`;
+  const totalId = `${baseId}-total`;
+  const attachmentId = `${baseId}-attachment`;
+  const emailToId = `${baseId}-email-to`;
+  const emailSubjectId = `${baseId}-email-subject`;
+  const emailMessageId = `${baseId}-email-message`;
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, company } = useAuth();
@@ -363,14 +372,14 @@ export default function InvoicingPage() {
             </DialogHeader>
             <div className="grid gap-3 px-6 pb-6">
               <div>
-                <Label>Type</Label>
+                <Label htmlFor={uploadTypeId}>Type</Label>
                 <Select
                   value={uploadFields.type}
                   onValueChange={(v) =>
                     setUploadFields((f) => ({ ...f, type: v as InvoiceType }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id={uploadTypeId}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -380,8 +389,9 @@ export default function InvoicingPage() {
                 </Select>
               </div>
               <div>
-                <Label>Party name</Label>
+                <Label htmlFor={partyNameId}>Party name</Label>
                 <Input
+                  id={partyNameId}
                   value={uploadFields.partyName}
                   onChange={(e) =>
                     setUploadFields((f) => ({ ...f, partyName: e.target.value }))
@@ -390,8 +400,9 @@ export default function InvoicingPage() {
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label>Invoice date</Label>
+                  <Label htmlFor={invoiceDateId}>Invoice date</Label>
                   <Input
+                    id={invoiceDateId}
                     type="date"
                     value={uploadFields.invoiceDate}
                     onChange={(e) =>
@@ -403,8 +414,9 @@ export default function InvoicingPage() {
                   />
                 </div>
                 <div>
-                  <Label>Total (£)</Label>
+                  <Label htmlFor={totalId}>Total (£)</Label>
                   <Input
+                    id={totalId}
                     type="number"
                     step="0.01"
                     value={uploadFields.total}
@@ -415,8 +427,9 @@ export default function InvoicingPage() {
                 </div>
               </div>
               <div>
-                <Label>Attachment</Label>
+                <Label htmlFor={attachmentId}>Attachment</Label>
                 <Input
+                  id={attachmentId}
                   type="file"
                   accept="application/pdf,image/*"
                   onChange={(e) =>
@@ -740,21 +753,24 @@ export default function InvoicingPage() {
               </DialogHeader>
               <div className="grid gap-3 px-6 pb-6">
                 <div>
-                  <Label>To</Label>
+                  <Label htmlFor={emailToId}>To</Label>
                   <Input
+                    id={emailToId}
                     defaultValue={emailing.partyEmail ?? ""}
                     placeholder="recipient@example.com"
                   />
                 </div>
                 <div>
-                  <Label>Subject</Label>
+                  <Label htmlFor={emailSubjectId}>Subject</Label>
                   <Input
+                    id={emailSubjectId}
                     defaultValue={`Invoice ${emailing.invoiceNumber}`}
                   />
                 </div>
                 <div>
-                  <Label>Message</Label>
+                  <Label htmlFor={emailMessageId}>Message</Label>
                   <Textarea
+                    id={emailMessageId}
                     defaultValue={`Please find your invoice attached.`}
                     className="min-h-24"
                   />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Banknote,
@@ -162,6 +162,10 @@ function GaragesTab({
   addOpen: boolean;
   setAddOpen: (v: boolean) => void;
 }) {
+  const baseId = useId();
+  const nameId = `${baseId}-name`;
+  const phoneId = `${baseId}-phone`;
+  const specialityId = `${baseId}-speciality`;
   const { company } = useAuth();
   const [vendors, setVendors] = useState<Vendor[] | null>(null);
   const [maintJobs, setMaintJobs] = useState<MaintenanceJob[]>([]);
@@ -288,28 +292,30 @@ function GaragesTab({
             {draft && (
               <div className="grid gap-3 px-6 pb-6">
                 <div>
-                  <Label>Name</Label>
+                  <Label htmlFor={nameId}>Name</Label>
                   <Input
+                    id={nameId}
                     value={draft.name}
                     onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label>Phone</Label>
+                  <Label htmlFor={phoneId}>Phone</Label>
                   <Input
+                    id={phoneId}
                     value={draft.phone}
                     onChange={(e) => setDraft({ ...draft, phone: e.target.value })}
                   />
                 </div>
                 <div>
-                  <Label>Speciality</Label>
+                  <Label htmlFor={specialityId}>Speciality</Label>
                   <Select
                     value={draft.speciality}
                     onValueChange={(v) =>
                       setDraft({ ...draft, speciality: v as VendorSpeciality })
                     }
                   >
-                    <SelectTrigger>
+                    <SelectTrigger id={specialityId}>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -463,6 +469,13 @@ function DealerPartnersTab({
   addOpen: boolean;
   setAddOpen: (v: boolean) => void;
 }) {
+  const baseId = useId();
+  const contactNameId = `${baseId}-contact-name`;
+  const phoneId = `${baseId}-phone`;
+  const emailId = `${baseId}-email`;
+  const companyNameId = `${baseId}-company-name`;
+  const companyAddressId = `${baseId}-company-address`;
+  const vatNumberId = `${baseId}-vat-number`;
   const { company } = useAuth();
   const router = useRouter();
   const [partners, setPartners] = useState<DealerPartner[] | null>(null);
@@ -588,8 +601,9 @@ function DealerPartnersTab({
             {draft && (
               <div className="grid gap-3 px-6 pb-6">
                 <div>
-                  <Label>Contact name</Label>
+                  <Label htmlFor={contactNameId}>Contact name</Label>
                   <Input
+                    id={contactNameId}
                     value={draft.name}
                     onChange={(e) =>
                       setDraft({ ...draft, name: e.target.value })
@@ -598,8 +612,9 @@ function DealerPartnersTab({
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
-                    <Label>Phone</Label>
+                    <Label htmlFor={phoneId}>Phone</Label>
                     <Input
+                      id={phoneId}
                       value={draft.phone}
                       onChange={(e) =>
                         setDraft({ ...draft, phone: e.target.value })
@@ -607,8 +622,9 @@ function DealerPartnersTab({
                     />
                   </div>
                   <div>
-                    <Label>Email</Label>
+                    <Label htmlFor={emailId}>Email</Label>
                     <Input
+                      id={emailId}
                       value={draft.email}
                       onChange={(e) =>
                         setDraft({ ...draft, email: e.target.value })
@@ -617,8 +633,9 @@ function DealerPartnersTab({
                   </div>
                 </div>
                 <div>
-                  <Label>Company name</Label>
+                  <Label htmlFor={companyNameId}>Company name</Label>
                   <Input
+                    id={companyNameId}
                     value={draft.companyName}
                     onChange={(e) =>
                       setDraft({ ...draft, companyName: e.target.value })
@@ -626,8 +643,9 @@ function DealerPartnersTab({
                   />
                 </div>
                 <div>
-                  <Label>Company address</Label>
+                  <Label htmlFor={companyAddressId}>Company address</Label>
                   <Input
+                    id={companyAddressId}
                     value={draft.companyAddress}
                     onChange={(e) =>
                       setDraft({ ...draft, companyAddress: e.target.value })
@@ -635,8 +653,9 @@ function DealerPartnersTab({
                   />
                 </div>
                 <div>
-                  <Label>VAT number</Label>
+                  <Label htmlFor={vatNumberId}>VAT number</Label>
                   <Input
+                    id={vatNumberId}
                     value={draft.vatNumber}
                     onChange={(e) =>
                       setDraft({ ...draft, vatNumber: e.target.value })
