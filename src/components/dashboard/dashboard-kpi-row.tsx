@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Car,
   CheckCircle2,
@@ -20,7 +21,8 @@ import { leadService } from "@/lib/services/lead-service";
 import { maintenanceService } from "@/lib/services/maintenance-service";
 import { salesService } from "@/lib/services/sales-service";
 import type { Capability } from "@/lib/capabilities";
-import { DashboardStatCard } from "./dashboard-stat-card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 interface Stats {
   carsInStock: number;
@@ -31,6 +33,19 @@ interface Stats {
   avgDays: number | null;
   inspectionsPending: number;
   activeJobs: number;
+  /** Same-window prior periods, for the deltas. See DELTA note on KpiDef. */
+  soldLastMonth: number;
+  newLeadsPrev24h: number;
+}
+
+type Delta = { text: string; dir: "up" | "down" | "flat" };
+
+/** Signed figure with its own sign glyph — U+2212, not a hyphen. */
+function signed(n: number, suffix = ""): Delta {
+  if (n === 0) return { text: `0${suffix}`, dir: "flat" };
+  return n > 0
+    ? { text: `+${n}${suffix}`, dir: "up" }
+    : { text: `−${Math.abs(n)}${suffix}`, dir: "down" };
 }
 
 /**
@@ -46,6 +61,13 @@ interface KpiDef {
   href: string;
   requiredAnyOf: Capability[];
   value: (s: Stats) => string;
+  /**
+   * DELTA — the comparison beside the figure (rule 3: a number alone cannot be
+   * judged). Only defined where the app can actually derive a prior period
+   * from data it already loads. The rest have no delta rather than a made-up
+   * one; adding those needs a stored history the app does not keep yet.
+   */
+  delta?: (s: Stats) => Delta;
   /**
    * Operational KPIs are tailored for hands-on roles (Inspector, Workshop).
    * Super-users / admins see the canonical 6-card overview instead, so these
@@ -119,6 +141,7 @@ const KPI_DEFS: KpiDef[] = [
       "admin:view_financials",
     ],
     value: (s) => String(s.soldThisMonth),
+    delta: (s) => signed(s.soldThisMonth - s.soldLastMonth),
   },
   {
     key: "new_leads_24h",
@@ -127,6 +150,7 @@ const KPI_DEFS: KpiDef[] = [
     href: "/sales/leads",
     requiredAnyOf: ["sales:create_lead", "sales:edit_lead"],
     value: (s) => String(s.newLeads24h),
+    delta: (s) => signed(s.newLeads24h - s.newLeadsPrev24h),
   },
   {
     key: "open_claims",
@@ -185,9 +209,19 @@ export function DashboardKpiRow() {
   const stats = useMemo<Stats | null>(() => {
     if (!data) return null;
     const now = Date.now();
+    // Derived from `now` rather than a second clock read: one impure call per
+    // computation, and every figure below is stamped from the same instant.
+    const today = new Date(now);
     const monthStart = new Date(
-      new Date().getFullYear(),
-      new Date().getMonth(),
+      today.getFullYear(),
+      today.getMonth(),
+      1,
+    ).getTime();
+    // Previous calendar month, for the Sold delta. Month -1 with day 1 rolls
+    // the year back on its own in January.
+    const lastMonthStart = new Date(
+      today.getFullYear(),
+      today.getMonth() - 1,
       1,
     ).getTime();
     // "In stock" = vehicles still in the live pipeline. Exclude terminal /
@@ -226,12 +260,30 @@ export function DashboardKpiRow() {
       }
     }
     const soldThisMonth = soldVehicleIds.size;
+    // Same union rule over the previous calendar month, so the delta compares
+    // like with like rather than a differently-counted number.
+    const soldLastMonthIds = new Set<string>();
+    for (const v of data.vehicles) {
+      if (!v.dateSold) continue;
+      const t = new Date(v.dateSold).getTime();
+      if (t >= lastMonthStart && t < monthStart) soldLastMonthIds.add(v.id);
+    }
+    for (const d of data.deals) {
+      if (d.stage !== "completed_sale" || !d.completionDate) continue;
+      const t = new Date(d.completionDate).getTime();
+      if (t >= lastMonthStart && t < monthStart) soldLastMonthIds.add(d.vehicleId);
+    }
+    const soldLastMonth = soldLastMonthIds.size;
     const openClaims = data.claims.filter(
       (c) => c.status === "open" || c.status === "under_review",
     ).length;
     const newLeads24h = data.leads.filter(
       (l) => now - new Date(l.createdAt).getTime() <= 86_400_000,
     ).length;
+    const newLeadsPrev24h = data.leads.filter((l) => {
+      const age = now - new Date(l.createdAt).getTime();
+      return age > 86_400_000 && age <= 172_800_000;
+    }).length;
     const withDays = activeVehicles.filter(
       (v) => typeof v.daysInStock === "number",
     );
@@ -251,6 +303,8 @@ export function DashboardKpiRow() {
       avgDays,
       inspectionsPending,
       activeJobs,
+      soldLastMonth,
+      newLeadsPrev24h,
     };
   }, [data]);
 
@@ -270,18 +324,46 @@ export function DashboardKpiRow() {
   if (visibleKpis.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-6">
-      {visibleKpis.map((k) => (
-        <DashboardStatCard
-          key={k.key}
-          label={k.label}
-          icon={k.icon}
-          current={stats ? k.value(stats) : null}
-          previous=""
-          trendPct={null}
-          href={k.href}
-        />
-      ))}
+    // One bordered box divided into cells by 1px gaps that let the container's
+    // own background show through, rather than six separate cards: the strip
+    // reads as a single instrument panel, and there are no stacked hairlines
+    // between neighbouring cells.
+    <div className="grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-3 xl:grid-cols-6">
+      {visibleKpis.map((k) => {
+        const delta = stats && k.delta ? k.delta(stats) : null;
+        return (
+          <Link
+            className="flex flex-col gap-2 bg-white px-[18px] pt-4 pb-[18px] no-underline transition-colors hover:bg-surface"
+            href={k.href}
+            key={k.key}
+          >
+            <span className="truncate text-[11px] font-medium uppercase tracking-[0.06em] text-muted-text">
+              {k.label}
+            </span>
+            <span className="flex items-baseline gap-2">
+              {stats === null ? (
+                <Skeleton className="h-[30px] w-14" />
+              ) : (
+                <span className="text-[30px] font-medium leading-none tracking-[-0.03em] tabular-nums">
+                  {k.value(stats)}
+                </span>
+              )}
+              {delta ? (
+                <span
+                  className={cn(
+                    "text-[12px] font-medium tabular-nums",
+                    delta.dir === "up" && "text-status-clear",
+                    delta.dir === "down" && "text-status-blocked",
+                    delta.dir === "flat" && "text-muted-text",
+                  )}
+                >
+                  {delta.text}
+                </span>
+              ) : null}
+            </span>
+          </Link>
+        );
+      })}
     </div>
   );
 }

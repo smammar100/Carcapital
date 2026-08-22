@@ -2,7 +2,6 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import { useState } from "react";
-import { useTheme } from "next-themes";
 import { titleFromPath } from "./sidebar-config";
 import { HealthIndicator } from "./health-indicator";
 import { useAuth } from "@/contexts/auth-context";
@@ -17,7 +16,6 @@ export function AppHeader() {
   const { user, signOut } = useAuth();
   const { notifications, unreadCount, markRead, markAllRead } =
     useNotifications();
-  const { resolvedTheme, setTheme } = useTheme();
   const [searchValue, setSearchValue] = useState("");
 
   async function onSearchSubmit(e: React.FormEvent) {
@@ -38,10 +36,6 @@ export function AppHeader() {
     toast.success("Signed out");
     router.push("/login");
   }
-
-  // resolvedTheme is undefined during SSR/first paint; the toggle icon is
-  // marked suppressHydrationWarning so the brief mismatch is silenced.
-  const isDark = resolvedTheme === "dark";
 
   return (
     <nord-header slot="header">
@@ -67,24 +61,15 @@ export function AppHeader() {
 
         <HealthIndicator />
 
-        {/* Nord renders these square icon buttons at 36x36, under the 40px
+        {/* The dark-mode toggle was removed with the Genaro migration: the
+            brand defines a single light system, so there is no second theme to
+            switch to.
+
+            Nord renders these square icon buttons at 36x36, under the 40px
             desktop / 44px touch floor for a hit target. The ::before bleeds the
             clickable area out to 44x44 without affecting layout. Neighbours sit
             8px apart, so -4px per side makes the two areas meet exactly and
             never overlap — the largest non-colliding extension. */}
-        <nord-button
-          className="relative before:absolute before:-inset-1"
-          square
-          variant="plain"
-          aria-label="Toggle dark mode"
-          onClick={() => setTheme(isDark ? "light" : "dark")}
-        >
-          <nord-icon
-            name={isDark ? "interface-mode-light" : "interface-mode-dark"}
-            suppressHydrationWarning
-          />
-        </nord-button>
-
         <nord-dropdown>
           <nord-button
             className="relative before:absolute before:-inset-1"

@@ -22,14 +22,17 @@ const ALL_GROUP_LABELS: string[] = SIDEBAR_GROUPS.map((g) => g.label).filter(
   (label): label is string => label !== null,
 );
 
-// Active = neutral pill + left accent tick (prototype "Variation E"). Crucially
-// NOT a solid-blue fill, so it never reads like the primary "Add Vehicle" CTA.
+// The rail is navy, so these carry their own on-navy foregrounds rather than
+// the page tokens (--foreground is ink, which is invisible here).
+//
+// Active = a lighter navy fill and a 3px blue left marker, per the Genaro nav
+// spec. Crucially NOT the blue as a fill, so it never reads like the primary
+// "Add Vehicle" CTA (rule 2).
 const ITEM_BASE =
-  "relative flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm no-underline transition-colors";
+  "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-[13px] no-underline transition-colors";
 const ITEM_ACTIVE =
-  "bg-muted font-semibold text-foreground before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-r before:bg-primary";
-const ITEM_INACTIVE =
-  "text-foreground/75 hover:bg-muted hover:text-foreground";
+  "bg-sidebar-accent font-medium text-white before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[3px] before:rounded-r before:bg-accent-blue";
+const ITEM_INACTIVE = "text-navy-200 hover:bg-sidebar-accent hover:text-white";
 
 export function AppSidebar() {
   const pathname = usePathname();
@@ -142,16 +145,16 @@ export function AppSidebar() {
           <img
             src={company.logoMarkUrl}
             alt={`${company.name} logo`}
-            className="h-8 w-8 shrink-0 rounded-md object-contain"
+            className="size-[34px] shrink-0 rounded-md object-contain"
           />
         ) : (
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-md bg-primary text-xs font-semibold text-primary-foreground">
+          <span className="grid size-[34px] shrink-0 place-items-center rounded-md bg-navy-500 text-[13px] font-semibold text-white">
             CC
           </span>
         )}
         <span className="flex min-w-0 flex-col leading-tight">
           <span
-            className="truncate text-sm font-semibold text-foreground"
+            className="truncate text-[13px] font-semibold text-white"
             suppressHydrationWarning
           >
             {company?.name ?? "Car Capital UK"}
@@ -159,7 +162,7 @@ export function AppSidebar() {
           {/* The signed-in user's email, not a second copy of the company name
               (GEN-34). Falls back to a dash before hydration / when unknown. */}
           <span
-            className="truncate text-xs text-muted-foreground"
+            className="truncate text-[11px] text-nav-email"
             suppressHydrationWarning
           >
             {user?.email ?? "—"}
@@ -184,7 +187,7 @@ export function AppSidebar() {
                 type="button"
                 onClick={() => toggleGroup(group.label as string)}
                 aria-expanded={isOpen}
-                className="flex w-full items-center gap-1 rounded px-2 py-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                className="flex w-full items-center gap-1 rounded px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-nav-heading transition-colors hover:text-white"
               >
                 <span className="flex-1 text-left">{group.label}</span>
                 <ChevronDown

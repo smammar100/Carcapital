@@ -86,11 +86,18 @@ export default async function RootLayout({
         )}
       </head>
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
+        {/* forcedTheme, not just a changed default: Genaro is a single light
+            system, and anyone who picked dark before the migration still has
+            `theme=dark` in localStorage. Without forcing, next-themes would
+            restore that class — re-activating the `dark:` utilities still
+            present in component files against a token layer that no longer has
+            dark values. Forcing pins <html> to `light` and ignores the stored
+            preference. */}
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="light"
           disableTransitionOnChange
+          forcedTheme="light"
         >
           {/* Registers the <nord-*> custom elements on the client. */}
           <NordRegister />

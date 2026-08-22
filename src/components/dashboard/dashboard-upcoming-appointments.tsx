@@ -6,7 +6,6 @@ import { useAuth } from "@/contexts/auth-context";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import type { Appointment, Vehicle } from "@/lib/types";
-import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 function fmtTime(t: string): string {
@@ -16,12 +15,14 @@ function fmtTime(t: string): string {
   return `${hh % 12 || 12}:${m} ${period}`;
 }
 
-function fmtDay(iso: string): string {
+/** Weekday + date for the calendar chip, split so the chip can band them. */
+function chipParts(iso: string): { wd: string; dd: string } {
   const [y, mo, d] = iso.split("-").map(Number);
-  return new Date(y, mo - 1, d).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-  });
+  const dt = new Date(y, mo - 1, d);
+  return {
+    wd: dt.toLocaleDateString("en-GB", { weekday: "short" }),
+    dd: String(d),
+  };
 }
 
 export function DashboardUpcomingAppointments() {
@@ -49,19 +50,19 @@ export function DashboardUpcomingAppointments() {
   }, [appts]);
 
   return (
-    <Card className="h-full overflow-hidden">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <div className="flex items-center gap-2">
-          <h2 className="text-sm font-semibold">Upcoming appointments</h2>
-          {upcoming && (
-            <span className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-              {upcoming.length}
-            </span>
-          )}
+    <div className="flex h-full flex-col overflow-hidden rounded-lg border border-line bg-white">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-[14px] font-semibold tracking-[-0.01em]">
+            Appointments
+          </h2>
+          <span className="text-[12px] text-muted-text">
+            {upcoming === null ? "—" : `${upcoming.length} upcoming`}
+          </span>
         </div>
         <Link
+          className="text-[12px] text-accent-navy no-underline hover:underline"
           href="/sales/appointments"
-          className="text-xs text-link underline-offset-4 hover:underline"
         >
           View all
         </Link>
@@ -72,37 +73,46 @@ export function DashboardUpcomingAppointments() {
           <Skeleton className="h-40" />
         </div>
       ) : upcoming.length === 0 ? (
-        <p className="px-4 py-8 text-center text-xs text-muted-foreground">
-          No upcoming appointments.
+        <p className="px-6 py-10 text-center text-[13px] leading-[1.55] text-body-text">
+          Nothing is booked from today onwards. Appointments made from a lead or
+          a vehicle page appear here as soon as they are confirmed.
         </p>
       ) : (
-        <ul className="divide-y divide-border">
+        // No dividers between rows: spacing separates them (rule 1).
+        <ul className="flex flex-1 list-none flex-col justify-between py-2 pb-3">
           {upcoming.map((a) => {
             const v = vehicles.find((x) => x.id === a.vehicleId);
+            const { wd, dd } = chipParts(a.date);
             return (
               <li
+                className="flex items-center gap-[11px] px-4 py-2.5"
                 key={a.id}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm"
               >
-                <div className="flex w-14 shrink-0 flex-col leading-tight">
-                  <span className="text-xs font-semibold tabular-nums">
-                    {fmtTime(a.time)}
+                {/* The one shadow in the system lives on this chip. */}
+                <span className="flex w-[34px] shrink-0 flex-col overflow-hidden rounded-[5px] border border-line bg-white shadow-chip">
+                  <span className="grid h-[13px] place-items-center bg-accent-navy text-[8px] font-semibold uppercase tracking-[0.07em] text-white">
+                    {wd}
                   </span>
-                  <span className="text-xs text-muted-foreground">
-                    {fmtDay(a.date)}
+                  <span className="grid h-[25px] place-items-center text-[15px] font-semibold tracking-[-0.02em] text-ink tabular-nums">
+                    {dd}
                   </span>
-                </div>
-                <div className="min-w-0 flex-1 leading-tight">
-                  <div className="truncate font-medium">{a.customerName}</div>
-                  <div className="truncate text-xs text-muted-foreground">
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col leading-[1.3]">
+                  <span className="truncate text-[13px] font-medium">
+                    {a.customerName}
+                  </span>
+                  <span className="truncate text-[12px] text-muted-text">
                     {v ? `${v.registration} · ${v.make} ${v.model}` : "—"}
-                  </div>
-                </div>
+                  </span>
+                </span>
+                <span className="shrink-0 whitespace-nowrap text-[12px] font-medium text-body-text tabular-nums">
+                  {fmtTime(a.time)}
+                </span>
               </li>
             );
           })}
         </ul>
       )}
-    </Card>
+    </div>
   );
 }

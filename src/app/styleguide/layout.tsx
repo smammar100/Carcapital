@@ -2,9 +2,9 @@ import type { Metadata } from "next";
 import type React from "react";
 
 export const metadata: Metadata = {
-  title: "Styleguide · Car Capital UK",
+  title: "Styleguide · Genaro",
   description:
-    "The design system: colour tokens, type scale, surfaces and every UI component in its real states.",
+    "The Genaro design system: colour tokens, type scale, spacing, the six rules and every component at the size it is used at.",
 };
 
 export default function StyleguideLayout({

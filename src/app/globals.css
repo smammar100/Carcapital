@@ -51,13 +51,15 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
 
-  /* Radius scale anchored on Nord's --n-border-radius (≈5px) so every rounded-*
-     utility matches the Nord web components instead of Tailwind's 16px default. */
-  --radius-sm: calc(var(--radius) - 2px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 1px);
-  --radius-xl: calc(var(--radius) + 3px);
-  --radius-2xl: calc(var(--radius) + 5px);
+  /* Genaro's radius set, stated literally rather than derived from --radius:
+     the spec fixes 4px chips and thumbnails, 6px inputs and buttons, 8px inner
+     panels, 10–12px cards. An offset-from-one-anchor scale lands a pixel off
+     each of those, which is visible where a chip sits inside a card. */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 10px;
+  --radius-2xl: 12px;
 
   --animate-skeleton: skeleton 2s -1s infinite linear;
   --animate-caret-blink: 1s ease-out infinite caret-blink;
@@ -194,178 +196,198 @@
     animation: none;
   }
 }
+/* ── Genaro token layer ──────────────────────────────────────────────
+   Every semantic token resolves to a Genaro brand value (declared in the
+   @theme block at the foot of this file), and Nord's own `--n-color-*` vars
+   are re-pointed at the same values so the <nord-*> web components move with
+   the Tailwind utilities instead of drifting away from them.
 
-/* ── Nord token bridge ───────────────────────────────────────────────
-   The app's semantic tokens are re-pointed at Nord design tokens (`--n-*`,
-   defined by @nordhealth/css which is imported BEFORE this file). This keeps
-   every Tailwind consumer (bg-card, text-muted-foreground, border-border,
-   bg-primary, …) visually consistent with the Nord <nord-*> components during
-   the migration, and lets a single `.dark` class flip both at once (the .dark
-   block below only re-declares `--n-color-*`, which these vars resolve through).
-   Light `--n-color-*` values come from @nordhealth/css. */
+   LIGHT ONLY. The Genaro package defines one light system and no dark
+   variants, so there is no `.dark` block and no theme toggle. Inventing dark
+   values would be fiction, not design. `dark:` utilities still exist in
+   ~67 component files; they are inert (the class is never applied) and are
+   left for a separate mechanical cleanup rather than a risky sweep here.
+
+   Nord's stylesheet is imported BEFORE this file, so these re-declarations
+   win on source order at equal specificity. */
 :root {
   color-scheme: light;
+
   /* Geist Sans app-wide (self-hosted via the `geist` package; layout.tsx sets
      --font-geist-sans). Overriding --n-font-family too keeps the <nord-*>
      web components (sidebar, header, selects) on the same typeface. */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   --n-font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
-  --radius: var(--n-border-radius);
-  --background: var(--n-color-background);
-  --foreground: var(--n-color-text);
-  --card: var(--n-color-surface);
-  --card-foreground: var(--n-color-text);
-  --popover: var(--n-color-surface);
-  --popover-foreground: var(--n-color-text);
-  --primary: var(--n-color-accent);
-  --primary-foreground: var(--n-color-text-on-accent);
-  --secondary: var(--n-color-active);
-  --secondary-foreground: var(--n-color-text);
-  --muted: var(--n-color-active);
-  /* Nord's --n-color-text-weaker is rgb(102,118,128) — oklch(0.556 0.025
-     235.3). On --muted (its most common pairing: table headers, TabsList,
-     filter-group labels) that measures 4.41:1, under the 4.5 WCAG AA floor
-     for the 11–12px text it carries. Darken LIGHTNESS ONLY (0.556 → 0.53),
-     keeping chroma + hue, which lifts it to 4.94:1 on muted (5.08 on
-     background, 5.27 on card) with no perceptible change of tone. Scoped to
-     our token so Nord's own components keep their value (GEN-58). */
-  --muted-foreground: oklch(0.53 0.025 235.3);
-  --accent: var(--n-color-active);
-  --accent-foreground: var(--n-color-text);
-  --destructive: var(--n-color-status-danger);
-  /* NOT a "text on destructive" colour — this is Nord's dark red text for
-     LIGHT surfaces (bg-destructive/8 badges, error copy). Pairing it with
-     --destructive itself measures 1.35:1; the solid destructive button
-     correctly uses text-white instead. */
-  --destructive-foreground: var(--n-color-text-danger);
-  --info: var(--n-color-status-info);
-  --info-foreground: var(--n-color-text-info);
-  --success: var(--n-color-status-success);
-  --success-foreground: var(--n-color-text-success);
-  --warning: var(--n-color-status-warning);
-  --warning-foreground: var(--n-color-text-warning);
-  --border: var(--n-color-border);
-  --input: var(--n-color-border);
-  --ring: var(--n-color-accent);
-  --chart-1: var(--n-color-accent);
-  --chart-2: var(--n-color-status-success);
-  --chart-3: var(--n-color-status-progress);
-  --chart-4: var(--n-color-status-warning);
-  --chart-5: var(--n-color-status-highlight);
-  --sidebar: var(--n-color-nav-surface);
-  --sidebar-foreground: var(--n-color-text);
-  --sidebar-primary: var(--n-color-accent);
-  --sidebar-primary-foreground: var(--n-color-text-on-accent);
-  --sidebar-accent: var(--n-color-nav-hover);
-  --sidebar-accent-foreground: var(--n-color-text);
-  --sidebar-border: var(--n-color-border);
-  --sidebar-ring: var(--n-color-accent);
-}
 
-/* Dark mode = Nord's dark theme tokens, re-scoped from @nordhealth/themes'
-   nord-dark.css (which ships :root-scoped) onto the next-themes `.dark` class.
-   The semantic tokens in :root reference these `--n-color-*` vars, so they
-   resolve to the dark values automatically for any element inside `.dark` —
-   flipping Nord components AND Tailwind utilities together. */
-.dark {
-  color-scheme: dark;
-  --n-color-accent: rgb(42, 70, 157);
-  --n-color-text: rgb(222, 223, 225);
-  --n-color-text-link: rgb(92, 130, 245);
-  --n-color-text-weak: rgb(222, 223, 225);
-  --n-color-text-weaker: rgb(143, 148, 158);
-  --n-color-text-weakest: rgb(85, 89, 98);
-  --n-color-text-on-accent: rgb(255, 255, 255);
-  --n-color-text-error: rgb(203, 58, 29);
-  --n-color-text-danger: rgb(243, 126, 104);
-  --n-color-text-success: rgb(99, 193, 116);
-  --n-color-text-neutral: rgb(155, 161, 166);
-  --n-color-text-neutral-strong: rgb(236, 237, 238);
-  --n-color-text-warning: rgb(219, 161, 0);
-  --n-color-text-warning-strong: rgb(51, 40, 16);
-  --n-color-text-highlight: rgb(191, 122, 240);
-  --n-color-text-info: rgb(128, 153, 255);
-  --n-color-text-progress: rgb(47, 202, 218);
-  --n-color-nav-surface: rgb(38, 41, 48);
-  --n-color-nav-heading: rgb(155, 155, 155);
-  --n-color-nav-hover: rgb(44, 49, 58);
-  --n-color-border: rgb(47, 52, 60);
-  --n-color-border-strong: rgb(61, 67, 77);
-  --n-color-border-neutral: rgb(49, 53, 56);
-  --n-color-border-warning: rgb(71, 52, 0);
-  --n-color-border-highlight: rgb(73, 36, 97);
-  --n-color-border-danger: rgb(101, 32, 22);
-  --n-color-border-success: rgb(29, 68, 39);
-  --n-color-border-info: rgb(34, 52, 110);
-  --n-color-border-progress: rgb(6, 69, 85);
-  --n-color-surface: rgb(29, 32, 37);
-  --n-color-background: rgb(24, 27, 32);
-  --n-color-surface-raised: rgb(34, 37, 43);
-  --n-color-surface-lowered: rgb(43, 47, 49);
-  --n-color-overlay: rgba(9, 10, 12, 0.5);
-  --n-color-status-neutral: rgb(29, 32, 37);
-  --n-color-status-warning: rgb(253, 204, 68);
-  --n-color-status-highlight: rgb(129, 63, 186);
-  --n-color-status-danger: rgb(203, 58, 29);
-  --n-color-status-success: rgb(32, 131, 51);
-  --n-color-status-info: rgb(55, 91, 210);
-  --n-color-status-progress: rgb(0, 127, 153);
-  --n-color-status-notification: rgb(231, 84, 54);
-  --n-color-status-neutral-weak: rgb(32, 36, 37);
-  --n-color-status-warning-weak: rgb(44, 32, 0);
-  --n-color-status-highlight-weak: rgb(48, 26, 58);
-  --n-color-status-danger-weak: rgb(59, 24, 19);
-  --n-color-status-success-weak: rgb(20, 41, 26);
-  --n-color-status-info-weak: rgb(25, 33, 64);
-  --n-color-status-progress-weak: rgb(8, 45, 53);
-  --n-color-button: rgb(29, 32, 37);
-  --n-color-button-hover: rgb(38, 41, 48);
-  --n-color-border-hover: rgb(143, 148, 158);
-  --n-color-icon: rgb(143, 148, 158);
-  --n-color-icon-hover: rgb(222, 223, 225);
-  --n-color-active: rgb(38, 41, 48);
-  --n-color-header: rgb(38, 41, 48);
-  --n-color-accent-secondary: rgb(42, 70, 157);
-  --n-input-background: var(--n-color-active);
-  --n-input-background-inactive: var(--n-color-surface);
-  --n-textarea-background: var(--n-color-active);
-  --n-textarea-background-inactive: var(--n-color-surface);
-  --n-box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  --n-box-shadow-card: 0 0 0 1px var(--n-color-border),
-    0 1px 5px rgba(0, 0, 0, 0.15);
-  --n-box-shadow-header: 0 1px 5px rgba(0, 0, 0, 0.15);
-  --n-box-shadow-modal: 0 0 0 1px var(--n-color-border),
-    0 24px 38px 3px rgba(0, 0, 0, 0.34), 0px 9px 86px 8px rgba(0, 0, 0, 0.28),
-    0px 11px 15px -7px rgba(0, 0, 0, 0.28);
-  --n-box-shadow-popout: 0 4px 12px rgba(0, 0, 0, 0.25),
-    0 0 0 1px var(--n-color-border);
-  --n-box-shadow-nav: 0 0 0 1px var(--n-color-border),
-    0 5px 17px rgba(0, 0, 0, 0.24);
+  /* Genaro fixes 6px for inputs and buttons; the rest of the scale is set
+     explicitly in @theme inline rather than derived, so rounded-sm/lg/xl/2xl
+     land on the spec's own 4 / 8 / 10 / 12 instead of ±1px approximations. */
+  --radius: 6px;
+  --n-border-radius: 6px;
+  /* Nord sizes its inputs, selects and textareas off the -s step (3px), not
+     off --n-border-radius, so the input radius has to be set here or the
+     fields stay 3px while every button around them is 6px. */
+  --n-border-radius-s: 6px;
 
-  /* :root pins --muted-foreground to a literal oklch() for the light-mode
-     contrast fix (GEN-58), which would otherwise leak that light value into
-     dark mode — this block only re-declares --n-color-*, so the value has to
-     be restated here.
+  /* ---------------------------------------------------------- semantic */
 
-     Nord's dark weaker text is rgb(143,148,158) = oklch(0.666 0.016 264.46).
-     It clears WCAG 2 comfortably (5.12:1 on --muted, 5.87 on --background) but
-     reaches only APCA Lc 41–43 against the 60 floor for body text. That gap is
-     WCAG 2's known blind spot: it systematically overstates contrast for light
-     text on dark grounds, which is exactly this pairing. Raise LIGHTNESS ONLY
-     (0.666 → 0.785), holding chroma and hue: Lc 60.8 on --muted/--accent (its
-     worst surfaces, 8.20:1) and 62.9 on --background (9.35:1), with no shift
-     in tone. Still clearly subordinate to --foreground at L 0.90. */
-  --muted-foreground: oklch(0.785 0.016 264.46);
+  --background: var(--color-page);
+  --foreground: var(--color-ink);
+  --card: #ffffff;
+  --card-foreground: var(--color-ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--color-ink);
 
-  /* Nord's dark accent is rgb(42,70,157) = oklch(0.426 0.146 266.63). As a
-     FILL behind white text that is fine, so --primary keeps it — but --ring is
-     a focus indicator drawn AGAINST the dark canvas, where it measured 1.97:1
-     / Lc 11.8 on --background, well under the 3:1 WCAG 1.4.11 floor for
-     non-text UI. Keyboard focus was effectively invisible in dark mode.
-     Lightness only again (0.426 → 0.597), chroma and hue untouched: 4.31:1 /
-     Lc 32.5 on --background, 3.76 / 30.3 on --muted (worst case). Scoped to
-     --ring so --primary and the <nord-*> components keep Nord's own accent. */
-  --ring: oklch(0.597 0.146 266.63);
+  /* Rule 2 lives here: navy fill is the primary action and nothing else. */
+  --primary: var(--color-navy-900);
+  --primary-foreground: #ffffff;
+
+  /* The Genaro secondary button is white with a 1px border, so --secondary
+     carries the surface tone and the border comes from --border. */
+  --secondary: var(--color-surface);
+  --secondary-foreground: #3f3f46;
+
+  --muted: var(--color-surface);
+  --muted-foreground: var(--color-muted-text);
+
+  /* Hover/active fill. One step darker than --muted so a hover is visible on
+     top of a zebra row, which is already sitting on --color-surface. */
+  --accent: var(--color-line-soft);
+  --accent-foreground: var(--color-ink);
+
+  /* Status. The saturated value is the fill AND the on-light text (both are
+     specified against white or a tint); the darker *-foreground values are the
+     badge text colours, which sit on the matching tinted background. */
+  --destructive: var(--color-status-blocked);
+  --destructive-foreground: #7f1d1d;
+  --success: var(--color-status-clear);
+  --success-foreground: #14532d;
+  --warning: var(--color-status-warning);
+  --warning-foreground: #713f12;
+  --info: var(--color-navy-500);
+  --info-foreground: #1e3a8a;
+
+  --border: var(--color-line);
+  --input: var(--color-line);
+  /* Focus is the blue accent, not navy: navy on a navy primary button would
+     be invisible, and the accent is the system's one "look here" colour. */
+  --ring: var(--color-accent-blue);
+
+  /* Chart series = the four stock stages, in the spec's own order. --chart-5
+     is the accent, for series the stage set does not name. */
+  --chart-1: var(--color-stage-ready);
+  --chart-2: var(--color-stage-prep);
+  --chart-3: var(--color-stage-parts);
+  --chart-4: var(--color-stage-blocked);
+  --chart-5: var(--color-accent-blue);
+
+  /* The nav rail is navy — the largest single piece of brand on any screen. */
+  --sidebar: var(--color-navy-900);
+  --sidebar-foreground: #ffffff;
+  --sidebar-primary: var(--color-accent-blue);
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: var(--color-navy-700);
+  --sidebar-accent-foreground: #ffffff;
+  --sidebar-border: var(--color-navy-700);
+  --sidebar-ring: var(--color-accent-blue);
+
+  /* ------------------------------------------------- Nord bridge (in) */
+  /* The <nord-*> components read these directly from their shadow roots, so
+     they have to be re-pointed here or the components keep Nord's blue-grey
+     palette while everything around them turns navy. */
+
+  --n-color-accent: var(--color-navy-900);
+  --n-color-accent-secondary: var(--color-navy-700);
+  --n-color-text: var(--color-ink);
+  --n-color-text-weak: var(--color-body-text);
+  --n-color-text-weaker: var(--color-muted-text);
+  --n-color-text-weakest: var(--color-faint);
+  --n-color-text-on-accent: #ffffff;
+  --n-color-text-link: var(--color-accent-blue);
+
+  --n-color-text-error: var(--color-status-blocked);
+  --n-color-text-danger: var(--color-status-blocked);
+  --n-color-text-success: var(--color-status-clear);
+  --n-color-text-warning: var(--color-status-warning);
+  --n-color-text-warning-strong: #713f12;
+  --n-color-text-info: var(--color-navy-500);
+  --n-color-text-progress: var(--color-navy-500);
+  --n-color-text-neutral: var(--color-muted-text);
+  --n-color-text-neutral-strong: var(--color-ink);
+  --n-color-text-highlight: #581c87;
+
+  --n-color-background: var(--color-page);
+  --n-color-surface: #ffffff;
+  --n-color-surface-raised: #ffffff;
+  --n-color-surface-lowered: var(--color-surface);
+  --n-color-overlay: rgb(24 32 58 / 0.45);
+
+  --n-color-border: var(--color-line);
+  /* Genaro states one border colour for everything, so "strong" resolves to
+     the same hairline: Nord uses it for input outlines, which the spec draws
+     at #E4E4E7 like every other border. */
+  --n-color-border-strong: var(--color-line);
+  --n-color-border-hover: var(--color-faint);
+  --n-color-border-neutral: var(--color-line);
+  --n-color-border-warning: var(--color-status-warning-edge);
+  --n-color-border-danger: var(--color-status-blocked-edge);
+  --n-color-border-success: var(--color-status-clear-edge);
+  --n-color-border-info: #bfdbfe;
+  --n-color-border-progress: #bfdbfe;
+  --n-color-border-highlight: #e9d5ff;
+
+  --n-color-status-danger: var(--color-status-blocked);
+  --n-color-status-warning: var(--color-stage-parts);
+  --n-color-status-success: var(--color-status-clear);
+  --n-color-status-info: var(--color-navy-500);
+  --n-color-status-progress: var(--color-navy-500);
+  --n-color-status-neutral: var(--color-surface);
+  --n-color-status-notification: var(--color-status-blocked);
+  --n-color-status-highlight: #7e22ce;
+
+  --n-color-status-danger-weak: var(--color-status-blocked-bg);
+  --n-color-status-warning-weak: var(--color-status-warning-bg);
+  --n-color-status-success-weak: var(--color-status-clear-bg);
+  --n-color-status-info-weak: #dbeafe;
+  --n-color-status-progress-weak: #dbeafe;
+  --n-color-status-neutral-weak: var(--color-page);
+  --n-color-status-highlight-weak: #f3e8ff;
+
+  --n-color-active: var(--color-line-soft);
+  --n-color-button: #ffffff;
+  --n-color-button-hover: var(--color-surface);
+  --n-color-icon: var(--color-muted-text);
+  --n-color-icon-hover: var(--color-ink);
+  --n-color-header: #ffffff;
+
+  /* Nav rail: navy ground, lighter navy for the active/hover item, and the
+     muted slate the spec uses for its group headings. */
+  --n-color-nav-surface: var(--color-navy-900);
+  --n-color-nav-hover: var(--color-navy-700);
+  --n-color-nav-heading: #6b7a99;
+
+  --n-input-background: #ffffff;
+  --n-input-background-inactive: var(--color-surface);
+  --n-textarea-background: #ffffff;
+  --n-textarea-background-inactive: var(--color-surface);
+
+  /* Elevation is almost absent in this system: a card is 1px of border on
+     white. Nord's card/header shadows collapse to the border alone; only the
+     genuinely floating layers (modal, popout, nav drawer) keep a soft cast,
+     because a menu that does not lift off the page reads as part of it. */
+  --n-box-shadow: none;
+  --n-box-shadow-card: 0 0 0 1px var(--color-line);
+  --n-box-shadow-header: 0 0 0 1px var(--color-line);
+  --n-box-shadow-modal: 0 0 0 1px var(--color-line),
+    0 24px 38px 3px rgb(24 32 58 / 0.12), 0 9px 46px 8px rgb(24 32 58 / 0.08);
+  --n-box-shadow-popout: 0 0 0 1px var(--color-line),
+    0 4px 12px rgb(24 32 58 / 0.1);
+  /* No light ring on the nav: the rail is navy, so a #E4E4E7 hairline reads as
+     a bright stroke drawn along its edge rather than a seam. The drawer keeps
+     its soft cast (it floats over the page), and the docked rail gets no
+     border at all — navy against the #F4F4F5 page already separates them. */
+  --n-box-shadow-nav: 0 5px 17px rgb(24 32 58 / 0.24);
+  --n-layout-nav-border-color: transparent;
 }
 
 @layer base {
@@ -493,3 +515,103 @@
    modal tier) so backdrops cover the whole viewport — including the sidebar —
    and trap interaction. They share one value so they keep stacking amongst
    themselves by portal/DOM order, exactly as they did at z-50. */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   GENARO BRAND TOKENS — Direction 05 "Grille"
+   ══════════════════════════════════════════════════════════════════════════
+   From the "Genaro branding guidelines" handoff (2026-08-22). These are
+   ABSOLUTE brand values, not theme-relative ones: unlike every token above —
+   which resolves through Nord's --n-color-* vars and flips with `.dark` —
+   each of these is one fixed hex in every context. The brand package defines
+   a single light system; it specifies no dark variants, so inventing them
+   here would be fiction.
+
+   This block deliberately sits ALONGSIDE the Nord mapping rather than
+   replacing it. The app still resolves `bg-card`, `text-muted-foreground`,
+   `bg-primary` etc. through Nord, so nothing in the product changes shade
+   today. Re-pointing the semantic layer at these values is the migration
+   (handoff open item 1) and is a separate, app-wide change.
+
+   Consumed by /styleguide, which documents them. */
+@theme {
+  /* Navy — brand, nav rail, primary actions, one framing figure per screen */
+  --color-navy-900: #16203a;
+  --color-navy-700: #243254;
+  --color-navy-500: #4c6fb5;
+  --color-navy-200: #a9b4cc;
+  --color-accent-blue: #0b5cff;
+
+  /* Zinc — text, borders, surfaces: the whole interface outside of status */
+  /* On-navy text. The zinc ramp is built for light grounds — muted (#71717A)
+     on the navy rail measures ~3.2:1, under the 4.5 floor for the 11px email —
+     so the rail carries its own two foreground tones.
+
+     --color-nav-email is the spec's #8B9AB8 unchanged (~5.3:1 at 11px).
+
+     --color-nav-heading is NOT the spec's #6B7A99: that measures 3.74:1 on the
+     navy ground, below the 4.5 floor, and it carries the 10px uppercase group
+     labels — the smallest persistent text in the app. Raised in LUMINANCE ONLY
+     along the same hue, the way --muted-foreground was corrected for light
+     mode (GEN-58), which clears 4.5:1 with no perceptible shift in tone. Worth
+     re-checking against the brand owner when the final artwork lands. */
+  --color-nav-heading: #798aac;
+  --color-nav-email: #8b9ab8;
+
+  --color-ink: #18181b;
+  --color-body-text: #52525b;
+  --color-muted-text: #71717a;
+  --color-faint: #a1a1aa;
+  --color-line: #e4e4e7;
+  --color-line-soft: #efeff1;
+  --color-surface: #fafafa;
+  --color-page: #f4f4f5;
+
+  /* Status — meaning only, never decoration (rule 4) */
+  --color-status-blocked: #b4232f;
+  --color-status-blocked-bg: #fee2e2;
+  --color-status-blocked-edge: #f6d5d0;
+  --color-status-warning: #946200;
+  --color-status-warning-bg: #fef9c3;
+  --color-status-warning-edge: #fde68a;
+  --color-status-clear: #117627;
+  --color-status-clear-bg: #dcfce7;
+  --color-status-clear-edge: #bbf7d0;
+
+  /* Plate — registration plates and nowhere else (rule 5) */
+  --color-plate: #f6cd5a;
+  --color-plate-edge: #d9ae33;
+
+  /* Interactive accent used by the Dashboard Home design: links, the primary
+     CTA, the date-chip weekday band and news tags. NOTE this is not the
+     README's primary (#16203A) — the dashboard artwork moved the CTA to this
+     lighter navy. Needs reconciling with the brand owner; until then navy-900
+     stays --primary app-wide and this is scoped to the dashboard. */
+  --color-accent-navy: #3b5ba9;
+
+  /* Stock-by-stage series, taken from Dashboard Home.dc.html. These differ
+     from the README's chart series (which is navy / navy-500 / amber / red)
+     and put green on "Ready" and amber on "In preparation" — status hues on
+     pipeline stages, which rule 4 argues against. Implemented as drawn because
+     the dashboard artwork is the later artefact; flagged for reconciliation. */
+  --color-stock-ready: #1d8633;
+  --color-stock-prep: #e0a82e;
+  --color-stock-inspection: #3e63dd;
+  --color-stock-photography: #16203a;
+
+  /* Chart series, stock stages. The amber is #D9A62E, NOT plate yellow —
+     kept distinct so plate yellow stays unique to plates. */
+  --color-stage-ready: #16203a;
+  --color-stage-prep: #4c6fb5;
+  --color-stage-parts: #d9a62e;
+  --color-stage-blocked: #b4232f;
+
+  /* Inspection dots */
+  --color-check-passed: #22c55e;
+  --color-check-partial: #f59e0b;
+  --color-check-failed: #ef4444;
+  --color-check-none: #a1a1aa;
+  --color-check-progress: #4c6fb5;
+
+  /* The one shadow in the system: the calendar date chip. Nothing else. */
+  --shadow-chip: 0 1px 1px rgb(0 0 0 / 0.04);
+}

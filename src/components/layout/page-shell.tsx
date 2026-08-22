@@ -41,7 +41,11 @@ export function PageShell({
       // Symmetric padding on all four sides — left/right gap equals the
       // top gap at every breakpoint. No max-width cap; content fills the
       // available width inside <main>.
-      className={cn("w-full p-6 md:p-8", className)}
+      //
+      // Flat 24px, not 24-then-32: Genaro fixes page padding at 24px, and the
+      // desktop 32px left a visibly dead band between the top bar and the
+      // first line of content.
+      className={cn("w-full p-6", className)}
     >
       {children}
     </div>

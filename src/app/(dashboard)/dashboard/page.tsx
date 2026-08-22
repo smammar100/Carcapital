@@ -8,7 +8,6 @@ import { DashboardKpiRow } from "@/components/dashboard/dashboard-kpi-row";
 import { DashboardStockOverview } from "@/components/dashboard/dashboard-stock-overview";
 import { DashboardRecentDeals } from "@/components/dashboard/dashboard-recent-deals";
 import { DashboardUpcomingAppointments } from "@/components/dashboard/dashboard-upcoming-appointments";
-import { DashboardTodayUpdates } from "@/components/dashboard/dashboard-today-updates";
 import { DashboardRecentActivity } from "@/components/dashboard/dashboard-recent-activity";
 
 export default function DashboardPage() {
@@ -49,50 +48,42 @@ export default function DashboardPage() {
     };
   }, [can, isSuperUser]);
 
-  const row2 = Number(flags.stock) + Number(flags.deals);
-  // Today's updates always shows — an at-a-glance personal summary for any role.
-  const row3 = 1 + Number(flags.calendar) + Number(flags.news);
+  // The bottom row is Stock by stage / Appointments / Latest news. Its column
+  // count follows how many of those three the role can actually see, so a
+  // hidden widget never leaves an empty column.
+  const row3 =
+    Number(flags.stock) + Number(flags.calendar) + Number(flags.news);
 
+  // Layout follows Dashboard Home.dc.html: greeting, KPI strip, the deals
+  // table full width, then three equal cards. Gaps are the design's 16px.
+  //
+  // NOTE: the design has no "Today's updates" card, so that widget is no
+  // longer mounted here. The component is kept — nothing else renders it — so
+  // restoring it is a one-line change if the omission was not intended.
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-4">
       <DashboardGreeting />
 
       <DashboardKpiRow />
 
-      {row2 > 0 && (
+      {flags.deals && <DashboardRecentDeals />}
+
+      {row3 > 0 && (
         <div
           className={cn(
             "grid items-stretch gap-3",
-            row2 === 2 ? "lg:grid-cols-12" : "grid-cols-1",
+            row3 === 3
+              ? "lg:grid-cols-3"
+              : row3 === 2
+                ? "lg:grid-cols-2"
+                : "grid-cols-1",
           )}
         >
-          {flags.stock && (
-            <div className={cn(row2 === 2 && "lg:col-span-5")}>
-              <DashboardStockOverview />
-            </div>
-          )}
-          {flags.deals && (
-            <div className={cn(row2 === 2 && "lg:col-span-7")}>
-              <DashboardRecentDeals />
-            </div>
-          )}
+          {flags.stock && <DashboardStockOverview />}
+          {flags.calendar && <DashboardUpcomingAppointments />}
+          {flags.news && <DashboardRecentActivity />}
         </div>
       )}
-
-      <div
-        className={cn(
-          "grid items-stretch gap-3",
-          row3 === 3
-            ? "lg:grid-cols-3"
-            : row3 === 2
-              ? "lg:grid-cols-2"
-              : "grid-cols-1",
-        )}
-      >
-        {flags.calendar && <DashboardUpcomingAppointments />}
-        <DashboardTodayUpdates />
-        {flags.news && <DashboardRecentActivity />}
-      </div>
     </div>
   );
 }

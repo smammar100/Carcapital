@@ -1,13 +1,22 @@
 "use client";
 
 /*
- * STYLEGUIDE — the living reference for Car Capital's design system.
+ * STYLEGUIDE — the living reference for the Genaro design system.
  *
- * Everything here reads from the real tokens in globals.css and the real
- * components in src/components/ui, so it can't drift from the app: change a
- * token and this page changes with it. Colour values are resolved at runtime
- * per theme rather than hardcoded, because every semantic token routes through
- * Nord's --n-color-* vars and is a different colour in light vs dark.
+ * Source: the "Genaro branding guidelines" handoff, Direction 05 "Grille"
+ * (2026-08-22). Spec data lives in ./genaro.ts; colour is resolved at runtime
+ * from the tokens in globals.css so a token edit moves this page with it.
+ *
+ * TWO THINGS TO KNOW BEFORE READING IT AS TRUTH:
+ *
+ * 1. This page documents the Genaro system. The PRODUCT does not use it yet —
+ *    every screen still resolves colour through @nordhealth/css. Re-pointing
+ *    the semantic layer (--primary, --card, --border, …) at these tokens is
+ *    the migration, and is deliberately not done here.
+ * 2. Genaro defines one light system and no dark variants, so this page does
+ *    not flip with the app theme; it renders in brand colour in both. The old
+ *    light/dark switch was removed rather than left to imply a dark system
+ *    that has not been designed.
  *
  * Sits outside the (dashboard) group so it renders without app chrome. It is
  * still behind auth (middleware protects everything but PUBLIC_PATHS), which
@@ -15,222 +24,56 @@
  */
 
 import * as React from "react";
-import { useTheme } from "next-themes";
 import {
-  ArrowRightIcon,
-  MonitorIcon,
-  MoonIcon,
+  BellIcon,
+  ChevronDownIcon,
+  CircleAlertIcon,
+  CircleCheckIcon,
+  DownloadIcon,
   PlusIcon,
-  SunIcon,
-  TrashIcon,
+  SearchIcon,
+  TriangleAlertIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  ALL_TOKENS,
+  BADGES,
+  type BadgeSpec,
+  DEAL_BADGES,
+  DOTS,
+  NAVY,
+  PLATE,
+  RADII,
+  RULES,
+  SPACING_SCALE,
+  STAGES,
+  STATUS,
+  TYPE_SCALE,
+  ZINC,
+} from "./genaro";
 import {
   CopyChip,
   Eyebrow,
   Section,
   SpecRow,
   Specimen,
-  SwatchGrid,
-  useMounted,
+  TokenSwatch,
   useResolvedTokens,
 } from "./parts";
-
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardPanel,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import { RadioGroup, RadioItem } from "@/components/ui/radio-group";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "@/components/ui/tooltip";
-import {
-  Dialog,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPopup,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverDescription,
-  PopoverPopup,
-  PopoverTitle,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-/* ------------------------------------------------------------------ tokens */
-
-const SURFACE_TOKENS = [
-  "background",
-  "card",
-  "popover",
-  "muted",
-  "accent",
-  "secondary",
-  "sidebar",
-] as const;
-
-const TEXT_TOKENS = [
-  "foreground",
-  "muted-foreground",
-  "primary-foreground",
-  "secondary-foreground",
-  "accent-foreground",
-] as const;
-
-const STATUS_TOKENS = [
-  "primary",
-  "destructive",
-  "success",
-  "warning",
-  "info",
-] as const;
-
-const STATUS_TEXT_TOKENS = [
-  "destructive-foreground",
-  "success-foreground",
-  "warning-foreground",
-  "info-foreground",
-] as const;
-
-const LINE_TOKENS = ["border", "input", "ring"] as const;
-
-const CHART_TOKENS = [
-  "chart-1",
-  "chart-2",
-  "chart-3",
-  "chart-4",
-  "chart-5",
-] as const;
-
-const ALL_TOKENS = [
-  ...SURFACE_TOKENS,
-  ...TEXT_TOKENS,
-  ...STATUS_TOKENS,
-  ...STATUS_TEXT_TOKENS,
-  ...LINE_TOKENS,
-  ...CHART_TOKENS,
-];
-
-const TYPE_SCALE = [
-  {
-    cls: "text-2xl",
-    role: "Display",
-    use: "Page and modal <h1>, KPI hero numbers",
-    size: "1.5rem / 24px",
-    detail: "1.15 · −0.02em",
-  },
-  {
-    cls: "text-base",
-    role: "Title",
-    use: "Card, panel, dialog and section titles",
-    size: "1.125rem / 18px",
-    detail: "1.35 · −0.012em",
-  },
-  {
-    cls: "text-sm",
-    role: "Body",
-    use: "Prose, descriptions, table cells, nav, inputs",
-    size: "0.875rem / 14px",
-    detail: "1.5 · −0.004em",
-  },
-  {
-    cls: "text-xs",
-    role: "Label",
-    use: "Eyebrows, captions, meta, table heads",
-    size: "0.75rem / 12px",
-    detail: "1.4 · +0.008em",
-  },
-  {
-    cls: "text-2xs",
-    role: "Micro",
-    use: "LOCKED — glyphs in fixed sub-12px boxes only",
-    size: "0.625rem / 10px",
-    detail: "1 · +0.01em",
-  },
-] as const;
-
-const RADII = [
-  { cls: "rounded-sm", calc: "--radius − 2px" },
-  { cls: "rounded-md", calc: "--radius" },
-  { cls: "rounded-lg", calc: "--radius + 1px" },
-  { cls: "rounded-xl", calc: "--radius + 3px" },
-  { cls: "rounded-2xl", calc: "--radius + 5px" },
-] as const;
-
-const ELEVATION = [
-  { cls: "shadow-xs/5", use: "Inputs, checkboxes, resting cards" },
-  { cls: "shadow-sm", use: "Card default, switch thumb" },
-  { cls: "shadow-md/5", use: "Tooltips" },
-  { cls: "shadow-lg/5", use: "Dialogs, sheets" },
-] as const;
-
-const SPACING = [1, 2, 3, 4, 6, 8] as const;
-
-const BUTTON_VARIANTS = [
-  "default",
-  "secondary",
-  "outline",
-  "ghost",
-  "destructive",
-  "destructive-outline",
-  "link",
-] as const;
-
-const BUTTON_SIZES = ["xs", "sm", "default", "lg", "xl"] as const;
-
-const BADGE_VARIANTS = [
-  "default",
-  "secondary",
-  "outline",
-  "success",
-  "warning",
-  "error",
-  "info",
-  "destructive",
-] as const;
 
 const NAV = [
   { id: "colour", label: "Colour" },
   { id: "typography", label: "Typography" },
-  { id: "shape", label: "Shape & elevation" },
-  { id: "spacing", label: "Spacing" },
+  { id: "shape", label: "Spacing & shape" },
+  { id: "rules", label: "The six rules" },
   { id: "buttons", label: "Buttons" },
-  { id: "badges", label: "Badges" },
-  { id: "forms", label: "Forms" },
-  { id: "navigation", label: "Navigation" },
-  { id: "data", label: "Data" },
-  { id: "overlays", label: "Overlays" },
-  { id: "feedback", label: "Feedback" },
+  { id: "badges", label: "Status badges" },
+  { id: "cards", label: "Cards" },
+  { id: "table", label: "Data table" },
+  { id: "chips", label: "Filter chips" },
+  { id: "banners", label: "Banners" },
+  { id: "chrome", label: "Nav rail & top bar" },
+  { id: "voice", label: "Voice" },
 ] as const;
 
 /* --------------------------------------------------------------- the page */
@@ -240,9 +83,9 @@ export default function StyleguidePage(): React.ReactElement {
   const active = useActiveSection(NAV.map((n) => n.id));
 
   return (
-    <div className="min-h-full bg-background text-foreground">
+    <div className="min-h-full bg-page text-ink">
       <a
-        className="sr-only rounded-md bg-primary px-3 py-2 text-primary-foreground text-sm focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
+        className="sr-only rounded-[6px] bg-navy-900 px-3 py-2 text-[13px] text-white focus:not-sr-only focus:absolute focus:top-3 focus:left-3 focus:z-50"
         href="#content"
       >
         Skip to content
@@ -258,17 +101,19 @@ export default function StyleguidePage(): React.ReactElement {
           id="content"
           tabIndex={-1}
         >
+          <Intro />
           <ColourSection values={values} />
           <TypographySection />
           <ShapeSection />
-          <SpacingSection />
+          <RulesSection />
           <ButtonsSection />
           <BadgesSection />
-          <FormsSection />
-          <NavigationSection />
-          <DataSection />
-          <OverlaysSection />
-          <FeedbackSection />
+          <CardsSection />
+          <TableSection />
+          <ChipsSection />
+          <BannersSection />
+          <ChromeSection />
+          <VoiceSection />
         </main>
       </div>
     </div>
@@ -279,26 +124,30 @@ export default function StyleguidePage(): React.ReactElement {
 
 function Header({ active }: { active: string | null }): React.ReactElement {
   return (
-    <header className="sticky top-0 z-40 border-border border-b bg-background/88 backdrop-blur-sm">
+    <header className="sticky top-0 z-40 border-line border-b bg-page/88 backdrop-blur-sm">
       <div className="container flex h-14 items-center justify-between gap-4">
         <div className="flex min-w-0 items-baseline gap-3">
-          <span className="truncate font-semibold text-sm">Styleguide</span>
-          <span className="truncate text-muted-foreground text-xs max-sm:hidden">
-            Car Capital design system
+          <span className="truncate font-semibold text-[15px] tracking-[-0.01em]">
+            Genaro
+          </span>
+          <span className="truncate text-[12px] text-muted-text max-sm:hidden">
+            Design system · Direction 05 “Grille”
           </span>
         </div>
-        <ThemeSwitch />
+        <span className="shrink-0 rounded-full bg-white px-2.5 py-1 font-mono text-[10px] text-muted-text uppercase tracking-[0.12em] ring-1 ring-line">
+          Light only
+        </span>
       </div>
 
       {/* Below lg the side rail is gone, so the same jump links ride along as a
-          scrolling strip — 11 sections with no nav is a lot of thumb. */}
+          scrolling strip — 12 sections with no nav is a lot of thumb. */}
       <div className="container flex gap-1 overflow-x-auto pb-2 lg:hidden">
         {NAV.map((item) => (
           <a
             aria-current={active === item.id ? "true" : undefined}
             className={cn(
-              "shrink-0 rounded-md px-2 py-1 text-muted-foreground text-xs outline-none transition-[color,background-color] focus-visible:ring-2 focus-visible:ring-ring",
-              active === item.id && "bg-accent font-medium text-foreground",
+              "shrink-0 rounded-[6px] px-2 py-1 text-[12px] text-muted-text outline-none transition-[color,background-color] focus-visible:ring-2 focus-visible:ring-accent-blue",
+              active === item.id && "bg-white font-medium text-ink",
             )}
             href={`#${item.id}`}
             key={item.id}
@@ -308,51 +157,6 @@ function Header({ active }: { active: string | null }): React.ReactElement {
         ))}
       </div>
     </header>
-  );
-}
-
-/**
- * Light and dark are two different products here — every semantic token
- * resolves through a different Nord value — so the page is unusable as a
- * reference without a way to flip and compare.
- */
-function ThemeSwitch(): React.ReactElement {
-  const { theme, setTheme } = useTheme();
-  const mounted = useMounted();
-
-  const options = [
-    { value: "light", label: "Light", Icon: SunIcon },
-    { value: "dark", label: "Dark", Icon: MoonIcon },
-    { value: "system", label: "System", Icon: MonitorIcon },
-  ] as const;
-
-  return (
-    <div
-      aria-label="Theme"
-      className="inline-flex items-center gap-0.5 rounded-lg bg-muted p-0.5"
-      role="group"
-    >
-      {options.map(({ value, label, Icon }) => {
-        // Pre-hydration the resolved theme is unknown; render every option
-        // unselected rather than guessing and flashing the wrong one.
-        const selected = mounted && theme === value;
-        return (
-          <button
-            aria-label={label}
-            aria-pressed={selected}
-            className={cn(
-              "inline-flex size-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground outline-none transition-[background-color,color,box-shadow] hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-              selected && "bg-background text-foreground shadow-sm/5 dark:bg-input",
-            )}
-            key={value}
-            onClick={() => setTheme(value)}
-            type="button"
-          >
-            <Icon aria-hidden="true" className="size-4" />
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -366,8 +170,8 @@ function SideNav({ active }: { active: string | null }): React.ReactElement {
         <a
           aria-current={active === item.id ? "true" : undefined}
           className={cn(
-            "rounded-md px-2.5 py-1.5 text-muted-foreground text-sm outline-none transition-[color,background-color] hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
-            active === item.id && "bg-accent font-medium text-foreground",
+            "rounded-[6px] px-2.5 py-1.5 text-[13px] text-muted-text outline-none transition-[color,background-color] hover:bg-white hover:text-ink focus-visible:ring-2 focus-visible:ring-accent-blue",
+            active === item.id && "bg-white font-medium text-ink",
           )}
           href={`#${item.id}`}
           key={item.id}
@@ -407,7 +211,35 @@ function useActiveSection(ids: readonly string[]): string | null {
   return active;
 }
 
-/* --------------------------------------------------------------- sections */
+function Intro(): React.ReactElement {
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="font-bold text-[40px] leading-[1.05] tracking-[-0.03em]">
+        The Genaro system
+      </h1>
+      <p className="max-w-[65ch] text-[13px] text-body-text leading-[1.55]">
+        Navy carries the brand, zinc carries the interface, three status colours
+        carry meaning. Nothing else. Screens are designed at 1442px content
+        width with a 260px fixed nav rail and a 52px top bar.
+      </p>
+      <div className="rounded-[8px] border border-status-warning-edge bg-[#FEFCE8] p-4">
+        <p className="max-w-[70ch] text-[13px] text-status-warning leading-[1.5]">
+          <strong className="font-semibold">
+            The product does not use this yet.
+          </strong>{" "}
+          Every screen still resolves colour through{" "}
+          <span className="font-mono text-[12px]">@nordhealth/css</span>. The
+          tokens below are declared in{" "}
+          <span className="font-mono text-[12px]">globals.css</span> and are
+          real, but nothing consumes them outside this page. Re-pointing the
+          semantic layer at them is the migration, and it is a separate change.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------- sections */
 
 function ColourSection({
   values,
@@ -417,45 +249,134 @@ function ColourSection({
   return (
     <Section
       id="colour"
-      lede="Semantic tokens only — never a raw hex. Each one bridges to a Nord --n-color-* variable, so a single .dark class flips the Tailwind utilities and the <nord-*> web components together. Values below are resolved live from the current theme."
+      lede="Four families, each with one job. A colour used outside its family is a bug, not a variation."
       title="Colour"
     >
       <Specimen
-        note="The canvas stack. Dark mode preserves the layering rather than inverting it: the raised surface stays lighter than the page behind it."
-        title="Surfaces"
+        note="Brand, nav rail, primary actions, and the one framing figure per screen."
+        title="Navy"
       >
-        <SwatchGrid names={SURFACE_TOKENS} values={values} />
-      </Specimen>
-
-      <Specimen
-        note="muted-foreground is pinned to oklch(0.53 0.025 235.3) in light mode — Nord's own weaker text measured 4.41:1 on --muted, under the 4.5 AA floor for the 11–12px text it carries. Only lightness moved, so the tone is unchanged."
-        title="Text"
-      >
-        <SwatchGrid names={TEXT_TOKENS} values={values} />
-      </Specimen>
-
-      <Specimen
-        note="Solid fills for buttons, dots and chart series. Note destructive-foreground is NOT text-on-destructive — it is the dark red used for error copy on light surfaces; the solid destructive button uses text-white."
-        title="Brand & status"
-      >
-        <SwatchGrid names={STATUS_TOKENS} values={values} />
-        <div className="mt-6">
-          <SwatchGrid names={STATUS_TEXT_TOKENS} values={values} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-3 lg:grid-cols-5">
+          {NAVY.map((s) => (
+            <TokenSwatch
+              key={s.token}
+              label={s.label}
+              token={s.token}
+              use={s.use}
+              value={values[s.token]}
+            />
+          ))}
         </div>
       </Specimen>
 
       <Specimen
-        note="Borders are drawn against the page, not the card, so they are shown over --background here."
-        title="Lines"
+        note="Text, borders and surfaces — the whole interface outside of status."
+        title="Zinc"
       >
-        <SwatchGrid names={LINE_TOKENS} values={values} />
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+          {ZINC.map((s) => (
+            <TokenSwatch
+              key={s.token}
+              label={s.label}
+              token={s.token}
+              use={s.use}
+              value={values[s.token]}
+            />
+          ))}
+        </div>
       </Specimen>
 
       <Specimen
-        note="Five series, ordered for categorical use. Beyond five, aggregate into an 'Other' bucket rather than adding a sixth hue."
-        title="Charts"
+        note="Meaning only, never decoration. Each family is a foreground, a tinted background, and a matched border for that background."
+        title="Status"
       >
-        <SwatchGrid names={CHART_TOKENS} values={values} />
+        <div className="flex flex-col">
+          {STATUS.map((s) => (
+            <SpecRow key={s.label} label={s.label}>
+              <div
+                className="flex items-center gap-3 rounded-[8px] border px-3 py-2"
+                style={{
+                  backgroundColor: `var(--${s.bg})`,
+                  borderColor: `var(--${s.edge})`,
+                }}
+              >
+                <span
+                  className="font-medium text-[13px]"
+                  style={{ color: `var(--${s.fg})` }}
+                >
+                  {s.label}
+                </span>
+              </div>
+              <CopyChip
+                className="text-muted-text"
+                label={values[s.fg]?.toUpperCase() || "—"}
+                value={values[s.fg] || `var(--${s.fg})`}
+              />
+              <CopyChip
+                className="text-muted-text"
+                label={values[s.bg]?.toUpperCase() || "—"}
+                value={values[s.bg] || `var(--${s.bg})`}
+              />
+              <CopyChip
+                className="text-muted-text"
+                label={values[s.edge]?.toUpperCase() || "—"}
+                value={values[s.edge] || `var(--${s.edge})`}
+              />
+            </SpecRow>
+          ))}
+        </div>
+      </Specimen>
+
+      <Specimen
+        note="Registration plates and nowhere else, so a plate is always recognisable at a glance."
+        title="Plate"
+      >
+        <div className="flex flex-wrap items-center gap-8">
+          <RegPlate reg="LT19 XKR" />
+          <div className="grid grid-cols-2 gap-4">
+            {PLATE.map((s) => (
+              <TokenSwatch
+                key={s.token}
+                label={s.label}
+                token={s.token}
+                value={values[s.token]}
+              />
+            ))}
+          </div>
+        </div>
+      </Specimen>
+
+      <Specimen
+        note="Stock stages. The amber here is the stage amber, not plate yellow — deliberately distinct so plate yellow stays unique to plates."
+        title="Chart series"
+      >
+        <div className="grid grid-cols-2 gap-x-4 gap-y-5 sm:grid-cols-4">
+          {STAGES.map((s) => (
+            <TokenSwatch
+              key={s.token}
+              label={s.label}
+              token={s.token}
+              value={values[s.token]}
+            />
+          ))}
+        </div>
+      </Specimen>
+
+      <Specimen title="Inspection dots">
+        <div className="flex flex-wrap gap-x-8 gap-y-3">
+          {DOTS.map((s) => (
+            <span className="flex items-center gap-2" key={s.token}>
+              <span
+                className="size-2.5 rounded-full"
+                style={{ backgroundColor: `var(--${s.token})` }}
+              />
+              <span className="text-[13px] text-body-text">{s.label}</span>
+              <span className="font-mono text-[11px] text-faint">
+                {values[s.token]?.toUpperCase() || "—"}
+              </span>
+            </span>
+          ))}
+        </div>
       </Specimen>
     </Section>
   );
@@ -465,86 +386,66 @@ function TypographySection(): React.ReactElement {
   return (
     <Section
       id="typography"
-      lede="Geist Sans, four sizes plus one locked micro size. Emphasis is weight and colour, never a fifth size. Line-height and tracking are tuned per size for Geist's metrics — it has a tall x-height and open default spacing, so it needs less negative tracking than most sans faces."
+      lede="Geist for everything; Geist Mono for registrations, stock IDs, eyebrows and any figure in a fixed column. Every figure that sits in a column or updates in place is tabular."
       title="Typography"
     >
-      <Specimen note="Roles, not sizes: pick by what the text is, not how big you want it." title="Scale">
+      <Specimen title="Scale">
         <div className="flex flex-col">
           {TYPE_SCALE.map((t) => (
             <div
-              className="grid gap-x-6 gap-y-1 border-border border-t py-4 first:border-t-0 first:pt-0 last:pb-0 sm:grid-cols-[1fr_14rem]"
-              key={t.cls}
+              className="grid gap-x-6 gap-y-2 border-line-soft border-t py-4 first:border-t-0 first:pt-0 last:pb-0 sm:grid-cols-[8rem_1fr_13rem] sm:items-baseline"
+              key={t.role}
             >
-              <div className="min-w-0">
-                <p className={cn(t.cls, "truncate text-foreground")}>
-                  {t.role} — 48 vehicles in stock
-                </p>
-                <p className="mt-1 text-muted-foreground text-xs">{t.use}</p>
-              </div>
-              <div className="flex flex-col gap-0.5 sm:items-end sm:text-right">
-                <CopyChip className="sm:justify-end" value={t.cls} />
-                <span className="font-mono text-muted-foreground text-xs tabular-nums">
-                  {t.size}
-                </span>
-                <span className="font-mono text-muted-foreground text-xs tabular-nums">
-                  {t.detail}
-                </span>
-              </div>
+              <span className="font-medium text-[12px] text-muted-text">
+                {t.role}
+              </span>
+              <span
+                className={cn(
+                  "min-w-0 truncate",
+                  t.mono ? "font-mono" : "font-sans",
+                )}
+                style={{
+                  fontSize: t.size,
+                  fontWeight: t.weight,
+                  letterSpacing: t.tracking,
+                  lineHeight: t.leading,
+                  textTransform: t.upper ? "uppercase" : undefined,
+                  fontVariantNumeric: t.tabular ? "tabular-nums" : undefined,
+                  color: t.role === "Meta" ? "var(--color-muted-text)" : undefined,
+                }}
+              >
+                {t.tabular ? "£512,400" : "63 cars on the forecourt"}
+              </span>
+              <span className="font-mono text-[11px] text-faint tabular-nums">
+                {t.spec}
+              </span>
             </div>
           ))}
         </div>
       </Specimen>
 
       <Specimen
-        note="Three weights only. font-synthesis is off app-wide, so a weight without a font file fails visibly instead of shipping a faked one."
-        title="Weight"
+        note="Tabular figures keep columns from shuffling as values change. The top row is tabular, the bottom is not — watch the decimal points."
+        title="Tabular numerals"
       >
-        <SpecRow label="400 · normal">
-          <span className="text-sm">Body copy and table cells</span>
-        </SpecRow>
-        <SpecRow label="500 · medium">
-          <span className="font-medium text-sm">Labels, buttons, nav items</span>
-        </SpecRow>
-        <SpecRow label="600 · semibold">
-          <span className="font-semibold text-sm">
-            Headings, card titles, &lt;strong&gt;
-          </span>
-        </SpecRow>
-      </Specimen>
-
-      <Specimen
-        note="Numbers that stack in a column get tabular figures. Proportional digits make a currency column read as ragged noise."
-        title="Numerals"
-      >
-        <div className="grid gap-6 sm:grid-cols-2">
-          <div>
-            <Eyebrow>Proportional — wrong</Eyebrow>
-            <div className="mt-2 flex flex-col text-sm">
-              <span>£11,940.00</span>
-              <span>£8,275.50</span>
-              <span>£141,000.00</span>
+        <div className="flex flex-col gap-2">
+          {[true, false].map((tabular) => (
+            <div
+              className="flex gap-6 text-[15px]"
+              key={String(tabular)}
+              style={{
+                fontVariantNumeric: tabular ? "tabular-nums" : "normal",
+              }}
+            >
+              <span className="w-24 shrink-0 font-mono text-[11px] text-faint">
+                {tabular ? "tabular" : "proportional"}
+              </span>
+              <span>11,118</span>
+              <span>47,900</span>
+              <span>163</span>
             </div>
-          </div>
-          <div>
-            <Eyebrow>tabular-nums — right</Eyebrow>
-            <div className="mt-2 flex flex-col text-sm tabular-nums">
-              <span>£11,940.00</span>
-              <span>£8,275.50</span>
-              <span>£141,000.00</span>
-            </div>
-          </div>
+          ))}
         </div>
-      </Specimen>
-
-      <Specimen
-        note="Body prose is capped at 65ch. Full-width lines on a 2000px monitor are exhausting to read."
-        title="Measure"
-      >
-        <p className="max-w-[65ch] text-sm">
-          A vehicle moves through arrival, preparation, advertising and sale.
-          Each stage writes to the same record, so the detail page is the single
-          source of truth for where a car is and what it has cost so far.
-        </p>
       </Specimen>
     </Section>
   );
@@ -554,60 +455,58 @@ function ShapeSection(): React.ReactElement {
   return (
     <Section
       id="shape"
-      lede="The radius scale is anchored on Nord's --n-border-radius (≈5px) rather than Tailwind's 16px default, so rounded-* utilities match the <nord-*> components exactly. Nested surfaces subtract: inner radius = outer radius − padding."
-      title="Shape & elevation"
+      lede="Page padding 24px, card padding 16–20px, dense table cells 8–10px vertical and 12–16px horizontal."
+      title="Spacing & shape"
     >
-      <Specimen title="Radius">
-        <div className="flex flex-wrap gap-5">
-          {RADII.map((r) => (
-            <div className="flex flex-col items-center gap-2" key={r.cls}>
+      <Specimen title="Spacing scale">
+        <div className="flex flex-wrap items-end gap-4">
+          {SPACING_SCALE.map((n) => (
+            <div className="flex flex-col items-center gap-1.5" key={n}>
               <div
-                className={cn(
-                  "size-16 border border-border bg-muted",
-                  r.cls,
-                )}
+                className="rounded-[2px] bg-navy-500"
+                style={{ height: n, width: n }}
               />
-              <CopyChip value={r.cls} />
-              <span className="font-mono text-[0.6875rem] text-muted-foreground">
-                {r.calc}
+              <span className="font-mono text-[11px] text-faint tabular-nums">
+                {n}
               </span>
             </div>
           ))}
         </div>
       </Specimen>
 
+      <Specimen title="Radius">
+        <div className="flex flex-wrap gap-6">
+          {RADII.map((r) => (
+            <div className="flex flex-col gap-1.5" key={r.px}>
+              <div
+                className="size-16 border border-line bg-surface"
+                style={{ borderRadius: r.px }}
+              />
+              <span className="font-mono text-[11px] text-ink tabular-nums">
+                {r.label}
+              </span>
+              <span className="text-[11px] text-muted-text">{r.use}</span>
+            </div>
+          ))}
+        </div>
+      </Specimen>
+
       <Specimen
-        note="Shadows are alpha-layered and paired with a border so they recede into the surface instead of sitting on top of it."
+        note="Almost none. Cards are 1px of border on white. The single shadow in the system is on the calendar date chip — if a new surface seems to need one, it needs a border instead."
         title="Elevation"
       >
-        <div className="flex flex-wrap gap-5">
-          {ELEVATION.map((e) => (
-            <div className="flex flex-col items-center gap-2" key={e.cls}>
-              <div
-                className={cn(
-                  "size-16 rounded-lg border border-border bg-card",
-                  e.cls,
-                )}
-              />
-              <CopyChip value={e.cls} />
-              <span className="max-w-28 text-center text-[0.6875rem] text-muted-foreground">
-                {e.use}
-              </span>
-            </div>
-          ))}
-        </div>
-      </Specimen>
-
-      <Specimen
-        note="Left: the inner card reuses the parent radius and the corners visibly disagree. Right: inner = outer − padding."
-        title="Nested radii"
-      >
-        <div className="flex flex-wrap gap-6">
-          <div className="rounded-2xl border border-border bg-muted p-2">
-            <div className="size-24 rounded-2xl border border-border bg-card" />
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex flex-col gap-1.5">
+            <div className="h-16 w-32 rounded-[10px] border border-line bg-white" />
+            <span className="text-[11px] text-muted-text">
+              Card — 1px border, no shadow
+            </span>
           </div>
-          <div className="rounded-2xl border border-border bg-muted p-2">
-            <div className="size-24 rounded-xl border border-border bg-card" />
+          <div className="flex flex-col gap-1.5">
+            <div className="h-16 w-32 rounded-[5px] border border-line bg-white shadow-chip" />
+            <span className="text-[11px] text-muted-text">
+              Date chip — the one shadow
+            </span>
           </div>
         </div>
       </Specimen>
@@ -615,34 +514,104 @@ function ShapeSection(): React.ReactElement {
   );
 }
 
-function SpacingSection(): React.ReactElement {
+function RulesSection(): React.ReactElement {
   return (
     <Section
-      id="spacing"
-      lede="Tailwind's 4px scale. Space siblings with gap on the parent, never margin-bottom on every child — margin leaves a trailing gap after the last item and bleeds past the component boundary."
-      title="Spacing"
+      id="rules"
+      lede="The part most likely to be lost in implementation. These are not stylistic preferences — every screen depends on them."
+      title="The six rules"
     >
-      <Specimen title="Scale">
-        <div className="flex flex-col gap-3">
-          {SPACING.map((s) => (
-            <div className="flex items-center gap-4" key={s}>
-              <span className="w-16 shrink-0 font-mono text-muted-foreground text-xs tabular-nums">
-                {s} · {s * 4}px
-              </span>
-              <div
-                className="h-3 rounded-xs bg-primary"
-                style={{ width: `${s * 4}px` }}
-              />
+      <div className="grid gap-4 sm:grid-cols-2">
+        {RULES.map((rule, i) => (
+          <div
+            className="flex flex-col gap-2 rounded-[10px] border border-line bg-white p-5"
+            key={rule.title}
+          >
+            <span className="font-mono font-semibold text-[11px] text-navy-500 tracking-[0.12em]">
+              {String(i + 1).padStart(2, "0")}
+            </span>
+            <h3 className="font-semibold text-[15px] tracking-[-0.01em]">
+              {rule.title}
+            </h3>
+            <p className="text-[13px] text-body-text leading-[1.55]">
+              {rule.body}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <Specimen
+        note="Rule 1 in practice. Left: a border under every row. Right: the same rows separated by a faint alternating background. Same information, half the noise."
+        title="Hairlines — wrong and right"
+      >
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <DontLabel>Border on every row</DontLabel>
+            <div className="mt-2 overflow-hidden rounded-[8px] border border-line">
+              {["LT19 XKR", "BD68 ZPL", "MK21 HRV"].map((reg) => (
+                <div
+                  className="flex items-center justify-between border-line border-b px-3 py-2 text-[13px] last:border-b-0"
+                  key={reg}
+                >
+                  <span className="font-mono text-[12px] font-semibold">
+                    {reg}
+                  </span>
+                  <span className="text-muted-text">In prep</span>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+          <div>
+            <DoLabel>Zebra, no row borders</DoLabel>
+            <div className="mt-2 overflow-hidden rounded-[8px] border border-line">
+              {["LT19 XKR", "BD68 ZPL", "MK21 HRV"].map((reg, i) => (
+                <div
+                  className={cn(
+                    "flex items-center justify-between px-3 py-2 text-[13px]",
+                    i % 2 === 1 && "bg-surface",
+                  )}
+                  key={reg}
+                >
+                  <span className="font-mono text-[12px] font-semibold">
+                    {reg}
+                  </span>
+                  <span className="text-muted-text">In prep</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </Specimen>
 
       <Specimen
-        note="Page shell: max-width 1416px, centred, 16px gutters rising to 24px at lg."
-        title="Container"
+        note="Rule 3 in practice. A figure with nothing to measure it against cannot be acted on."
+        title="Figures — wrong and right"
       >
-        <CopyChip value="container" />
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <DontLabel>No comparison</DontLabel>
+            <div className="mt-2 rounded-[8px] border border-line p-4">
+              <Eyebrow>Avg days in stock</Eyebrow>
+              <div className="mt-1 font-semibold text-[27px] tracking-[-0.028em] tabular-nums">
+                47
+              </div>
+            </div>
+          </div>
+          <div>
+            <DoLabel>Paired with a target</DoLabel>
+            <div className="mt-2 rounded-[8px] border border-line p-4">
+              <Eyebrow>Avg days in stock</Eyebrow>
+              <div className="mt-1 flex items-baseline gap-2">
+                <span className="font-semibold text-[27px] tracking-[-0.028em] tabular-nums">
+                  47
+                </span>
+                <span className="font-medium text-[12px] text-status-clear tabular-nums">
+                  13 under the 60-day target
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       </Specimen>
     </Section>
   );
@@ -652,59 +621,63 @@ function ButtonsSection(): React.ReactElement {
   return (
     <Section
       id="buttons"
-      lede="Backed by <nord-button>. One primary action per view — if three buttons carry equal weight, none of them is the next step. Label the outcome (“Save changes”), not the mechanism (“Submit”)."
+      lede="34px tall, 6px radius, 14px horizontal padding, 8px gap to a leading 14px icon. One navy fill per screen."
       title="Buttons"
     >
       <Specimen title="Variants">
-        {BUTTON_VARIANTS.map((variant) => (
-          <SpecRow key={variant} label={variant}>
-            <Button variant={variant}>Save changes</Button>
-            <Button disabled variant={variant}>
-              Disabled
-            </Button>
+        <div className="flex flex-col">
+          <SpecRow label="Primary">
+            <GButton variant="primary">
+              <PlusIcon aria-hidden="true" size={14} strokeWidth={1.7} />
+              Add vehicle
+            </GButton>
+            <span className="text-[11px] text-muted-text">
+              Navy fill, white 13/600 — the one thing the user came to do
+            </span>
           </SpecRow>
-        ))}
-      </Specimen>
-
-      <Specimen title="Sizes">
-        {BUTTON_SIZES.map((size) => (
-          <SpecRow key={size} label={size}>
-            <Button size={size}>Add vehicle</Button>
+          <SpecRow label="Secondary">
+            <GButton variant="secondary">
+              <DownloadIcon aria-hidden="true" size={14} strokeWidth={1.7} />
+              Export
+            </GButton>
+            <span className="text-[11px] text-muted-text">
+              White, 1px border, 13/500
+            </span>
           </SpecRow>
-        ))}
+          <SpecRow label="Link">
+            <button
+              className="cursor-pointer font-medium text-[13px] text-accent-blue outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent-blue"
+              type="button"
+            >
+              View all deals
+            </button>
+            <span className="text-[11px] text-muted-text">
+              No fill, no border, 13/500
+            </span>
+          </SpecRow>
+        </div>
       </Specimen>
 
       <Specimen
-        note="Icon buttons must carry an aria-label — the label describes the action, not the glyph."
-        title="Icon & loading"
+        note="Rule 2. Two navy fills in one view make the user choose between them, which is the opposite of what the fill is for."
+        title="One primary per screen"
       >
-        <SpecRow label="With icon">
-          <Button>
-            <PlusIcon />
-            Add vehicle
-          </Button>
-          <Button variant="outline">
-            Continue
-            <ArrowRightIcon />
-          </Button>
-        </SpecRow>
-        <SpecRow label="Icon only">
-          <Button aria-label="Add vehicle" size="icon-sm">
-            <PlusIcon />
-          </Button>
-          <Button aria-label="Add vehicle" size="icon">
-            <PlusIcon />
-          </Button>
-          <Button aria-label="Delete vehicle" size="icon" variant="destructive">
-            <TrashIcon />
-          </Button>
-        </SpecRow>
-        <SpecRow label="Loading">
-          <Button loading>Saving</Button>
-          <Button loading variant="outline">
-            Saving
-          </Button>
-        </SpecRow>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <DontLabel>Two primaries</DontLabel>
+            <div className="mt-2 flex gap-2 rounded-[8px] border border-line p-4">
+              <GButton variant="primary">Export</GButton>
+              <GButton variant="primary">Add vehicle</GButton>
+            </div>
+          </div>
+          <div>
+            <DoLabel>One primary, one secondary</DoLabel>
+            <div className="mt-2 flex gap-2 rounded-[8px] border border-line p-4">
+              <GButton variant="secondary">Export</GButton>
+              <GButton variant="primary">Add vehicle</GButton>
+            </div>
+          </div>
+        </div>
       </Specimen>
     </Section>
   );
@@ -714,424 +687,552 @@ function BadgesSection(): React.ReactElement {
   return (
     <Section
       id="badges"
-      lede="Status and category markers. Status badges use a tinted background with matching text rather than a solid fill, so a table of them stays readable. Never rely on colour alone — the word carries the meaning."
-      title="Badges"
+      lede="Pills at 999px radius, 8px horizontal padding, weight 500. Colour states the condition — it is never chosen for contrast or variety."
+      title="Status badges"
     >
-      <Specimen title="Variants">
-        <div className="flex flex-wrap gap-2">
-          {BADGE_VARIANTS.map((variant) => (
-            <Badge key={variant} variant={variant}>
-              {variant}
-            </Badge>
+      <Specimen title="Vehicle states">
+        <div className="flex flex-wrap items-center gap-3">
+          {BADGES.map((b) => (
+            <GBadge key={b.label} spec={b} />
           ))}
         </div>
       </Specimen>
 
-      <Specimen title="Sizes">
-        <SpecRow label="sm">
-          <Badge size="sm" variant="success">
-            Sold
-          </Badge>
-        </SpecRow>
-        <SpecRow label="default">
-          <Badge variant="success">Sold</Badge>
-        </SpecRow>
-        <SpecRow label="lg">
-          <Badge size="lg" variant="success">
-            Sold
-          </Badge>
-        </SpecRow>
-      </Specimen>
-
       <Specimen
-        note="In context: the badge qualifies the row, it does not outshout it."
-        title="In use"
+        note="A wider set, because a deal stage is a position in a sequence rather than a pass/fail."
+        title="Deal stages"
       >
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <span className="font-medium">BMW 320d M Sport</span>
-          <Badge variant="warning">In prep</Badge>
-          <span className="text-muted-foreground tabular-nums">£18,995</span>
+        <div className="flex flex-wrap items-center gap-3">
+          {DEAL_BADGES.map((b) => (
+            <GBadge key={b.label} spec={b} />
+          ))}
         </div>
       </Specimen>
     </Section>
   );
 }
 
-function FormsSection(): React.ReactElement {
-  const [checked, setChecked] = React.useState(true);
-  const [enabled, setEnabled] = React.useState(true);
+function CardsSection(): React.ReactElement {
+  return (
+    <Section
+      id="cards"
+      lede="White, 1px border, 10–12px radius. The header keeps its single bottom border; the content below it does not repeat that line."
+      title="Cards"
+    >
+      <Specimen title="Anatomy">
+        <div className="max-w-[420px] overflow-hidden rounded-[12px] border border-line bg-white">
+          <div className="flex items-center justify-between border-line border-b px-5 py-3.5">
+            <div className="flex items-baseline gap-2">
+              <h3 className="font-semibold text-[15px] tracking-[-0.01em]">
+                Appointments
+              </h3>
+              <span className="text-[12px] text-muted-text">4 today</span>
+            </div>
+            <a
+              className="font-medium text-[12px] text-accent-blue outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent-blue"
+              href="#cards"
+            >
+              View all
+            </a>
+          </div>
+          <div className="flex flex-col gap-3 p-5">
+            {[
+              { day: "TUE", date: "12", name: "R. Whitfield", time: "09:30" },
+              { day: "TUE", date: "12", name: "A. Kaur", time: "11:15" },
+              { day: "WED", date: "13", name: "M. Osei", time: "14:00" },
+            ].map((a) => (
+              <div className="flex items-center gap-3" key={a.name + a.time}>
+                <DateChip date={a.date} day={a.day} />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[13px]">{a.name}</div>
+                  <div className="truncate text-[12px] text-muted-text">
+                    Volvo XC40 · LT19 XKR
+                  </div>
+                </div>
+                <span className="text-[13px] tabular-nums">{a.time}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Specimen>
+
+      <Specimen
+        note="Rule 6. Name the thing that is absent and the condition that would put it there."
+        title="Empty state"
+      >
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <DontLabel>Says nothing</DontLabel>
+            <div className="mt-2 rounded-[8px] border border-line p-6 text-center text-[13px] text-muted-text">
+              No data
+            </div>
+          </div>
+          <div>
+            <DoLabel>Names the absence and its condition</DoLabel>
+            <div className="mt-2 rounded-[8px] border border-line p-6 text-center">
+              <p className="text-[13px] text-body-text leading-[1.55]">
+                No appointments booked for today. Bookings made from a lead or a
+                vehicle page appear here from the moment they are confirmed.
+              </p>
+            </div>
+          </div>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+function TableSection(): React.ReactElement {
+  const rows = [
+    { reg: "LT19 XKR", model: "Volvo XC40 D3 Momentum", days: 163, price: 18995 },
+    { reg: "BD68 ZPL", model: "Ford Kuga 1.5T Titanium", days: 47, price: 12450 },
+    { reg: "MK21 HRV", model: "Honda HR-V 1.5 SE", days: 12, price: 16750 },
+    { reg: "SA20 NWD", model: "Škoda Octavia 2.0 TDI SE", days: 88, price: 14200 },
+  ];
 
   return (
     <Section
-      id="forms"
-      lede="Every control has a persistent label above it — a placeholder disappears the moment typing starts, exactly when the reminder is needed. Errors show inline next to the offending field, with a border, an icon and text, never colour alone."
-      title="Forms"
+      id="table"
+      lede="Mono uppercase header on the surface tone, zebra body, no row borders. Numeric columns are right-aligned and tabular."
+      title="Data table"
     >
-      <Specimen title="Text input">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sg-reg">Registration</Label>
-            <Input defaultValue="LT19 XKR" id="sg-reg" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sg-placeholder">Mileage</Label>
-            <Input id="sg-placeholder" placeholder="e.g. 42,300" />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sg-invalid">Purchase price</Label>
-            <Input aria-invalid defaultValue="-500" id="sg-invalid" />
-            <p className="text-destructive-foreground text-xs">
-              Purchase price must be greater than £0.
-            </p>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sg-disabled">VIN</Label>
-            <Input
-              defaultValue="WBA8E9C50GK000000"
-              disabled
-              id="sg-disabled"
-            />
-            <p className="text-muted-foreground text-xs">
-              Read-only once the vehicle has arrived.
-            </p>
-          </div>
+      <Specimen title="Dense rows">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] border-collapse text-left">
+            <thead>
+              <tr className="border-line border-b bg-surface">
+                {["Vehicle", "Status", "Days", "Retail"].map((h, i) => (
+                  <th
+                    className={cn(
+                      "px-4 py-2.5 font-mono font-medium text-[11px] text-muted-text uppercase tracking-[0.06em]",
+                      i > 1 && "text-right",
+                    )}
+                    key={h}
+                    scope="col"
+                  >
+                    {h}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr className={cn(i % 2 === 1 && "bg-surface")} key={r.reg}>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center gap-3">
+                      <div
+                        aria-hidden="true"
+                        className="h-[33px] w-[44px] shrink-0 rounded-[4px] bg-line"
+                      />
+                      <div className="min-w-0">
+                        <div className="font-mono font-semibold text-[12px]">
+                          {r.reg}
+                        </div>
+                        <div className="truncate text-[12px] text-muted-text">
+                          {r.model}
+                        </div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    <GBadge
+                      spec={
+                        i === 0
+                          ? BADGES[1]
+                          : i === 1
+                            ? BADGES[2]
+                            : BADGES[3]
+                      }
+                    />
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-[13px] tabular-nums">
+                    {r.days}
+                  </td>
+                  <td className="px-4 py-2.5 text-right text-[13px] tabular-nums">
+                    £{r.price.toLocaleString("en-GB")}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-3">
-          {(["sm", "default", "lg"] as const).map((size) => (
-            <div className="flex flex-col gap-1.5" key={size}>
-              <Eyebrow>{size}</Eyebrow>
-              <Input placeholder={size} size={size} />
+      </Specimen>
+    </Section>
+  );
+}
+
+function ChipsSection(): React.ReactElement {
+  const [active, setActive] = React.useState("All");
+  const chips = [
+    { label: "All", count: 63 },
+    { label: "Ready", count: 28 },
+    { label: "In prep", count: 21 },
+    { label: "Blocked", count: 9 },
+    { label: "Sold", count: 5 },
+  ];
+
+  return (
+    <Section
+      id="chips"
+      lede="30px tall, 6px radius, 12px horizontal padding, 13px text. Counts follow the label in a lighter tone."
+      title="Filter chips"
+    >
+      <Specimen title="Group">
+        <div className="flex flex-wrap items-center gap-2">
+          {chips.map((c) => {
+            const on = active === c.label;
+            return (
+              <button
+                aria-pressed={on}
+                className={cn(
+                  "inline-flex h-[30px] cursor-pointer items-center gap-1.5 rounded-[6px] px-3 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent-blue",
+                  on
+                    ? "bg-navy-900 font-semibold text-white"
+                    : "border border-line bg-white text-[#3F3F46]",
+                )}
+                key={c.label}
+                onClick={() => setActive(c.label)}
+                type="button"
+              >
+                {c.label}
+                <span
+                  className={cn(
+                    "tabular-nums",
+                    on ? "text-navy-200" : "text-faint",
+                  )}
+                >
+                  {c.count}
+                </span>
+              </button>
+            );
+          })}
+          <button
+            className="inline-flex h-[30px] cursor-pointer items-center rounded-[6px] px-3 text-[13px] text-muted-text outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-accent-blue"
+            type="button"
+          >
+            + Add filter
+          </button>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+function BannersSection(): React.ReactElement {
+  const banners = [
+    {
+      family: STATUS[0],
+      tint: "#FEF9F8",
+      Icon: CircleAlertIcon,
+      text: "Two required photographs were never taken, so the advert has sat unpublished.",
+      action: "Open photo list",
+    },
+    {
+      family: STATUS[1],
+      tint: "#FEFCE8",
+      Icon: TriangleAlertIcon,
+      text: "The MOT expires in 11 days. A vehicle cannot be handed over inside that window.",
+      action: "Book test",
+    },
+    {
+      family: STATUS[2],
+      tint: "#F6FDF8",
+      Icon: CircleCheckIcon,
+      text: "All 14 preparation checks passed. The car is ready to advertise.",
+      action: undefined,
+    },
+  ];
+
+  return (
+    <Section
+      id="banners"
+      lede="Tinted background with a matched border, 12–16px padding, 8px radius. The text states the condition and its consequence, not a category."
+      title="Banners"
+    >
+      <Specimen title="Variants">
+        <div className="flex flex-col gap-3">
+          {banners.map(({ family, tint, Icon, text, action }) => (
+            <div
+              className="flex items-start gap-3 rounded-[8px] border p-4"
+              key={family.label}
+              style={{
+                backgroundColor: tint,
+                borderColor: `var(--${family.edge})`,
+              }}
+            >
+              <span
+                className="flex size-[18px] shrink-0 items-center justify-center rounded-full"
+                style={{ backgroundColor: `var(--${family.fg})` }}
+              >
+                <Icon
+                  aria-hidden="true"
+                  className="text-white"
+                  size={12}
+                  strokeWidth={1.7}
+                />
+              </span>
+              <p
+                className="flex-1 text-[13px] leading-[1.5]"
+                style={{ color: `var(--${family.fg})` }}
+              >
+                {text}
+              </p>
+              {action ? (
+                <button
+                  className="shrink-0 cursor-pointer font-medium text-[13px] outline-none hover:underline focus-visible:ring-2 focus-visible:ring-accent-blue"
+                  style={{ color: `var(--${family.fg})` }}
+                  type="button"
+                >
+                  {action}
+                </button>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+function ChromeSection(): React.ReactElement {
+  return (
+    <Section
+      id="chrome"
+      lede="A 260px fixed navy rail and a 52px top bar frame every screen."
+      title="Nav rail & top bar"
+    >
+      <Specimen
+        note="Active item is a lighter navy fill with a 3px blue left marker. Group labels are Mono 10/600/0.14em uppercase."
+        title="Nav rail — 260px"
+      >
+        <div className="w-[260px] overflow-hidden rounded-[8px] bg-navy-900 py-2">
+          <div className="flex items-center gap-2.5 px-3 pt-1 pb-3">
+            <div className="flex size-[34px] items-center justify-center rounded-[6px] bg-navy-500 font-semibold text-[13px] text-white">
+              G
+            </div>
+            <div className="min-w-0">
+              <div className="truncate font-semibold text-[13px] text-white">
+                Riverside Motors
+              </div>
+              <div className="truncate text-[11px] text-[#8B9AB8]">
+                sam@riversidemotors.co.uk
+              </div>
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between px-3 pt-2 pb-1">
+            <span className="font-mono font-semibold text-[10px] text-[#6B7A99] uppercase tracking-[0.14em]">
+              Inventory
+            </span>
+            <ChevronDownIcon
+              aria-hidden="true"
+              className="text-[#6B7A99]"
+              size={14}
+              strokeWidth={1.7}
+            />
+          </div>
+
+          {[
+            { label: "Vehicles", active: true },
+            { label: "Add vehicle", active: false },
+            { label: "Master sheet", active: false },
+          ].map((item) => (
+            <div
+              className={cn(
+                "relative flex h-[34px] items-center px-2 text-[13px]",
+                item.active
+                  ? "bg-navy-700 font-medium text-white"
+                  : "text-navy-200",
+              )}
+              key={item.label}
+            >
+              {item.active ? (
+                <span className="absolute top-0 bottom-0 left-0 w-[3px] bg-accent-blue" />
+              ) : null}
+              <span className="pl-2">{item.label}</span>
             </div>
           ))}
         </div>
       </Specimen>
 
-      <Specimen title="Textarea & select">
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sg-notes">Notes</Label>
-            <Textarea
-              id="sg-notes"
-              placeholder="Anything the prep team should know"
-              rows={3}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="sg-source">Source</Label>
-            <Select defaultValue="auction">
-              <SelectTrigger id="sg-source">
-                <SelectValue placeholder="Select source" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="auction">BCA Auction</SelectItem>
-                <SelectItem value="dealer">Dealer</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-                <SelectItem value="trade-in">Trade-in</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-      </Specimen>
-
       <Specimen
-        note="Every control is wrapped in or wired to a label, so the whole row is the hit target — a 16px box on its own is a poor one."
-        title="Selection controls"
+        note="Three-zone grid (1fr auto 1fr) so the search sits optically centred on the content area regardless of what flanks it. The count badge sits OUTSIDE the bell's box — overlapping it makes the bell unreadable."
+        title="Top bar — 52px"
       >
-        <SpecRow label="Checkbox">
-          <Label className="cursor-pointer">
-            <Checkbox checked={checked} onCheckedChange={setChecked} />
-            MOT valid
-          </Label>
-          <Label className="cursor-pointer">
-            <Checkbox indeterminate />
-            Partially selected
-          </Label>
-          <Label className="cursor-not-allowed opacity-64">
-            <Checkbox disabled />
-            Disabled
-          </Label>
-        </SpecRow>
-        <SpecRow label="Radio">
-          <RadioGroup className="flex-row gap-4" defaultValue="standard">
-            <RadioItem value="standard">Standard VAT</RadioItem>
-            <RadioItem value="margin">Margin scheme</RadioItem>
-            <RadioItem disabled value="exempt">
-              Exempt
-            </RadioItem>
-          </RadioGroup>
-        </SpecRow>
-        <SpecRow label="Switch">
-          <Label className="cursor-pointer">
-            <Switch checked={enabled} onCheckedChange={setEnabled} />
-            Publish to Auto Trader
-          </Label>
-          <Label className="cursor-not-allowed opacity-64">
-            <Switch disabled />
-            Disabled
-          </Label>
-        </SpecRow>
-      </Specimen>
-    </Section>
-  );
-}
+        <div className="grid h-[52px] grid-cols-[1fr_auto_1fr] items-center gap-4 rounded-[8px] border border-line bg-white px-4">
+          <span className="truncate font-semibold text-[18px] tracking-[-0.012em]">
+            Vehicles
+          </span>
 
-function NavigationSection(): React.ReactElement {
-  return (
-    <Section
-      id="navigation"
-      lede="Tabs switch between views of the same thing. If the panels show different objects, that is navigation, not tabs."
-      title="Navigation"
-    >
-      <Specimen title="Tabs — default">
-        <Tabs defaultValue="week">
-          <TabsList>
-            <TabsTab value="week">This week</TabsTab>
-            <TabsTab value="month">This month</TabsTab>
-            <TabsTab value="year">This year</TabsTab>
-          </TabsList>
-          <TabsPanel className="pt-4 text-muted-foreground text-sm" value="week">
-            6 vehicles sold, £71,850 revenue.
-          </TabsPanel>
-          <TabsPanel className="pt-4 text-muted-foreground text-sm" value="month">
-            23 vehicles sold, £284,300 revenue.
-          </TabsPanel>
-          <TabsPanel className="pt-4 text-muted-foreground text-sm" value="year">
-            271 vehicles sold, £3.4m revenue.
-          </TabsPanel>
-        </Tabs>
-      </Specimen>
-
-      <Specimen
-        note="The underline variant is for page-level section switching, where the pill would compete with the page header."
-        title="Tabs — underline"
-      >
-        <Tabs defaultValue="overview">
-          <TabsList variant="underline">
-            <TabsTab value="overview">Overview</TabsTab>
-            <TabsTab value="costs">Costs</TabsTab>
-            <TabsTab value="history">History</TabsTab>
-          </TabsList>
-          <TabsPanel
-            className="pt-4 text-muted-foreground text-sm"
-            value="overview"
-          >
-            Vehicle summary and current stage.
-          </TabsPanel>
-          <TabsPanel className="pt-4 text-muted-foreground text-sm" value="costs">
-            Purchase, prep and transport costs.
-          </TabsPanel>
-          <TabsPanel
-            className="pt-4 text-muted-foreground text-sm"
-            value="history"
-          >
-            Every state change, newest first.
-          </TabsPanel>
-        </Tabs>
-      </Specimen>
-    </Section>
-  );
-}
-
-function DataSection(): React.ReactElement {
-  const rows = [
-    { reg: "LT19 XKR", model: "BMW 320d M Sport", status: "In prep", cost: 14250 },
-    { reg: "YE68 PLO", model: "Audi A4 S line", status: "Advertised", cost: 16400 },
-    { reg: "MA20 VHT", model: "VW Golf GTI", status: "Sold", cost: 18995 },
-  ];
-
-  const variant = (status: string) =>
-    status === "Sold" ? "success" : status === "Advertised" ? "info" : "warning";
-
-  return (
-    <Section
-      id="data"
-      lede="Money and counts are right-aligned with tabular figures. Get alignment right and the zebra striping that was compensating for it becomes unnecessary."
-      title="Data"
-    >
-      <Specimen className="p-0" title="Table">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Registration</TableHead>
-              <TableHead>Vehicle</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Cost</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.map((r) => (
-              <TableRow key={r.reg}>
-                <TableCell className="font-mono tabular-nums">{r.reg}</TableCell>
-                <TableCell className="font-medium">{r.model}</TableCell>
-                <TableCell>
-                  <Badge variant={variant(r.status)}>{r.status}</Badge>
-                </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  £{r.cost.toLocaleString("en-GB")}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </Specimen>
-
-      <Specimen title="Card">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Stock on hand</CardTitle>
-              <CardDescription>Across all locations</CardDescription>
-            </CardHeader>
-            <CardPanel>
-              <p className="font-semibold text-2xl tabular-nums">48</p>
-            </CardPanel>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>Average days to sale</CardTitle>
-              <CardDescription>Rolling 90 days</CardDescription>
-            </CardHeader>
-            <CardPanel>
-              <p className="font-semibold text-2xl tabular-nums">37</p>
-            </CardPanel>
-          </Card>
-        </div>
-      </Specimen>
-
-      <Specimen title="Avatar">
-        <div className="flex items-center gap-3">
-          <Avatar>
-            <AvatarFallback>SA</AvatarFallback>
-          </Avatar>
-          <Avatar>
-            <AvatarFallback>JD</AvatarFallback>
-          </Avatar>
-        </div>
-      </Specimen>
-    </Section>
-  );
-}
-
-function OverlaysSection(): React.ReactElement {
-  return (
-    <Section
-      id="overlays"
-      lede="Dialogs trap focus and sit at z-[900] — Nord's fixed sidebar is at 400 and the top bar at 500, so a bare z-50 backdrop would leave the sidebar lit and clickable behind the modal. Tooltips cannot hold interactive content; use a popover when something inside needs clicking."
-      title="Overlays"
-    >
-      <Specimen title="Dialog">
-        <Dialog>
-          {/* Button renders <nord-button>, not a native <button>, so Base UI
-              must supply the button semantics itself. */}
-          <DialogTrigger
-            nativeButton={false}
-            render={<Button variant="outline" />}
-          >
-            Open dialog
-          </DialogTrigger>
-          <DialogPopup>
-            <DialogHeader>
-              <DialogTitle>Delete vehicle</DialogTitle>
-              <DialogDescription>
-                LT19 XKR and its 12 cost lines will be removed. This cannot be
-                undone.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              {/* Destructive action separated from cancel — proximity implies
-                  equivalence, and these are not equivalent. */}
-              <Button variant="outline">Keep vehicle</Button>
-              <Button variant="destructive">Delete vehicle</Button>
-            </DialogFooter>
-          </DialogPopup>
-        </Dialog>
-      </Specimen>
-
-      <Specimen title="Popover">
-        <Popover>
-          <PopoverTrigger
-            nativeButton={false}
-            render={<Button variant="outline" />}
-          >
-            Open popover
-          </PopoverTrigger>
-          <PopoverPopup className="w-72">
-            <PopoverTitle>Margin scheme</PopoverTitle>
-            <PopoverDescription>
-              VAT is charged on the profit margin rather than the full sale
-              price.
-            </PopoverDescription>
-          </PopoverPopup>
-        </Popover>
-      </Specimen>
-
-      <Specimen title="Tooltip">
-        <Tooltip>
-          <TooltipTrigger render={<Button variant="outline" />}>
-            Hover me
-          </TooltipTrigger>
-          <TooltipPopup>Days since the vehicle arrived</TooltipPopup>
-        </Tooltip>
-      </Specimen>
-    </Section>
-  );
-}
-
-function FeedbackSection(): React.ReactElement {
-  return (
-    <Section
-      id="feedback"
-      lede="Loading holds the page shape; a spinner collapses it. Empty states say what is missing and what to do next — “No projects found” ends the journey, a next step continues it."
-      title="Feedback"
-    >
-      <Specimen
-        note="Skeletons mirror the real layout, so nothing jumps when the data lands."
-        title="Skeleton"
-      >
-        <div className="flex flex-col gap-3">
-          <Skeleton className="h-5 w-40" />
-          <Skeleton className="h-4 w-64" />
-          <Skeleton className="h-4 w-52" />
-        </div>
-      </Specimen>
-
-      <Specimen title="Empty state">
-        <div className="flex flex-col items-center gap-3 py-8 text-center">
-          <p className="font-semibold text-base">No vehicles in prep</p>
-          <p className="max-w-[42ch] text-muted-foreground text-sm">
-            Vehicles appear here once they have arrived and been booked in for
-            preparation.
-          </p>
-          <Button>
-            <PlusIcon />
-            Book a vehicle in
-          </Button>
-        </div>
-      </Specimen>
-
-      <Specimen
-        note="Three signals, not one: colour, icon and text. Colour alone is invisible to a colourblind user."
-        title="Error state"
-      >
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sg-error">Sale price</Label>
-          <Input aria-invalid defaultValue="0" id="sg-error" />
-          <p className="flex items-center gap-1.5 text-destructive-foreground text-xs">
-            <svg
+          <div className="flex h-[30px] w-[320px] max-w-full items-center gap-2 rounded-[6px] border border-line px-2.5">
+            <SearchIcon
               aria-hidden="true"
-              className="size-3.5 shrink-0"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4M12 16h.01" strokeLinecap="round" />
-            </svg>
-            Sale price must be greater than £0.
-          </p>
+              className="shrink-0 text-muted-text"
+              size={13}
+              strokeWidth={1.7}
+            />
+            <span className="truncate text-[13px] text-muted-text">
+              Search registration, stock ID or model
+            </span>
+          </div>
+
+          <div className="flex items-center justify-end gap-3">
+            <span className="relative flex size-[30px] items-center justify-center">
+              <BellIcon
+                aria-hidden="true"
+                className="text-body-text"
+                size={18}
+                strokeWidth={1.7}
+              />
+              <span className="-top-[2px] -right-[3px] absolute flex h-[15px] min-w-[15px] items-center justify-center rounded-full bg-status-blocked px-1 font-semibold text-[9px] text-white ring-2 ring-white tabular-nums">
+                3
+              </span>
+            </span>
+            <span className="flex size-[26px] items-center justify-center rounded-full bg-line-soft font-semibold text-[11px] text-body-text">
+              SW
+            </span>
+          </div>
+        </div>
+      </Specimen>
+
+      <Specimen
+        note="34px wide, used in appointment rows. Carries the only shadow in the system."
+        title="Calendar date chip"
+      >
+        <div className="flex gap-3">
+          <DateChip date="12" day="TUE" />
+          <DateChip date="13" day="WED" />
+          <DateChip date="14" day="THU" />
         </div>
       </Specimen>
     </Section>
+  );
+}
+
+function VoiceSection(): React.ReactElement {
+  return (
+    <Section
+      id="voice"
+      lede="Plain, factual, specific. Name the thing and the condition. No exclamation marks, no encouragement, no abstraction — and every figure carries its unit and its comparison."
+      title="Voice"
+    >
+      <Specimen title="Say / do not say">
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div>
+            <DontLabel>Abstract</DontLabel>
+            <p className="mt-2 rounded-[8px] border border-line p-4 text-[13px] text-body-text leading-[1.55]">
+              Action required — incomplete listing.
+            </p>
+          </div>
+          <div>
+            <DoLabel>Names the thing and the condition</DoLabel>
+            <p className="mt-2 rounded-[8px] border border-line p-4 text-[13px] text-body-text leading-[1.55]">
+              Two required photographs were never taken, so the advert has sat
+              unpublished.
+            </p>
+          </div>
+        </div>
+      </Specimen>
+    </Section>
+  );
+}
+
+/* ----------------------------------------------------------------- pieces */
+
+function GButton({
+  variant,
+  children,
+}: {
+  variant: "primary" | "secondary";
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <button
+      className={cn(
+        "inline-flex h-[34px] cursor-pointer items-center gap-2 rounded-[6px] px-3.5 text-[13px] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2",
+        variant === "primary"
+          ? "bg-navy-900 font-semibold text-white hover:bg-navy-700"
+          : "border border-line bg-white font-medium text-[#3F3F46] hover:bg-surface",
+      )}
+      type="button"
+    >
+      {children}
+    </button>
+  );
+}
+
+function GBadge({ spec }: { spec: BadgeSpec }): React.ReactElement {
+  return (
+    <span
+      className="inline-flex items-center rounded-full px-2 font-medium whitespace-nowrap"
+      style={{
+        backgroundColor: spec.bg,
+        color: spec.fg,
+        height: spec.height,
+        fontSize: spec.size,
+        letterSpacing: spec.tracking,
+        textTransform: spec.upper ? "uppercase" : undefined,
+      }}
+    >
+      {spec.label}
+    </span>
+  );
+}
+
+/** UK front plate: yellow is reserved for this and nothing else (rule 5). */
+function RegPlate({ reg }: { reg: string }): React.ReactElement {
+  return (
+    <span
+      className="inline-flex h-[34px] items-center rounded-[4px] border px-3 font-mono font-semibold text-[15px] text-ink tabular-nums"
+      style={{
+        backgroundColor: "var(--color-plate)",
+        borderColor: "var(--color-plate-edge)",
+      }}
+    >
+      {reg}
+    </span>
+  );
+}
+
+function DateChip({
+  day,
+  date,
+}: {
+  day: string;
+  date: string;
+}): React.ReactElement {
+  return (
+    <span className="flex w-[34px] shrink-0 flex-col overflow-hidden rounded-[5px] border border-line bg-white shadow-chip">
+      <span className="flex h-[13px] items-center justify-center bg-[#3B5BA9] font-semibold text-[8px] text-white uppercase tracking-[0.07em]">
+        {day}
+      </span>
+      <span className="flex h-[25px] items-center justify-center font-semibold text-[15px] text-ink tracking-[-0.02em] tabular-nums">
+        {date}
+      </span>
+    </span>
+  );
+}
+
+function DoLabel({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <span className="font-mono font-semibold text-[11px] text-status-clear uppercase tracking-[0.12em]">
+      {children}
+    </span>
+  );
+}
+
+function DontLabel({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.ReactElement {
+  return (
+    <span className="font-mono font-semibold text-[11px] text-status-blocked uppercase tracking-[0.12em]">
+      {children}
+    </span>
   );
 }
