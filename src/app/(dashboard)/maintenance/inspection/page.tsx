@@ -297,13 +297,21 @@ function QueueTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Reg</TableHead>
+            {/*
+              Responsive columns (GEN-93). On a phone this table is 896px of
+              content in a ~326px window, so the secondary columns are hidden
+              rather than left behind a long horizontal drag. Reg, Vehicle and
+              Action — identify the car and act on it — are always present, and
+              the hidden signals (waiting time, progress, flags) fold into the
+              Vehicle cell so nothing is actually lost.
+            */}
+            <TableHead className="hidden sm:table-cell">Reg</TableHead>
             <TableHead>Vehicle</TableHead>
-            <TableHead>Waiting</TableHead>
-            <TableHead>MOT</TableHead>
-            <TableHead>Inspector</TableHead>
-            <TableHead>Progress</TableHead>
-            <TableHead>Flagged</TableHead>
+            <TableHead className="hidden sm:table-cell">Waiting</TableHead>
+            <TableHead className="hidden lg:table-cell">MOT</TableHead>
+            <TableHead className="hidden lg:table-cell">Inspector</TableHead>
+            <TableHead className="hidden lg:table-cell">Progress</TableHead>
+            <TableHead className="hidden md:table-cell">Flagged</TableHead>
             <TableHead className="text-right">Action</TableHead>
           </TableRow>
         </TableHeader>
@@ -320,20 +328,41 @@ function QueueTable({
               : undefined;
             return (
               <TableRow key={vehicle.id}>
-                <TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <RegPlate registration={vehicle.registration} size="sm" />
                 </TableCell>
                 <TableCell>
                   <div className="flex flex-col leading-tight">
+                    {/* Below sm the Reg column is dropped entirely — three
+                        columns will not fit 326px without clipping the action
+                        button — so the plate rides in this cell instead. */}
+                    <span className="mb-1 sm:hidden">
+                      <RegPlate registration={vehicle.registration} size="sm" />
+                    </span>
                     <span className="font-medium">
                       {vehicle.make} {vehicle.model}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {vehicle.stockId} · {formatDate(vehicle.receivedDate)}
                     </span>
+                    {/* Carries the hidden columns' signal on small screens so
+                        nothing is lost when they drop out. */}
+                    <span className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground lg:hidden">
+                      <span className="tabular-nums">
+                        {progress}/{total} checked
+                      </span>
+                      <span className={cn("sm:hidden", wait.urgent && "text-destructive")}>
+                        · {wait.days}d waiting
+                      </span>
+                      {flagged > 0 && (
+                        <span className="text-destructive md:hidden">
+                          · {flagged} flagged
+                        </span>
+                      )}
+                    </span>
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden sm:table-cell">
                   <span
                     className={cn(
                       "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
@@ -344,10 +373,10 @@ function QueueTable({
                     {wait.days}d waiting
                   </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
                   <MotBadge motExpiry={vehicle.motExpiry} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
                   {inspector ? (
                     <span className="inline-flex items-center gap-2 text-muted-foreground">
                       <Avatar size="sm" title={inspector.name}>
@@ -361,10 +390,10 @@ function QueueTable({
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden lg:table-cell">
                   <ProgressSquares squares={squares} progress={progress} total={total} />
                 </TableCell>
-                <TableCell>
+                <TableCell className="hidden md:table-cell">
                   {flagged > 0 ? (
                     <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-0.5 text-xs font-medium text-rose-700 dark:bg-rose-500/15 dark:text-rose-300">
                       <AlertTriangle className="size-3" />
