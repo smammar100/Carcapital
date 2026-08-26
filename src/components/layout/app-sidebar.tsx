@@ -9,6 +9,7 @@ import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import {
   SIDEBAR_GROUPS,
+  MVP_HIDDEN_HREFS,
   activeHrefForPath,
   type SidebarGroup,
   type SidebarItem,
@@ -68,8 +69,11 @@ export function AppSidebar() {
   // gate, or items where the user holds ANY required capability. A group renders
   // only if at least one item is visible.
   const visibleGroups: SidebarGroup[] = React.useMemo(() => {
+    // Held back from the MVP launch — checked before capabilities so that a
+    // super-user (who passes every capability check) does not see them either.
     const itemVisible = (item: SidebarItem) =>
-      isSuperUser || !item.requiredAnyOf || item.requiredAnyOf.some(can);
+      !MVP_HIDDEN_HREFS.has(item.href) &&
+      (isSuperUser || !item.requiredAnyOf || item.requiredAnyOf.some(can));
     return SIDEBAR_GROUPS.map((group) => ({
       ...group,
       items: group.items.filter(itemVisible),

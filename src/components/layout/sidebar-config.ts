@@ -393,3 +393,30 @@ export function requiredCapsForPath(pathname: string): Capability[] | null {
   }
   return best ? best.caps : null;
 }
+
+/**
+ * Routes built but held back from the MVP launch.
+ *
+ * These are hidden from the nav only — the routes, pages and capability
+ * guards above are left completely intact, so nothing here is a deletion and
+ * unhiding a module is a one-line change (drop its href from this set).
+ *
+ * Deliberately NOT filtered out of SIDEBAR_GROUPS itself: `activeHrefForPath`
+ * and the route-capability lookup both read that array, so removing entries
+ * would strip the permission guard from a route that still exists and is
+ * still reachable by direct URL.
+ *
+ *   Advert   — the AutoTrader publish/performance integration is not wired
+ *              up, so the whole group would show empty or stale figures.
+ *   Reports, Master Calendar, Activity Log
+ *            — analytics surfaces with no history to read now that the demo
+ *              data has been cleared; they populate as real trading begins.
+ */
+export const MVP_HIDDEN_HREFS: ReadonlySet<string> = new Set([
+  "/advert/work-list",
+  "/advert/performance",
+  "/admin/advertisers",
+  "/admin/reports",
+  "/admin/master-calendar",
+  "/admin/activity",
+]);
