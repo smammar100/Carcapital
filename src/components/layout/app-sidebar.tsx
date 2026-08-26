@@ -28,8 +28,10 @@ const ALL_GROUP_LABELS: string[] = SIDEBAR_GROUPS.map((g) => g.label).filter(
 // Active = a lighter navy fill and a 3px blue left marker, per the Genaro nav
 // spec. Crucially NOT the blue as a fill, so it never reads like the primary
 // "Add Vehicle" CTA (rule 2).
+// 34px is a comfortable desktop row but an awkward touch target, so on a
+// coarse pointer the row grows to the 44px a finger needs (GEN-93).
 const ITEM_BASE =
-  "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-[13px] no-underline transition-colors";
+  "relative flex h-[34px] items-center gap-2.5 rounded-md px-2 text-[13px] no-underline transition-colors pointer-coarse:h-11";
 const ITEM_ACTIVE =
   "bg-sidebar-accent font-medium text-white before:absolute before:top-0 before:bottom-0 before:left-0 before:w-[3px] before:rounded-r before:bg-accent-blue";
 const ITEM_INACTIVE = "text-navy-200 hover:bg-sidebar-accent hover:text-white";
@@ -187,7 +189,7 @@ export function AppSidebar() {
                 type="button"
                 onClick={() => toggleGroup(group.label as string)}
                 aria-expanded={isOpen}
-                className="flex w-full items-center gap-1 rounded px-2 py-1.5 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-nav-heading transition-colors hover:text-white"
+                className="flex w-full items-center gap-1 rounded px-2 py-1.5 pointer-coarse:min-h-11 font-mono text-[10px] font-semibold uppercase tracking-[0.14em] text-nav-heading transition-colors hover:text-white"
               >
                 <span className="flex-1 text-left">{group.label}</span>
                 <ChevronDown

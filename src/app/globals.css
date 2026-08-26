@@ -462,6 +462,26 @@
     scale: 0.96;
   }
 
+  /* Touch targets (GEN-93).
+     Nord sizes <nord-button> from its own shadow root — size="s" renders at
+     ~28px, well under the 44px a finger needs, and the size prop is mapped
+     from our own `size` variants so call sites cannot fix it individually.
+
+     The Select trigger solves this with a ::after overlay that grows the hit
+     area without touching the visual height, but that technique is not
+     available here: a shadow host's ::before/::after do not render at all,
+     because the shadow tree replaces the host's child boxes. Verified — the
+     pseudo-element resolved to `content: none`.
+
+     So the height itself grows, and only on a coarse pointer. Desktop is
+     untouched; on a phone the buttons are genuinely taller, which is the
+     correct trade when the alternative is a 28px target. */
+  @media (pointer: coarse) {
+    nord-button {
+      min-height: 44px;
+    }
+  }
+
   @media (prefers-reduced-motion: reduce) {
     nord-button {
       transition-duration: 0s;
