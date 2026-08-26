@@ -271,54 +271,74 @@ export function InspectionChecklist({ vehicle, inspector, onComplete }: Props) {
                 ? "bg-rose-500"
                 : "bg-emerald-500";
             return (
+              /*
+                One row needs ~418px laid out horizontally (fixed 160px label
+                + 144px status + the action input). On a phone the sheet gives
+                it ~341px with `overflow-x: hidden` and no scrollable
+                ancestor, so the status dropdown and action field were pushed
+                off-screen and simply could not be reached — an inspection was
+                impossible to complete on a phone (GEN-93).
+
+                Below sm the row becomes two stacked lines: identity above,
+                controls below. `sm:contents` dissolves both wrappers at sm and
+                up, so the children become direct flex children again and the
+                desktop layout is byte-for-byte what it was.
+              */
               <div
                 key={item.number}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-2",
+                  "flex flex-col gap-2 px-4 py-3",
+                  "sm:flex-row sm:items-center sm:gap-3 sm:py-2",
                   isNegative && "bg-rose-50/60 dark:bg-rose-950/20",
                 )}
               >
-                <span
-                  className={cn("size-2.5 shrink-0 rounded-full", dot)}
-                  title={status || "Not checked"}
-                />
-                <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">
-                  {item.number}
-                </span>
-                <span className="w-40 shrink-0 truncate text-sm font-medium">
-                  {item.item}
-                </span>
-                <div className="w-36 shrink-0">
-                  <Select
-                    value={status}
-                    onValueChange={(v) => handleStatusChange(item.number, v)}
-                  >
-                    <SelectTrigger className="h-8 w-full text-xs">
-                      <SelectValue placeholder="Select…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {item.statusOptions.map((s) => (
-                        <SelectItem key={s} value={s}>
-                          {s}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="min-w-0 flex-1">
-                  <Input
-                    defaultValue={check?.actionRequired ?? ""}
-                    placeholder={
-                      isNegative ? "Describe what needs doing…" : "(optional)"
-                    }
-                    onBlur={(e) =>
-                      handleActionChange(item.number, e.target.value)
-                    }
-                    className={cn(
-                      "h-8 text-xs",
-                      isNegative && "border-rose-300 dark:border-rose-800",
-                    )}
+                <div className="flex min-w-0 items-center gap-3 sm:contents">
+                  <span
+                    className={cn("size-2.5 shrink-0 rounded-full", dot)}
+                    title={status || "Not checked"}
                   />
+                  <span className="w-6 shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {item.number}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium sm:w-40 sm:flex-none sm:shrink-0">
+                    {item.item}
+                  </span>
+                </div>
+
+                <div className="flex min-w-0 items-center gap-2 sm:contents">
+                  <div className="w-36 shrink-0">
+                    <Select
+                      value={status}
+                      onValueChange={(v) => handleStatusChange(item.number, v)}
+                    >
+                      {/* Taller control on touch, unchanged on desktop. */}
+                      <SelectTrigger className="h-10 w-full text-xs sm:h-8">
+                        <SelectValue placeholder="Select…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {item.statusOptions.map((s) => (
+                          <SelectItem key={s} value={s}>
+                            {s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <Input
+                      defaultValue={check?.actionRequired ?? ""}
+                      placeholder={
+                        isNegative ? "Describe what needs doing…" : "(optional)"
+                      }
+                      onBlur={(e) =>
+                        handleActionChange(item.number, e.target.value)
+                      }
+                      className={cn(
+                        "h-10 text-xs sm:h-8",
+                        isNegative && "border-rose-300 dark:border-rose-800",
+                      )}
+                    />
+                  </div>
                 </div>
               </div>
             );
