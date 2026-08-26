@@ -7,6 +7,7 @@ import { useAuth } from "@/contexts/auth-context";
 import { todoService } from "@/lib/services/todo-service";
 import { vendorService } from "@/lib/services/vendor-service";
 import { toast } from "@/lib/toast";
+import { parseNumeric } from "@/lib/field-edit";
 import { useAutoFocus } from "@/hooks/use-auto-focus";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,13 +54,14 @@ const STATUS_ITEMS: Record<string, string> = Object.fromEntries(
   STATUS_ORDER.map((s) => [s, STATUS_LABEL[s]]),
 );
 
-/** "£1,250.50" / "1250.5" / "" → 1250.5 / null. */
-function parseCost(raw: string): number | null {
-  const trimmed = raw.trim();
-  if (!trimmed) return null;
-  const n = Number(trimmed.replace(/[£,\s]/g, ""));
-  return Number.isNaN(n) ? null : n;
-}
+/**
+ * "£1,250.50" / "1250.5" → 1250.5, "" → null (cleared), anything else →
+ * `undefined` so the caller can reject it instead of silently storing null.
+ *
+ * Shared with the vehicle-detail inline editors so money parses identically
+ * wherever it is typed.
+ */
+const parseCost = parseNumeric;
 
 const costToInput = (cost: number | null): string =>
   cost == null ? "" : String(cost);
@@ -348,6 +350,19 @@ function TodoRow({
 
   function commitCost() {
     const next = parseCost(cost);
+
+    /**
+     * A cost that will not parse is a typo, not an instruction to clear the
+     * field. Writing null here silently destroyed the stored figure — typing
+     * one stray character into a £125.50 cost dropped it to £0.00 with no
+     * warning, and the job total moved with it (GEN-105).
+     */
+    if (next === undefined) {
+      toast.error("That cost is not a number. Enter an amount like 125.50.");
+      setCost(costToInput(item.cost));
+      return;
+    }
+
     if (next !== item.cost) onPatch({ cost: next });
     setCost(costToInput(next));
   }
@@ -474,11 +489,20 @@ function AddRow({
       toast.error("Description is required");
       return;
     }
+
+    // Same rule as the inline editor: an unparseable cost is a typo, not an
+    // instruction to store nothing (GEN-105).
+    const parsedCost = parseCost(cost);
+    if (parsedCost === undefined) {
+      toast.error("That cost is not a number. Enter an amount like 125.50.");
+      return;
+    }
+
     setSaving(true);
     onAdd({
       description: desc,
       vendorId: vendorId === "none" ? null : vendorId,
-      cost: parseCost(cost),
+      cost: parsedCost,
     });
   }
 

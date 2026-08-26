@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/tabs";
 import { todoService } from "@/lib/services/todo-service";
 import { enquiryService } from "@/lib/services/enquiry-service";
+import { vehiclePhotoService } from "@/lib/services/vehicle-photo-service";
 import { OverviewTab } from "./overview-tab";
 import { DetailsTab } from "./details-tab";
 import { LocationTab } from "./location-tab";
@@ -53,6 +54,7 @@ export function VehicleDetailShell({
 }: VehicleDetailShellProps) {
   const [todoCount, setTodoCount] = useState<number | null>(null);
   const [enquiryCount, setEnquiryCount] = useState<number | null>(null);
+  const [photoCount, setPhotoCount] = useState<number | null>(null);
   // Uncontrolled fallback when the page doesn't drive the active tab.
   const [internalTab, setInternalTab] = useState("overview");
   const activeTab = value ?? internalTab;
@@ -69,6 +71,16 @@ export function VehicleDetailShell({
       .getForVehicle(vehicle.id)
       .then((rows) => setEnquiryCount(rows.length))
       .catch(() => setEnquiryCount(null));
+    /**
+     * Count the photos that actually exist rather than trusting the stored
+     * `imagesCount` column, which has drifted badly — vehicles show a badge of
+     * 50+ against zero or one real photo (GEN-106). The Advert page already
+     * papers over this with `Math.max(vehicle.imagesCount, photos.count)`.
+     */
+    void vehiclePhotoService
+      .list(vehicle.id)
+      .then((rows) => setPhotoCount(rows.length))
+      .catch(() => setPhotoCount(null));
   }, [vehicle.id]);
 
   return (
@@ -90,7 +102,7 @@ export function VehicleDetailShell({
         <TabsTrigger value="inspection">Inspection</TabsTrigger>
         <TabsTrigger value="photos">
           Photos
-          <CountBadge value={vehicle.imagesCount} />
+          <CountBadge value={photoCount} />
         </TabsTrigger>
         <TabsTrigger value="listing">Listing</TabsTrigger>
         <TabsTrigger value="appointments">
