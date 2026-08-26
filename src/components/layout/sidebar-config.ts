@@ -50,10 +50,17 @@ export interface SidebarGroup {
  *
  *   Inventory   — it arrives and is put somewhere
  *   Maintenance — it is inspected, then prepped and repaired
- *   Advert      — it goes to market
+ *   Advert      — it goes to market (hidden for the MVP launch)
  *   Sales       — it is sold
  *   After Sale  — warranties and the occasional return
+ *   Workshop    — NOT a stage: walk-in servicing of the public's own cars
  *   Admin       — oversight of all of the above
+ *
+ * Only groups that a car actually passes through belong in that sequence.
+ * Workshop sits outside it because no stock vehicle ever enters it, and
+ * within a group the same rule applies: the steps come first, in the order
+ * they happen, and any overview or calendar that merely looks at those steps
+ * comes after them.
  *
  * Administrative used to sit second, directly under Dashboard, which pushed
  * every stage of the actual workflow below a group nobody touches hourly.
@@ -101,16 +108,24 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   },
   {
     label: "Maintenance",
+    // Exactly TWO steps, in the order a car meets them, then the views over
+    // them. Inspection feeds Prep automatically — a car lands in Prep the
+    // moment its inspection completes with outstanding items — so the first
+    // two entries are the real sequence and nothing may be inserted between
+    // them. Pipeline and Calendar are lenses on that same work, not further
+    // stages, so they sit below it rather than interrupting it.
+    //
+    // Workshop Jobs used to sit third and no longer lives here at all: it is
+    // walk-in servicing for the public (it asks for a customer's phone number
+    // and looks up THEIR car), which has nothing to do with preparing stock
+    // you own. See the Workshop group below.
     items: [
-      // A car hits the inspection queue first, so it leads the group.
       {
         label: "Inspection Queue",
         href: "/maintenance/inspection",
         icon: ClipboardCheck,
         requiredAnyOf: ["inspection:run", "inspection:add_note"],
       },
-      // The stage between "inspection complete" and the sales pipeline
-      // (GEN-63) — sits after Inspection Queue because that's what feeds it.
       {
         label: "Prep & Repair",
         href: "/maintenance/prep",
@@ -121,15 +136,10 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
           "maintenance:complete",
         ],
       },
+      // "Job Pipeline", not "Pipeline": Sales owns a Pipeline too, and two
+      // identically-labelled rows in one rail cannot be told apart.
       {
-        label: "Workshop Jobs",
-        href: "/maintenance/workshop",
-        icon: Briefcase,
-        requiredAnyOf: ["maintenance:create", "maintenance:edit", "workshop:add_note"],
-      },
-      // Overview and scheduling sit under the work they summarise.
-      {
-        label: "Pipeline",
+        label: "Job Pipeline",
         href: "/maintenance",
         icon: Wrench,
         requiredAnyOf: [
@@ -243,6 +253,27 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/admin/vehicle-returns",
         icon: Undo2,
         requiredAnyOf: ["returns:create"],
+      },
+    ],
+  },
+  {
+    // Walk-in servicing for the public — a separate trade from selling cars,
+    // and the one group that is NOT a stage of the lifecycle above. These are
+    // other people's vehicles, booked by phone, that you never owned. It sat
+    // inside Maintenance between Prep and the overview, which put a job for a
+    // stranger's car in the middle of the sequence for preparing your own
+    // stock. Kept below the lifecycle so that sequence reads unbroken.
+    label: "Workshop",
+    items: [
+      {
+        label: "Workshop Jobs",
+        href: "/maintenance/workshop",
+        icon: Briefcase,
+        requiredAnyOf: [
+          "maintenance:create",
+          "maintenance:edit",
+          "workshop:add_note",
+        ],
       },
     ],
   },
