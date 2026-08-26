@@ -52,7 +52,7 @@ export interface SidebarGroup {
  *   Maintenance — it is inspected, then prepped and repaired
  *   Advert      — it goes to market (hidden for the MVP launch)
  *   Sales       — it is sold
- *   After Sale  — warranties and the occasional return
+ *   Warranties  — cover on cars sold, and the occasional return
  *   Admin       — oversight of all of the above
  *
  * Within a group the same rule applies: the steps come first, in the order
@@ -113,10 +113,8 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     // them. Pipeline and Calendar are lenses on that same work, not further
     // stages, so they sit below it rather than interrupting it.
     //
-    // Workshop Jobs used to sit third and no longer lives here at all: it is
-    // walk-in servicing for the public (it asks for a customer's phone number
-    // and looks up THEIR car), which has nothing to do with preparing stock
-    // you own. See the Workshop group below.
+    // Workshop Jobs used to sit third, between the two steps; it is now last
+    // (see the note on it below).
     items: [
       {
         label: "Inspection Queue",
@@ -225,7 +223,11 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         requiredAnyOf: ["sales:edit_pipeline_stage"],
       },
       {
-        label: "Closed Deals",
+        // Named for the pipeline stage that fills it. A user drags a card to
+        // "Completed Sale" and then looks in the rail for where it went, so
+        // the two labels have to be the same words — "Closed Deals" made them
+        // guess that a closed deal and a completed sale were the same thing.
+        label: "Completed Sale",
         href: "/sales/deals",
         icon: Handshake,
         requiredAnyOf: ["sales:mark_sold", "sales:edit_pipeline_stage"],
@@ -242,7 +244,10 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     // Everything that happens to a car after money changes hands. Returns
     // moved here from Administrative: a return is the last step of a sale,
     // not a back-office function.
-    label: "After Sale",
+    // Named for what is in it rather than when it happens. Three of the four
+    // rows are warranties and live under /warranties, so the heading now
+    // matches both the contents and the routes.
+    label: "Warranties",
     items: [
       {
         label: "In-House",

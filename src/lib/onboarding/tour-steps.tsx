@@ -72,7 +72,7 @@ export const GUIDED_STEPS: GuidedStep[] = [
       <>
         Read it top to bottom and you are reading a car&apos;s life:{" "}
         <b>Inventory</b> as it arrives, <b>Maintenance</b> while it is inspected
-        and prepped, <b>Sales</b> when it goes out, then <b>After Sale</b>. A
+        and prepped, <b>Sales</b> when it goes out, then <b>Warranties</b>. A
         normal day moves down this list, not around it.
       </>
     ),

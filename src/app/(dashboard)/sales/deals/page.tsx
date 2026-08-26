@@ -323,7 +323,7 @@ export default function DealsPage() {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Closed Deals</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">Completed Sale</h1>
         <p className="text-sm text-muted-foreground">
           Your completed sales history. For deals still in progress, see the{" "}
           <Link href="/sales/pipeline" className="text-primary hover:underline">
@@ -348,7 +348,7 @@ export default function DealsPage() {
       ) : closed.length === 0 ? (
         <EmptyState
           icon={Handshake}
-          title="No closed deals yet"
+          title="No completed sales yet"
           description="Move a pipeline card to Completed Sale to see it here."
         />
       ) : groups.length === 0 ? (
