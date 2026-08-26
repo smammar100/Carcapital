@@ -45,9 +45,23 @@ export interface SidebarGroup {
 }
 
 /**
- * v4.1 sidebar — single-tenant Car Capital UK.
- * Order locked per CLAUDE_CODE_PROMPT_v4_1.md §10:
- * Dashboard → ADMIN → INVENTORY → MAINTENANCE → ADVERT → SALES → WARRANTIES.
+ * Sidebar order follows a vehicle's life through the business, so a normal
+ * day reads top to bottom instead of jumping between groups:
+ *
+ *   Inventory   — it arrives and is put somewhere
+ *   Maintenance — it is inspected, then prepped and repaired
+ *   Advert      — it goes to market
+ *   Sales       — it is sold
+ *   After Sale  — warranties and the occasional return
+ *   Admin       — oversight of all of the above
+ *
+ * Administrative used to sit second, directly under Dashboard, which pushed
+ * every stage of the actual workflow below a group nobody touches hourly.
+ * It now sits last: it reports on the lifecycle rather than being part of it.
+ *
+ * Items inside each group follow the same rule — Maintenance opens with the
+ * Inspection Queue because that is what a car hits first, not the Pipeline
+ * overview.
  *
  * `requiredAnyOf` gates visibility by capability (see app-sidebar.tsx). Each
  * item's capabilities mirror the guard on its page so the nav and the page
@@ -57,64 +71,6 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     label: null,
     items: [{ label: "Dashboard", href: "/dashboard", icon: LayoutDashboard }],
-  },
-  {
-    label: "Administrative",
-    items: [
-      {
-        label: "Master Sheet",
-        href: "/admin/master-sheet",
-        icon: FileSpreadsheet,
-        requiredAnyOf: ["admin:view_master_sheet"],
-      },
-      {
-        label: "Master Calendar",
-        href: "/admin/master-calendar",
-        icon: CalendarIcon,
-        requiredAnyOf: ["admin:view_master_calendar"],
-      },
-      {
-        label: "Users & Permissions",
-        href: "/admin/users-and-permissions",
-        icon: Users,
-        requiredAnyOf: ["admin:manage_permissions", "admin:manage_users"],
-      },
-      {
-        label: "Returns and Cancellations",
-        href: "/admin/vehicle-returns",
-        icon: Undo2,
-        requiredAnyOf: ["returns:create"],
-      },
-      {
-        label: "Invoicing",
-        href: "/admin/invoicing",
-        icon: Receipt,
-        requiredAnyOf: [
-          "invoice:generate",
-          "invoice:send",
-          "invoice:mark_paid",
-          "invoice:edit",
-        ],
-      },
-      {
-        label: "Vendors",
-        href: "/admin/vendors",
-        icon: Store,
-        requiredAnyOf: ["admin:manage_vendors"],
-      },
-      {
-        label: "Activity Log",
-        href: "/admin/activity",
-        icon: History,
-        requiredAnyOf: ["admin:view_master_sheet", "admin:view_financials"],
-      },
-      {
-        label: "Reports & Analytics",
-        href: "/admin/reports",
-        icon: BarChart3,
-        requiredAnyOf: ["admin:view_financials"],
-      },
-    ],
   },
   {
     label: "Inventory",
@@ -146,22 +102,7 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
   {
     label: "Maintenance",
     items: [
-      {
-        label: "Pipeline",
-        href: "/maintenance",
-        icon: Wrench,
-        requiredAnyOf: [
-          "maintenance:create",
-          "maintenance:edit",
-          "maintenance:complete",
-        ],
-      },
-      {
-        label: "Calendar",
-        href: "/maintenance/calendar",
-        icon: CalendarIcon,
-        requiredAnyOf: ["maintenance:create", "maintenance:edit", "inspection:run"],
-      },
+      // A car hits the inspection queue first, so it leads the group.
       {
         label: "Inspection Queue",
         href: "/maintenance/inspection",
@@ -185,6 +126,23 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/maintenance/workshop",
         icon: Briefcase,
         requiredAnyOf: ["maintenance:create", "maintenance:edit", "workshop:add_note"],
+      },
+      // Overview and scheduling sit under the work they summarise.
+      {
+        label: "Pipeline",
+        href: "/maintenance",
+        icon: Wrench,
+        requiredAnyOf: [
+          "maintenance:create",
+          "maintenance:edit",
+          "maintenance:complete",
+        ],
+      },
+      {
+        label: "Calendar",
+        href: "/maintenance/calendar",
+        icon: CalendarIcon,
+        requiredAnyOf: ["maintenance:create", "maintenance:edit", "inspection:run"],
       },
     ],
   },
@@ -257,7 +215,10 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
     ],
   },
   {
-    label: "Warranties",
+    // Everything that happens to a car after money changes hands. Returns
+    // moved here from Administrative: a return is the last step of a sale,
+    // not a back-office function.
+    label: "After Sale",
     items: [
       {
         label: "In-House",
@@ -276,6 +237,65 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/warranties/claims",
         icon: ShieldAlert,
         requiredAnyOf: ["warranty:raise_claim", "warranty:resolve_claim"],
+      },
+      {
+        label: "Returns and Cancellations",
+        href: "/admin/vehicle-returns",
+        icon: Undo2,
+        requiredAnyOf: ["returns:create"],
+      },
+    ],
+  },
+  {
+    // Oversight of the lifecycle rather than a stage in it, so it sits last.
+    label: "Administrative",
+    items: [
+      {
+        label: "Master Sheet",
+        href: "/admin/master-sheet",
+        icon: FileSpreadsheet,
+        requiredAnyOf: ["admin:view_master_sheet"],
+      },
+      {
+        label: "Master Calendar",
+        href: "/admin/master-calendar",
+        icon: CalendarIcon,
+        requiredAnyOf: ["admin:view_master_calendar"],
+      },
+      {
+        label: "Reports & Analytics",
+        href: "/admin/reports",
+        icon: BarChart3,
+        requiredAnyOf: ["admin:view_financials"],
+      },
+      {
+        label: "Invoicing",
+        href: "/admin/invoicing",
+        icon: Receipt,
+        requiredAnyOf: [
+          "invoice:generate",
+          "invoice:send",
+          "invoice:mark_paid",
+          "invoice:edit",
+        ],
+      },
+      {
+        label: "Vendors",
+        href: "/admin/vendors",
+        icon: Store,
+        requiredAnyOf: ["admin:manage_vendors"],
+      },
+      {
+        label: "Users & Permissions",
+        href: "/admin/users-and-permissions",
+        icon: Users,
+        requiredAnyOf: ["admin:manage_permissions", "admin:manage_users"],
+      },
+      {
+        label: "Activity Log",
+        href: "/admin/activity",
+        icon: History,
+        requiredAnyOf: ["admin:view_master_sheet", "admin:view_financials"],
       },
     ],
   },

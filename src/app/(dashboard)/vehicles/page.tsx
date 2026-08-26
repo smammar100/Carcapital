@@ -57,19 +57,21 @@ const COLS: ColDef[] = [
     type: "text",
     width: 220,
     format: (v) => variantLabel(v, ""),
+    mobileHide: true,
   },
-  { key: "fuelType", label: "Fuel", type: "select", width: 100 },
-  { key: "bodyType", label: "Body", type: "select", width: 110 },
-  { key: "mileage", label: "Mileage", type: "number", width: 100 },
+  { key: "fuelType", label: "Fuel", type: "select", width: 100, mobileHide: true },
+  { key: "bodyType", label: "Body", type: "select", width: 110, mobileHide: true },
+  { key: "mileage", label: "Mileage", type: "number", width: 100, mobileHide: true },
   {
     key: "daysInStock",
     label: "Days",
     type: "custom",
     width: 80,
+    mobileHide: true,
     render: (v) => <DaysInStockChip days={v.daysInStock} />,
   },
   { key: "status", label: "Status", type: "status", width: 140 },
-  { key: "baseCost", label: "Total cost", type: "currency", width: 110 },
+  { key: "baseCost", label: "Total cost", type: "currency", width: 110, mobileHide: true },
   { key: "listingPrice", label: "Web price", type: "currency", width: 110 },
   {
     key: "profit",
@@ -98,7 +100,7 @@ const COLS: ColDef[] = [
       );
     },
   },
-  { key: "motExpiry", label: "MOT", type: "date", width: 120 },
+  { key: "motExpiry", label: "MOT", type: "date", width: 120, mobileHide: true },
 ];
 
 const FILTER_FIELDS: FilterField[] = [

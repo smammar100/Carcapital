@@ -47,6 +47,7 @@ import { VehicleImage } from "@/components/shared/vehicle-image";
 import { DataGridPagination } from "@/components/data-grid";
 import { LocationBadge } from "@/components/locations/location-badge";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import { useIsNarrow } from "@/hooks/use-media-query";
 import {
   cycleSort,
   sortRows,
@@ -93,6 +94,14 @@ export interface ColDef {
   /** Render without thousands separators. Years and other identifier-like
    *  numbers read as quantities otherwise — "2,019" instead of "2019". */
   plain?: boolean;
+  /**
+   * Droppable on small screens (GEN-93). Only honoured while the user has
+   * left the column picker alone: an explicit choice in the picker is the
+   * user telling us what they want to see, and a breakpoint should not
+   * overrule it. Touch the picker once and every chosen column stays
+   * visible at every width, scrolling as before.
+   */
+  mobileHide?: boolean;
   sticky?: boolean;
 }
 
@@ -464,6 +473,9 @@ export function VehicleSheet({
   const [visible, setVisible] = useState<Set<string>>(
     new Set(allCols.map((c) => colKey(c))),
   );
+  /** True once the user has curated columns themselves (GEN-93). */
+  const [userPickedColumns, setUserPickedColumns] = useState(false);
+  const isNarrow = useIsNarrow();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
   // Inline-edit: which cell is open + the in-progress draft string.
@@ -806,10 +818,25 @@ export function VehicleSheet({
     }
   }
 
-  const cols = useMemo(
-    () => allCols.filter((c) => visible.has(colKey(c))),
-    [allCols, visible],
-  );
+  /**
+   * Columns actually rendered (GEN-93).
+   *
+   * Low-priority columns drop out below `lg` so the grid is not 1740px of
+   * horizontal drag on a phone — but only while the user has left the picker
+   * alone. Once they have curated their own set, that is an explicit
+   * statement of what they want to see and the breakpoint stops overruling
+   * it; the grid scrolls instead, exactly as before.
+   *
+   * This filters the array rather than applying `display: none`, because
+   * hiding a cell does not collapse its column: the matching `<col>` in the
+   * colgroup keeps reserving its width, leaving the table just as wide with
+   * blank gaps where the columns were.
+   */
+  const cols = useMemo(() => {
+    const chosen = allCols.filter((c) => visible.has(colKey(c)));
+    if (userPickedColumns || !isNarrow) return chosen;
+    return chosen.filter((c) => !c.mobileHide);
+  }, [allCols, visible, userPickedColumns, isNarrow]);
 
   /** Active column sort, or null for the grid's natural order (GEN-92). */
   const [sort, setSort] = useState<SortState | null>(null);
@@ -890,6 +917,9 @@ export function VehicleSheet({
   }, [sorted, safePage]);
 
   function toggle(k: string) {
+    // Once the user has curated their own column set, responsive hiding stops
+    // applying — their choice outranks our breakpoint heuristic (GEN-93).
+    setUserPickedColumns(true);
     setVisible((prev) => {
       const next = new Set(prev);
       if (next.has(k)) next.delete(k);
@@ -973,6 +1003,15 @@ export function VehicleSheet({
               </PopoverTrigger>
               <PopoverContent align="end" className="w-80 p-0">
                 <ScrollArea className="max-h-[60vh] p-3">
+                  {/* Says out loud what the responsive rule does, and that
+                      choosing columns turns it off (GEN-93). */}
+                  {!userPickedColumns && allCols.some((c) => c.mobileHide) && (
+                    <p className="mb-3 text-2xs leading-relaxed text-muted-foreground">
+                      On a narrow screen some columns are hidden to keep the
+                      grid readable. Choose your own columns here and every one
+                      you pick stays visible at any width.
+                    </p>
+                  )}
                   <div className="grid grid-cols-2 gap-2">
                     {allCols.map((c) => {
                       const k = colKey(c);
@@ -1187,7 +1226,10 @@ export function VehicleSheet({
                 <colgroup>
                   <col style={{ width: 40 }} />
                   {cols.map((c) => (
-                    <col key={colKey(c)} style={{ width: widthFor(c) }} />
+                    <col
+                      key={colKey(c)}
+                      style={{ width: widthFor(c) }}
+                    />
                   ))}
                   <col style={{ width: 40 }} />
                 </colgroup>
