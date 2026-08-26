@@ -238,17 +238,42 @@ function ProgressSquares({
 }) {
   return (
     <div className="flex items-center gap-2">
+      {/*
+        The 20-square meter needs ~257px on one line. Given eight columns it
+        rarely gets that, and because the track was `flex-wrap` it collapsed
+        into a 22px-wide, 257px-tall vertical stack that blew the row height
+        out — visible from ~1200px down (GEN-93).
+
+        So the squares only render at 2xl, where there is genuinely room, and
+        `flex-nowrap` stops them ever stacking again. Below that the count and
+        the bar carry the same information in the space available.
+      */}
       <div
-        className="flex flex-wrap gap-[3px]"
+        className="hidden flex-nowrap gap-[3px] overflow-hidden 2xl:flex"
         title={`${progress} of ${total} points recorded`}
       >
         {squares.map((kind, i) => (
           <span
             key={i}
-            className={cn("h-2.5 w-2.5 rounded-[2px]", SQUARE_TONE[kind])}
+            className={cn("h-2.5 w-2.5 shrink-0 rounded-[2px]", SQUARE_TONE[kind])}
           />
         ))}
       </div>
+
+      {/* Compact fallback: a single proportional bar that fits any column. */}
+      <div
+        className="h-1.5 w-10 shrink-0 overflow-hidden rounded-full bg-muted 2xl:hidden"
+        title={`${progress} of ${total} points recorded`}
+      >
+        <div
+          className={cn(
+            "h-full rounded-full",
+            squares.some((s) => s === "flag") ? "bg-rose-500" : "bg-emerald-500",
+          )}
+          style={{ width: `${total > 0 ? (progress / total) * 100 : 0}%` }}
+        />
+      </div>
+
       <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
         {progress}/{total}
       </span>

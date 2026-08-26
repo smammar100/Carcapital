@@ -502,6 +502,22 @@
   }
 }
 
+/* Sidebar header rule.
+   Nord draws a border-bottom on the `slot[name="header"]` inside
+   <nord-navigation>'s shadow root, coloured by --n-color-border (#e4e4e7).
+   That grey is meant for a light surface; against the navy sidebar it reads
+   as a bright white line cutting under the company name. The slot carries no
+   `part`, so ::part() cannot reach it — but the custom property inherits
+   through the shadow boundary, and this is the only bordered element in the
+   navigation's shadow tree, so scoping the override to the host removes just
+   that line.
+
+   Deliberately unlayered: Nord sets this property in its own `:host` rule,
+   which is also unlayered and so outranks anything inside @layer base. */
+nord-navigation {
+  --n-color-border: transparent;
+}
+
 @utility container {
   @apply mx-auto max-w-[1416px] px-4 lg:px-6;
 }
