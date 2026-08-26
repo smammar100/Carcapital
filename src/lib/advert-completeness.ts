@@ -1,5 +1,6 @@
 import type { Listing, Vehicle } from "@/lib/types";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { hasReadableVariant, variantLabel } from "@/lib/vehicle-variant";
 
 /**
  * Advert-readiness checklist shared by the Overview "Advert Completeness" card
@@ -37,10 +38,15 @@ export function computeAdvertChecks(
     {
       key: "taxonomy",
       name: "Make / Model / Derivative",
-      meta: `${vehicle.make} ${vehicle.model} · ${
-        vehicle.derivative ?? vehicle.variantCode ?? "no derivative"
-      }`,
-      state: vehicle.derivative ?? vehicle.variantCode ? "done" : "warn",
+      // GEN-91: the stored variant code is an opaque AutoTrader GUID. Showing
+      // it here read as a derivative when it is nothing of the sort, and — via
+      // the precedence of `??` over `?:` below — also marked the check "done"
+      // on a car that has no readable derivative at all.
+      meta: `${vehicle.make} ${vehicle.model} · ${variantLabel(
+        vehicle,
+        "no derivative",
+      )}`,
+      state: hasReadableVariant(vehicle) ? "done" : "warn",
     },
     {
       key: "photos",

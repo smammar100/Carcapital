@@ -1,4 +1,5 @@
 "use client";
+import { variantLabel } from "@/lib/vehicle-variant";
 
 import { useEffect, useState } from "react";
 import {
@@ -121,7 +122,7 @@ export function VehicleHeaderCard({
               {vehicle.year} {vehicle.make} {vehicle.model}
             </h1>
             <p className="text-xs text-muted-foreground">
-              {vehicle.derivative ?? vehicle.variantCode ?? "—"} ·{" "}
+              {variantLabel(vehicle)} ·{" "}
               {vehicle.stockId}
             </p>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">

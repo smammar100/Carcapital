@@ -105,16 +105,17 @@ export function VehicleDetailShell({
           vehicle={vehicle}
           onVehiclePatch={onVehiclePatch}
           onNavigate={setActiveTab}
+          onChanged={onVehicleRefetch}
         />
       </TabsContent>
       <TabsContent value="details">
-        <DetailsTab vehicle={vehicle} />
+        <DetailsTab vehicle={vehicle} onChanged={onVehicleRefetch} />
       </TabsContent>
       <TabsContent value="location">
         <LocationTab vehicle={vehicle} />
       </TabsContent>
       <TabsContent value="financials">
-        <FinancialsTab vehicle={vehicle} />
+        <FinancialsTab vehicle={vehicle} onChanged={onVehicleRefetch} />
       </TabsContent>
       <TabsContent value="todo">
         <TodoTab

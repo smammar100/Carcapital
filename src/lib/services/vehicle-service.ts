@@ -1,6 +1,11 @@
 import { createClient, type TableInsert, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
-import type { UUID, Vehicle, VehicleStatus } from "@/lib/types";
+import type {
+  ActivityActionType,
+  UUID,
+  Vehicle,
+  VehicleStatus,
+} from "@/lib/types";
 import { activityService } from "./activity-service";
 import {
   decodeCursor,
@@ -425,10 +430,24 @@ export const vehicleService = {
     return vehicle;
   },
 
+  /**
+   * Patch a vehicle and record the change.
+   *
+   * `audit` lets a caller describe *what* changed rather than settling for the
+   * generic "<reg> updated" line. The inline editors (GEN-88 / GEN-99) pass a
+   * per-field before/after list so the activity log can answer "who changed
+   * this buying price, and what was it before?" — the whole point of allowing
+   * financial data to be edited at all.
+   */
   async update(
     id: UUID,
     patch: Partial<Vehicle>,
     actorId: UUID,
+    audit?: {
+      description?: string;
+      changes?: { key: string; label: string; from: unknown; to: unknown }[];
+      actionType?: ActivityActionType;
+    },
   ): Promise<Vehicle> {
     const supabase = createClient();
     const updates = vehicleToRow(patch as unknown as Record<string, unknown>);
@@ -445,9 +464,11 @@ export const vehicleService = {
       companyId: vehicle.companyId,
       userId: actorId,
       vehicleId: id,
-      actionType: "cost_updated",
-      description: `${vehicle.registration} updated`,
-      metadata: {},
+      actionType: audit?.actionType ?? "cost_updated",
+      description: audit?.description ?? `${vehicle.registration} updated`,
+      metadata: audit?.changes?.length
+        ? ({ changes: audit.changes } as unknown as Record<string, unknown>)
+        : {},
     });
     return vehicle;
   },

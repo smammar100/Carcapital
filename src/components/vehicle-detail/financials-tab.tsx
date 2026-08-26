@@ -9,11 +9,43 @@ import { paidAddonsTotal } from "@/lib/invoice-calc";
 import { Button } from "@/components/ui/button";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
 import { Field, FieldGrid, Panel, Pill } from "./primitives";
+import { EditableCard, type EditableField } from "./editable-card";
+import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
+import { vehicleService } from "@/lib/services/vehicle-service";
+import { toast } from "@/lib/toast";
+import { describeChanges, nonNegative, type FieldChange } from "@/lib/field-edit";
+import { derivedCostPatch } from "@/lib/vehicle-costs";
 import { ExternalInvoicesSection } from "./external-invoices-section";
 
 interface FinancialsTabProps {
   vehicle: Vehicle;
+  /** Re-pull the vehicle so edited costs propagate to every other surface. */
+  onChanged?: () => void;
 }
+
+/** The twelve editable cost lines, in the order the expense ledger shows them. */
+const COST_FIELDS: EditableField<Vehicle>[] = [
+  { key: "buyingPrice", label: "Buying Price", kind: "currency" },
+  { key: "buyersFee", label: "Buyer's Fee", kind: "currency" },
+  { key: "inspectionCharge", label: "Inspection Charge", kind: "currency" },
+  { key: "collectionFee", label: "Collection Fee", kind: "currency" },
+  { key: "deliveryFee", label: "Delivery Fee", kind: "currency" },
+  { key: "lateStorageFee", label: "Late Storage Fee", kind: "currency" },
+  { key: "loadingFee", label: "Loading Fee", kind: "currency" },
+  { key: "unloadingFee", label: "Unloading Fee", kind: "currency" },
+  { key: "stockingCharges", label: "Stocking Charges", kind: "currency" },
+  { key: "valueAddition", label: "Prep / Value Addition", kind: "currency" },
+  { key: "warrantyCost", label: "Warranty Cost", kind: "currency" },
+  { key: "otherCharges", label: "Other Charges", kind: "currency" },
+].map((f) => ({
+  ...(f as EditableField<Vehicle>),
+  // Money is never negative here — a refund belongs in its own line, not as a
+  // negative cost that silently reduces the car's base cost.
+  validators: [nonNegative(f.label) as never],
+  render: (v: Vehicle) =>
+    formatCurrency((v[f.key as keyof Vehicle] as number | null) ?? 0),
+}));
 
 interface LedgerEntry {
   name: string;
@@ -27,7 +59,7 @@ interface LedgerEntry {
  * position, purchase information, external invoices, and the HMRC
  * margin-scheme breakdown. HMRC margin-scheme aware throughout.
  */
-export function FinancialsTab({ vehicle }: FinancialsTabProps) {
+export function FinancialsTab({ vehicle, onChanged }: FinancialsTabProps) {
   // Web price source aligned with the Overview tab: prefer the live listing
   // price, fall back to the vehicle record so both surfaces show the same
   // revenue for the same car.
@@ -56,6 +88,60 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
       active = false;
     };
   }, [vehicle.companyId, vehicle.id]);
+
+  const { user } = useAuth();
+  const { can, isSuperUser } = usePermissions();
+  const canEditCosts = isSuperUser || can("inventory:edit_costs");
+
+  /**
+   * Save a cost edit and re-derive the stored totals in the same write.
+   *
+   * `totalBuyingPrice`, `landedCost`, `baseCost` and `grossEarning` are stored
+   * columns that All Vehicles, the Master Sheet and the reports read directly.
+   * Writing a cost field without them would leave "Total cost" and "Profit"
+   * quoting figures that no longer match this ledger.
+   */
+  const saveCosts = async (
+    patch: Partial<Vehicle>,
+    changes: FieldChange[],
+  ): Promise<void> => {
+    if (!user?.id) {
+      toast.error("You must be signed in to edit financials.");
+      throw new Error("no actor");
+    }
+    const next = { ...vehicle, ...patch };
+    const withDerived: Partial<Vehicle> = {
+      ...patch,
+      ...derivedCostPatch({
+        buyingPrice: next.buyingPrice,
+        buyersFee: next.buyersFee,
+        inspectionCharge: next.inspectionCharge,
+        collectionFee: next.collectionFee,
+        deliveryFee: next.deliveryFee,
+        lateStorageFee: next.lateStorageFee,
+        loadingFee: next.loadingFee,
+        unloadingFee: next.unloadingFee,
+        stockingCharges: next.stockingCharges,
+        valueAddition: next.valueAddition,
+        warrantyCost: next.warrantyCost,
+        otherCharges: next.otherCharges,
+        sellingPrice: next.sellingPrice,
+        listingPrice: next.listingPrice,
+      }),
+    };
+
+    try {
+      await vehicleService.update(vehicle.id, withDerived, user.id, {
+        description: `${vehicle.registration} — ${describeChanges(changes)}`,
+        changes,
+      });
+      toast.success("Financials updated");
+      onChanged?.();
+    } catch (err) {
+      toast.error("Could not save financials. Please try again.");
+      throw err;
+    }
+  };
 
   const retail = listing?.price ?? vehicle.listingPrice ?? 0;
 
@@ -123,13 +209,27 @@ export function FinancialsTab({ vehicle }: FinancialsTabProps) {
 
       {/* Money out ↔ money in */}
       <div className="grid items-stretch gap-4 lg:grid-cols-[1fr_auto_1fr]">
-        <LedgerCard
-          title="Money out · Expenses"
-          subtitle="UK dealer cost taxonomy"
-          rows={expenses}
-          total={expenseTotal}
-          tone="bad"
-        />
+        {/* GEN-88: the expense ledger is the editable surface — every line here
+            is a stored vehicle cost, and correcting one re-derives the totals
+            the rest of the app reads. */}
+        <div className="flex flex-col gap-2">
+          <EditableCard
+            title="Money out · Expenses"
+            record={vehicle}
+            fields={COST_FIELDS}
+            onSave={saveCosts}
+            canEdit={canEditCosts}
+            className="[&_[data-testid]]:contents"
+          />
+          <div className="flex items-center justify-between rounded-lg border bg-muted/30 px-4 py-2.5 text-sm">
+            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Total expenses
+            </span>
+            <span className="text-base font-semibold tabular-nums">
+              {formatCurrency(expenseTotal)}
+            </span>
+          </div>
+        </div>
         <div className="hidden items-center justify-center lg:flex">
           <span className="grid size-12 place-items-center rounded-full border bg-card text-muted-foreground">
             <ChevronRight className="size-5" />

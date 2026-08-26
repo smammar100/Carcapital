@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { variantLabel } from "@/lib/vehicle-variant";
 import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { CAR_ANGLES, carPhotoPrompt, type CarAngle } from "@/lib/services/photo-service";
@@ -209,7 +210,9 @@ export async function POST(request: Request) {
     make: vehicle.make,
     model: vehicle.model,
     colour: vehicle.colour,
-    variant: vehicle.variantCode,
+    // GEN-91: feed the readable derivative, never the opaque AutoTrader GUID —
+    // a 32-char hex string in an image prompt is noise at best.
+    variant: variantLabel(vehicle, "") || null,
     angle,
     backdrop: angle === "composed" ? backdropHint : undefined,
   });

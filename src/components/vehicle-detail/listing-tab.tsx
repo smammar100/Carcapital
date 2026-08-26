@@ -1,4 +1,5 @@
 "use client";
+import { variantLabel } from "@/lib/vehicle-variant";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -9,6 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Field, FieldGrid, Panel } from "./primitives";
+import { usePermissions } from "@/hooks/use-permissions";
+import {
+  DescriptionEditor,
+  HighlightsEditor,
+} from "./listing-inline-editor";
 
 interface ListingTabProps {
   vehicle: Vehicle;
@@ -22,10 +28,14 @@ interface ListingTabProps {
  */
 export function ListingTab({ vehicle }: ListingTabProps) {
   const [listing, setListing] = useState<Listing | null | undefined>(undefined);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const { can, isSuperUser } = usePermissions();
+  const canEditAdvert = isSuperUser || can("advert:edit");
+  const refresh = () => setRefreshToken((t) => t + 1);
 
   useEffect(() => {
     void listingService.getForVehicle(vehicle.id).then(setListing);
-  }, [vehicle.id]);
+  }, [vehicle.id, refreshToken]);
 
   if (listing === undefined) {
     return (
@@ -113,7 +123,7 @@ export function ListingTab({ vehicle }: ListingTabProps) {
             </span>
           </Field>
           <Field label="Derivative">
-            {tax.derivative ?? vehicle.derivative ?? vehicle.variantCode ?? "—"}
+            {tax.derivative ?? variantLabel(vehicle)}
           </Field>
         </FieldGrid>
       </Panel>
@@ -122,35 +132,23 @@ export function ListingTab({ vehicle }: ListingTabProps) {
         title="Vehicle Description"
         subtitle={`${descChars.toLocaleString()} chars`}
       >
-        <div className="text-sm leading-relaxed text-foreground/80">
-          {listing.description || (
-            <span className="italic text-muted-foreground">
-              No description yet, add one in the Advert editor.
-            </span>
-          )}
-        </div>
+        <DescriptionEditor
+          listing={listing}
+          canEdit={canEditAdvert}
+          onSaved={refresh}
+        />
       </Panel>
 
       <Panel
         title="Website Highlights"
         subtitle="Shown as bullet points on the listing card"
       >
-        {highlights.length > 0 ? (
-          <ul className="grid gap-1.5 sm:grid-cols-2">
-            {highlights.map((h, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm">
-                <span className="grid h-4 w-4 shrink-0 place-items-center rounded-full bg-primary/10 text-2xs font-semibold text-primary">
-                  {i + 1}
-                </span>
-                {h}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm italic text-muted-foreground">
-            No highlights yet, add up to 5 in the Advert editor.
-          </p>
-        )}
+        <HighlightsEditor
+          listing={listing}
+          current={highlights}
+          canEdit={canEditAdvert}
+          onSaved={refresh}
+        />
       </Panel>
 
       {features.length > 0 && (

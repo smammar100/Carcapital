@@ -31,6 +31,8 @@ import {
   computeAdvertChecks,
   type AdvertCheck,
 } from "@/lib/advert-completeness";
+import { computeCostTotals } from "@/lib/vehicle-costs";
+import { OverviewPricingCard } from "./overview-pricing-card";
 
 interface OverviewTabProps {
   vehicle: Vehicle;
@@ -39,6 +41,8 @@ interface OverviewTabProps {
   onVehiclePatch?: (patch: Partial<Vehicle>) => void;
   /** Jump to a detail tab (empty-state CTAs route the first actions). */
   onNavigate?: (tab: string) => void;
+  /** Re-pull the vehicle after an inline edit (GEN-100). */
+  onChanged?: () => void;
 }
 
 /**
@@ -46,12 +50,24 @@ interface OverviewTabProps {
  * Four KPIs up top, advert completeness on the left, valuation + marketplace
  * on the right, then a full field grid of vehicle details underneath.
  */
-export function OverviewTab({ vehicle, onVehiclePatch, onNavigate }: OverviewTabProps) {
+export function OverviewTab({
+  vehicle,
+  onVehiclePatch,
+  onNavigate,
+  onChanged,
+}: OverviewTabProps) {
   const [listing, setListing] = useState<Listing | null | undefined>(undefined);
+  /**
+   * Bumped after an inline pricing edit. The KPI strip reads `listing.price`
+   * in preference to the vehicle's own `listingPrice`, so re-pulling only the
+   * vehicle would leave Net Profit computed from a stale listing — the edit
+   * would appear to half-apply.
+   */
+  const [listingToken, setListingToken] = useState(0);
 
   useEffect(() => {
     void listingService.getForVehicle(vehicle.id).then(setListing);
-  }, [vehicle.id]);
+  }, [vehicle.id, listingToken]);
 
   const webPrice = listing?.price ?? vehicle.listingPrice ?? 0;
 
@@ -67,13 +83,15 @@ export function OverviewTab({ vehicle, onVehiclePatch, onNavigate }: OverviewTab
   }
   const floor = vehicle.minimumSalePrice ?? 0;
   const stockingBurn = vehicle.dailyChargeRate ?? 0;
-  // Canonical cost = total buying + stocking + prep/value-addition + warranty
-  // (matches the Master Sheet profit column and the Financials expense ledger).
-  const baseCost =
-    vehicle.totalBuyingPrice +
-    vehicle.stockingCharges +
-    vehicle.valueAddition +
-    (vehicle.warrantyCost ?? 0);
+  /**
+   * Canonical cost, from the shared rollup (GEN-88).
+   *
+   * This was a third hand-written formula — it omitted the loading and
+   * unloading fees, so the Net Profit shown here disagreed with the Financials
+   * expense ledger by exactly those lines, while a comment claimed the two
+   * matched. Deriving it means the panels cannot drift again.
+   */
+  const { baseCost } = computeCostTotals(vehicle);
   const grossProfit =
     webPrice && baseCost ? Math.max(0, webPrice - baseCost) : 0;
   const marginVat = grossProfit > 0 ? grossProfit * (0.2 / 1.2) : 0;
@@ -141,6 +159,14 @@ export function OverviewTab({ vehicle, onVehiclePatch, onNavigate }: OverviewTab
             vehicle={vehicle}
             webPrice={webPrice}
             onVehiclePatch={onVehiclePatch}
+          />
+          <OverviewPricingCard
+            vehicle={vehicle}
+            listing={listing ?? null}
+            onChanged={() => {
+              setListingToken((t) => t + 1);
+              onChanged?.();
+            }}
           />
           <VehicleLocationSection vehicle={vehicle} />
           <MarketplacePanel listing={listing ?? null} />

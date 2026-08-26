@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type { LocationMovement, UUID, VehicleLocation } from "@/lib/types";
 import { activityService } from "./activity-service";
+import { deriveCurrentState } from "@/lib/location-history";
 
 const NS = "locations:";
 
@@ -367,15 +368,129 @@ export const locationService = {
     return data as LocationMovement;
   },
 
-  /** Super-user only — hard-delete a movement (`can("locations:delete")`). */
-  async deleteMovement(movementId: UUID): Promise<void> {
+  /**
+   * Edit a historical movement (GEN-101). Gated in the UI behind
+   * `can("locations:edit_history")`.
+   *
+   * After writing, the vehicle's derived `current_location` / `location_since`
+   * are re-synced from whatever the timeline now says. Without that, editing
+   * the newest movement leaves the car recorded at a location no movement
+   * supports — the grid and the timeline would disagree.
+   */
+  async updateMovement(
+    movementId: UUID,
+    patch: {
+      toLocation?: VehicleLocation;
+      createdAt?: string;
+      expectedReturnAt?: string | null;
+      actualReturnAt?: string | null;
+      notes?: string | null;
+    },
+    actorId: UUID,
+    companyId?: UUID,
+  ): Promise<LocationMovement> {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const supabase = createClient() as any;
+
+    const row: Record<string, unknown> = {};
+    if (patch.toLocation !== undefined) row.to_location = patch.toLocation;
+    if (patch.createdAt !== undefined) row.created_at = patch.createdAt;
+    if (patch.expectedReturnAt !== undefined)
+      row.expected_return_at = patch.expectedReturnAt;
+    if (patch.actualReturnAt !== undefined)
+      row.actual_return_at = patch.actualReturnAt;
+    if (patch.notes !== undefined) row.notes = patch.notes;
+
+    const { data, error } = await supabase
+      .from("location_movements")
+      .update(row)
+      .eq("id", movementId)
+      .select(SELECT)
+      .single();
+    if (error) throw error;
+    const movement = data as LocationMovement;
+    invalidate(NS);
+
+    await syncVehicleLocation(supabase, movement.vehicleId);
+
+    await activityService.log({
+      companyId: companyId ?? (await resolveCompanyId(supabase, movement.vehicleId)),
+      userId: actorId,
+      vehicleId: movement.vehicleId,
+      actionType: "vehicle_moved",
+      description: `Location history edited — now ${movement.toLocation}`,
+      metadata: { movementId, edited: Object.keys(row) },
+    });
+    return movement;
+  },
+
+  /** Super-user only — hard-delete a movement (`can("locations:delete")`). */
+  async deleteMovement(movementId: UUID, actorId?: UUID): Promise<void> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
+
+    // Read the owning vehicle first — after the delete there is no row to ask.
+    const { data: existing } = await supabase
+      .from("location_movements")
+      .select("vehicle_id")
+      .eq("id", movementId)
+      .single();
+    const vehicleId = existing?.vehicle_id as UUID | undefined;
+
     const { error } = await supabase
       .from("location_movements")
       .delete()
       .eq("id", movementId);
     if (error) throw error;
     invalidate(NS);
+
+    // The deleted entry may have been the one defining where the car is.
+    if (vehicleId) {
+      await syncVehicleLocation(supabase, vehicleId);
+      if (actorId) {
+        await activityService.log({
+          companyId: await resolveCompanyId(supabase, vehicleId),
+          userId: actorId,
+          vehicleId,
+          actionType: "vehicle_moved",
+          description: "Location movement deleted from history",
+          metadata: { movementId, deleted: true },
+        });
+      }
+    }
   },
 };
+
+/**
+ * Re-derive `current_location` / `location_since` on the vehicle from its
+ * remaining movement history. A no-op when no movements are left — the
+ * vehicle keeps whatever it had rather than being blanked.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function syncVehicleLocation(supabase: any, vehicleId: UUID): Promise<void> {
+  const { data } = await supabase
+    .from("location_movements")
+    .select(SELECT)
+    .eq("vehicle_id", vehicleId);
+
+  const { currentLocation, locationSince } = deriveCurrentState(
+    (data ?? []) as LocationMovement[],
+  );
+  if (!currentLocation || !locationSince) return;
+
+  await supabase
+    .from("vehicles")
+    .update({ current_location: currentLocation, location_since: locationSince })
+    .eq("id", vehicleId);
+  invalidate("vehicles:");
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function resolveCompanyId(supabase: any, vehicleId: UUID): Promise<UUID> {
+  const { data } = await supabase
+    .from("vehicles")
+    .select("company_id")
+    .eq("id", vehicleId)
+    .single();
+  return (data?.company_id as UUID | undefined) ?? ("" as UUID);
+}

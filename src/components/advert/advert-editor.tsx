@@ -30,15 +30,11 @@ import {
 } from "@/lib/advert-completeness";
 import { FeaturePicker } from "./feature-picker";
 import { AdvertPreview } from "./advert-preview";
+import { ADVERT_LIMITS } from "@/lib/advert-limits";
 
-const LIMITS = {
-  attentionGrabber: 30,
-  keySellingPoint: 35,
-  description: 3000,
-  strapline: 999,
-  subtitle: 500,
-  highlight: 40,
-} as const;
+// GEN-103: shared with the Listing tab's inline editor, so the two editors
+// cannot end up enforcing different limits on the same copy.
+const LIMITS = ADVERT_LIMITS;
 
 const DEFAULT_STRAPLINE =
   "Car Capital UK: quality used cars, competitive finance packages, nationwide delivery and part-exchange welcome. Buy with confidence from a trusted, established dealer.";

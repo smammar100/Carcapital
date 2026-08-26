@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BackupPanel } from "@/components/settings/backup-panel";
 import {
   Select,
   SelectContent,
@@ -137,6 +138,7 @@ export default function SettingsPage() {
           <TabsTrigger value="defaults">Defaults</TabsTrigger>
           <TabsTrigger value="inspection">Inspection Checklist</TabsTrigger>
           <TabsTrigger value="pipeline">Sales Pipeline</TabsTrigger>
+          <TabsTrigger value="backup">Backup</TabsTrigger>
         </TabsList>
         <TabsContent value="company" className="mt-3">
           <Card className="grid gap-4 p-5 sm:grid-cols-2">
@@ -255,6 +257,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="inspection" className="mt-3">
           <InspectionChecklistSettings />
+        </TabsContent>
+        <TabsContent value="backup" className="mt-3">
+          <BackupPanel />
         </TabsContent>
         <TabsContent value="pipeline" className="mt-3">
           <PipelineStageSettings />

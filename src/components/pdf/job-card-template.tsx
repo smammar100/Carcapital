@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { variantLabel } from "@/lib/vehicle-variant";
 import type { TodoItem, Vehicle } from "@/lib/types";
 
 const styles = StyleSheet.create({
@@ -108,7 +109,7 @@ export function JobCardTemplate({
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Variant:</Text>
-          <Text style={styles.value}>{vehicle.variantCode ?? "—"}</Text>
+          <Text style={styles.value}>{variantLabel(vehicle)}</Text>
         </View>
         <View style={styles.row}>
           <Text style={styles.label}>Mileage:</Text>

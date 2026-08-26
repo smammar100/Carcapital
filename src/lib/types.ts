@@ -1300,6 +1300,8 @@ export type ActivityActionType =
   | "company_setting_changed"
   | "channel_changed"
   | "data_migrated"
+  /** Settings → Backup: a user downloaded a full data export (GEN-90). */
+  | "data_backup_created"
   | "vehicle_moved"
   | "external_invoice_created"
   | "external_invoice_updated"

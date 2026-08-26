@@ -12,6 +12,8 @@ import { notificationService } from "@/lib/services/notification-service";
 import { useRealtimeTable } from "@/hooks/use-realtime-table";
 import type { Notification } from "@/lib/types";
 import { useAuth } from "./auth-context";
+import { backupService } from "@/lib/services/backup-service";
+import { getBackupStatus } from "@/lib/backup-schedule";
 
 interface NotificationsContextValue {
   notifications: Notification[];
@@ -33,6 +35,30 @@ export function useNotifications(): NotificationsContextValue {
   return ctx;
 }
 
+/** Synthetic id so the header can tell a derived reminder from a real row. */
+export const BACKUP_REMINDER_ID = "derived:backup-due";
+
+async function buildBackupReminder(
+  companyId: string,
+  userId: string,
+): Promise<Notification | null> {
+  const lastBackupAt = await backupService.getLastBackupAt(companyId);
+  const status = getBackupStatus(lastBackupAt);
+  if (status.urgency === "ok") return null;
+
+  return {
+    id: BACKUP_REMINDER_ID,
+    companyId,
+    userId,
+    type: status.urgency === "never" ? "warning" : "urgent",
+    title: "Backup due",
+    body: status.message,
+    link: "/admin/settings",
+    read: false,
+    createdAt: new Date().toISOString(),
+  };
+}
+
 export function NotificationsProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -50,8 +76,21 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       notificationService.getForUser(user.id),
       notificationService.getUnreadCount(user.id),
     ]);
-    setNotifications(list);
-    setUnreadCount(count);
+
+    /**
+     * The weekly backup reminder (GEN-90) is derived, not stored.
+     *
+     * A persisted row would need a scheduler to create it and another to
+     * clear it, and would go stale the moment someone takes a backup from
+     * another device. Computing it from the last recorded backup means the
+     * reminder is correct by construction and disappears on its own.
+     */
+    const backupReminder = user.companyId
+      ? await buildBackupReminder(user.companyId, user.id)
+      : null;
+
+    setNotifications(backupReminder ? [backupReminder, ...list] : list);
+    setUnreadCount(count + (backupReminder ? 1 : 0));
   }, [user]);
 
   useEffect(() => {
@@ -70,6 +109,10 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markRead = useCallback(
     async (id: string) => {
+      // The backup reminder is derived, not a row — there is nothing to mark,
+      // and it clears itself once a backup is actually taken. Writing here
+      // would 404 against a non-existent id.
+      if (id === BACKUP_REMINDER_ID) return;
       await notificationService.markRead(id);
       await refresh();
     },

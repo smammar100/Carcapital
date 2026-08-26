@@ -8,6 +8,8 @@ import {
   Clock,
   MapPin,
   ParkingSquare,
+  Pencil,
+  Trash2,
   UserRound,
   Warehouse,
   Wrench,
@@ -33,6 +35,9 @@ import { vendorService } from "@/lib/services/vendor-service";
 import { teamService } from "@/lib/services/team-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { MoveDialog } from "@/components/locations/move-dialog";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { MovementEditDialog } from "@/components/locations/movement-edit-dialog";
+import { planMovementDeletion } from "@/lib/location-history";
 import {
   Timeline,
   TimelineItem,
@@ -136,6 +141,7 @@ function shortDate(iso: string): string {
 export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
   const { company, user } = useAuth();
   const { can, isSuperUser } = usePermissions();
+  const { confirm, confirmDialog } = useConfirm();
   const canMove = isSuperUser || can("locations:move");
 
   // Mirror the vehicle into local state so we can re-fetch the live
@@ -147,6 +153,46 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
   const [users, setUsers] = useState<User[]>([]);
   const [moveOpen, setMoveOpen] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
+  /** Movement currently open in the edit dialog (GEN-101). */
+  const [editing, setEditing] = useState<LocationMovement | null>(null);
+
+  const canEditHistory = isSuperUser || can("locations:edit_history");
+  const canDeleteHistory = isSuperUser || can("locations:delete");
+
+  /**
+   * Delete a movement, but only when the timeline can survive it. Removing
+   * the sole entry would leave the vehicle recorded at a location no movement
+   * supports, so that case is refused rather than silently corrupting history.
+   */
+  async function handleDelete(movement: LocationMovement) {
+    if (!user?.id || !movements) return;
+
+    const plan = planMovementDeletion(movements, movement.id);
+    if (!plan.allowed) {
+      toast.error(plan.reason ?? "That movement cannot be deleted.");
+      return;
+    }
+
+    const ok = await confirm({
+      title: "Delete this movement?",
+      description:
+        plan.nextState.currentLocation &&
+        plan.nextState.currentLocation !== vehicle.currentLocation
+          ? `This is the latest movement, so the vehicle will revert to ${VEHICLE_LOCATION_LABELS[plan.nextState.currentLocation]}.`
+          : "The movement is removed from the vehicle's history. This cannot be undone.",
+      confirmText: "Delete",
+      destructive: true,
+    });
+    if (!ok) return;
+
+    try {
+      await locationService.deleteMovement(movement.id, user.id);
+      toast.success("Movement deleted");
+      setRefreshToken((t) => t + 1);
+    } catch {
+      toast.error("Could not delete that movement.");
+    }
+  }
 
   // Re-sync if the parent ever passes a new vehicle id.
   useEffect(() => {
@@ -332,7 +378,11 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
                 !!context ||
                 !!m.expectedReturnAt ||
                 !!m.notes ||
-                (isOpenStay && canMove);
+                (isOpenStay && canMove) ||
+                // The edit / delete actions live in the body, so a bare
+                // movement still needs one for them to be reachable.
+                canEditHistory ||
+                canDeleteHistory;
               return (
                 <TimelineItem
                   key={m.id}
@@ -374,8 +424,8 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
                             {m.notes}
                           </div>
                         ) : null}
-                        {isOpenStay && canMove ? (
-                          <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          {isOpenStay && canMove ? (
                             <Button
                               type="button"
                               size="sm"
@@ -384,8 +434,36 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
                             >
                               Mark returned
                             </Button>
-                          </div>
-                        ) : null}
+                          ) : null}
+
+                          {/* GEN-101 — a movement logged to the wrong site or
+                              on the wrong date was previously uncorrectable. */}
+                          {canEditHistory ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditing(m)}
+                              aria-label={`Edit movement ${fullDateTime(m.createdAt)}`}
+                            >
+                              <Pencil className="size-3.5" />
+                              Edit
+                            </Button>
+                          ) : null}
+
+                          {canDeleteHistory ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="destructive-outline"
+                              onClick={() => void handleDelete(m)}
+                              aria-label={`Delete movement ${fullDateTime(m.createdAt)}`}
+                            >
+                              <Trash2 className="size-3.5" />
+                              Delete
+                            </Button>
+                          ) : null}
+                        </div>
                       </div>
                     ) : undefined
                   }
@@ -434,6 +512,18 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
         companyId={company.id}
         onSuccess={() => setRefreshToken((t) => t + 1)}
       />
+
+      {/* Correct a historical movement (GEN-101) */}
+      <MovementEditDialog
+        movement={editing}
+        movements={movements ?? []}
+        onOpenChange={(open) => !open && setEditing(null)}
+        actorId={user.id}
+        companyId={company.id}
+        onSaved={() => setRefreshToken((t) => t + 1)}
+      />
+
+      {confirmDialog}
     </div>
   );
 }

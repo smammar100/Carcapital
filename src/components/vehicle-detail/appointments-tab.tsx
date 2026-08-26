@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Plus, Users, Zap } from "lucide-react";
+import { ArrowRight, Pencil, Plus, Users, Zap } from "lucide-react";
 import type { Appointment, Customer, Enquiry, User, Vehicle } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
+import { usePermissions } from "@/hooks/use-permissions";
+import { AppointmentEditDialog } from "@/components/appointments/appointment-edit-dialog";
 import { appointmentService } from "@/lib/services/appointment-service";
 import { enquiryService } from "@/lib/services/enquiry-service";
 import { customerService } from "@/lib/services/customer-service";
@@ -41,12 +43,17 @@ const STATUS_TONE: Record<Enquiry["status"], React.ComponentProps<typeof Pill>["
  * compact block. All the original content is preserved, just decluttered.
  */
 export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
-  const { company } = useAuth();
+  const { company, user } = useAuth();
   const [enquiries, setEnquiries] = useState<Enquiry[] | null>(null);
   const [appts, setAppts] = useState<Appointment[] | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  /** Appointment open in the edit dialog (GEN-104). */
+  const [editingAppt, setEditingAppt] = useState<Appointment | null>(null);
+
+  const { can, isSuperUser } = usePermissions();
+  const canEditAppointments = isSuperUser || can("sales:edit_appointment");
 
   const refetch = () => {
     void enquiryService.getForVehicle(vehicle.id).then(setEnquiries);
@@ -90,6 +97,8 @@ export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
           customerById={customerById}
           userById={userById}
           onAddEnquiry={() => setDialogOpen(true)}
+          onEditAppointment={setEditingAppt}
+          canEditAppointments={canEditAppointments}
         />
       </Panel>
 
@@ -111,6 +120,26 @@ export function AppointmentsTab({ vehicle }: AppointmentsTabProps) {
         onOpenChange={setDialogOpen}
         vehicleId={vehicle.id}
         onCreated={refetch}
+      />
+
+      {/* GEN-104 — reschedule / correct an existing appointment. Clash
+          detection is scoped to this vehicle's appointments; a cross-diary
+          check would need the whole company's book (see ticket note). */}
+      <AppointmentEditDialog
+        appointment={editingAppt}
+        existing={(appts ?? []).map((a) => ({
+          id: a.id,
+          date: a.date,
+          time: a.time,
+          status: a.status,
+        }))}
+        workingHours={{
+          start: company?.workingHoursStart ?? "09:00",
+          end: company?.workingHoursEnd ?? "18:00",
+        }}
+        actorId={user?.id ?? ""}
+        onOpenChange={(open) => !open && setEditingAppt(null)}
+        onSaved={refetch}
       />
     </div>
   );
@@ -172,12 +201,16 @@ function EnquiriesTable({
   customerById,
   userById,
   onAddEnquiry,
+  onEditAppointment,
+  canEditAppointments,
 }: {
   enquiries: Enquiry[] | null;
   appts: Appointment[] | null;
   customerById: Map<string, Customer>;
   userById: Map<string, User>;
   onAddEnquiry: () => void;
+  onEditAppointment: (a: Appointment) => void;
+  canEditAppointments: boolean;
 }) {
   if (enquiries === null || appts === null) {
     return (
@@ -263,9 +296,26 @@ function EnquiriesTable({
               {formatDate(a.date)} · {a.time}
             </TableCell>
             <TableCell>
-              <Pill tone="info">{a.status}</Pill>
+              <Pill tone={a.status === "cancelled" ? "bad" : "info"}>
+                {a.status}
+              </Pill>
             </TableCell>
-            <TableCell className="text-muted-foreground">—</TableCell>
+            <TableCell className="text-right">
+              {/* GEN-104 — rescheduling used to mean cancel-and-rebook. */}
+              {canEditAppointments ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onEditAppointment(a)}
+                  aria-label={`Edit appointment for ${a.customerName}`}
+                >
+                  <Pencil className="size-3.5" />
+                  Edit
+                </Button>
+              ) : (
+                <span className="text-muted-foreground">—</span>
+              )}
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>

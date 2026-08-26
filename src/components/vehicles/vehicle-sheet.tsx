@@ -11,7 +11,10 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  ArrowDown,
+  ArrowUp,
   Check,
+  ChevronsUpDown,
   Download,
   FileSpreadsheet,
   Plus,
@@ -44,6 +47,14 @@ import { VehicleImage } from "@/components/shared/vehicle-image";
 import { DataGridPagination } from "@/components/data-grid";
 import { LocationBadge } from "@/components/locations/location-badge";
 import { cn, formatCurrency, formatDate } from "@/lib/utils";
+import {
+  cycleSort,
+  sortRows,
+  toSortableDate,
+  toSortableNumber,
+  toSortableText,
+  type SortState,
+} from "@/lib/table-sort";
 
 /* ------------------------------------------------------------------ *
  * Shared "wide spreadsheet" module — the Master Sheet grid extracted
@@ -79,6 +90,9 @@ export interface ColDef {
   /** Custom cell renderer. When present the column is read-only and the
    *  null-dash placeholder is skipped (the renderer owns empty states). */
   render?: (v: Vehicle) => ReactNode;
+  /** Render without thousands separators. Years and other identifier-like
+   *  numbers read as quantities otherwise — "2,019" instead of "2019". */
+  plain?: boolean;
   sticky?: boolean;
 }
 
@@ -207,6 +221,25 @@ function rawValue(col: ColDef, v: Vehicle): unknown {
   return v[col.key as keyof Vehicle];
 }
 
+/**
+ * Comparable value for a column (GEN-92). Reuses `rawValue` so sorting sees
+ * exactly what export and inline-edit see, then coerces by column type —
+ * money and mileage numerically, dates chronologically, everything else as
+ * text. Without the per-type coercion, "£9,000" would sort above "£10,000".
+ */
+function sortValueFor(col: ColDef, v: Vehicle): string | number | null {
+  const raw = rawValue(col, v);
+  switch (col.type) {
+    case "number":
+    case "currency":
+      return toSortableNumber(raw);
+    case "date":
+      return toSortableDate(raw);
+    default:
+      return toSortableText(raw);
+  }
+}
+
 function cellCsv(col: ColDef, v: Vehicle): string {
   const raw = rawValue(col, v);
   if (raw === null || raw === undefined) return "";
@@ -227,7 +260,9 @@ function formatNumber(n: number): string {
 export const DEFAULT_EDITABLE_KEYS = new Set<string>([
   "make",
   "model",
-  "variantCode",
+  // GEN-91: the editable variant field is the readable name; the opaque
+  // AutoTrader code is never edited by hand.
+  "derivative",
   "year",
   "colour",
   "mileage",
@@ -309,7 +344,11 @@ function CellContent({ col, v }: { col: ColDef; v: Vehicle }) {
     case "number": {
       const n = typeof raw === "number" ? raw : Number(raw);
       if (Number.isNaN(n)) return <span>{String(raw)}</span>;
-      return <span className="tabular-nums">{formatNumber(n)}</span>;
+      return (
+        <span className="tabular-nums">
+          {col.plain ? String(n) : formatNumber(n)}
+        </span>
+      );
     }
     case "boolean":
       return raw ? (
@@ -772,6 +811,9 @@ export function VehicleSheet({
     [allCols, visible],
   );
 
+  /** Active column sort, or null for the grid's natural order (GEN-92). */
+  const [sort, setSort] = useState<SortState | null>(null);
+
   const filtered = useMemo(() => {
     if (!vehicles) return null;
     const q = search.trim().toLowerCase();
@@ -784,6 +826,20 @@ export function VehicleSheet({
       return filters.every((c) => matchCond(c, v));
     });
   }, [vehicles, search, filters]);
+
+  /**
+   * Sorted view of `filtered` (GEN-92). Sorting sits between filtering and
+   * paging so it orders the whole result set, not just the visible page —
+   * clicking "Web price" must surface the cheapest car in the filter, not the
+   * cheapest of the 25 currently on screen.
+   */
+  const sorted = useMemo(() => {
+    if (!filtered) return null;
+    if (!sort) return filtered;
+    const col = allCols.find((c) => colKey(c) === sort.column);
+    if (!col) return filtered;
+    return sortRows(filtered, (v) => sortValueFor(col, v), sort.direction);
+  }, [filtered, sort, allCols]);
 
   // Keep the selection confined to currently-visible rows. Without this,
   // "select all" + a later filter/search change would keep counting (and
@@ -823,15 +879,15 @@ export function VehicleSheet({
     setPage(1);
   }
 
-  const totalPages = filtered
-    ? Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const totalPages = sorted
+    ? Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
     : 1;
   const safePage = Math.min(page, totalPages);
   const pagedRows = useMemo(() => {
-    if (!filtered) return null;
+    if (!sorted) return null;
     const start = (safePage - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, safePage]);
+    return sorted.slice(start, start + PAGE_SIZE);
+  }, [sorted, safePage]);
 
   function toggle(k: string) {
     setVisible((prev) => {
@@ -867,13 +923,14 @@ export function VehicleSheet({
   }
 
   function exportCsv() {
-    if (!filtered) return;
+    // Export follows the on-screen order, so a sorted grid exports sorted.
+    if (!sorted) return;
     // Export every defined column (not just the visible ones) so hidden
     // columns aren't silently dropped from the data file. cellCsv reads the
     // raw value, so number/currency columns export bare numerics, not the
     // formatted display strings.
     const head = allCols.map((c) => csvEscape(c.label)).join(",");
-    const body = filtered
+    const body = sorted
       .map((v) => allCols.map((c) => csvEscape(cellCsv(c, v))).join(","))
       .join("\n");
     const csv = `${head}\n${body}`;
@@ -1162,11 +1219,35 @@ export function VehicleSheet({
                         )}
                         style={c.sticky ? { left: 40 } : undefined}
                       >
-                        <div className="flex h-8 min-w-0 items-center pr-1 text-xs">
+                        {/* Click to sort: asc → desc → unsorted (GEN-92). */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setSort((prev) => cycleSort(prev, colKey(c)))
+                          }
+                          aria-label={`Sort by ${c.label}`}
+                          aria-sort={
+                            sort?.column === colKey(c)
+                              ? sort.direction === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : "none"
+                          }
+                          className="flex h-8 w-full min-w-0 cursor-pointer items-center gap-1 pr-1 text-left text-xs hover:text-foreground"
+                        >
                           <span className="min-w-0 truncate font-medium text-foreground">
                             {c.label}
                           </span>
-                        </div>
+                          {sort?.column === colKey(c) ? (
+                            sort.direction === "asc" ? (
+                              <ArrowUp className="size-3 shrink-0 text-primary" />
+                            ) : (
+                              <ArrowDown className="size-3 shrink-0 text-primary" />
+                            )
+                          ) : (
+                            <ChevronsUpDown className="size-3 shrink-0 text-muted-foreground/40" />
+                          )}
+                        </button>
                         {/* Resize handle: a wide, easy-to-grab hit area (GEN-20)
                             straddling the right border, with a thin accent line
                             shown on hover. Drag to resize, double-click resets. */}

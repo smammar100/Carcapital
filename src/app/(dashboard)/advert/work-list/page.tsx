@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { variantLabel } from "@/lib/vehicle-variant";
 import {
   Car,
   CalendarClock,
@@ -301,7 +302,7 @@ export default function ListingsPage() {
     if (!v) return;
     form.setValue(
       "title",
-      `${v.year} ${v.make} ${v.model} ${v.variantCode ?? ""}`.trim(),
+      `${v.year} ${v.make} ${v.model} ${variantLabel(v, "")}`.trim(),
     );
     form.setValue(
       "description",

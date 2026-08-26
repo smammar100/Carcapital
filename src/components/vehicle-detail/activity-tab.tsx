@@ -163,6 +163,7 @@ const ACTION_VISUAL: Record<ActivityActionType, { icon: LucideIcon; tone: Tone }
   company_setting_changed: { icon: Settings, tone: "slate" },
   channel_changed: { icon: Tag, tone: "violet" },
   data_migrated: { icon: Database, tone: "slate" },
+  data_backup_created: { icon: Database, tone: "emerald" },
   external_invoice_created: { icon: Receipt, tone: "violet" },
   external_invoice_updated: { icon: Receipt, tone: "amber" },
   external_invoice_deleted: { icon: Receipt, tone: "rose" },

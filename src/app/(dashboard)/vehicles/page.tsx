@@ -10,6 +10,7 @@ import { AddVehicleButton } from "@/components/vehicles/add-vehicle-button";
 import { DaysInStockChip } from "@/components/shared/days-in-stock-chip";
 import { PageHelper } from "@/components/layout/page-helper";
 import { cn, formatCurrency } from "@/lib/utils";
+import { variantLabel } from "@/lib/vehicle-variant";
 
 // All Vehicles renders the same module as the Master Sheet (sticky
 // row-counter + Stock ID, full gridlines, chip-bar filter, inline edit,
@@ -47,7 +48,16 @@ const COLS: ColDef[] = [
       </div>
     ),
   },
-  { key: "variantCode", label: "Variant", type: "text", width: 220 },
+  {
+    // GEN-91: keyed to the NAME, not the opaque AutoTrader code. Using
+    // `format` alone (not `render`) keeps the column inline-editable — a
+    // custom renderer would silently make it read-only.
+    key: "derivative",
+    label: "Variant",
+    type: "text",
+    width: 220,
+    format: (v) => variantLabel(v, ""),
+  },
   { key: "fuelType", label: "Fuel", type: "select", width: 100 },
   { key: "bodyType", label: "Body", type: "select", width: 110 },
   { key: "mileage", label: "Mileage", type: "number", width: 100 },

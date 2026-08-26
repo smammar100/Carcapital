@@ -6,6 +6,7 @@ import {
   Image,
   StyleSheet,
 } from "@react-pdf/renderer";
+import { variantLabel } from "@/lib/vehicle-variant";
 import type { Invoice, InvoiceLineItem, Vehicle } from "@/lib/types";
 import { formatVatLabel, normalizeVatScheme } from "@/lib/vat";
 import {
@@ -250,7 +251,8 @@ function formatReg(reg: string): string {
 
 function makeModel(v: Vehicle | null | undefined): string {
   if (!v) return "—";
-  const variant = v.variantCode ? ` ${v.variantCode}` : "";
+  const variantText = variantLabel(v, "");
+  const variant = variantText ? ` ${variantText}` : "";
   return `${v.year} ${v.make}-${v.model}${variant} - ${title(v.fuelType)}`;
 }
 
