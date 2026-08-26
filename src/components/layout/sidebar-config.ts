@@ -53,14 +53,12 @@ export interface SidebarGroup {
  *   Advert      — it goes to market (hidden for the MVP launch)
  *   Sales       — it is sold
  *   After Sale  — warranties and the occasional return
- *   Workshop    — NOT a stage: walk-in servicing of the public's own cars
  *   Admin       — oversight of all of the above
  *
- * Only groups that a car actually passes through belong in that sequence.
- * Workshop sits outside it because no stock vehicle ever enters it, and
- * within a group the same rule applies: the steps come first, in the order
- * they happen, and any overview or calendar that merely looks at those steps
- * comes after them.
+ * Within a group the same rule applies: the steps come first, in the order
+ * they happen, and anything that merely looks at those steps — an overview,
+ * a calendar — comes after them. Maintenance is the case that matters, where
+ * only the first two entries are stages a car passes through.
  *
  * Administrative used to sit second, directly under Dashboard, which pushed
  * every stage of the actual workflow below a group nobody touches hourly.
@@ -153,6 +151,22 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/maintenance/calendar",
         icon: CalendarIcon,
         requiredAnyOf: ["maintenance:create", "maintenance:edit", "inspection:run"],
+      },
+      // Last, and deliberately below the two views: walk-in servicing for the
+      // public — other people's vehicles, booked by phone, that you never
+      // owned and will never sell. It is the odd one out in this group, but a
+      // whole heading for a single row costs more than it explains. What
+      // mattered was getting it out from between Inspection and Prep, where it
+      // put a stranger's car in the middle of preparing your own stock.
+      {
+        label: "Workshop Jobs",
+        href: "/maintenance/workshop",
+        icon: Briefcase,
+        requiredAnyOf: [
+          "maintenance:create",
+          "maintenance:edit",
+          "workshop:add_note",
+        ],
       },
     ],
   },
@@ -253,27 +267,6 @@ export const SIDEBAR_GROUPS: SidebarGroup[] = [
         href: "/admin/vehicle-returns",
         icon: Undo2,
         requiredAnyOf: ["returns:create"],
-      },
-    ],
-  },
-  {
-    // Walk-in servicing for the public — a separate trade from selling cars,
-    // and the one group that is NOT a stage of the lifecycle above. These are
-    // other people's vehicles, booked by phone, that you never owned. It sat
-    // inside Maintenance between Prep and the overview, which put a job for a
-    // stranger's car in the middle of the sequence for preparing your own
-    // stock. Kept below the lifecycle so that sequence reads unbroken.
-    label: "Workshop",
-    items: [
-      {
-        label: "Workshop Jobs",
-        href: "/maintenance/workshop",
-        icon: Briefcase,
-        requiredAnyOf: [
-          "maintenance:create",
-          "maintenance:edit",
-          "workshop:add_note",
-        ],
       },
     ],
   },
@@ -439,16 +432,20 @@ export function requiredCapsForPath(pathname: string): Capability[] | null {
  *
  *   Advert   — the AutoTrader publish/performance integration is not wired
  *              up, so the whole group would show empty or stale figures.
- *   Reports, Master Calendar, Activity Log
- *            — analytics surfaces with no history to read now that the demo
- *              data has been cleared; they populate as real trading begins.
+ *   Reports, Activity Log
+ *            — backward-looking surfaces with no history to read now that the
+ *              demo data has been cleared; they populate as trading begins.
+ *
+ * Master Calendar is deliberately NOT here. It was hidden with the other two
+ * as a "reporting extra", which misread it: it shows what is booked next
+ * rather than what already happened, so an empty database makes it a blank
+ * diary to fill in, not a broken report.
  */
 export const MVP_HIDDEN_HREFS: ReadonlySet<string> = new Set([
   "/advert/work-list",
   "/advert/performance",
   "/admin/advertisers",
   "/admin/reports",
-  "/admin/master-calendar",
   "/admin/activity",
 ]);
 
