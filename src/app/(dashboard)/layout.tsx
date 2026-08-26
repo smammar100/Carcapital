@@ -11,6 +11,7 @@ import { PageShell } from "@/components/layout/page-shell";
 import { RouteGuard } from "@/components/layout/route-guard";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { Button } from "@/components/ui/button";
+import { OnboardingTour } from "@/components/onboarding/onboarding-tour";
 
 export default function DashboardLayout({
   children,
@@ -77,16 +78,18 @@ export default function DashboardLayout({
   // 2×2 grid shell + sidebar-state-context. PageShell keeps content padding, so
   // the layout's own padding is disabled.
   return (
-    <nord-layout padding="none" persistNavState>
-      <AppSidebar />
-      <AppHeader />
-      <PageShell>
-        <RouteGuard>{children}</RouteGuard>
-      </PageShell>
-      <CommandPalette />
-      <Suspense fallback={null}>
-        <GridOverlay />
-      </Suspense>
-    </nord-layout>
+    <OnboardingTour>
+      <nord-layout padding="none" persistNavState>
+        <AppSidebar />
+        <AppHeader />
+        <PageShell>
+          <RouteGuard>{children}</RouteGuard>
+        </PageShell>
+        <CommandPalette />
+        <Suspense fallback={null}>
+          <GridOverlay />
+        </Suspense>
+      </nord-layout>
+    </OnboardingTour>
   );
 }

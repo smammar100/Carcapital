@@ -62,6 +62,7 @@ const USER_WITH_COMPANY_SELECT = `
   creationMode:creation_mode,
   passwordResetRequired:password_reset_required,
   activatedAt:activated_at,
+  onboardingCompletedAt:onboarding_completed_at,
   createdAt:created_at,
   company:companies (
     id,

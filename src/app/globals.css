@@ -1,5 +1,28 @@
 @import "tailwindcss";
 
+/* Onborda ships prebuilt Tailwind classes inside its own dist, which Tailwind
+   would otherwise never scan — v4 has no `content` array, so @source is the
+   replacement for the `content: ['./node_modules/onborda/dist/**']` line in
+   Onborda's own (v3-era) setup docs. Without this the tour overlay and pointer
+   render unstyled. */
+@source "../../node_modules/onborda/dist";
+
+/* Let the guided tour's spotlight be clicked THROUGH.
+   Onborda's `interact` prop only skips its full-screen click blocker; the
+   pointer highlight itself is a real element stacked at z-900 directly over
+   the target, so it still swallows the click. Our tour advances when the user
+   clicks the nav item it is pointing at, which that makes impossible. Both the
+   dimming layer and the pointer are decoration, so neither needs to receive
+   events — the card is restored explicitly because it owns the real buttons.
+   Unlayered so it beats the utility classes Onborda ships. */
+[data-name="onborda-overlay"],
+[data-name="onborda-pointer"] {
+  pointer-events: none;
+}
+[data-name="onborda-card"] {
+  pointer-events: auto;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

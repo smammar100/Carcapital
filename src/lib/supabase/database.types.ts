@@ -1508,6 +1508,7 @@ export type Database = {
           is_super_user: boolean
           last_login_at: string | null
           name: string
+          onboarding_completed_at: string | null
           role: string
           roles: string[]
           two_step_enabled: boolean
@@ -1525,6 +1526,7 @@ export type Database = {
           is_super_user?: boolean
           last_login_at?: string | null
           name: string
+          onboarding_completed_at?: string | null
           role: string
           roles?: string[]
           two_step_enabled?: boolean
@@ -1542,6 +1544,7 @@ export type Database = {
           is_super_user?: boolean
           last_login_at?: string | null
           name?: string
+          onboarding_completed_at?: string | null
           role?: string
           roles?: string[]
           two_step_enabled?: boolean

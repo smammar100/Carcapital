@@ -105,6 +105,7 @@ export const mockUsers: User[] = [
     lastLoginAt: NOW,
     twoStepEnabled: true, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-01-15T09:00:00.000Z",
   },
   {
@@ -121,6 +122,7 @@ export const mockUsers: User[] = [
     lastLoginAt: hoursAgo(6),
     twoStepEnabled: true, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-02-01T09:00:00.000Z",
   },
   {
@@ -137,6 +139,7 @@ export const mockUsers: User[] = [
     lastLoginAt: daysAgo(2) + "T08:00:00.000Z",
     twoStepEnabled: false, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-03-01T09:00:00.000Z",
   },
   {
@@ -153,6 +156,7 @@ export const mockUsers: User[] = [
     lastLoginAt: daysAgo(5) + "T09:00:00.000Z",
     twoStepEnabled: false, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-03-15T09:00:00.000Z",
   },
   {
@@ -169,6 +173,7 @@ export const mockUsers: User[] = [
     lastLoginAt: hoursAgo(28),
     twoStepEnabled: false, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-04-01T09:00:00.000Z",
   },
   {
@@ -185,6 +190,7 @@ export const mockUsers: User[] = [
     lastLoginAt: hoursAgo(2),
     twoStepEnabled: true, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-04-15T09:00:00.000Z",
   },
   {
@@ -201,6 +207,7 @@ export const mockUsers: User[] = [
     lastLoginAt: hoursAgo(12),
     twoStepEnabled: false, creationMode: "invite", passwordResetRequired: false, activatedAt: null,
     active: true,
+    onboardingCompletedAt: null,
     createdAt: "2024-05-01T09:00:00.000Z",
   },
 ];

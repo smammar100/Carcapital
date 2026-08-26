@@ -129,7 +129,7 @@ export function DashboardGreeting() {
             asChild rather than `render`: the render prop drops children (see
             resolveRender), so the label has to live inside the element. */}
         <AddVehicleButton asChild className={ACTION_BTN} size="sm">
-          <button type="button">
+          <button id="tour-add-vehicle" type="button">
             <Plus className="size-3.5" />
             Add Vehicle
           </button>

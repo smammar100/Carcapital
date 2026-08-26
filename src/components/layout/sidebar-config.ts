@@ -420,3 +420,17 @@ export const MVP_HIDDEN_HREFS: ReadonlySet<string> = new Set([
   "/admin/master-calendar",
   "/admin/activity",
 ]);
+
+/**
+ * Stable DOM id for a nav item, used as the guided tour's anchor.
+ *
+ * Derived from the href rather than hand-written per item so a renamed or
+ * added route cannot silently lose its anchor and leave the tour pointing at
+ * nothing. Slashes become dashes because the id is fed to `querySelector`,
+ * where an unescaped `/` is a syntax error.
+ *
+ *   /maintenance/inspection  ->  tour-nav-maintenance-inspection
+ */
+export function navTourId(href: string): string {
+  return `tour-nav${href.replace(/\//g, "-")}`;
+}

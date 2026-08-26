@@ -79,10 +79,19 @@ export interface User {
   /** When a directly-created user first set their own password. */
   activatedAt: ISODateTime | null;
   /**
-   * Seed user shipped with the app (migration 0009 — Chunk 1.5). The wipe
-   * step deletes every row with `is_demo = true` before real-staff invites.
+   * Seed user shipped with the app (migration 0009 — Chunk 1.5).
+   *
+   * NOT a "this row is fake" flag, despite the name: it marks membership of
+   * the seeded dataset, and the owner account carries it too. Deleting on
+   * `is_demo = true` therefore removes the owner — see 0046, which wipes by
+   * table for exactly this reason.
    */
   isDemo?: boolean;
+  /**
+   * When the user finished or skipped the guided tour. Null = never taken, so
+   * the tour auto-starts on their next dashboard visit.
+   */
+  onboardingCompletedAt: ISODateTime | null;
   createdAt: ISODateTime;
 }
 

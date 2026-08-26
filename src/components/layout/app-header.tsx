@@ -8,12 +8,14 @@ import { useAuth } from "@/contexts/auth-context";
 import { useNotifications } from "@/contexts/notifications-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { vehicleDetailHref } from "@/lib/vehicle-nav";
+import { useReplayTour } from "@/components/onboarding/onboarding-tour";
 import { toast } from "@/lib/toast";
 
 export function AppHeader() {
   const router = useRouter();
   const pathname = usePathname();
   const { user, signOut } = useAuth();
+  const replayTour = useReplayTour();
   const { notifications, unreadCount, markRead, markAllRead } =
     useNotifications();
   const [searchValue, setSearchValue] = useState("");
@@ -44,7 +46,7 @@ export function AppHeader() {
       </h1>
 
       <div slot="end" className="flex items-center gap-2">
-        <form onSubmit={onSearchSubmit} className="hidden md:block">
+        <form id="tour-search" onSubmit={onSearchSubmit} className="hidden md:block">
           <nord-input
             type="search"
             label="Search"
@@ -121,6 +123,9 @@ export function AppHeader() {
           <nord-dropdown-group heading={user?.email ?? undefined}>
             <nord-dropdown-item onClick={() => router.push("/admin/settings")}>
               Settings
+            </nord-dropdown-item>
+            <nord-dropdown-item onClick={replayTour}>
+              Replay the tour
             </nord-dropdown-item>
           </nord-dropdown-group>
           <nord-dropdown-item onClick={handleSignOut}>

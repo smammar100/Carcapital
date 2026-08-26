@@ -4,17 +4,20 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronDown } from "lucide-react";
+import { useOnborda } from "onborda";
 import { useAuth } from "@/contexts/auth-context";
 import { usePermissions } from "@/hooks/use-permissions";
 import { cn } from "@/lib/utils";
 import {
   SIDEBAR_GROUPS,
   MVP_HIDDEN_HREFS,
+  navTourId,
   activeHrefForPath,
   type SidebarGroup,
   type SidebarItem,
 } from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
+import { GUIDED_STEPS } from "@/lib/onboarding/tour-steps";
 
 // localStorage key for the user's persisted expand/collapse choices (GEN-29).
 const COLLAPSED_STORAGE_KEY = "cc.sidebar.collapsed-groups";
@@ -41,6 +44,28 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { user, company } = useAuth();
   const { can, isSuperUser } = usePermissions();
+  // Safe to read unconditionally: the dashboard layout mounts the sidebar
+  // inside OnbordaProvider, so the context is always present.
+  const { isOnbordaVisible: tourRunning, currentStep } = useOnborda();
+
+  // The one group the tour needs open right now.
+  //
+  // Groups are collapsed by default, so the nav item a step points at would
+  // not be in the DOM and the user could not click what is not rendered.
+  // Opening only the group in question — rather than all of them — is what
+  // keeps this correct: every group open makes the rail taller than the
+  // viewport, and once it scrolls, Onborda measures the pointer against a
+  // position the scroll then moves, landing the spotlight on the wrong row.
+  // One group at a time keeps the rail short enough never to scroll.
+  const tourGroupLabel: string | null = React.useMemo(() => {
+    if (!tourRunning) return null;
+    const href = GUIDED_STEPS[currentStep]?.awaitRoute;
+    if (!href) return null;
+    const group = SIDEBAR_GROUPS.find((g) =>
+      g.items.some((item) => item.href === href),
+    );
+    return group?.label ?? null;
+  }, [tourRunning, currentStep]);
   // Collapsed group labels. Default: every group collapsed (GEN-29) so the
   // sidebar loads compact; the group holding the active route is force-expanded
   // at render time. Deterministic on server + first client paint (no persisted
@@ -123,6 +148,7 @@ export function AppSidebar() {
         return (
           <li key={item.href}>
             <Link
+              id={navTourId(item.href)}
               href={item.href}
               aria-current={on ? "page" : undefined}
               className={cn(ITEM_BASE, on ? ITEM_ACTIVE : ITEM_INACTIVE)}
@@ -140,6 +166,7 @@ export function AppSidebar() {
   return (
     <nord-navigation slot="nav">
       <Link
+        id="tour-brand"
         slot="header"
         href="/dashboard"
         // Nord's header slot has no inset (unlike the body), so add left padding
@@ -176,7 +203,7 @@ export function AppSidebar() {
         </span>
       </Link>
 
-      <div className="flex flex-col gap-1.5 px-1 pb-2 pt-1">
+      <div id="tour-nav" className="flex flex-col gap-1.5 px-1 pb-2 pt-1">
         {visibleGroups.map((group) => {
           if (group.label === null) {
             return (
@@ -185,8 +212,17 @@ export function AppSidebar() {
           }
           // Active group is always open so the current page stays visible;
           // otherwise honour the collapsed set (defaults to collapsed).
-          const isOpen =
-            group.label === activeGroupLabel || !collapsed.has(group.label);
+          //
+          // While the tour runs it OVERRIDES both, opening its target group and
+          // closing everything else — it is not merely a third opener. A user
+          // who has expanded several groups makes the rail taller than the
+          // viewport, and a rail that scrolls desyncs the spotlight (see
+          // tourGroupLabel). Deciding the state outright is the only way to
+          // guarantee a short rail whatever the user had saved; their own
+          // choices are untouched in `collapsed` and return when it ends.
+          const isOpen = tourRunning
+            ? group.label === tourGroupLabel
+            : group.label === activeGroupLabel || !collapsed.has(group.label);
           return (
             <div key={group.label}>
               <button
