@@ -6,6 +6,7 @@ import { Onborda, OnbordaProvider, useOnborda } from "onborda";
 import { useAuth } from "@/contexts/auth-context";
 import { onboardingService } from "@/lib/services/onboarding-service";
 import { GUIDED_STEPS, TOURS, WELCOME_TOUR } from "@/lib/onboarding/tour-steps";
+import { useIsWelcomeScreen } from "@/hooks/use-has-vehicles";
 import { TourCard } from "./tour-card";
 
 /**
@@ -22,7 +23,14 @@ function TourController() {
   const pathname = usePathname();
 
   const userId = user?.id ?? null;
-  const needsTour = Boolean(user && user.onboardingCompletedAt === null);
+  // Not while the first-run screen is up. Every step after the second
+  // highlights a nav item, and that screen deliberately has no nav — the tour
+  // would spotlight nothing at all. It starts on the dashboard proper, once
+  // there is a car to look at and a rail to teach.
+  const isWelcome = useIsWelcomeScreen(pathname);
+  const needsTour = Boolean(
+    user && user.onboardingCompletedAt === null && !isWelcome,
+  );
 
   // Guards against re-opening the tour the instant it is dismissed: closing it
   // writes the completion date, but until that refetch lands `needsTour` is

@@ -23,6 +23,46 @@
   pointer-events: auto;
 }
 
+/* The first-run header sits ON the navy welcome screen, so it gives up its
+   white fill and its shadow and lets the navy run to the top edge. Done with
+   Nord's own custom properties rather than by overriding the host background —
+   the component paints from these tokens internally, and setting them is the
+   supported seam. Foregrounds are forced to the on-navy set for the same
+   reason the sidebar carries its own: the page tokens resolve to ink, which is
+   invisible here. Unlayered, so it outranks Nord's own :host rules. */
+nord-header.header-on-navy {
+  --n-header-background-color: transparent;
+  --n-box-shadow-header: none;
+  /* The 1px rule under the header is `border-block-end: 1px solid
+     var(--n-color-border)` on `.n-header` inside the shadow DOM. Blanking the
+     token it reads is the only way to reach it from out here. */
+  --n-color-border: transparent;
+  color: #fff;
+}
+
+/* The account button carries Nord's own light button fill, which reads as a
+   white chip floating on the navy. Both tokens are overridden so it becomes a
+   quiet outline instead — still obviously a control, no longer a bright patch
+   in the corner. */
+nord-header.header-on-navy nord-button {
+  --n-button-background-color: rgb(255 255 255 / 0.08);
+  --n-button-color: #fff;
+}
+nord-header.header-on-navy nord-button:hover {
+  --n-button-background-color: rgb(255 255 255 / 0.16);
+}
+
+/* A transparent header is not enough on its own. The near-white strip behind
+   it is painted by `.n-layout-main` INSIDE nord-layout's shadow DOM, which no
+   selector from here can reach — setting a background on the host does nothing,
+   because that inner element covers it. The one seam the component offers is
+   `--n-layout-background-color`, which it resolves into the private property
+   those panels actually paint from, and custom properties inherit through the
+   shadow boundary. */
+nord-layout.layout-on-navy {
+  --n-layout-background-color: var(--color-navy-900);
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

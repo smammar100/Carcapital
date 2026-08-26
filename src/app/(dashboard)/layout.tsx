@@ -12,6 +12,7 @@ import { RouteGuard } from "@/components/layout/route-guard";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { Button } from "@/components/ui/button";
 import { OnboardingTour } from "@/components/onboarding/onboarding-tour";
+import { useIsWelcomeScreen } from "@/hooks/use-has-vehicles";
 
 export default function DashboardLayout({
   children,
@@ -21,6 +22,9 @@ export default function DashboardLayout({
   const { user, error, revalidate } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  // The first-run screen owns the whole window: no rail beside it, because
+  // there is nothing in the system yet for any of those links to lead to.
+  const isWelcome = useIsWelcomeScreen(pathname);
 
   // Tab focus / route change → refresh the JWT in case it silently expired.
   useEffect(() => {
@@ -79,8 +83,12 @@ export default function DashboardLayout({
   // the layout's own padding is disabled.
   return (
     <OnboardingTour>
-      <nord-layout padding="none" persistNavState>
-        <AppSidebar />
+      <nord-layout
+        padding="none"
+        persistNavState
+        className={isWelcome ? "layout-on-navy" : undefined}
+      >
+        {!isWelcome && <AppSidebar />}
         <AppHeader />
         <PageShell>
           <RouteGuard>{children}</RouteGuard>

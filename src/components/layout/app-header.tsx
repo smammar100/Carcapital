@@ -9,6 +9,7 @@ import { useNotifications } from "@/contexts/notifications-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { useReplayTour } from "@/components/onboarding/onboarding-tour";
+import { useIsWelcomeScreen } from "@/hooks/use-has-vehicles";
 import { toast } from "@/lib/toast";
 
 export function AppHeader() {
@@ -16,6 +17,7 @@ export function AppHeader() {
   const pathname = usePathname();
   const { user, signOut } = useAuth();
   const replayTour = useReplayTour();
+  const isWelcome = useIsWelcomeScreen(pathname);
   const { notifications, unreadCount, markRead, markAllRead } =
     useNotifications();
   const [searchValue, setSearchValue] = useState("");
@@ -37,6 +39,44 @@ export function AppHeader() {
     signOut();
     toast.success("Signed out");
     router.push("/login");
+  }
+
+  // The user menu, shared by both headers below so the two cannot drift.
+  const userMenu = (
+    <nord-dropdown>
+      <nord-button slot="toggle" variant="plain">
+        <nord-avatar slot="start" size="s" name={user?.name ?? "User"} />
+        <span className="hidden sm:inline" suppressHydrationWarning>
+          {user?.name ?? ""}
+        </span>
+      </nord-button>
+      <nord-dropdown-group heading={user?.email ?? undefined}>
+        <nord-dropdown-item onClick={() => router.push("/admin/settings")}>
+          Settings
+        </nord-dropdown-item>
+        <nord-dropdown-item onClick={replayTour}>
+          Replay the tour
+        </nord-dropdown-item>
+      </nord-dropdown-group>
+      <nord-dropdown-item onClick={handleSignOut}>Sign out</nord-dropdown-item>
+    </nord-dropdown>
+  );
+
+  // First-run screen: the bar carries the account and nothing else, over a
+  // transparent ground so the navy runs unbroken to the top edge.
+  //
+  // Everything else here would be a lie on that screen — the page title names
+  // a dashboard that is not being shown, and search and notifications both
+  // reach into a system with nothing in it yet.
+  if (isWelcome) {
+    return (
+      <nord-header slot="header" className="header-on-navy">
+        <span />
+        <div slot="end" className="flex items-center">
+          {userMenu}
+        </div>
+      </nord-header>
+    );
   }
 
   return (
@@ -113,25 +153,7 @@ export function AppHeader() {
           )}
         </nord-dropdown>
 
-        <nord-dropdown>
-          <nord-button slot="toggle" variant="plain">
-            <nord-avatar slot="start" size="s" name={user?.name ?? "User"} />
-            <span className="hidden sm:inline" suppressHydrationWarning>
-              {user?.name ?? ""}
-            </span>
-          </nord-button>
-          <nord-dropdown-group heading={user?.email ?? undefined}>
-            <nord-dropdown-item onClick={() => router.push("/admin/settings")}>
-              Settings
-            </nord-dropdown-item>
-            <nord-dropdown-item onClick={replayTour}>
-              Replay the tour
-            </nord-dropdown-item>
-          </nord-dropdown-group>
-          <nord-dropdown-item onClick={handleSignOut}>
-            Sign out
-          </nord-dropdown-item>
-        </nord-dropdown>
+        {userMenu}
       </div>
     </nord-header>
   );

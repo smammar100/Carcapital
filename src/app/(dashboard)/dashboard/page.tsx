@@ -2,8 +2,10 @@
 
 import { useMemo } from "react";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useHasVehicles } from "@/hooks/use-has-vehicles";
 import { cn } from "@/lib/utils";
 import { DashboardGreeting } from "@/components/dashboard/dashboard-greeting";
+import { DashboardWelcome } from "@/components/dashboard/dashboard-welcome";
 import { DashboardKpiRow } from "@/components/dashboard/dashboard-kpi-row";
 import { DashboardStockOverview } from "@/components/dashboard/dashboard-stock-overview";
 import { DashboardRecentDeals } from "@/components/dashboard/dashboard-recent-deals";
@@ -12,6 +14,7 @@ import { DashboardRecentActivity } from "@/components/dashboard/dashboard-recent
 
 export default function DashboardPage() {
   const { can, isSuperUser } = usePermissions();
+  const hasVehicles = useHasVehicles();
 
   // Each widget is gated to the capabilities that make it relevant, so every
   // role sees a dashboard scoped to their job. The grid spans below adapt when
@@ -60,6 +63,13 @@ export default function DashboardPage() {
   // NOTE: the design has no "Today's updates" card, so that widget is no
   // longer mounted here. The component is kept — nothing else renders it — so
   // restoring it is a one-line change if the omission was not intended.
+  if (hasVehicles === null) return null;
+
+  // Nothing on the system yet: the KPI tiles, the deals table and the three
+  // cards would all read zero, which tells a new user nothing except that the
+  // product looks broken. Show them what to do instead.
+  if (!hasVehicles) return <DashboardWelcome />;
+
   return (
     <div className="flex flex-col gap-4">
       <DashboardGreeting />
