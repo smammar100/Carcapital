@@ -40,7 +40,16 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
   return Promise.race([
     p,
     new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new AuthError(401, `${label} timed out`)), ms),
+      setTimeout(
+        () =>
+          reject(
+            new AuthError(
+              401,
+              `Couldn't verify your session (${label} timed out). Check your connection and try again.`,
+            ),
+          ),
+        ms,
+      ),
     ),
   ]);
 }
@@ -88,7 +97,19 @@ export async function requireUser(): Promise<AuthedActor> {
 
   // Load the profile with the service-role client so this works regardless of
   // RLS, but keyed strictly to the authenticated user's own id.
-  const admin = createAdminClient();
+  // A misconfigured server (no SUPABASE_SERVICE_ROLE_KEY) threw a bare Error
+  // from here. `authErrorResponse` only maps AuthError, so routes rethrew it and
+  // Next answered with an empty-bodied 500 — the caller saw a failure with no
+  // reason attached. Type it so it comes back as a readable message.
+  let admin: ReturnType<typeof createAdminClient>;
+  try {
+    admin = createAdminClient();
+  } catch (e) {
+    throw new AuthError(
+      500,
+      e instanceof Error ? e.message : "Server auth is misconfigured",
+    );
+  }
   const { data: profile, error: pErr } = await admin
     .from("users")
     .select("id, company_id, roles, is_super_user, active")
