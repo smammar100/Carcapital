@@ -157,3 +157,20 @@ export function generateTempPassword(): string {
     .map((x) => x.c)
     .join("");
 }
+
+/**
+ * Grows a control's clickable area to the 40px desktop floor (44px on touch)
+ * without changing how large it looks.
+ *
+ * A 16px checkbox is a 16px target however much space sits around it, and the
+ * app was full of them (GEN-122). This paints an invisible, centred ::after
+ * over the control so the pointer has something bigger to land on while the
+ * drawn control keeps its size — the same trick the design system already used
+ * for touch, extended to the mouse.
+ *
+ * The control must be positioned (`relative`) for the pseudo to anchor to it,
+ * and its neighbours must sit far enough apart that the expanded areas don't
+ * overlap — an expander that covers the next control steals its clicks.
+ */
+export const hitTarget =
+  "after:absolute after:top-1/2 after:left-1/2 after:size-full after:min-h-10 after:min-w-10 after:-translate-x-1/2 after:-translate-y-1/2 pointer-coarse:after:min-h-11 pointer-coarse:after:min-w-11";

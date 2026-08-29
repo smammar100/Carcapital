@@ -2,7 +2,7 @@
 
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
-import { cn } from "@/lib/utils";
+import { cn, hitTarget } from "@/lib/utils";
 import { resolveRender } from "@/lib/as-child";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
@@ -29,13 +29,13 @@ export const buttonVariants = cva(
         default: "h-9 px-3 sm:h-8",
         icon: "size-9 sm:size-8",
         "icon-lg": "size-10 sm:size-9",
-        "icon-sm": "size-8 sm:size-7",
+        "icon-sm": `size-8 sm:size-7 ${hitTarget}`,
         "icon-xl": "size-11 sm:size-10",
-        "icon-xs": "size-7 sm:size-6",
+        "icon-xs": `size-7 sm:size-6 ${hitTarget}`,
         lg: "h-10 px-3.5 sm:h-9",
-        sm: "h-8 gap-1.5 px-2.5 sm:h-7",
+        sm: `h-8 gap-1.5 px-2.5 sm:h-7 ${hitTarget}`,
         xl: "h-11 px-4 text-base sm:h-10 sm:text-sm",
-        xs: "h-7 gap-1 rounded-md px-2 text-sm sm:h-6 sm:text-xs",
+        xs: `h-7 gap-1 rounded-md px-2 text-sm sm:h-6 sm:text-xs ${hitTarget}`,
       },
       variant: {
         default: "border-primary bg-primary text-primary-foreground hover:bg-primary/90",

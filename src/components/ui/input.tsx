@@ -43,6 +43,20 @@ export function Input({
       }
       data-size={size}
       data-slot="input-control"
+      onMouseDown={(event) => {
+        // The bordered box is the span, not the control inside it, so a click
+        // that lands on its padding or border hits dead space and nothing
+        // focuses — the field reads as broken. Any padding a caller adds here
+        // (to make room for a leading icon, say) widens that dead strip.
+        // Forward those clicks to the control the box is drawn around.
+        if (event.target !== event.currentTarget) return;
+        const control = event.currentTarget.querySelector<HTMLElement>(
+          "[data-slot='input']",
+        );
+        if (!control) return;
+        event.preventDefault();
+        control.focus();
+      }}
     >
       {nativeInput ? (
         <input

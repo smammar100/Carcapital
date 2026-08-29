@@ -55,7 +55,22 @@ export function PermissionCell({
           "bg-amber-50 ring-1 ring-amber-300 ring-inset group-hover/row:bg-amber-50 dark:bg-amber-950/20 dark:ring-amber-700 dark:group-hover/row:bg-amber-950/20",
       )}
     >
-      <div className="flex items-center justify-center">
+      {/*
+        The checkbox draws at 16px inside a 92x49 cell, so all but 3% of the
+        cell was dead space and the box had to be hit dead-on (GEN-122). Fill
+        the cell and toggle from anywhere in it. Clicks that land on the
+        checkbox itself fall through to it, so they aren't counted twice.
+      */}
+      <div
+        className={cn(
+          "flex h-12 w-full items-center justify-center",
+          !locked && "cursor-pointer",
+        )}
+        onClick={(event) => {
+          if (locked || event.target !== event.currentTarget) return;
+          onToggle(userId, capability);
+        }}
+      >
         {superUser ? (
           <Tooltip>
             <TooltipTrigger asChild>
