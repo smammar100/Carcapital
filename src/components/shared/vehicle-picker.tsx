@@ -38,25 +38,15 @@ export function vehicleMatches(v: Vehicle, query: string): boolean {
 }
 
 /**
- * What the combobox both displays and filters on.
+ * What the input shows once a vehicle is picked.
  *
- * The combobox runs its own token match over this string on top of the `items`
- * we hand it, so anything searchable must appear here or it gets filtered back
- * out — hence the stock ID, which would otherwise only be in the rendered row
- * and wouldn't be findable.
- *
- * Registrations are stored inconsistently ("NA66XGM" and "FG68 RGY" both
- * exist), so the squashed form is appended only when it differs — that makes
- * "FG68RGY" find "FG68 RGY" without printing the reg twice for the plates
- * that are already unspaced.
+ * Display only — matching is done by `vehicleMatches` via the `filter={null}`
+ * below, so this no longer has to carry every searchable form of the reg. It
+ * used to append the space-stripped plate ("L400 JCM L400JCM · …") to keep the
+ * built-in matcher happy, which read as a typo in the selected field.
  */
-function searchLabel(v: Vehicle): string {
-  const squashed = squash(v.registration);
-  const reg =
-    squashed === v.registration.toUpperCase()
-      ? v.registration
-      : `${v.registration} ${squashed}`;
-  return `${reg} · ${v.make} ${v.model} (${v.stockId})`;
+function displayLabel(v: Vehicle): string {
+  return `${v.registration} · ${v.make} ${v.model} (${v.stockId})`;
 }
 
 interface VehiclePickerProps {
@@ -91,6 +81,22 @@ export function VehiclePicker({
 }: VehiclePickerProps) {
   const [query, setQuery] = useState("");
 
+  /**
+   * Only what the user actually types is a search query.
+   *
+   * On selection the combobox writes the chosen vehicle's label back into the
+   * input, which arrives here as another input-value change. Treating that as a
+   * query would filter the list down to nothing — so the next time the popup
+   * opened it would claim no vehicle matched. Anything that isn't typing
+   * (selecting, clearing, blurring) resets to the unfiltered list.
+   */
+  const handleInputValueChange = (
+    next: string,
+    details: ComboboxPrimitive.Root.ChangeEventDetails,
+  ): void => {
+    setQuery(details.reason === "input-change" ? next : "");
+  };
+
   // Filtered here rather than by the combobox's built-in matcher, which only
   // compares against the displayed label — so "NA66 XGM" wouldn't find
   // "NA66XGM", and the stock ID wouldn't match at all.
@@ -104,8 +110,13 @@ export function VehiclePicker({
       items={filtered}
       value={value}
       onValueChange={onChange}
-      onInputValueChange={setQuery}
-      itemToStringLabel={searchLabel}
+      onInputValueChange={handleInputValueChange}
+      itemToStringLabel={displayLabel}
+      // `vehicleMatches` above is the only matcher. The built-in one compares
+      // against the displayed label, so it would re-filter out rows we mean to
+      // show — a stock-ID or space-stripped reg hit that the label doesn't
+      // spell out.
+      filter={null}
       // Type a reg, press Enter. Without this the top match isn't highlighted
       // and Enter does nothing, which reads as a broken field.
       autoHighlight

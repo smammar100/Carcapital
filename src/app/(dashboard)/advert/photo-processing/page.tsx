@@ -3,7 +3,7 @@
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Image as ImageIcon, Loader2, Wand2 } from "lucide-react";
+import { Image as ImageIcon, Loader2, Search, Wand2 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import { vehicleDetailHref } from "@/lib/vehicle-nav";
@@ -14,7 +14,9 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { RegPlate } from "@/components/shared/reg-plate";
+import { vehicleMatches } from "@/components/shared/vehicle-picker";
 import { EmptyState } from "@/components/shared/empty-state";
 import { VehicleImage } from "@/components/shared/vehicle-image";
 import { cn } from "@/lib/utils";
@@ -39,6 +41,7 @@ export default function PhotoProcessingPage() {
   const [vehicles, setVehicles] = useState<Vehicle[] | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
   const [bgRemoved, setBgRemoved] = useState(false);
+  const [query, setQuery] = useState("");
   const [bg, setBg] = useState("white");
   const bgProcessingId = useId();
 
@@ -54,6 +57,10 @@ export default function PhotoProcessingPage() {
   }, [company]);
 
   const vehicle = vehicles?.find((v) => v.id === selected) ?? null;
+  // Stock runs past a hundred cars, so scrolling the sidebar to find a plate
+  // you already know is a hunt (GEN-79). Same matcher as the reg pickers, so
+  // "NA66 XGM", "na66xgm" and the stock ID all find the same car.
+  const shownVehicles = (vehicles ?? []).filter((v) => vehicleMatches(v, query));
   const swatch = BACKGROUNDS.find((b) => b.id === bg)!;
 
   // Processed (BG-removed white-studio) and composed (car on selected backdrop)
@@ -151,8 +158,23 @@ export default function PhotoProcessingPage() {
         />
       ) : (
         <div className="grid gap-4 lg:grid-cols-[260px_1fr]">
-          <Card className="flex flex-col gap-1 p-2 max-h-[70vh] overflow-y-auto">
-            {vehicles.map((v) => (
+          <Card className="flex max-h-[70vh] flex-col gap-1 p-2">
+            <div className="relative shrink-0">
+              <Search className="pointer-events-none absolute left-2 top-1/2 z-10 size-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search reg, stock ID or model…"
+                className="h-8 pl-7 text-xs"
+              />
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
+            {shownVehicles.length === 0 && (
+              <p className="px-2 py-3 text-xs text-muted-foreground">
+                No vehicle matches that reg.
+              </p>
+            )}
+            {shownVehicles.map((v) => (
               <button
                 key={v.id}
                 type="button"
@@ -176,6 +198,7 @@ export default function PhotoProcessingPage() {
                 </div>
               </button>
             ))}
+            </div>
           </Card>
 
           <Card className="flex flex-col gap-4 p-4">

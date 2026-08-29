@@ -29,6 +29,7 @@ import type {
   WorkshopJob,
 } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
+import { VehiclePicker } from "@/components/shared/vehicle-picker";
 import { notify } from "@/lib/toast";
 
 /**
@@ -1549,21 +1550,27 @@ function EventForm({
     ? baseTimeOptions
     : [fields.time, ...baseTimeOptions];
 
+  // Stock runs past a hundred cars, so a plain dropdown is a scroll hunt for a
+  // plate the user already knows (GEN-79). Same searchable picker the invoice
+  // and lead forms use — type the reg, with or without its space.
+  const selectedVehicle =
+    vehicles.find((v) => v.id === fields.vehicleId) ?? null;
+
   const vehicleSelect = (
-    <nord-select
-      expand
-      label="Vehicle"
-      value={fields.vehicleId}
-      onChange={(e) => set("vehicleId", (e.target as HTMLSelectElement).value)}
-      suppressHydrationWarning
-    >
-      <option value="">Select a vehicle…</option>
-      {vehicles.map((v) => (
-        <option key={v.id} value={v.id}>
-          {v.registration} · {v.make} {v.model}
-        </option>
-      ))}
-    </nord-select>
+    <div className="flex flex-col gap-1">
+      <label
+        htmlFor="mc-vehicle"
+        className="text-xs font-medium text-foreground"
+      >
+        Vehicle
+      </label>
+      <VehiclePicker
+        id="mc-vehicle"
+        vehicles={vehicles}
+        value={selectedVehicle}
+        onChange={(v) => set("vehicleId", v?.id ?? "")}
+      />
+    </div>
   );
 
   // Date and Time share identical custom-control markup (label typography +

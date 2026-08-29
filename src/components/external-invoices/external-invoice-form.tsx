@@ -16,6 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RegPlate } from "@/components/shared/reg-plate";
+import { VehiclePicker } from "@/components/shared/vehicle-picker";
 import {
   Select,
   SelectContent,
@@ -438,27 +439,14 @@ export function ExternalInvoiceForm({
                 )}
               </div>
             ) : (
-              <Select
-                items={Object.fromEntries(
-                  vehicles.map((v) => [
-                    v.id,
-                    `${v.stockId} · ${v.registration} · ${v.make} ${v.model}`,
-                  ]),
-                )}
-                value={vehicleId}
-                onValueChange={setVehicleId}
-              >
-                <SelectTrigger id={vehicleFieldId}>
-                  <SelectValue placeholder="Pick a vehicle…" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {vehicles.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.stockId} · {v.registration} · {v.make} {v.model}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              // Stock runs past a hundred cars, so a scrolling dropdown is a
+              // hunt for a plate the user already knows (GEN-79).
+              <VehiclePicker
+                id={vehicleFieldId}
+                vehicles={vehicles}
+                value={selectedVehicle}
+                onChange={(v) => setVehicleId(v?.id ?? "")}
+              />
             )}
           </div>
 
