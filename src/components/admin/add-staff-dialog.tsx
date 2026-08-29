@@ -144,6 +144,22 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
     }
   }
 
+  /**
+   * Copy one field on its own.
+   *
+   * The combined copy below is for relaying both at once; this is for the far
+   * more common "read it out / paste it into WhatsApp" case, where retyping a
+   * generated password by hand is what actually goes wrong (GEN-113).
+   */
+  async function copyField(label: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      toast.success(`${label} copied`);
+    } catch {
+      toast.error(`Could not copy the ${label.toLowerCase()}`);
+    }
+  }
+
   async function copyCreds() {
     if (!created) return;
     try {
@@ -188,14 +204,38 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                 Send these to the staff member (WhatsApp / phone / in person).
                 They&apos;ll set their own password on first login.
               </p>
-              <div className="mt-3 grid gap-1 font-mono text-xs">
-                <div>
+              <div className="mt-3 grid gap-1.5 font-mono text-xs">
+                <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Username: </span>
-                  {created.username}
+                  <span className="min-w-0 flex-1 truncate">
+                    {created.username}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Copy username"
+                    onClick={() => void copyField("Username", created.username)}
+                    data-testid="add-staff-copy-username-only"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">Password: </span>
-                  {created.password}
+                  <span className="min-w-0 flex-1 truncate">
+                    {created.password}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Copy password"
+                    onClick={() => void copyField("Password", created.password)}
+                    data-testid="add-staff-copy-password-only"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
               <div className="mt-3 flex gap-2">
@@ -263,6 +303,15 @@ export function AddStaffDialog({ open, onOpenChange, onCreated }: Props) {
                       onFocusCapture={(e) => e.currentTarget.select()}
                       data-testid="add-staff-password"
                     />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void copyField("Password", password)}
+                      aria-label="Copy password"
+                      data-testid="add-staff-copy-password"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
                     <Button
                       type="button"
                       variant="outline"

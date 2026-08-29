@@ -1,6 +1,6 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { variantLabel } from "@/lib/vehicle-variant";
-import type { TodoItem, Vehicle } from "@/lib/types";
+import type { TodoItem, TodoStatus, Vehicle } from "@/lib/types";
 
 const styles = StyleSheet.create({
   page: { padding: 32, fontSize: 10, fontFamily: "Helvetica" },
@@ -84,6 +84,21 @@ export function JobCardTemplate({
   vendorNames,
 }: Props) {
   const grandTotal = todos.reduce((s, t) => s + (t.cost ?? 0), 0);
+
+  // Whoever picks up the printed sheet wants to see what is still outstanding,
+  // so print in the order the work moves: pending, then in progress, then what
+  // is already done. Cancelled sinks to the bottom — it is not work, and it
+  // shouldn't sit between two jobs that are (GEN-114). Sort is stable, so the
+  // caller's ordering still decides within a group.
+  const STATUS_ORDER: Record<TodoStatus, number> = {
+    pending: 0,
+    in_progress: 1,
+    completed: 2,
+    cancelled: 3,
+  };
+  const orderedTodos = [...todos].sort(
+    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status],
+  );
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -133,12 +148,12 @@ export function JobCardTemplate({
             </Text>
             <Text style={[styles.th, { ...styles.small, width: 70 }]}>Cost</Text>
           </View>
-          {todos.length === 0 ? (
+          {orderedTodos.length === 0 ? (
             <View style={styles.tr}>
               <Text style={[styles.td, { flex: 1 }]}>No items recorded</Text>
             </View>
           ) : (
-            todos.map((t) => (
+            orderedTodos.map((t) => (
               <View key={t.id} style={styles.tr}>
                 <Text style={[styles.td, styles.small]}>{t.serialNumber}</Text>
                 <Text style={styles.td}>{t.description}</Text>
