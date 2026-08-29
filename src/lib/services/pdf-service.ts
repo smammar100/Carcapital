@@ -108,3 +108,48 @@ export function openBlobInNewTab(blob: Blob): void {
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
 }
+
+/**
+ * Render a PDF and show it in a new tab.
+ *
+ * The tab has to be opened synchronously, inside the click handler. Rendering
+ * a PDF takes a moment, and by the time it finishes the user activation that
+ * permits a popup is spent — `window.open` then returns null and the browser
+ * blocks it *silently*. Nothing throws, so the surrounding catch never runs and
+ * the user sees no tab, no error, nothing at all (GEN-111).
+ *
+ * So: open the tab first, point it at the blob once rendered, and if the
+ * browser blocked it anyway, fall back to downloading the file rather than
+ * letting the click evaporate.
+ *
+ * Note `noopener` is deliberately NOT passed here — with it, `window.open`
+ * returns null by spec and we lose the handle we need. The opener reference is
+ * dropped manually instead.
+ */
+export async function openPdfInNewTab(
+  build: () => Promise<Blob>,
+  filename: string,
+): Promise<void> {
+  const tab = window.open("", "_blank");
+  if (tab) {
+    try {
+      tab.opener = null;
+    } catch {
+      // Cross-origin about:blank in some browsers; not worth failing over.
+    }
+  }
+  let blob: Blob;
+  try {
+    blob = await build();
+  } catch (e) {
+    tab?.close();
+    throw e;
+  }
+  if (tab && !tab.closed) {
+    const url = URL.createObjectURL(blob);
+    tab.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    return;
+  }
+  downloadBlob(blob, filename);
+}

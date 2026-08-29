@@ -22,7 +22,7 @@ import { invoiceService } from "@/lib/services/invoice-service";
 import { vehicleService } from "@/lib/services/vehicle-service";
 import {
   companyInvoiceFields,
-  openBlobInNewTab,
+  openPdfInNewTab,
   pdfService,
 } from "@/lib/services/pdf-service";
 import type { Invoice, InvoiceType, Vehicle } from "@/lib/types";
@@ -288,11 +288,19 @@ export default function InvoicingPage() {
 
   async function handlePrint(inv: Invoice) {
     if (!company) return;
-    const blob = await pdfService.generateInvoice({
-      invoice: inv,
-      ...companyInvoiceFields(company),
-    });
-    openBlobInNewTab(blob);
+    try {
+      await openPdfInNewTab(
+        () =>
+          pdfService.generateInvoice({
+            invoice: inv,
+            ...companyInvoiceFields(company),
+          }),
+        `${inv.invoiceNumber}.pdf`,
+      );
+    } catch (e) {
+      console.error("[invoicing] print failed", e);
+      toast.error("Couldn't open the invoice for printing.");
+    }
   }
 
   async function handleUpload() {

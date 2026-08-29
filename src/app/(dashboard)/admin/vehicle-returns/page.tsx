@@ -25,7 +25,7 @@ import { invoiceService } from "@/lib/services/invoice-service";
 import { salesService } from "@/lib/services/sales-service";
 import {
   companyInvoiceFields,
-  openBlobInNewTab,
+  openPdfInNewTab,
   pdfService,
 } from "@/lib/services/pdf-service";
 import type {
@@ -479,11 +479,17 @@ export default function ReturnsPage() {
           `Resolved, refund invoice ${createdRefund.invoiceNumber} generated`,
         );
         try {
-          const blob = await pdfService.generateInvoice({
-            invoice: createdRefund,
-            ...companyInvoiceFields(company),
-          });
-          openBlobInNewTab(blob);
+          // Not a click handler by this point -- the refund is created first --
+          // so a popup here is blocked outright. openPdfInNewTab falls back to
+          // downloading the file rather than losing it silently (GEN-111).
+          await openPdfInNewTab(
+            () =>
+              pdfService.generateInvoice({
+                invoice: createdRefund,
+                ...companyInvoiceFields(company),
+              }),
+            `${createdRefund.invoiceNumber}.pdf`,
+          );
         } catch (e) {
           console.warn("[returns] refund PDF render failed", e);
         }

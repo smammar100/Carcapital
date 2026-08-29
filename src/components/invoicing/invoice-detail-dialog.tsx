@@ -12,7 +12,7 @@ import {
 import {
   companyInvoiceFields,
   downloadBlob,
-  openBlobInNewTab,
+  openPdfInNewTab,
   pdfService,
 } from "@/lib/services/pdf-service";
 import { toast } from "@/lib/toast";
@@ -58,10 +58,15 @@ export function InvoiceDetailDialog({
     }
   }
   async function print(): Promise<void> {
+    if (!invoice) return;
     try {
-      const blob = await build();
-      if (blob) openBlobInNewTab(blob);
-    } catch {
+      await openPdfInNewTab(async () => {
+        const blob = await build();
+        if (!blob) throw new Error("No invoice to render");
+        return blob;
+      }, `${invoice.invoiceNumber}.pdf`);
+    } catch (e) {
+      console.error("[invoice] print failed", e);
       toast.error("Couldn't open the invoice for printing.");
     }
   }
