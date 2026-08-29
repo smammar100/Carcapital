@@ -580,8 +580,27 @@ nord-layout.layout-on-navy {
    outranks the shadow `:host` reset and restores the intended centering, which
    moves the cards clear of the sidebar. */
 @layer base {
+  /* Nord gives the group `position: fixed; pointer-events: none`, but every
+     Nord component also ships a `:host { all: unset }` base reset, and that
+     wipes it — so the toast layer falls back into normal document flow at the
+     end of <body> and its cards land on whatever happens to be there. First
+     time round that was the sidebar's nav items; after the centering fix below
+     it became the middle of the form, where a "Draft restored" toast sat on top
+     of a textarea and made it unclickable (GEN-123). Re-assert the container at
+     document level, which outranks the shadow `:host` reset. */
+  nord-toast-group {
+    position: fixed !important;
+    inset-inline: 0 !important;
+    inset-block-end: 0 !important;
+    z-index: 950 !important;
+    /* The layer spans the viewport, so it must never take a click. Only the
+       toast cards themselves are interactive. */
+    pointer-events: none !important;
+  }
+
   nord-toast {
     margin-inline: auto !important;
+    pointer-events: auto;
   }
 }
 
