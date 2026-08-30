@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Plus,
@@ -227,6 +227,82 @@ export default function LeadsPage() {
     },
   });
 
+  // ── Create-lead draft autosave ──────────────────────────────────────────
+  // An in-progress lead is easy to lose: anything that remounts the page
+  // (an expired session, a hard refresh, a crash, closing the tab by
+  // mistake) takes the typed enquiry with it, and the caller is usually
+  // still on the phone. Mirror the invoice draft behaviour, but write on
+  // every keystroke rather than on a 10s timer -- a dialog can disappear
+  // between ticks, and losing the last few seconds of typing is the exact
+  // complaint this is meant to answer.
+  //
+  // Keyed by user as well as company: a draft holds a named customer's phone
+  // and email, so on a shared forecourt machine it must not surface for
+  // whoever logs in next.
+  const draftKey =
+    company && user ? `cc-lead-draft:${company.id}:${user.id}` : null;
+  const draftRestoredRef = useRef(false);
+
+  // Restore when the dialog opens, not on mount: after the kind of remount
+  // this protects against, the dialog is closed and the user reopens it.
+  useEffect(() => {
+    if (!createOpen || !draftKey) return;
+    if (draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(draftKey);
+    } catch {
+      return; // private mode / storage disabled
+    }
+    if (!raw) return;
+    try {
+      const d = JSON.parse(raw) as Partial<CreateInput>;
+      // Keep the resolved assignedTo default when the draft has none.
+      const current = create.getValues();
+      create.reset({ ...current, ...d, assignedTo: d.assignedTo || current.assignedTo });
+      toast("Draft restored: your unsaved lead was still here");
+    } catch {
+      /* ignore corrupt draft */
+    }
+  }, [createOpen, draftKey, create]);
+
+  // Allow a later reopen to restore again once the dialog has closed.
+  useEffect(() => {
+    if (!createOpen) draftRestoredRef.current = false;
+  }, [createOpen]);
+
+  useEffect(() => {
+    if (!createOpen || !draftKey) return;
+    const sub = create.watch((values) => {
+      // Never persist an untouched form -- that would resurrect a bare
+      // assignedTo default as a "draft" on the next open.
+      const hasContent = Boolean(
+        values.customerName?.trim() ||
+          values.customerPhone?.trim() ||
+          values.customerEmail?.trim() ||
+          values.vehicleInterest?.trim() ||
+          values.notes?.trim(),
+      );
+      try {
+        if (hasContent) localStorage.setItem(draftKey, JSON.stringify(values));
+        else localStorage.removeItem(draftKey);
+      } catch {
+        /* quota or disabled storage -- autosave is best-effort */
+      }
+    });
+    return () => sub.unsubscribe();
+  }, [createOpen, draftKey, create]);
+
+  const clearDraft = useCallback(() => {
+    if (!draftKey) return;
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      /* nothing to do */
+    }
+  }, [draftKey]);
+
   // ── Update-status dialog state ──────────────────────────────────────────
   const [statusOpen, setStatusOpen] = useState(false);
   const [stTarget, setStTarget] = useState<LeadStatus>("contacted");
@@ -377,6 +453,7 @@ export default function LeadsPage() {
     toast.success("Lead created");
     setCreateOpen(false);
     create.reset();
+    clearDraft();
     setLeads(await leadService.getAll(company.id));
   }
 
@@ -651,7 +728,11 @@ export default function LeadsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setCreateOpen(false)}
+                  onClick={() => {
+                    clearDraft();
+                    create.reset();
+                    setCreateOpen(false);
+                  }}
                 >
                   Cancel
                 </Button>
