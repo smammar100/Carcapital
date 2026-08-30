@@ -143,7 +143,18 @@ export const WARRANTY_DEFAULTS = {
   wearTearCovered: false,
 };
 
-export const FINANCE_PROVIDERS = [
+/**
+ * Motor-finance lenders a CUSTOMER can buy through, offered on the sales
+ * invoice next to the finance amount.
+ *
+ * Not to be confused with `FINANCE_PROVIDERS` in `@/lib/constants`, which is
+ * the dealership's own stocking (floorplan) funders and carries loading,
+ * daily and unloading fees. Two different trades that happen to share a word:
+ * this one is how the customer pays us, that one is how we paid for the car.
+ * They were both exported as `FINANCE_PROVIDERS` until GEN-109, which made
+ * the two look like duplicates of each other.
+ */
+export const MOTOR_FINANCE_PROVIDERS = [
   "Close Brothers",
   "Blue Motor Finance",
   "MotoNovo",

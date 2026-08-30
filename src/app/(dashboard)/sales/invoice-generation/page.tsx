@@ -43,7 +43,7 @@ import type {
 } from "@/lib/types";
 import {
   ADDON_CATEGORY_OPTIONS,
-  FINANCE_PROVIDERS,
+  MOTOR_FINANCE_PROVIDERS,
   PDI_ITEMS,
   WARRANTY_DEFAULTS,
 } from "@/lib/invoice-templates";
@@ -308,7 +308,7 @@ function InvoiceGenerationForm() {
   const [depositReceivedDate, setDepositReceivedDate] = useState("");
   const [financeAmount, setFinanceAmount] = useState(0);
   const [financeProvider, setFinanceProvider] = useState<string>(
-    FINANCE_PROVIDERS[0],
+    MOTOR_FINANCE_PROVIDERS[0],
   );
   const [balanceDueBy, setBalanceDueBy] = useState("");
 
@@ -390,7 +390,7 @@ function InvoiceGenerationForm() {
         if (inv.depositMethod) setDepositMethod(inv.depositMethod);
         setDepositReceivedDate(inv.depositReceivedDate ?? "");
         setFinanceAmount(inv.financeAmount);
-        setFinanceProvider(inv.financeProvider ?? FINANCE_PROVIDERS[0]);
+        setFinanceProvider(inv.financeProvider ?? MOTOR_FINANCE_PROVIDERS[0]);
         setBalanceDueBy(inv.balanceDueBy ?? "");
         // Merged over the defaults so an invoice saved before a declaration
         // field existed (e.g. `type`) still opens with a complete form.
@@ -1052,7 +1052,7 @@ function InvoiceGenerationForm() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {FINANCE_PROVIDERS.map((p) => (
+                  {MOTOR_FINANCE_PROVIDERS.map((p) => (
                     <SelectItem key={p} value={p}>
                       {p}
                     </SelectItem>

@@ -84,6 +84,14 @@ export const BODY_TYPES: BodyType[] = [
 
 export const FUEL_TYPES: FuelType[] = ["petrol", "diesel", "hybrid", "electric"];
 
+/**
+ * Stocking (floorplan) funders — how the DEALERSHIP financed buying the car.
+ * The fees are the economics of that: a charge to put a car on finance, a
+ * daily holding cost, a charge to take it off.
+ *
+ * Not the customer's motor finance on a sale — that is
+ * `MOTOR_FINANCE_PROVIDERS` in `@/lib/invoice-templates` (GEN-109).
+ */
 export const FINANCE_PROVIDERS: {
   value: FinanceProvider;
   label: string;
