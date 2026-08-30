@@ -349,11 +349,10 @@ export default function ListingsPage() {
       },
       user.id,
     );
-    const fresh = await listingService.getAll(company.id);
-    setListings(fresh);
     toast.success("Listing created (draft)");
     setOpen(false);
     form.reset();
+    setListings(await listingService.getAll(company.id));
   }
 
   async function handlePublish(id: string) {
@@ -576,7 +575,12 @@ export default function ListingsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Save Draft</Button>
+                <Button
+                  type="submit"
+                  disabled={form.formState.isSubmitting}
+                >
+                  {form.formState.isSubmitting ? "Saving…" : "Save Draft"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>

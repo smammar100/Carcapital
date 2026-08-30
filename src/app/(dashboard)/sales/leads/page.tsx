@@ -374,10 +374,10 @@ export default function LeadsPage() {
       },
       user.id,
     );
-    setLeads(await leadService.getAll(company.id));
     toast.success("Lead created");
     setCreateOpen(false);
     create.reset();
+    setLeads(await leadService.getAll(company.id));
   }
 
   function openStatusDialog() {
@@ -655,7 +655,12 @@ export default function LeadsPage() {
                 >
                   Cancel
                 </Button>
-                <Button type="submit">Create</Button>
+                <Button
+                  type="submit"
+                  disabled={create.formState.isSubmitting}
+                >
+                  {create.formState.isSubmitting ? "Creating…" : "Create"}
+                </Button>
               </DialogFooter>
             </form>
           </DialogContent>
