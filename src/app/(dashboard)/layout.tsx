@@ -19,7 +19,7 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, error, revalidate } = useAuth();
+  const { user, loading, error, revalidate } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
   // The first-run screen owns the whole window: no rail beside it, because
@@ -31,6 +31,26 @@ export default function DashboardLayout({
     void revalidate();
   }, [pathname, revalidate]);
 
+  // A dead session used to render the whole dashboard shell with nobody in it:
+  // the rail collapsed to Dashboard alone and every gated page reported "Access
+  // restricted", which reads as "my permissions were taken away" rather than
+  // "you are signed out". Middleware only redirects on a navigation, so a token
+  // that expires while the tab sits open never triggers it — the user just
+  // watches the app quietly stop working.
+  //
+  // `loading` matters: during boot `user` is legitimately null, and redirecting
+  // then would bounce everyone to the login page on every refresh.
+  const signedOut = !loading && !user;
+  useEffect(() => {
+    if (!signedOut) return;
+    // Keep where they were so signing back in returns them to it.
+    const next =
+      pathname && pathname !== "/dashboard"
+        ? `?next=${encodeURIComponent(pathname)}`
+        : "";
+    router.replace(`/login${next}`);
+  }, [signedOut, pathname, router]);
+
   // Force users with a temp password through /set-password before any dashboard
   // route. Middleware can't see passwordResetRequired (public.users column, not
   // in the session JWT), so this stays client-side.
@@ -40,6 +60,11 @@ export default function DashboardLayout({
       router.replace("/set-password");
     }
   }, [mustResetPassword, router]);
+
+  // Guard the render, not just the effect: without this the shell paints once
+  // with no user before the navigation lands, which is the "Access restricted"
+  // flash itself.
+  if (signedOut) return null;
 
   if (error) {
     return (

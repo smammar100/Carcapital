@@ -93,7 +93,11 @@ export const GUIDED_STEPS: GuidedStep[] = [
       </>
     ),
     selector: "#tour-add-vehicle",
-    side: "bottom",
+    // Add Vehicle sits hard against the right edge of the header, and "bottom"
+    // centres the card on its anchor, so the right half hung off the viewport
+    // and the copy was cut in half (B-1). "bottom-right" pins the card's right
+    // edge to the button's and lets it grow leftwards into the page instead.
+    side: "bottom-right",
     pointerPadding: 6,
     pointerRadius: 8,
   },
@@ -244,7 +248,9 @@ export const GUIDED_STEPS: GuidedStep[] = [
       </>
     ),
     selector: "#tour-search",
-    side: "bottom",
+    // Same reasoning as the Add Vehicle step: the search box lives in the
+    // right-hand side of the header, so the card has to open leftwards.
+    side: "bottom-right",
     pointerPadding: 6,
     pointerRadius: 8,
   },
