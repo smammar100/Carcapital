@@ -34,6 +34,7 @@ import { DealDetailSheet } from "@/components/sales/deal-detail-sheet";
 import { cn, formatCurrency, formatRelativeTime, getInitials } from "@/lib/utils";
 import { vehicleDetailHref } from "@/lib/vehicle-nav";
 import { toast } from "@/lib/toast";
+import { DragHandle } from "@/components/shared/drag-handle";
 
 // Per-stage accent (column top-bar + dot). The shipped stages keep the colours
 // they've always had; user-added stages cycle through the rest by position, so
@@ -293,13 +294,17 @@ export default function SalesPipelinePage() {
                       return (
                         <Card
                           key={d.id}
-                          className="cursor-grab overflow-hidden border bg-card p-0 transition-shadow hover:shadow-md active:cursor-grabbing"
+                          className="group/card relative cursor-grab overflow-hidden border bg-card p-0 transition-shadow hover:shadow-md active:cursor-grabbing"
                           draggable
                           onDragStart={(e) => {
                             e.dataTransfer.setData("text/deal-id", d.id);
                             e.dataTransfer.effectAllowed = "move";
                           }}
                         >
+                          {/* The grip sits above the image rather than in
+                              it: the header is a photo under a dark gradient,
+                              and a muted glyph on that is invisible. */}
+                          <DragHandle className="absolute left-1.5 top-1.5 z-10 rounded bg-background/80 p-0.5 text-muted-foreground/70 backdrop-blur-sm" />
                           {/* Premium image header — plate + price over a
                               gradient, with the movable stage as a glassy chip */}
                           <div className="relative">

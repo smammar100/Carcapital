@@ -52,6 +52,7 @@ import {
   getInitials,
 } from "@/lib/utils";
 import { toast } from "@/lib/toast";
+import { DragHandle } from "@/components/shared/drag-handle";
 
 const STATUS_META: Record<
   MaintenanceStatus,
@@ -303,12 +304,19 @@ export default function MaintenancePage() {
                             setOverLane(null);
                           }}
                           className={cn(
-                            "flex shrink-0 cursor-grab flex-col overflow-hidden rounded-lg border bg-card shadow-xs transition-shadow hover:shadow-md active:cursor-grabbing",
+                            "group/card relative flex shrink-0 cursor-grab flex-col overflow-hidden rounded-lg border bg-card shadow-xs transition-shadow hover:shadow-md active:cursor-grabbing",
                             urgency === "overdue" &&
                               "border-rose-200 dark:border-rose-500/30",
                             dragId === j.id && "opacity-50",
                           )}
                         >
+                          {/* On the card's left edge rather than in the
+                              header row. These columns are narrow enough that
+                              the registration already truncates, and an inline
+                              grip took another 20px off it. The rows all carry
+                              px-3, so a grip in that padding costs the layout
+                              nothing. */}
+                          <DragHandle className="absolute left-0 top-1/2 z-10 -translate-y-1/2 [&_svg]:size-3" />
                           {/* Accent header — reg + job # */}
                           <div className="flex items-center justify-between gap-2 border-b bg-muted/50 px-3 py-2">
                             <div className="flex min-w-0 items-baseline gap-2">

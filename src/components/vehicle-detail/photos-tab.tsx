@@ -16,6 +16,7 @@ import { toast } from "@/lib/toast";
 import type { Vehicle } from "@/lib/types";
 import { useAuth } from "@/contexts/auth-context";
 import { cn } from "@/lib/utils";
+import { DragHandle } from "@/components/shared/drag-handle";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -434,12 +435,16 @@ export function PhotosTab({ vehicle, onVehicleRefetch }: PhotosTabProps) {
                       // at 10%, not the tinted --border token. Drawn as an
                       // inset outline rather than a ring so it can't collide
                       // with the ring-2 ring-primary selection state below.
-                      "group relative aspect-[4/3] cursor-grab overflow-hidden rounded-lg bg-muted outline-1 -outline-offset-1 outline-black/10 active:cursor-grabbing dark:outline-white/10",
+                      "group/card group relative aspect-[4/3] cursor-grab overflow-hidden rounded-lg bg-muted outline-1 -outline-offset-1 outline-black/10 active:cursor-grabbing dark:outline-white/10",
                       isSel && "ring-2 ring-primary ring-offset-1",
                       dragId === p.id && "opacity-40",
                       overId === p.id && "ring-2 ring-primary",
                     )}
                   >
+                    {/* Bottom-left is the only free corner: the Cover badge
+                        and select control own the top-left, the hover actions
+                        the top-right. */}
+                    <DragHandle className="absolute bottom-1.5 left-1.5 z-10 rounded bg-background/80 p-0.5 text-muted-foreground/70 backdrop-blur-sm" />
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={p.url}
