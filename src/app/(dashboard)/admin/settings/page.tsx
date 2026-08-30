@@ -96,7 +96,7 @@ export default function SettingsPage() {
       );
       // Refresh the auth-context company so the sidebar mark + invoice logo
       // pick up the change without a full reload.
-      await revalidate();
+      await revalidate({ force: true });
       toast.success("Company settings saved");
     } catch (err) {
       console.error("[settings] save failed:", err);

@@ -82,7 +82,7 @@ function TourController() {
     wasVisible.current = false;
     void onboardingService
       .markComplete(userId)
-      .then(() => revalidate())
+      .then(() => revalidate({ force: true }))
       // A failed write is not worth interrupting the user for: the cost is
       // being offered the tour again next time, not lost work.
       .catch(() => {});

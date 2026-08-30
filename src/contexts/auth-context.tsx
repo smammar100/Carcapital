@@ -24,11 +24,17 @@ interface AuthContextValue {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   /**
-   * Force a session check + re-hydrate. Called on tab focus/visibility so
-   * a backgrounded tab whose JWT silently expired recovers transparently
-   * instead of every request 401-ing into a blank page.
+   * Re-check the session. Called on tab focus/visibility so a backgrounded
+   * tab whose JWT silently expired recovers transparently instead of every
+   * request 401-ing into a blank page.
+   *
+   * By default this only re-reads the profile when the signed-in user has
+   * actually changed, which keeps the focus/visibility path cheap. Pass
+   * `{ force: true }` after writing to the user's own row: the id is the same,
+   * so the default path would skip the re-read and leave stale values in
+   * memory (GEN-126).
    */
-  revalidate: () => Promise<void>;
+  revalidate: (options?: { force?: boolean }) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -169,7 +175,7 @@ export function AuthProvider({
    * is exactly the case for a tab left idle past the ~1h JWT lifetime.
    * Single-flighted; cheap no-op when the session is unchanged.
    */
-  const revalidate = useCallback(async () => {
+  const revalidate = useCallback(async (options?: { force?: boolean }) => {
     if (revalidatingRef.current) return;
     revalidatingRef.current = true;
     try {
@@ -178,7 +184,11 @@ export function AuthProvider({
         data: { session },
       } = await supabase.auth.getSession();
       const nextId = session?.user?.id ?? null;
-      if (nextId !== userIdRef.current) {
+      // The id is unchanged when a user edits their own profile, so a caller
+      // that just wrote to `users` has to say so -- otherwise the re-read is
+      // skipped and the context keeps serving the values from before the
+      // write (GEN-126).
+      if (options?.force || nextId !== userIdRef.current) {
         await hydrate(nextId);
       }
     } catch (e) {
