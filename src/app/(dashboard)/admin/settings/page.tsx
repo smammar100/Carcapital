@@ -11,6 +11,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { PipelineStageSettings } from "@/components/admin/pipeline-stage-settings";
 import { InspectionChecklistSettings } from "@/components/admin/inspection-checklist-settings";
+import { LeadChannelSettings } from "@/components/admin/lead-channel-settings";
 import { FINANCE_PROVIDERS, VAT_RATE } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -138,6 +139,7 @@ export default function SettingsPage() {
           <TabsTrigger value="defaults">Defaults</TabsTrigger>
           <TabsTrigger value="inspection">Inspection Checklist</TabsTrigger>
           <TabsTrigger value="pipeline">Sales Pipeline</TabsTrigger>
+          <TabsTrigger value="channels">Lead Channels</TabsTrigger>
           <TabsTrigger value="backup">Backup</TabsTrigger>
         </TabsList>
         <TabsContent value="company" className="mt-3">
@@ -263,6 +265,9 @@ export default function SettingsPage() {
         </TabsContent>
         <TabsContent value="pipeline" className="mt-3">
           <PipelineStageSettings />
+        </TabsContent>
+        <TabsContent value="channels" className="mt-3">
+          <LeadChannelSettings />
         </TabsContent>
       </Tabs>
       )}
