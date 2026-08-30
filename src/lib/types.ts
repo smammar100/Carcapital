@@ -581,6 +581,8 @@ export interface MaintenanceJob {
   estimatedDurationHours: number | null;
   startDate: ISODate | null;
   dueDate: ISODate | null;
+  /** Time of day the job is booked for. NULL = no time given, shows all-day. */
+  scheduledTime: string | null;
   completedDate: ISODate | null;
   status: MaintenanceStatus;
   notes: string | null;

@@ -23,6 +23,7 @@ const SELECT = `
   estimatedDurationHours:estimated_duration_hours,
   startDate:start_date,
   dueDate:due_date,
+  scheduledTime:scheduled_time,
   completedDate:completed_date,
   status,
   notes,
@@ -39,6 +40,8 @@ interface CreateInput {
   estimatedDurationHours: number | null;
   startDate: string | null;
   dueDate: string | null;
+  /** "HH:mm". Null leaves the job all-day, as everything before GEN-110 was. */
+  scheduledTime?: string | null;
   notes: string | null;
 }
 
@@ -95,7 +98,12 @@ export const maintenanceService = {
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<MaintenanceJob> {
-    const supabase = createClient();
+    // scheduled_time lands in migration 0048; the generated Supabase types are
+    // regenerated separately (`supabase gen types`), so until that runs the
+    // column is absent from the insert type. Same cast the lead-channel service
+    // uses for the same reason. Remove after the regen.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = createClient() as any;
     const { data, error } = await supabase
       .from("maintenance_jobs")
       .insert({
@@ -108,6 +116,7 @@ export const maintenanceService = {
         estimated_duration_hours: input.estimatedDurationHours,
         start_date: input.startDate,
         due_date: input.dueDate,
+        scheduled_time: input.scheduledTime ?? null,
         status: "pending",
         notes: input.notes,
       })

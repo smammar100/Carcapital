@@ -348,6 +348,7 @@ function fieldsForEvent(ev: CalEvent): FormFields {
         vehicleId: ev.raw.vehicleId,
         description: ev.raw.description,
         date: ev.raw.dueDate ?? ev.date,
+        time: ev.raw.scheduledTime ?? EMPTY_FIELDS.time,
         notes: ev.raw.notes ?? "",
       };
   }
@@ -511,6 +512,9 @@ export function SharedCalendar({
     }
     for (const j of maint) {
       if (!j.dueDate) continue;
+      // Jobs booked before GEN-110 have no time and still belong in the
+      // all-day row -- inventing one would show a slot nobody booked.
+      const start = j.scheduledTime ? hmToDec(j.scheduledTime) : 0;
       out.push({
         key: `maint-${j.id}`,
         kind: "maint",
@@ -518,9 +522,9 @@ export function SharedCalendar({
         title: j.description,
         subtitle: vehicleLine(j.vehicleId),
         date: j.dueDate,
-        start: 0,
-        end: 0,
-        allDay: true,
+        start,
+        end: j.scheduledTime ? start + MARKER_DURATION : 0,
+        allDay: !j.scheduledTime,
         raw: j,
       });
     }
@@ -649,6 +653,7 @@ export function SharedCalendar({
               estimatedDurationHours: null,
               startDate: fields.date,
               dueDate: fields.date,
+              scheduledTime: fields.time,
               notes: fields.notes.trim() || null,
             },
             user.id,
@@ -1767,7 +1772,10 @@ function EventForm({
               suppressHydrationWarning
             />
             {vehicleSelect}
-            {dateField("Due date")}
+            <div className="grid grid-cols-2 gap-3">
+              {dateField("Due date")}
+              {timeSelect}
+            </div>
             <nord-textarea
               expand
               label="Notes"
