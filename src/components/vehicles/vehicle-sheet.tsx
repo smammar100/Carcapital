@@ -123,6 +123,18 @@ const MAX_COL_W = 640;
 const colWidthsKey = (csvName: string): string =>
   `cc.vehicle-sheet.col-widths.${csvName}`;
 
+/**
+ * localStorage key for the columns a user has chosen to hide on a sheet.
+ *
+ * Stored as the HIDDEN keys rather than the visible ones on purpose: columns
+ * get added to these sheets over time, and a saved "visible" list would freeze
+ * a user's grid at the columns that existed the day they last touched it, with
+ * every new column silently absent. Saving what they turned off means anything
+ * added later shows up (GEN-116).
+ */
+const colHiddenKey = (csvName: string): string =>
+  `cc.vehicle-sheet.col-hidden.${csvName}`;
+
 /* ---- Filtering (Master Sheet "Variation C" filter-chip bar) -------------- */
 
 export type FilterKind = "text" | "num";
@@ -475,6 +487,34 @@ export function VehicleSheet({
   );
   /** True once the user has curated columns themselves (GEN-93). */
   const [userPickedColumns, setUserPickedColumns] = useState(false);
+
+  // Restore the user's hidden columns after mount rather than in the state
+  // initializer: localStorage does not exist on the server, and seeding from it
+  // during render makes the first client paint disagree with the SSR markup.
+  // Same post-mount shape the sidebar uses for its collapsed groups (GEN-29).
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(colHiddenKey(csvName));
+      if (!raw) return;
+      const hidden = new Set(JSON.parse(raw) as string[]);
+      if (hidden.size === 0) return;
+      // Deliberate post-mount setState, same as the sidebar's collapsed groups:
+      // reading localStorage in the initializer would diverge from the server
+      // render and cause a hydration mismatch. Runs once per sheet.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setVisible(
+        new Set(allCols.map((c) => colKey(c)).filter((k) => !hidden.has(k))),
+      );
+      // A restored choice is still the user's choice, so it outranks the
+      // responsive hiding exactly as a fresh click would.
+      setUserPickedColumns(true);
+    } catch {
+      // Unreadable or corrupt entry: fall back to showing everything.
+    }
+    // Keyed by the sheet, not the column list -- allCols is a new array each
+    // render and would re-run this on every one, stamping over live edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [csvName]);
   const isNarrow = useIsNarrow();
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [page, setPage] = useState(1);
@@ -924,6 +964,15 @@ export function VehicleSheet({
       const next = new Set(prev);
       if (next.has(k)) next.delete(k);
       else next.add(k);
+      try {
+        const hidden = allCols
+          .map((c) => colKey(c))
+          .filter((key) => !next.has(key));
+        localStorage.setItem(colHiddenKey(csvName), JSON.stringify(hidden));
+      } catch {
+        // Storage full or blocked — the in-memory choice still applies for
+        // this session, which is the behaviour before it persisted at all.
+      }
       return next;
     });
   }
