@@ -28,7 +28,14 @@ export interface PrepCar {
   todos: TodoItem[];
   /** Items still blocking the car (pending + in progress). */
   open: number;
+  /** Raised but not started. */
+  pending: number;
+  /** Started but not finished. */
+  inProgress: number;
+  /** Abandoned items. Counted so the roll-up's parts still sum to a whole. */
+  cancelled: number;
   done: number;
+  /** Every item ever raised, cancelled ones included. */
   total: number;
   /** Sum of every item's cost — what prep has cost so far. */
   cost: number;
@@ -105,14 +112,23 @@ export const prepService = {
       return vehicles
         .map((vehicle) => {
           const todos = byVehicle.get(vehicle.id) ?? [];
-          const open = todos.filter(
-            (t) => t.status === "pending" || t.status === "in_progress",
+          // "Outstanding" on its own doesn't say whether anyone has picked
+          // the work up yet, which is the thing you want off a board at a
+          // glance (GEN-112). Count the two states separately; `open` stays as
+          // their sum so existing callers are unaffected.
+          const pending = todos.filter((t) => t.status === "pending").length;
+          const inProgress = todos.filter(
+            (t) => t.status === "in_progress",
           ).length;
+          const open = pending + inProgress;
           return {
             vehicle,
             status: deriveStatus(vehicle, open),
             todos,
             open,
+            pending,
+            inProgress,
+            cancelled: todos.filter((t) => t.status === "cancelled").length,
             done: todos.filter((t) => t.status === "completed").length,
             total: todos.length,
             cost: todos.reduce((sum, t) => sum + (t.cost ?? 0), 0),

@@ -283,7 +283,20 @@ function PrepCard({
   onExport: () => void;
 }) {
   const pathname = usePathname();
-  const { vehicle, done, total, open, cost, daysWaiting, status } = car;
+  const {
+    vehicle,
+    done,
+    total,
+    pending,
+    inProgress,
+    cancelled,
+    cost,
+    daysWaiting,
+    status,
+  } = car;
+  // The roll-up has to add up, so it counts live work only -- `total` includes
+  // cancelled items, which aren't jobs anyone still has to do (GEN-112).
+  const liveTotal = total - cancelled;
   const assignee = users.find((u) => u.id === vehicle.prepAssignedTo) ?? null;
   const percent = total === 0 ? 100 : Math.round((done / total) * 100);
 
@@ -325,9 +338,11 @@ function PrepCard({
         <span className="flex flex-col gap-1">
           <span className="flex items-center justify-between text-xs text-muted-foreground">
             <span>
-              {total === 0
-                ? "No items raised"
-                : `${done} of ${total} done · ${open} outstanding`}
+              {liveTotal === 0
+                ? total === 0
+                  ? "No items raised"
+                  : "All items cancelled"
+                : `${liveTotal} ${liveTotal === 1 ? "job" : "jobs"}: ${pending} pending, ${inProgress} in progress, ${done} completed`}
             </span>
             {cost > 0 ? (
               <span className="tabular-nums">{formatCurrency(cost)}</span>
