@@ -322,15 +322,25 @@ export default function MaintenancePage() {
                             <div className="flex min-w-0 items-baseline gap-2">
                               {v ? (
                                 <>
+                                  {/* The plate is what identifies the car,
+                                      so it is the thing that must never be cut.
+                                      It used to `truncate` while the job id sat
+                                      `shrink-0` beside it, which is backwards:
+                                      the id took a fixed 50px of a 121px row and
+                                      the plate absorbed the whole shortfall,
+                                      rendering "L400 JCM" as "L400…" (GEN-115).
+                                      Swap the priority -- the plate keeps its
+                                      width, the id yields what is left. */}
                                   <Link
                                     href={vehicleDetailHref(v.id, pathname)}
-                                    className="truncate font-mono text-base font-bold tracking-tight hover:underline"
+                                    className="shrink-0 font-mono text-base font-bold tracking-tight hover:underline"
                                   >
                                     {formatRegPlate(v.registration)}
                                   </Link>
                                   <Link
                                     href={`/maintenance/jobs/${j.id}`}
-                                    className="shrink-0 text-xs text-muted-foreground hover:text-foreground hover:underline"
+                                    title={`Job #${shortId(j.id)}`}
+                                    className="min-w-0 truncate text-xs text-muted-foreground hover:text-foreground hover:underline"
                                   >
                                     #{shortId(j.id)}
                                   </Link>
