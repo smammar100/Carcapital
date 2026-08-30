@@ -98,12 +98,7 @@ export const maintenanceService = {
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<MaintenanceJob> {
-    // scheduled_time lands in migration 0048; the generated Supabase types are
-    // regenerated separately (`supabase gen types`), so until that runs the
-    // column is absent from the insert type. Same cast the lead-channel service
-    // uses for the same reason. Remove after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("maintenance_jobs")
       .insert({

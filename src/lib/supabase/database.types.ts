@@ -82,6 +82,7 @@ export type Database = {
           customer_phone: string
           date: string
           id: string
+          is_demo: boolean
           lead_id: string | null
           notifications_sent: Json
           outcome: string
@@ -100,6 +101,7 @@ export type Database = {
           customer_phone: string
           date: string
           id?: string
+          is_demo?: boolean
           lead_id?: string | null
           notifications_sent?: Json
           outcome: string
@@ -118,6 +120,7 @@ export type Database = {
           customer_phone?: string
           date?: string
           id?: string
+          is_demo?: boolean
           lead_id?: string | null
           notifications_sent?: Json
           outcome?: string
@@ -158,11 +161,51 @@ export type Database = {
           },
         ]
       }
+      at_advertisers: {
+        Row: {
+          advertiser_id: string
+          at_updated_at: string | null
+          created_at: string
+          name: string | null
+          postcode: string | null
+          products: Json
+          raw: Json | null
+          status: string | null
+          synced_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          advertiser_id: string
+          at_updated_at?: string | null
+          created_at?: string
+          name?: string | null
+          postcode?: string | null
+          products?: Json
+          raw?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          advertiser_id?: string
+          at_updated_at?: string | null
+          created_at?: string
+          name?: string | null
+          postcode?: string | null
+          products?: Json
+          raw?: Json | null
+          status?: string | null
+          synced_at?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           address: string
           created_at: string
           id: string
+          logo_mark_url: string | null
           logo_url: string | null
           name: string
           next_cc_inv_seq: number
@@ -170,14 +213,18 @@ export type Database = {
           next_refund_invoice_seq: number
           next_sale_invoice_seq: number
           next_stock_seq: number
+          slug: string
           stock_id_prefix: string
           updated_at: string
           vat_number: string | null
+          working_hours_end: string
+          working_hours_start: string
         }
         Insert: {
           address: string
           created_at?: string
           id?: string
+          logo_mark_url?: string | null
           logo_url?: string | null
           name: string
           next_cc_inv_seq?: number
@@ -185,14 +232,18 @@ export type Database = {
           next_refund_invoice_seq?: number
           next_sale_invoice_seq?: number
           next_stock_seq?: number
+          slug: string
           stock_id_prefix: string
           updated_at?: string
           vat_number?: string | null
+          working_hours_end?: string
+          working_hours_start?: string
         }
         Update: {
           address?: string
           created_at?: string
           id?: string
+          logo_mark_url?: string | null
           logo_url?: string | null
           name?: string
           next_cc_inv_seq?: number
@@ -200,11 +251,77 @@ export type Database = {
           next_refund_invoice_seq?: number
           next_sale_invoice_seq?: number
           next_stock_seq?: number
+          slug?: string
           stock_id_prefix?: string
           updated_at?: string
           vat_number?: string | null
+          working_hours_end?: string
+          working_hours_start?: string
         }
         Relationships: []
+      }
+      custom_field_definitions: {
+        Row: {
+          archived_at: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          display_order: number
+          field_key: string
+          field_type: string
+          id: string
+          label: string
+          options: Json | null
+          required: boolean
+          show_in_arrival_form: boolean
+          show_in_master_sheet: boolean
+        }
+        Insert: {
+          archived_at?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          field_key: string
+          field_type: string
+          id?: string
+          label: string
+          options?: Json | null
+          required?: boolean
+          show_in_arrival_form?: boolean
+          show_in_master_sheet?: boolean
+        }
+        Update: {
+          archived_at?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          field_key?: string
+          field_type?: string
+          id?: string
+          label?: string
+          options?: Json | null
+          required?: boolean
+          show_in_arrival_form?: boolean
+          show_in_master_sheet?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_field_definitions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_field_definitions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       customers: {
         Row: {
@@ -271,89 +388,93 @@ export type Database = {
           },
         ]
       }
+      deal_notes: {
+        Row: {
+          content: string
+          created_at: string
+          deal_id: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          deal_id: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          deal_id?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deal_notes_deal_id_fkey"
+            columns: ["deal_id"]
+            isOneToOne: false
+            referencedRelation: "sales_deals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deal_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dealer_partners: {
         Row: {
           active: boolean
+          company_address: string | null
           company_id: string
           company_name: string | null
           created_at: string
+          email: string | null
           id: string
           name: string
+          notes: string | null
           phone: string | null
           updated_at: string
+          vat_number: string | null
         }
         Insert: {
           active?: boolean
+          company_address?: string | null
           company_id: string
           company_name?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name: string
+          notes?: string | null
           phone?: string | null
           updated_at?: string
+          vat_number?: string | null
         }
         Update: {
           active?: boolean
+          company_address?: string | null
           company_id?: string
           company_name?: string | null
           created_at?: string
+          email?: string | null
           id?: string
           name?: string
+          notes?: string | null
           phone?: string | null
           updated_at?: string
+          vat_number?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "dealer_partners_company_id_fkey"
             columns: ["company_id"]
             isOneToOne: false
-            referencedRelation: "companies"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      team_join_links: {
-        Row: {
-          company_id: string
-          created_at: string
-          created_by: string | null
-          default_role: string
-          expires_at: string
-          id: string
-          max_uses: number | null
-          revoked_at: string | null
-          token: string
-          used_count: number
-        }
-        Insert: {
-          company_id: string
-          created_at?: string
-          created_by?: string | null
-          default_role?: string
-          expires_at?: string
-          id?: string
-          max_uses?: number | null
-          revoked_at?: string | null
-          token: string
-          used_count?: number
-        }
-        Update: {
-          company_id?: string
-          created_at?: string
-          created_by?: string | null
-          default_role?: string
-          expires_at?: string
-          id?: string
-          max_uses?: number | null
-          revoked_at?: string | null
-          token?: string
-          used_count?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "team_join_links_company_id_fkey"
-            columns: ["company_id"]
-            isOneToOne: true
             referencedRelation: "companies"
             referencedColumns: ["id"]
           },
@@ -480,6 +601,138 @@ export type Database = {
             columns: ["enquiry_id"]
             isOneToOne: false
             referencedRelation: "enquiries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      external_invoices: {
+        Row: {
+          attachment_filename: string | null
+          attachment_mime_type: string | null
+          attachment_size_bytes: number | null
+          attachment_url: string | null
+          created_at: string
+          created_by: string
+          description: string
+          id: string
+          invoice_date: string
+          invoice_kind: string
+          invoice_number: string | null
+          notes: string | null
+          pre_vat_pence: number | null
+          previous_owner: string | null
+          service_history_ref: string | null
+          total_pence: number
+          updated_at: string
+          vat_pence: number
+          vehicle_id: string
+          vendor_id: string
+        }
+        Insert: {
+          attachment_filename?: string | null
+          attachment_mime_type?: string | null
+          attachment_size_bytes?: number | null
+          attachment_url?: string | null
+          created_at?: string
+          created_by: string
+          description: string
+          id?: string
+          invoice_date: string
+          invoice_kind: string
+          invoice_number?: string | null
+          notes?: string | null
+          pre_vat_pence?: number | null
+          previous_owner?: string | null
+          service_history_ref?: string | null
+          total_pence: number
+          updated_at?: string
+          vat_pence?: number
+          vehicle_id: string
+          vendor_id: string
+        }
+        Update: {
+          attachment_filename?: string | null
+          attachment_mime_type?: string | null
+          attachment_size_bytes?: number | null
+          attachment_url?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string
+          id?: string
+          invoice_date?: string
+          invoice_kind?: string
+          invoice_number?: string | null
+          notes?: string | null
+          pre_vat_pence?: number | null
+          previous_owner?: string | null
+          service_history_ref?: string | null
+          total_pence?: number
+          updated_at?: string
+          vat_pence?: number
+          vehicle_id?: string
+          vendor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "external_invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_invoices_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_invoices_vendor_id_fkey"
+            columns: ["vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_checklist_items: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          item: string
+          number: number
+          sort_order: number
+          status_options: string[]
+          updated_at: string
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          item: string
+          number: number
+          sort_order?: number
+          status_options: string[]
+          updated_at?: string
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          item?: string
+          number?: number
+          sort_order?: number
+          status_options?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_checklist_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
             referencedColumns: ["id"]
           },
         ]
@@ -716,10 +969,24 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "invoice_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "invoice_receipts_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_receipts_recorded_by_fkey"
+            columns: ["recorded_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -730,45 +997,45 @@ export type Database = {
           attachment_url: string | null
           balance_due: number
           balance_due_by: string | null
+          buyer_address: string | null
+          buyer_email: string | null
+          buyer_name: string | null
+          buyer_phone: string | null
           buyer_postcode: string | null
+          company_id: string
+          created_at: string
           created_by: string | null
           custom_note: string | null
           deposit_amount: number
           deposit_method: string | null
           deposit_received_date: string | null
           discount: number
+          discount_total: number
           dor_date: string | null
+          due_date: string | null
           finance_amount: number
           finance_provider: string | null
           grand_total_incl_addons: number
+          id: string
           include_id_requirement_note: boolean
           include_service_history_note: boolean
           include_unit_stocking_note: boolean
-          issued_at: string | null
-          non_warranty_disclaimer_accepted: boolean
-          paid_addons_total: number
-          pre_delivery_check: Json | null
-          present_mileage: number | null
-          sale_id: string | null
-          sales_price: number
-          warranty: Json | null
-          buyer_address: string | null
-          buyer_email: string | null
-          buyer_name: string | null
-          buyer_phone: string | null
-          company_id: string
-          created_at: string
-          discount_total: number
-          due_date: string | null
-          id: string
           invoice_date: string
           invoice_number: string
+          is_demo: boolean
+          issued_at: string | null
+          non_warranty_disclaimer_accepted: boolean
           notes: string | null
+          paid_addons_total: number
           party_email: string | null
           party_name: string
           party_phone: string | null
+          pre_delivery_check: Json | null
+          present_mileage: number | null
           related_invoice_id: string | null
           related_return_id: string | null
+          sale_id: string | null
+          sales_price: number
           status: string
           subtotal: number
           total: number
@@ -777,51 +1044,52 @@ export type Database = {
           vat_amount: number
           vat_scheme: string
           vehicle_id: string | null
+          warranty: Json | null
         }
         Insert: {
           addons_total?: number
           attachment_url?: string | null
           balance_due?: number
           balance_due_by?: string | null
+          buyer_address?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
           buyer_postcode?: string | null
+          company_id: string
+          created_at?: string
           created_by?: string | null
           custom_note?: string | null
           deposit_amount?: number
           deposit_method?: string | null
           deposit_received_date?: string | null
           discount?: number
+          discount_total?: number
           dor_date?: string | null
+          due_date?: string | null
           finance_amount?: number
           finance_provider?: string | null
           grand_total_incl_addons?: number
+          id?: string
           include_id_requirement_note?: boolean
           include_service_history_note?: boolean
           include_unit_stocking_note?: boolean
-          issued_at?: string | null
-          non_warranty_disclaimer_accepted?: boolean
-          paid_addons_total?: number
-          pre_delivery_check?: Json | null
-          present_mileage?: number | null
-          sale_id?: string | null
-          sales_price?: number
-          warranty?: Json | null
-          buyer_address?: string | null
-          buyer_email?: string | null
-          buyer_name?: string | null
-          buyer_phone?: string | null
-          company_id: string
-          created_at?: string
-          discount_total?: number
-          due_date?: string | null
-          id?: string
           invoice_date: string
           invoice_number: string
+          is_demo?: boolean
+          issued_at?: string | null
+          non_warranty_disclaimer_accepted?: boolean
           notes?: string | null
+          paid_addons_total?: number
           party_email?: string | null
           party_name: string
           party_phone?: string | null
+          pre_delivery_check?: Json | null
+          present_mileage?: number | null
           related_invoice_id?: string | null
           related_return_id?: string | null
+          sale_id?: string | null
+          sales_price?: number
           status: string
           subtotal?: number
           total?: number
@@ -830,51 +1098,52 @@ export type Database = {
           vat_amount?: number
           vat_scheme: string
           vehicle_id?: string | null
+          warranty?: Json | null
         }
         Update: {
           addons_total?: number
           attachment_url?: string | null
           balance_due?: number
           balance_due_by?: string | null
+          buyer_address?: string | null
+          buyer_email?: string | null
+          buyer_name?: string | null
+          buyer_phone?: string | null
           buyer_postcode?: string | null
+          company_id?: string
+          created_at?: string
           created_by?: string | null
           custom_note?: string | null
           deposit_amount?: number
           deposit_method?: string | null
           deposit_received_date?: string | null
           discount?: number
+          discount_total?: number
           dor_date?: string | null
+          due_date?: string | null
           finance_amount?: number
           finance_provider?: string | null
           grand_total_incl_addons?: number
+          id?: string
           include_id_requirement_note?: boolean
           include_service_history_note?: boolean
           include_unit_stocking_note?: boolean
-          issued_at?: string | null
-          non_warranty_disclaimer_accepted?: boolean
-          paid_addons_total?: number
-          pre_delivery_check?: Json | null
-          present_mileage?: number | null
-          sale_id?: string | null
-          sales_price?: number
-          warranty?: Json | null
-          buyer_address?: string | null
-          buyer_email?: string | null
-          buyer_name?: string | null
-          buyer_phone?: string | null
-          company_id?: string
-          created_at?: string
-          discount_total?: number
-          due_date?: string | null
-          id?: string
           invoice_date?: string
           invoice_number?: string
+          is_demo?: boolean
+          issued_at?: string | null
+          non_warranty_disclaimer_accepted?: boolean
           notes?: string | null
+          paid_addons_total?: number
           party_email?: string | null
           party_name?: string
           party_phone?: string | null
+          pre_delivery_check?: Json | null
+          present_mileage?: number | null
           related_invoice_id?: string | null
           related_return_id?: string | null
+          sale_id?: string | null
+          sales_price?: number
           status?: string
           subtotal?: number
           total?: number
@@ -883,6 +1152,7 @@ export type Database = {
           vat_amount?: number
           vat_scheme?: string
           vehicle_id?: string | null
+          warranty?: Json | null
         }
         Relationships: [
           {
@@ -915,6 +1185,53 @@ export type Database = {
           },
         ]
       }
+      lead_channels: {
+        Row: {
+          colour: string
+          company_id: string
+          created_at: string
+          enabled: boolean
+          id: string
+          is_system: boolean
+          label: string
+          slug: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          colour?: string
+          company_id: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_system?: boolean
+          label: string
+          slug: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          colour?: string
+          company_id?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          is_system?: boolean
+          label?: string
+          slug?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_channels_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leads: {
         Row: {
           appointment_id: string | null
@@ -925,6 +1242,8 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id: string
+          is_demo: boolean
+          lead_channel_id: string | null
           lost_reason: string | null
           notes: string | null
           source: string
@@ -942,6 +1261,8 @@ export type Database = {
           customer_name: string
           customer_phone: string
           id?: string
+          is_demo?: boolean
+          lead_channel_id?: string | null
           lost_reason?: string | null
           notes?: string | null
           source: string
@@ -959,6 +1280,8 @@ export type Database = {
           customer_name?: string
           customer_phone?: string
           id?: string
+          is_demo?: boolean
+          lead_channel_id?: string | null
           lost_reason?: string | null
           notes?: string | null
           source?: string
@@ -990,6 +1313,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "leads_lead_channel_id_fkey"
+            columns: ["lead_channel_id"]
+            isOneToOne: false
+            referencedRelation: "lead_channels"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "leads_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
@@ -1000,7 +1330,12 @@ export type Database = {
       }
       listings: {
         Row: {
+          advert_data: Json
+          at_advertising_status: string | null
+          at_last_error: string | null
+          at_last_synced_at: string | null
           at_price_indicator: string
+          at_stock_id: string | null
           channels: Json
           company_id: string
           created_at: string
@@ -1016,7 +1351,12 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          advert_data?: Json
+          at_advertising_status?: string | null
+          at_last_error?: string | null
+          at_last_synced_at?: string | null
           at_price_indicator: string
+          at_stock_id?: string | null
           channels?: Json
           company_id: string
           created_at?: string
@@ -1032,7 +1372,12 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          advert_data?: Json
+          at_advertising_status?: string | null
+          at_last_error?: string | null
+          at_last_synced_at?: string | null
           at_price_indicator?: string
+          at_stock_id?: string | null
           channels?: Json
           company_id?: string
           created_at?: string
@@ -1057,6 +1402,77 @@ export type Database = {
           },
           {
             foreignKeyName: "listings_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      location_movements: {
+        Row: {
+          actual_return_at: string | null
+          created_at: string
+          created_by: string
+          expected_return_at: string | null
+          external_vendor_id: string | null
+          from_location: string | null
+          id: string
+          notes: string | null
+          staff_user_id: string | null
+          to_location: string
+          vehicle_id: string
+        }
+        Insert: {
+          actual_return_at?: string | null
+          created_at?: string
+          created_by: string
+          expected_return_at?: string | null
+          external_vendor_id?: string | null
+          from_location?: string | null
+          id?: string
+          notes?: string | null
+          staff_user_id?: string | null
+          to_location: string
+          vehicle_id: string
+        }
+        Update: {
+          actual_return_at?: string | null
+          created_at?: string
+          created_by?: string
+          expected_return_at?: string | null
+          external_vendor_id?: string | null
+          from_location?: string | null
+          id?: string
+          notes?: string | null
+          staff_user_id?: string | null
+          to_location?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "location_movements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_movements_external_vendor_id_fkey"
+            columns: ["external_vendor_id"]
+            isOneToOne: false
+            referencedRelation: "vendors"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_movements_staff_user_id_fkey"
+            columns: ["staff_user_id"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_movements_vehicle_id_fkey"
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
@@ -1119,6 +1535,7 @@ export type Database = {
           estimated_duration_hours: number | null
           id: string
           notes: string | null
+          scheduled_time: string | null
           start_date: string | null
           status: string
           updated_at: string
@@ -1137,6 +1554,7 @@ export type Database = {
           estimated_duration_hours?: number | null
           id?: string
           notes?: string | null
+          scheduled_time?: string | null
           start_date?: string | null
           status: string
           updated_at?: string
@@ -1155,6 +1573,7 @@ export type Database = {
           estimated_duration_hours?: number | null
           id?: string
           notes?: string | null
+          scheduled_time?: string | null
           start_date?: string | null
           status?: string
           updated_at?: string
@@ -1290,6 +1709,21 @@ export type Database = {
           },
         ]
       }
+      role_capabilities: {
+        Row: {
+          capability: string
+          role: string
+        }
+        Insert: {
+          capability: string
+          role: string
+        }
+        Update: {
+          capability?: string
+          role?: string
+        }
+        Relationships: []
+      }
       sales_deals: {
         Row: {
           agreed_price: number | null
@@ -1378,6 +1812,111 @@ export type Database = {
             columns: ["vehicle_id"]
             isOneToOne: false
             referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_invitations: {
+        Row: {
+          company_id: string
+          created_at: string
+          default_roles: string[]
+          expires_at: string
+          id: string
+          invited_by: string | null
+          recipient_email: string
+          token: string
+          used_at: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          default_roles?: string[]
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          recipient_email: string
+          token?: string
+          used_at?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          default_roles?: string[]
+          expires_at?: string
+          id?: string
+          invited_by?: string | null
+          recipient_email?: string
+          token?: string
+          used_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_invitations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_invitations_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      team_join_links: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          default_role: string
+          expires_at: string
+          id: string
+          max_uses: number | null
+          revoked_at: string | null
+          token: string
+          used_count: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          default_role?: string
+          expires_at?: string
+          id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
+          token: string
+          used_count?: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          default_role?: string
+          expires_at?: string
+          id?: string
+          max_uses?: number | null
+          revoked_at?: string | null
+          token?: string
+          used_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "team_join_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "team_join_links_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
             referencedColumns: ["id"]
           },
         ]
@@ -1498,57 +2037,72 @@ export type Database = {
       users: {
         Row: {
           accepted_at: string | null
+          activated_at: string | null
           active: boolean
           avatar_url: string | null
           company_id: string
           created_at: string
+          creation_mode: string
           email: string
           id: string
           invited_at: string | null
+          is_demo: boolean
           is_super_user: boolean
           last_login_at: string | null
           name: string
           onboarding_completed_at: string | null
+          password_reset_required: boolean
           role: string
           roles: string[]
           two_step_enabled: boolean
           updated_at: string
+          username: string | null
         }
         Insert: {
           accepted_at?: string | null
+          activated_at?: string | null
           active?: boolean
           avatar_url?: string | null
           company_id: string
           created_at?: string
+          creation_mode?: string
           email: string
           id: string
           invited_at?: string | null
+          is_demo?: boolean
           is_super_user?: boolean
           last_login_at?: string | null
           name: string
           onboarding_completed_at?: string | null
+          password_reset_required?: boolean
           role: string
           roles?: string[]
           two_step_enabled?: boolean
           updated_at?: string
+          username?: string | null
         }
         Update: {
           accepted_at?: string | null
+          activated_at?: string | null
           active?: boolean
           avatar_url?: string | null
           company_id?: string
           created_at?: string
+          creation_mode?: string
           email?: string
           id?: string
           invited_at?: string | null
+          is_demo?: boolean
           is_super_user?: boolean
           last_login_at?: string | null
           name?: string
           onboarding_completed_at?: string | null
+          password_reset_required?: boolean
           role?: string
           roles?: string[]
           two_step_enabled?: boolean
           updated_at?: string
+          username?: string | null
         }
         Relationships: [
           {
@@ -1559,6 +2113,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vehicle_cost_backfill_20260826: {
+        Row: {
+          id: string | null
+          old_base_cost: number | null
+          old_gross_earning: number | null
+          old_landed_cost: number | null
+          old_total_buying_price: number | null
+          registration: string | null
+          snapshot_at: string | null
+        }
+        Insert: {
+          id?: string | null
+          old_base_cost?: number | null
+          old_gross_earning?: number | null
+          old_landed_cost?: number | null
+          old_total_buying_price?: number | null
+          registration?: string | null
+          snapshot_at?: string | null
+        }
+        Update: {
+          id?: string | null
+          old_base_cost?: number | null
+          old_gross_earning?: number | null
+          old_landed_cost?: number | null
+          old_total_buying_price?: number | null
+          registration?: string | null
+          snapshot_at?: string | null
+        }
+        Relationships: []
       }
       vehicle_photos: {
         Row: {
@@ -1623,6 +2207,7 @@ export type Database = {
           id: string
           original_invoice_id: string | null
           reason: string
+          reason_code: string | null
           refund_account_number: string | null
           refund_amount: number | null
           refund_bank_account_name: string | null
@@ -1644,6 +2229,7 @@ export type Database = {
           id?: string
           original_invoice_id?: string | null
           reason: string
+          reason_code?: string | null
           refund_account_number?: string | null
           refund_amount?: number | null
           refund_bank_account_name?: string | null
@@ -1665,6 +2251,7 @@ export type Database = {
           id?: string
           original_invoice_id?: string | null
           reason?: string
+          reason_code?: string | null
           refund_account_number?: string | null
           refund_amount?: number | null
           refund_bank_account_name?: string | null
@@ -1711,36 +2298,52 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          at_derivative_id: string | null
+          at_part_exchange_valuation: number | null
+          at_price_indicator: string | null
+          at_private_valuation: number | null
+          at_retail_valuation: number | null
+          at_trade_valuation: number | null
+          at_valuation_at: string | null
           auction_house: string | null
+          automated_vehicle: boolean | null
           base_cost: number
           body_type: string
           buyers_fee: number | null
           buying_price: number
+          co2_emissions: number | null
           collection_fee: number | null
           colour: string
           company_id: string
-          first_registered_date: string | null
-          vin: string | null
           created_at: string
+          current_location: string
+          custom_fields: Json
           daily_charge_rate: number | null
+          date_of_last_v5c_issued: string | null
           date_sold: string | null
           days_in_stock: number
           delivery_fee: number | null
+          derivative: string | null
           engine_size_cc: number | null
+          euro_status: string | null
           finance_provider: string
+          first_registered_date: string | null
           fuel_type: string
+          generation: string | null
           gross_earning: number | null
           hero_image_url: string | null
           id: string
           images_count: number
-          prep_assigned_to: string | null
           inspection_charge: number | null
           invoice_date: string | null
+          is_demo: boolean
           landed_cost: number
           late_storage_fee: number | null
+          legacy_data: Json | null
           listing_price: number | null
           loading_fee: number | null
           local_or_import: string
+          location_since: string
           lock_nut: boolean
           make: string
           managed_by: string | null
@@ -1748,10 +2351,14 @@ export type Database = {
           minimum_sale_price: number | null
           model: string
           mot_expiry: string | null
+          mot_status: string | null
           num_keys: number
           other_charges: number | null
+          out_for_test_drive: boolean
           owned_by: string | null
+          prep_assigned_to: string | null
           purchase_channel: string | null
+          purchase_source: string
           received_by: string
           received_date: string
           registration: string
@@ -1761,14 +2368,17 @@ export type Database = {
           selling_agent: string | null
           selling_price: number | null
           service_history: string
-          source_type: string
           status: string
           stock_id: string
           stocking_charges: number
           supplier_id: string | null
           tag_number: string | null
+          tax_due_date: string | null
+          tax_status: string | null
+          test_drive_expected_back_at: string | null
           total_buying_price: number
           transmission: string
+          trim: string | null
           unloading_fee: number | null
           updated_at: string
           v5_received: boolean
@@ -1777,40 +2387,58 @@ export type Database = {
           variant_name: string | null
           vat_on_buying_price: number
           vehicle_type: string
+          vin: string | null
           warranty_cost: number | null
+          wheelplan: string | null
           year: number
         }
         Insert: {
+          at_derivative_id?: string | null
+          at_part_exchange_valuation?: number | null
+          at_price_indicator?: string | null
+          at_private_valuation?: number | null
+          at_retail_valuation?: number | null
+          at_trade_valuation?: number | null
+          at_valuation_at?: string | null
           auction_house?: string | null
+          automated_vehicle?: boolean | null
           base_cost?: number
           body_type: string
           buyers_fee?: number | null
           buying_price?: number
+          co2_emissions?: number | null
           collection_fee?: number | null
           colour: string
           company_id: string
-          first_registered_date?: string | null
-          vin?: string | null
           created_at?: string
+          current_location?: string
+          custom_fields?: Json
           daily_charge_rate?: number | null
+          date_of_last_v5c_issued?: string | null
           date_sold?: string | null
           days_in_stock?: number
           delivery_fee?: number | null
+          derivative?: string | null
           engine_size_cc?: number | null
+          euro_status?: string | null
           finance_provider: string
+          first_registered_date?: string | null
           fuel_type: string
+          generation?: string | null
           gross_earning?: number | null
           hero_image_url?: string | null
           id?: string
           images_count?: number
-          prep_assigned_to?: string | null
           inspection_charge?: number | null
           invoice_date?: string | null
+          is_demo?: boolean
           landed_cost?: number
           late_storage_fee?: number | null
+          legacy_data?: Json | null
           listing_price?: number | null
           loading_fee?: number | null
           local_or_import: string
+          location_since?: string
           lock_nut?: boolean
           make: string
           managed_by?: string | null
@@ -1818,10 +2446,14 @@ export type Database = {
           minimum_sale_price?: number | null
           model: string
           mot_expiry?: string | null
+          mot_status?: string | null
           num_keys?: number
           other_charges?: number | null
+          out_for_test_drive?: boolean
           owned_by?: string | null
+          prep_assigned_to?: string | null
           purchase_channel?: string | null
+          purchase_source: string
           received_by: string
           received_date: string
           registration: string
@@ -1831,14 +2463,17 @@ export type Database = {
           selling_agent?: string | null
           selling_price?: number | null
           service_history: string
-          source_type: string
           status: string
           stock_id: string
           stocking_charges?: number
           supplier_id?: string | null
           tag_number?: string | null
+          tax_due_date?: string | null
+          tax_status?: string | null
+          test_drive_expected_back_at?: string | null
           total_buying_price?: number
           transmission: string
+          trim?: string | null
           unloading_fee?: number | null
           updated_at?: string
           v5_received?: boolean
@@ -1847,40 +2482,58 @@ export type Database = {
           variant_name?: string | null
           vat_on_buying_price?: number
           vehicle_type: string
+          vin?: string | null
           warranty_cost?: number | null
+          wheelplan?: string | null
           year: number
         }
         Update: {
+          at_derivative_id?: string | null
+          at_part_exchange_valuation?: number | null
+          at_price_indicator?: string | null
+          at_private_valuation?: number | null
+          at_retail_valuation?: number | null
+          at_trade_valuation?: number | null
+          at_valuation_at?: string | null
           auction_house?: string | null
+          automated_vehicle?: boolean | null
           base_cost?: number
           body_type?: string
           buyers_fee?: number | null
           buying_price?: number
+          co2_emissions?: number | null
           collection_fee?: number | null
           colour?: string
           company_id?: string
-          first_registered_date?: string | null
-          vin?: string | null
           created_at?: string
+          current_location?: string
+          custom_fields?: Json
           daily_charge_rate?: number | null
+          date_of_last_v5c_issued?: string | null
           date_sold?: string | null
           days_in_stock?: number
           delivery_fee?: number | null
+          derivative?: string | null
           engine_size_cc?: number | null
+          euro_status?: string | null
           finance_provider?: string
+          first_registered_date?: string | null
           fuel_type?: string
+          generation?: string | null
           gross_earning?: number | null
           hero_image_url?: string | null
           id?: string
           images_count?: number
-          prep_assigned_to?: string | null
           inspection_charge?: number | null
           invoice_date?: string | null
+          is_demo?: boolean
           landed_cost?: number
           late_storage_fee?: number | null
+          legacy_data?: Json | null
           listing_price?: number | null
           loading_fee?: number | null
           local_or_import?: string
+          location_since?: string
           lock_nut?: boolean
           make?: string
           managed_by?: string | null
@@ -1888,10 +2541,14 @@ export type Database = {
           minimum_sale_price?: number | null
           model?: string
           mot_expiry?: string | null
+          mot_status?: string | null
           num_keys?: number
           other_charges?: number | null
+          out_for_test_drive?: boolean
           owned_by?: string | null
+          prep_assigned_to?: string | null
           purchase_channel?: string | null
+          purchase_source?: string
           received_by?: string
           received_date?: string
           registration?: string
@@ -1901,14 +2558,17 @@ export type Database = {
           selling_agent?: string | null
           selling_price?: number | null
           service_history?: string
-          source_type?: string
           status?: string
           stock_id?: string
           stocking_charges?: number
           supplier_id?: string | null
           tag_number?: string | null
+          tax_due_date?: string | null
+          tax_status?: string | null
+          test_drive_expected_back_at?: string | null
           total_buying_price?: number
           transmission?: string
+          trim?: string | null
           unloading_fee?: number | null
           updated_at?: string
           v5_received?: boolean
@@ -1917,7 +2577,9 @@ export type Database = {
           variant_name?: string | null
           vat_on_buying_price?: number
           vehicle_type?: string
+          vin?: string | null
           warranty_cost?: number | null
+          wheelplan?: string | null
           year?: number
         }
         Relationships: [
@@ -1931,6 +2593,13 @@ export type Database = {
           {
             foreignKeyName: "vehicles_managed_by_fkey"
             columns: ["managed_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vehicles_prep_assigned_to_fkey"
+            columns: ["prep_assigned_to"]
             isOneToOne: false
             referencedRelation: "users"
             referencedColumns: ["id"]
@@ -1994,11 +2663,11 @@ export type Database = {
       }
       warranties: {
         Row: {
+          amount_paid: number | null
           certificate_generated: boolean
           company_id: string
           cost_to_customer: number
           cost_to_dealership: number
-          amount_paid: number | null
           coverage_details: string
           created_at: string
           customer_email: string | null
@@ -2020,11 +2689,11 @@ export type Database = {
           vehicle_id: string
         }
         Insert: {
+          amount_paid?: number | null
           certificate_generated?: boolean
           company_id: string
           cost_to_customer?: number
           cost_to_dealership?: number
-          amount_paid?: number | null
           coverage_details: string
           created_at?: string
           customer_email?: string | null
@@ -2046,11 +2715,11 @@ export type Database = {
           vehicle_id: string
         }
         Update: {
+          amount_paid?: number | null
           certificate_generated?: boolean
           company_id?: string
           cost_to_customer?: number
           cost_to_dealership?: number
-          amount_paid?: number | null
           coverage_details?: string
           created_at?: string
           customer_email?: string | null
@@ -2077,6 +2746,13 @@ export type Database = {
             columns: ["company_id"]
             isOneToOne: false
             referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranties_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
           {
@@ -2252,6 +2928,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      auth_has_any_capability: { Args: { caps: string[] }; Returns: boolean }
       current_company_id: { Args: never; Returns: string }
       next_cc_invoice_number: {
         Args: { p_company_id: string }
