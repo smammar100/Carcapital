@@ -17,7 +17,7 @@ import {
   type SidebarItem,
 } from "./sidebar-config";
 import { SIDEBAR_BADGES } from "./sidebar-badges";
-import { GUIDED_STEPS } from "@/lib/onboarding/tour-steps";
+import { useGuidedSteps } from "@/hooks/use-guided-steps";
 
 // localStorage key for the user's persisted expand/collapse choices (GEN-29).
 const COLLAPSED_STORAGE_KEY = "cc.sidebar.collapsed-groups";
@@ -47,6 +47,9 @@ export function AppSidebar() {
   // Safe to read unconditionally: the dashboard layout mounts the sidebar
   // inside OnbordaProvider, so the context is always present.
   const { isOnbordaVisible: tourRunning, currentStep } = useOnborda();
+  // Must be the SAME array the tour is stepping through, or currentStep
+  // resolves to a different step here than on screen (GEN-127).
+  const guidedSteps = useGuidedSteps();
 
   // The one group the tour needs open right now.
   //
@@ -59,13 +62,13 @@ export function AppSidebar() {
   // One group at a time keeps the rail short enough never to scroll.
   const tourGroupLabel: string | null = React.useMemo(() => {
     if (!tourRunning) return null;
-    const href = GUIDED_STEPS[currentStep]?.awaitRoute;
+    const href = guidedSteps[currentStep]?.awaitRoute;
     if (!href) return null;
     const group = SIDEBAR_GROUPS.find((g) =>
       g.items.some((item) => item.href === href),
     );
     return group?.label ?? null;
-  }, [tourRunning, currentStep]);
+  }, [tourRunning, currentStep, guidedSteps]);
   // Collapsed group labels. Default: every group collapsed (GEN-29) so the
   // sidebar loads compact; the group holding the active route is force-expanded
   // at render time. Deterministic on server + first client paint (no persisted

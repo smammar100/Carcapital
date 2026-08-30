@@ -4,8 +4,9 @@ import * as React from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Onborda, OnbordaProvider, useOnborda } from "onborda";
 import { useAuth } from "@/contexts/auth-context";
+import { useGuidedSteps } from "@/hooks/use-guided-steps";
 import { onboardingService } from "@/lib/services/onboarding-service";
-import { GUIDED_STEPS, TOURS, WELCOME_TOUR } from "@/lib/onboarding/tour-steps";
+import { WELCOME_TOUR, type GuidedStep } from "@/lib/onboarding/tour-steps";
 import { useIsWelcomeScreen } from "@/hooks/use-has-vehicles";
 import { TourCard } from "./tour-card";
 
@@ -16,7 +17,7 @@ import { TourCard } from "./tour-card";
  * Must live INSIDE OnbordaProvider — `useOnborda` reads that context — which
  * is why the provider and this controller are separate components.
  */
-function TourController() {
+function TourController({ steps }: { steps: GuidedStep[] }) {
   const { user, revalidate } = useAuth();
   const { startOnborda, isOnbordaVisible, currentStep, setCurrentStep } =
     useOnborda();
@@ -61,12 +62,12 @@ function TourController() {
   // Next is not offered as a substitute.
   React.useEffect(() => {
     if (!isOnbordaVisible) return;
-    const step = GUIDED_STEPS[currentStep];
+    const step = steps[currentStep];
     if (!step?.awaitRoute || pathname !== step.awaitRoute) return;
     // Let the destination paint before moving the spotlight, otherwise the
     // pointer measures the outgoing page and lands in the wrong place.
     setCurrentStep(currentStep + 1, 450);
-  }, [pathname, currentStep, isOnbordaVisible, setCurrentStep]);
+  }, [pathname, currentStep, isOnbordaVisible, setCurrentStep, steps]);
 
   // Persist completion by watching the tour close rather than by wiring a
   // callback into every exit path. Onborda ends in three ways — Finish, Skip
@@ -140,17 +141,23 @@ export function useReplayTour(): () => void {
  * running for its whole settle time and is what makes the tour feel heavy.
  */
 export function OnboardingTour({ children }: { children: React.ReactNode }) {
+  // The tour is one script but the rail is not: a member only sees the items
+  // their capabilities allow. Showing a step that points at a hidden nav item
+  // strands them, because middle steps have no Next button -- the click IS the
+  // step (GEN-127). Build the tour from what this person can actually reach.
+  const steps = useGuidedSteps();
+
   return (
     <OnbordaProvider>
       <Onborda
-        steps={TOURS}
+        steps={[{ tour: WELCOME_TOUR, steps }]}
         cardComponent={TourCard}
         interact
         shadowRgb="12,21,44"
         shadowOpacity="0.6"
         cardTransition={{ type: "tween", ease: "easeOut", duration: 0.2 }}
       >
-        <TourController />
+        <TourController steps={steps} />
         {children}
       </Onborda>
     </OnbordaProvider>

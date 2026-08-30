@@ -1,5 +1,6 @@
 import type { Step, Tour } from "onborda/dist/types";
-import { navTourId } from "@/components/layout/sidebar-config";
+import { navTourId, requiredCapsForPath } from "@/components/layout/sidebar-config";
+import type { Capability } from "@/lib/capabilities";
 
 /**
  * Onborda matches steps with `querySelector`, so the anchor needs its `#`.
@@ -250,3 +251,39 @@ export const GUIDED_STEPS: GuidedStep[] = [
 ];
 
 export const TOURS: Tour[] = [{ tour: WELCOME_TOUR, steps: GUIDED_STEPS }];
+
+/**
+ * The steps this particular user can actually complete.
+ *
+ * The tour is one fixed script, but the nav is not: a member only sees the
+ * items their capabilities allow. A step whose target is hidden is not a
+ * cosmetic problem — every middle step sets `awaitRoute`, which removes the
+ * Next button so the only way onward is clicking the highlighted item. Point
+ * that at something the user cannot see and the tour is a dead end they have
+ * to skip out of. A sales member was being told "Click All Vehicles to carry
+ * on" with no All Vehicles in their rail (GEN-127).
+ *
+ * So: drop the steps whose destination this user has no route to, and keep the
+ * order. Everyone still gets the arrive → inspect → prep → sell → aftercare
+ * spine, just the part of it that is theirs.
+ */
+export function guidedStepsFor(
+  capabilities: ReadonlySet<Capability>,
+  isSuperUser: boolean,
+): GuidedStep[] {
+  if (isSuperUser) return GUIDED_STEPS;
+
+  const canReach = (href: string): boolean => {
+    const required = requiredCapsForPath(href);
+    // null = no gate on that route (e.g. the dashboard).
+    return required === null || required.some((c) => capabilities.has(c));
+  };
+
+  return GUIDED_STEPS.filter((step) => {
+    // Add Vehicle is a button, not a nav row, so it has no route to check.
+    if (step.selector === "#tour-add-vehicle") {
+      return capabilities.has("inventory:add");
+    }
+    return step.awaitRoute ? canReach(step.awaitRoute) : true;
+  });
+}
