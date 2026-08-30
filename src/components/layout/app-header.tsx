@@ -80,13 +80,23 @@ export function AppHeader() {
   }
 
   return (
-    <nord-header slot="header">
+    <nord-header slot="header" className="relative">
       <h1 className="truncate text-base font-semibold">
         {titleFromPath(pathname)}
       </h1>
 
       <div slot="end" className="flex items-center gap-2">
-        <form id="tour-search" onSubmit={onSearchSubmit} className="hidden md:block">
+        {/* Centred on the whole bar from lg up: absolute, so the title on one
+            side and the controls on the other can change width without
+            dragging it off-centre (the host is relative for this). It stays a
+            normal end-slot item below lg — the gap between title and controls
+            there is ~200px, too narrow for a centred box to sit in without
+            overlapping them. */}
+        <form
+          id="tour-search"
+          onSubmit={onSearchSubmit}
+          className="hidden md:block lg:absolute lg:left-1/2 lg:top-1/2 lg:w-64 xl:w-80 lg:-translate-x-1/2 lg:-translate-y-1/2"
+        >
           <nord-input
             type="search"
             label="Search"
