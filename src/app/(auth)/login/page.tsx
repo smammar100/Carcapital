@@ -38,6 +38,9 @@ function LoginInner() {
   const search = useSearchParams();
   const { user, signIn, signOut } = useAuth();
   const explicitNext = search.get("next");
+  // Set when hydrate() signs out an inactive profile, so the bounce back here
+  // carries an explanation instead of looking like a failed password.
+  const signedOutReason = search.get("reason");
   // Dealership for username logins (scopes the internal synthetic email). From
   // ?org=<slug>, else the default single dealership. Email logins ignore this.
   const orgSlug = search.get("org") ?? DEFAULT_ORG_SLUG;
@@ -112,6 +115,19 @@ function LoginInner() {
           <p className="mt-1.5 text-sm text-muted-foreground">
             Welcome back, let&apos;s get to work.
           </p>
+
+          {/* A deactivated account is signed out mid-session, which without
+              this reads as "my password stopped working" (GEN-125). Name the
+              cause and the person who can undo it. */}
+          {signedOutReason === "deactivated" && (
+            <div
+              role="status"
+              className="mt-5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200"
+            >
+              This account has been deactivated. Ask an administrator to restore
+              your access.
+            </div>
+          )}
 
           <form onSubmit={handleFormSubmit} className="mt-7 flex flex-col gap-4">
             <NordInputField

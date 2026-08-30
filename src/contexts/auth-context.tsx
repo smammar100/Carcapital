@@ -154,10 +154,19 @@ export function AuthProvider({
     // Removed members are deactivated (active=false) + auth-banned. A banned
     // user's already-issued access token stays valid until expiry, so close
     // that gap here: treat an inactive profile as logged out.
+    //
+    // Tell them why. Signing out silently is indistinguishable from a broken
+    // login: correct credentials, a flash of the app, then the login form again
+    // with nothing said, so the person retries instead of asking an admin
+    // (GEN-125). The reason rides on the URL because this runs during hydrate,
+    // before any toast surface is mounted, and it has to survive the redirect.
     if (userRow.active === false) {
       await supabase.auth.signOut();
       setUser(null);
       setCompany(null);
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        window.location.replace("/login?reason=deactivated");
+      }
       return;
     }
 

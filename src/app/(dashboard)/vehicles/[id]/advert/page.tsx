@@ -53,11 +53,15 @@ export default function VehicleAdvertPage({
     );
   }
 
+  // photoCount was Math.max(vehicle.imagesCount, photos.count): the stored
+  // column drifted from the real rows, so the larger of the two was the safer
+  // guess. A trigger now recomputes it on every photo write, so the counted
+  // rows are simply the truth (GEN-107).
   return (
     <AdvertEditor
       vehicle={vehicle}
       listing={listing}
-      photoCount={Math.max(vehicle.imagesCount, photos.count)}
+      photoCount={photos.count}
       photoUrl={photos.url}
     />
   );
