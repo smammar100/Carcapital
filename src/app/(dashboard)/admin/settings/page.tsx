@@ -12,20 +12,12 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { PipelineStageSettings } from "@/components/admin/pipeline-stage-settings";
 import { InspectionChecklistSettings } from "@/components/admin/inspection-checklist-settings";
 import { LeadChannelSettings } from "@/components/admin/lead-channel-settings";
-import { FINANCE_PROVIDERS, VAT_RATE } from "@/lib/constants";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BackupPanel } from "@/components/settings/backup-panel";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { toast } from "@/lib/toast";
 
 export default function SettingsPage() {
@@ -36,8 +28,6 @@ export default function SettingsPage() {
   const stockPrefixId = `${baseId}-stock-prefix`;
   const hoursStartId = `${baseId}-hours-start`;
   const hoursEndId = `${baseId}-hours-end`;
-  const financeProviderId = `${baseId}-finance-provider`;
-  const defaultVatId = `${baseId}-default-vat`;
   const { user, company, revalidate } = useAuth();
   const { can, isSuperUser, isLoading } = usePermissions();
   const canManage = isSuperUser || can("admin:manage_settings");
@@ -60,8 +50,6 @@ export default function SettingsPage() {
   );
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingMark, setUploadingMark] = useState(false);
-  const [defaultProvider, setDefaultProvider] = useState("next_gear");
-  const [defaultVat, setDefaultVat] = useState(String(VAT_RATE));
 
   async function handleLogoSelect(
     e: React.ChangeEvent<HTMLInputElement>,
@@ -136,7 +124,6 @@ export default function SettingsPage() {
       <Tabs defaultValue="company">
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
-          <TabsTrigger value="defaults">Defaults</TabsTrigger>
           <TabsTrigger value="inspection">Inspection Checklist</TabsTrigger>
           <TabsTrigger value="pipeline">Sales Pipeline</TabsTrigger>
           <TabsTrigger value="channels">Lead Channels</TabsTrigger>
@@ -214,45 +201,6 @@ export default function SettingsPage() {
             <div className="sm:col-span-2 flex justify-end">
               <Button onClick={handleSave} disabled={saving}>
                 {saving ? "Saving…" : "Save"}
-              </Button>
-            </div>
-          </Card>
-        </TabsContent>
-        <TabsContent value="defaults" className="mt-3">
-          <Card className="grid gap-4 p-5 sm:grid-cols-2">
-            <div>
-              <Label htmlFor={financeProviderId}>Default finance provider</Label>
-              <Select
-                value={defaultProvider}
-                onValueChange={setDefaultProvider}
-              >
-                <SelectTrigger id={financeProviderId}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {FINANCE_PROVIDERS.map((p) => (
-                    <SelectItem key={p.value} value={p.value}>
-                      {p.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor={defaultVatId}>Default VAT rate</Label>
-              <Input
-                id={defaultVatId}
-                value={defaultVat}
-                onChange={(e) => setDefaultVat(e.target.value)}
-              />
-            </div>
-            <div className="sm:col-span-2 flex justify-end">
-              <Button
-                onClick={() =>
-                  toast.success("Defaults applied for this session")
-                }
-              >
-                Save
               </Button>
             </div>
           </Card>
