@@ -77,7 +77,7 @@ function sheetXml(sheet: Sheet): string {
 }
 
 /** Build an .xlsx workbook (as bytes) from a list of sheets. */
-export function buildXlsx(sheets: Sheet[]): Uint8Array {
+function buildXlsx(sheets: Sheet[]): Uint8Array {
   const named = sheets.map((s, i) => ({
     ...s,
     name: sheetNameSafe(s.name) || `Sheet${i + 1}`,

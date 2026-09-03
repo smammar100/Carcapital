@@ -99,16 +99,6 @@ export function formatRelativeTime(iso: string): string {
   return formatDate(iso);
 }
 
-export function daysBetween(a: string, b: string): number {
-  // Compare UTC-midnight of each date so the count is DST-safe (a fixed
-  // 86_400_000 ms divisor is off by one across a DST boundary).
-  const da = new Date(a);
-  const db = new Date(b);
-  const ua = Date.UTC(da.getFullYear(), da.getMonth(), da.getDate());
-  const ub = Date.UTC(db.getFullYear(), db.getMonth(), db.getDate());
-  return Math.round((ub - ua) / 86400000);
-}
-
 export type DaysInStockColor = "green" | "amber" | "red";
 
 export function getDaysInStockColor(days: number): DaysInStockColor {
@@ -131,31 +121,6 @@ export function getInitials(name: string): string {
     .map((n) => n[0])
     .join("")
     .toUpperCase();
-}
-
-/**
- * SPEC Point 2 — 12-char temporary password for direct user creation.
- * Excludes ambiguous chars (0/O, 1/l/I) so it can be read aloud.
- */
-export function generateTempPassword(): string {
-  const upper = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  const lower = "abcdefghjkmnpqrstuvwxyz";
-  const digits = "23456789";
-  const symbols = "!@#$%&*";
-  const pick = (set: string, n: number) => {
-    const r = new Uint32Array(n);
-    crypto.getRandomValues(r);
-    return Array.from(r, (x) => set[x % set.length]).join("");
-  };
-  const raw = pick(upper, 3) + pick(lower, 3) + pick(digits, 3) + pick(symbols, 3);
-  const arr = raw.split("");
-  const ord = new Uint32Array(arr.length);
-  crypto.getRandomValues(ord);
-  return arr
-    .map((c, i) => ({ c, k: ord[i] }))
-    .sort((a, b) => a.k - b.k)
-    .map((x) => x.c)
-    .join("");
 }
 
 /**

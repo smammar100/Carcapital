@@ -71,24 +71,3 @@ export function ChannelChip(props: Props) {
     </span>
   );
 }
-
-/**
- * Bare coloured dot — used on Sales Pipeline cards (Phase 3.2). Tooltip
- * with the label is the caller's responsibility (so the trigger can opt
- * into a richer surface like Radix Tooltip).
- */
-export function ChannelDot({
-  colour,
-  className,
-}: {
-  colour: string;
-  className?: string;
-}) {
-  return (
-    <span
-      aria-hidden
-      className={cn("inline-block size-2 rounded-full", className)}
-      style={{ backgroundColor: colour }}
-    />
-  );
-}

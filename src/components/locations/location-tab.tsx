@@ -19,7 +19,7 @@ import {
 } from "@/lib/types";
 import { locationService } from "@/lib/services/location-service";
 import { vehicleDetailHref } from "@/lib/vehicle-nav";
-import { exportCsv } from "@/components/data-grid";
+import { exportCsv, type ColumnDef } from "@/components/data-grid";
 import { LocationBadge } from "./location-badge";
 
 // Flat status pill tones — kept in sync with the Master Sheet / All
@@ -184,24 +184,27 @@ export function LocationTab({
 
   function handleExport() {
     if (!filteredRows.length) return;
-    const cols = [
-      { key: "stockId", label: "Stock ID", get: (r: TabRow) => r.stockId },
-      { key: "registration", label: "Reg", get: (r: TabRow) => r.registration },
+    const cols: ColumnDef<TabRow>[] = [
+      { key: "stockId", label: "Stock ID", type: "text", get: (r) => r.stockId },
+      { key: "registration", label: "Reg", type: "text", get: (r) => r.registration },
       {
         key: "vehicle",
         label: "Make/Model",
-        get: (r: TabRow) => `${r.make} ${r.model}`,
+        type: "text",
+        get: (r) => `${r.make} ${r.model}`,
       },
-      { key: "status", label: "Status", get: (r: TabRow) => statusLabel(r.status) },
+      { key: "status", label: "Status", type: "text", get: (r) => statusLabel(r.status) },
       {
         key: "daysHere",
         label: "Days here",
-        get: (r: TabRow) => daysSince(r.locationSince),
+        type: "number",
+        get: (r) => daysSince(r.locationSince),
       },
       {
         key: "context",
         label: "Workshop / Staff",
-        get: (r: TabRow) =>
+        type: "text",
+        get: (r) =>
           r.externalVendorId
             ? (vendorById[r.externalVendorId]?.name ?? "")
             : r.staffUserId
@@ -211,9 +214,7 @@ export function LocationTab({
     ];
     exportCsv(
       filteredRows,
-      // ColumnDef from data-grid expects `key` as a string; ours match.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      cols as any,
+      cols,
       `locations-${location}-${new Date().toISOString().slice(0, 10)}.csv`,
     );
   }

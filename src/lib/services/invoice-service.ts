@@ -13,7 +13,6 @@ import type {
   VatScheme,
   WarrantyDeclaration,
 } from "@/lib/types";
-import { VAT_RATE } from "@/lib/constants";
 import { calculateVat } from "@/lib/vat";
 import { computeInvoiceTotals } from "@/lib/invoice-calc";
 import { activityService } from "./activity-service";
@@ -814,5 +813,3 @@ export const invoiceService = {
     );
   },
 };
-
-export const VAT = VAT_RATE;

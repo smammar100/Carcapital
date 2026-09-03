@@ -39,7 +39,7 @@ const SELECT = `
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export class InviteValidationError extends Error {}
+class InviteValidationError extends Error {}
 
 function nameFromEmail(email: string): string {
   const local = email.split("@")[0] ?? email;

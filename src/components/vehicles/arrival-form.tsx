@@ -108,11 +108,6 @@ const STEPS: { id: string; title: string; icon: LucideIcon; hint: string }[] = [
   { id: "review", title: "Review & Submit", icon: ShieldCheck, hint: "Confirm & save" },
 ];
 
-const todoSchema = z.object({
-  description: z.string().min(1),
-  cost: z.coerce.number().min(0).optional(),
-});
-
 const schema = z.object({
   // Section 1 — Vehicle Identity
   registration: z.string().min(2, "Registration required"),

@@ -99,7 +99,7 @@ export default function JoinPage() {
         <Card className="p-6">
           {done ? (
             <div className="flex flex-col items-center gap-2 py-4 text-center">
-              <p className="text-sm font-medium">You're all set</p>
+              <p className="text-sm font-medium">You&apos;re all set</p>
               <p className="text-sm text-muted-foreground">
                 Redirecting you to sign in…
               </p>

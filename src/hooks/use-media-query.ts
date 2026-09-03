@@ -20,7 +20,7 @@ import { useCallback, useSyncExternalStore } from "react";
  * The server snapshot is `false`, so SSR and the first paint assume the wide
  * layout — degrading to the desktop rendering rather than a broken narrow one.
  */
-export function useMediaQuery(query: string): boolean {
+function useMediaQuery(query: string): boolean {
   const subscribe = useCallback(
     (onChange: () => void) => {
       if (typeof window === "undefined" || !window.matchMedia) return () => {};

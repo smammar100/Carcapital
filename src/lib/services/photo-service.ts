@@ -1,38 +1,8 @@
 /**
- * Client wrapper for the server-side OpenAI proxy at /api/photo/generate.
- * The key never lands in the browser bundle.
- *
- * TODO: Supabase: when storage lands, persist generated images to a bucket
- * and store the public URL in `vehicle_photos`.
+ * Prompt builders and angle catalogue for the AI vehicle-photo pipeline.
+ * The OpenAI call itself lives server-side in /api/photo/vehicle so the key
+ * never lands in the browser bundle.
  */
-
-export type PhotoSize = "1024x1024" | "1024x1536" | "1536x1024";
-
-export interface GenerateInput {
-  prompt: string;
-  size?: PhotoSize;
-}
-
-export const photoService = {
-  async generate(input: GenerateInput): Promise<{ dataUrl: string }> {
-    const res = await fetch("/api/photo/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(input),
-    });
-    const json = (await res.json()) as {
-      dataUrl?: string;
-      error?: string;
-    };
-    if (!res.ok) {
-      throw new Error(json.error ?? `Image generation failed (${res.status}).`);
-    }
-    if (!json.dataUrl) {
-      throw new Error("No image returned.");
-    }
-    return { dataUrl: json.dataUrl };
-  },
-};
 
 export type CarAngle =
   | "hero"
@@ -83,9 +53,4 @@ export function carPhotoPrompt(args: {
       : (args.backdrop ?? "neutral grey studio");
   const framing = ANGLE_FRAMING[angle];
   return `Photorealistic ${args.year} ${args.make} ${args.model}${variant} in ${args.colour.toLowerCase()}, ${framing}, sharp clean lines, ${backdrop} background, studio lighting, no logos, dealership marketing photo.`;
-}
-
-export function backdropPrompt(label: string, hint?: string): string {
-  const hintText = hint ? ` (${hint})` : "";
-  return `Empty automotive photography backdrop: ${label}${hintText}. No vehicles, no people, no text. Soft photographic lighting, suitable for dropping a car into the foreground. Wide aspect ratio, clean composition.`;
 }

@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type { InspectionChecklistItem, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
@@ -44,8 +44,7 @@ export const inspectionChecklistService = {
   /** Every checklist item for a company, in display order. */
   async getAll(companyId: UUID): Promise<InspectionChecklistItem[]> {
     return withCache(`${NS}all:${companyId}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
       const { data, error } = await supabase
         .from("inspection_checklist_items")
         .select(SELECT)
@@ -70,8 +69,7 @@ export const inspectionChecklistService = {
     }
 
     const existing = await inspectionChecklistService.getAll(input.companyId);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("inspection_checklist_items")
       .insert({
@@ -104,9 +102,8 @@ export const inspectionChecklistService = {
     patch: ItemPatch,
     actorId: UUID,
   ): Promise<InspectionChecklistItem> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
-    const updates: Record<string, unknown> = {
+    const supabase = createClient();
+    const updates: TableUpdate<"inspection_checklist_items"> = {
       updated_at: new Date().toISOString(),
     };
     if (patch.item !== undefined) {
@@ -149,8 +146,7 @@ export const inspectionChecklistService = {
     actorId: UUID,
   ): Promise<void> {
     if (orderedIds.length === 0) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const now = new Date().toISOString();
     await Promise.all(
       orderedIds.map((id, i) =>
@@ -172,8 +168,7 @@ export const inspectionChecklistService = {
   },
 
   async remove(id: UUID, actorId: UUID): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data: row } = await supabase
       .from("inspection_checklist_items")
       .select(SELECT)

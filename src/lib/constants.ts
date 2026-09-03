@@ -5,7 +5,6 @@ import type {
   BodyType,
   FuelType,
   FinanceProvider,
-  UserRole,
 } from "./types";
 
 export const VEHICLE_STATUSES: {
@@ -46,7 +45,7 @@ export const MAINTENANCE_STATUSES: {
  * the UAT call (GEN-65). The `offer_made` label survives here so historical
  * deals and activity entries still render a name rather than a raw slug.
  */
-export const SALES_STAGES: { value: SalesStage; label: string }[] = [
+const SALES_STAGES: { value: SalesStage; label: string }[] = [
   { value: "new_lead", label: "New Lead" },
   { value: "contacted", label: "Contacted" },
   { value: "test_drive", label: "Qualified / Viewing" },
@@ -152,16 +151,6 @@ export const DAYS_IN_STOCK_THRESHOLDS = {
 
 export const VAT_RATE = 0.2;
 
-export const USER_ROLES: { value: UserRole; label: string }[] = [
-  { value: "owner", label: "Owner" },
-  { value: "admin", label: "Admin" },
-  { value: "inventory_manager", label: "Inventory Manager" },
-  { value: "driver", label: "Driver" },
-  { value: "inspector", label: "Inspector" },
-  { value: "prep_lead", label: "Prep Lead" },
-  { value: "sales", label: "Sales" },
-];
-
 // The 20-point checklist used to live here as a hard-coded constant. It's
 // per-company, configurable data now (GEN-78) — see
 // inspection-checklist-service.ts / migration 0042.
@@ -187,52 +176,3 @@ export const NEGATIVE_INSPECTION_STATUSES = new Set([
   "No",
   "Fail",
 ]);
-
-export const AUTHORITY_MATRIX: {
-  action: string;
-  roles: Partial<Record<UserRole, boolean>>;
-}[] = [
-  {
-    action: "Add Vehicle",
-    roles: {
-      owner: true,
-      admin: true,
-      inventory_manager: true,
-      driver: true,
-    },
-  },
-  {
-    action: "Edit Costs",
-    roles: { owner: true, admin: true, inventory_manager: true },
-  },
-  {
-    action: "Run Inspection",
-    roles: { owner: true, admin: true, inspector: true },
-  },
-  {
-    action: "Create Listing",
-    roles: { owner: true, admin: true, inventory_manager: true },
-  },
-  {
-    action: "Book Appointment",
-    roles: { owner: true, admin: true, sales: true },
-  },
-  {
-    action: "Move Sales Stage",
-    roles: { owner: true, admin: true, sales: true },
-  },
-  {
-    action: "Create Invoice",
-    roles: { owner: true, admin: true, sales: true },
-  },
-  {
-    action: "Create Warranty",
-    roles: { owner: true, admin: true, sales: true },
-  },
-  { action: "Process Return", roles: { owner: true, admin: true } },
-  {
-    action: "View Financials",
-    roles: { owner: true, admin: true, inventory_manager: true },
-  },
-  { action: "Manage Users", roles: { owner: true, admin: true } },
-];

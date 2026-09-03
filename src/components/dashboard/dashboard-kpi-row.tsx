@@ -191,6 +191,8 @@ export function DashboardKpiRow() {
     leads: Awaited<ReturnType<typeof leadService.getAll>>;
     jobs: Awaited<ReturnType<typeof maintenanceService.getAll>>;
     deals: Awaited<ReturnType<typeof salesService.getAll>>;
+    /** When the batch landed — the clock every KPI is measured against. */
+    fetchedAt: number;
   } | null>(null);
 
   useEffect(() => {
@@ -202,15 +204,15 @@ export function DashboardKpiRow() {
       maintenanceService.getAll(company.id),
       salesService.getAll(company.id),
     ]).then(([vehicles, claims, leads, jobs, deals]) => {
-      setData({ vehicles, claims, leads, jobs, deals });
+      setData({ vehicles, claims, leads, jobs, deals, fetchedAt: Date.now() });
     });
   }, [company]);
 
   const stats = useMemo<Stats | null>(() => {
     if (!data) return null;
-    const now = Date.now();
-    // Derived from `now` rather than a second clock read: one impure call per
-    // computation, and every figure below is stamped from the same instant.
+    // Stamped when the data landed rather than read here, so the memo stays
+    // pure and every figure below is measured from the same instant.
+    const now = data.fetchedAt;
     const today = new Date(now);
     const monthStart = new Date(
       today.getFullYear(),

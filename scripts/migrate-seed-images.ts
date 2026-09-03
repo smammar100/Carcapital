@@ -42,7 +42,7 @@ async function main() {
   console.log(`→ Migrating ${rows.length} hero images to Supabase Storage…`);
 
   let uploaded = 0;
-  let skipped = 0;
+  const skipped = 0;
   let failed = 0;
   for (const v of rows as Array<{
     id: string;

@@ -11,59 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-const DEFAULT_PAGE_SIZE = 25;
 const PAGE_SIZE_OPTIONS = [25, 50, 100];
-
-/**
- * Pagination state hook for table pages. Reduces the boilerplate that
- * /vehicles, /admin/master-sheet, and (soon) every other list page
- * reimplements inline.
- *
- * Returns a stable interface:
- *   - `page` (1-indexed; clamps to `[1, totalPages]`)
- *   - `pageSize` (25 / 50 / 100)
- *   - `setPage`, `setPageSize`
- *   - `offset` (zero-indexed slice start)
- *   - `pagedRows` (the consumer's filtered rows, already sliced)
- *   - `totalPages` (derived)
- *
- * Resetting to page 1 on filter change is the consumer's job — pass the
- * filter dependencies to `useEffect`, call `setPage(1)`. We don't try to
- * be clever about it because filter shape differs per page.
- */
-export function usePagination<T>(
-  filteredRows: T[] | undefined,
-  initialPageSize: number = DEFAULT_PAGE_SIZE,
-) {
-  const [page, setPage] = React.useState(1);
-  const [pageSize, setPageSize] = React.useState(initialPageSize);
-
-  const total = filteredRows?.length ?? 0;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  // Clamp the rendered page without touching state — keeps the user's
-  // intent intact (if a filter temporarily narrows the result set, the
-  // page snaps back when the filter loosens) and avoids the React 19
-  // "setState in effect" lint warning. Consumers should call `setPage(1)`
-  // when their filter dependencies change.
-  const safePage = Math.min(Math.max(1, page), totalPages);
-  const offset = (safePage - 1) * pageSize;
-
-  const pagedRows = React.useMemo(
-    () => filteredRows?.slice(offset, offset + pageSize) ?? [],
-    [filteredRows, offset, pageSize],
-  );
-
-  return {
-    page: safePage,
-    pageSize,
-    setPage,
-    setPageSize,
-    offset,
-    pagedRows,
-    totalPages,
-    total,
-  };
-}
 
 /**
  * Pagination controls. Shows row range ("Showing 26-50 of 114"), a rows-

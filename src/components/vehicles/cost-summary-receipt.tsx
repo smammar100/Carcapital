@@ -11,8 +11,6 @@ interface Props {
   warranty: number;
   listingPrice: number | null;
   className?: string;
-  /** Optional subtitle (e.g. ISO date string). */
-  subtitle?: string;
 }
 
 // Receipt outline: rounded top corners (4px, matching --radius), straight
@@ -29,7 +27,6 @@ export function CostSummaryReceipt({
   warranty,
   listingPrice,
   className,
-  subtitle,
 }: Props) {
   const totalBuying = buyingPrice + feesAndCharges;
   const baseCost = totalBuying + stockingCharges + prepCosts + warranty;

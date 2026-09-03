@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/logger";
 import { variantLabel } from "@/lib/vehicle-variant";
 import { requireUser, authErrorResponse } from "@/lib/auth/require-user";
 import { vehicleService } from "@/lib/services/vehicle-service";
@@ -76,8 +77,7 @@ async function generateAndPersist(
   if (angle === "hero") {
     await vehicleService.setHeroImageUrl(vehicleId, url);
   }
-  // eslint-disable-next-line no-console
-  console.log(`[photo] generated ${companyId}/${vehicleId}/${base} → ${url}`);
+  logger.info("photo", "generated vehicle image", { companyId, vehicleId, base, url });
   return url;
 }
 

@@ -18,7 +18,7 @@ function defaultCsv<T>(col: ColumnDef<T>, row: T): string {
 }
 
 /** Download a ready-built CSV string as a file (multi-section exports, etc.). */
-export function downloadCsv(csv: string, filename: string): void {
+function downloadCsv(csv: string, filename: string): void {
   // Prepend a UTF-8 BOM so Excel reads £ and other non-ASCII correctly.
   const blob = new Blob([`﻿${csv}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);

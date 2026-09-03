@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type {
   ExternalInvoice,
@@ -87,8 +87,7 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 export const externalInvoiceService = {
   async getAll(companyId: UUID): Promise<ExternalInvoice[]> {
     return withCache(`${NS}all:${companyId}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("external_invoices")
         .select(SELECT)
@@ -103,8 +102,7 @@ export const externalInvoiceService = {
     kind: InvoiceKind,
   ): Promise<ExternalInvoice[]> {
     return withCache(`${NS}kind:${companyId}:${kind}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("external_invoices")
         .select(SELECT)
@@ -117,8 +115,7 @@ export const externalInvoiceService = {
 
   async getByVehicle(vehicleId: UUID): Promise<ExternalInvoice[]> {
     return withCache(`${NS}vehicle:${vehicleId}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("external_invoices")
         .select(SELECT)
@@ -131,8 +128,7 @@ export const externalInvoiceService = {
 
   async getById(id: UUID): Promise<ExternalInvoice | null> {
     return withCache(`${NS}by-id:${id}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("external_invoices")
         .select(SELECT)
@@ -155,8 +151,7 @@ export const externalInvoiceService = {
       throw new Error("Amounts can't be negative.");
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("external_invoices")
       .insert({
@@ -206,8 +201,7 @@ export const externalInvoiceService = {
     ) {
       throw new Error("VAT can't exceed total.");
     }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     // F-D1: fetch the prior `attachment_url` so we can purge the orphaned
     // Storage object when the user replaces (or clears) the attachment.
     // Only fetch when the caller actually touches the attachment column to
@@ -218,7 +212,7 @@ export const externalInvoiceService = {
       prevAttachmentUrl = prev?.attachmentUrl ?? null;
     }
     // Build update payload (only set keys that were passed in).
-    const row: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const row: TableUpdate<"external_invoices"> = { updated_at: new Date().toISOString() };
     if (patch.invoiceKind !== undefined) row.invoice_kind = patch.invoiceKind;
     if (patch.invoiceNumber !== undefined) row.invoice_number = patch.invoiceNumber;
     if (patch.vendorId !== undefined) row.vendor_id = patch.vendorId;
@@ -277,16 +271,14 @@ export const externalInvoiceService = {
    */
   async removeAttachmentObject(path: string): Promise<void> {
     if (!path) return;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     await supabase.storage.from(BUCKET).remove([path]).catch(() => {
       /* swallow — best-effort cleanup. */
     });
   },
 
   async delete(id: UUID, actorId: UUID, companyId: UUID): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     // Fetch first so we can include vehicleId in the activity-log row and
     // remove the attachment object from Storage if present.
     const existing = await this.getById(id);
@@ -337,8 +329,7 @@ export const externalInvoiceService = {
     }
     const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, "_");
     const path = `${companyId}/${vehicleId}/${Date.now()}_${safeName}`;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { error } = await supabase.storage
       .from(BUCKET)
       .upload(path, file, { contentType: file.type, upsert: false });
@@ -360,8 +351,7 @@ export const externalInvoiceService = {
     path: string,
     expiresInSeconds = 7 * 24 * 60 * 60, // 7 days
   ): Promise<string | null> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase.storage
       .from(BUCKET)
       .createSignedUrl(path, expiresInSeconds);

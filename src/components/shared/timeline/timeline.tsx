@@ -77,33 +77,6 @@ export function Timeline({
   );
 }
 
-/**
- * A non-event divider inside the timeline (date / section header). Doesn't
- * render a node — just the text, indented to align with item titles.
- */
-export function TimelineDayHeader({
-  children,
-  className,
-}: {
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <li className={cn("relative", CONTENT_PADDING_LEFT, className)}>
-      <span
-        aria-hidden
-        className={cn(
-          "absolute top-1.5 inline-flex size-2 items-center justify-center rounded-full bg-border",
-        )}
-        style={{ left: RAIL_LEFT_PX - 3 }}
-      />
-      <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        {children}
-      </div>
-    </li>
-  );
-}
-
 export interface TimelineItemProps {
   /** Icon shown inside the node. Lucide preferred. */
   icon: LucideIcon;

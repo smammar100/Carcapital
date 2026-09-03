@@ -2,8 +2,6 @@
 
 import * as React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
-import type { ColumnDef, SelectionState } from "./types";
 
 // ────────────────────────────────────────────────────────────────────────────
 // Row grouping
@@ -100,62 +98,6 @@ export function DataGridGroupHeaderRow({
           </span>
         </button>
       </td>
-    </tr>
-  );
-}
-
-// ────────────────────────────────────────────────────────────────────────────
-// Aggregate footer row
-// ────────────────────────────────────────────────────────────────────────────
-
-/**
- * A pinned-to-bottom totals row (Airtable / Attio "Sum" footer). The
- * consumer supplies `total(col)` — return a node for columns that
- * aggregate, `null`/`undefined` for the rest.
- */
-export function DataGridTotalsRow<T>({
-  cols,
-  total,
-  selection,
-  trailing,
-}: {
-  cols: ColumnDef<T>[];
-  total: (col: ColumnDef<T>, index: number) => React.ReactNode;
-  selection?: SelectionState;
-  trailing?: boolean;
-}) {
-  return (
-    <tr className="sticky bottom-0 z-10">
-      {selection ? (
-        <td className="sticky left-0 z-10 border-t border-r bg-muted shadow-[2px_0_4px_-2px_var(--shadow-color)]" />
-      ) : null}
-      {cols.map((c, i) => {
-        const align =
-          c.align ??
-          (c.type === "number" || c.type === "currency" ? "right" : "left");
-        return (
-          <td
-            key={c.key}
-            className={cn(
-              "border-t border-r bg-muted px-3 text-xs font-semibold tabular-nums",
-              c.sticky &&
-                "sticky z-10 shadow-[2px_0_4px_-2px_var(--shadow-color)]",
-            )}
-            style={c.sticky ? { left: selection ? 40 : 0 } : undefined}
-          >
-            <div
-              className={cn(
-                "flex h-9 items-center",
-                align === "right" && "justify-end",
-                align === "center" && "justify-center",
-              )}
-            >
-              {total(c, i)}
-            </div>
-          </td>
-        );
-      })}
-      {trailing ? <td className="border-t bg-muted" /> : null}
     </tr>
   );
 }

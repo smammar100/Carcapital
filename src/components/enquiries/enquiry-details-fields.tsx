@@ -117,7 +117,7 @@ export function EnquiryDetailsFields({ vehicleLabel }: EnquiryDetailsFieldsProps
             Interested in finance
           </Label>
           <p className="text-xs text-muted-foreground">
-            Flag this enquiry for the finance team's follow-up queue.
+            Flag this enquiry for the finance team&apos;s follow-up queue.
           </p>
         </div>
         <Switch

@@ -50,7 +50,6 @@ export function usePermissions(): UsePermissionsResult {
         // A failed grants fetch must NOT wedge isLoading=true forever (that
         // disables every gated control). Fall back to role-based caps so the
         // user keeps the authority their roles grant.
-        // eslint-disable-next-line no-console
         console.warn("[permissions] explicit grants fetch failed:", e);
         setCapabilities(capabilitiesForRoles(user.roles));
         setIsLoading(false);

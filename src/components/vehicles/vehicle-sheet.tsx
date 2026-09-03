@@ -109,7 +109,7 @@ export interface ColDef {
  *  columns can share the same data source (e.g. the stockId column shows the
  *  raw value, and the "Vehicle" column also reads from stockId). The label is
  *  always unique, so use it as the React identity. */
-export function colKey(c: ColDef): string {
+function colKey(c: ColDef): string {
   return `${String(c.key)}__${c.label}`;
 }
 
@@ -278,7 +278,7 @@ function formatNumber(n: number): string {
 // grossEarning, profit, daysInStock) plus stockId / status / the vehicle
 // composite — editing those would persist an inconsistent sheet or bypass
 // the status-change service. Leaf prices (listing/min/sold) are allowed.
-export const DEFAULT_EDITABLE_KEYS = new Set<string>([
+const DEFAULT_EDITABLE_KEYS = new Set<string>([
   "make",
   "model",
   // GEN-91: the editable variant field is the readable name; the opaque
@@ -1309,6 +1309,13 @@ export function VehicleSheet({
                             "sticky z-30 bg-card shadow-[2px_0_4px_-2px_var(--shadow-color)]",
                         )}
                         style={c.sticky ? { left: 40 } : undefined}
+                        aria-sort={
+                          sort?.column === colKey(c)
+                            ? sort.direction === "asc"
+                              ? "ascending"
+                              : "descending"
+                            : "none"
+                        }
                       >
                         {/* Click to sort: asc → desc → unsorted (GEN-92). */}
                         <button
@@ -1317,13 +1324,6 @@ export function VehicleSheet({
                             setSort((prev) => cycleSort(prev, colKey(c)))
                           }
                           aria-label={`Sort by ${c.label}`}
-                          aria-sort={
-                            sort?.column === colKey(c)
-                              ? sort.direction === "asc"
-                                ? "ascending"
-                                : "descending"
-                              : "none"
-                          }
                           className="flex h-8 w-full min-w-0 cursor-pointer items-center gap-1 pr-1 text-left text-xs hover:text-foreground"
                         >
                           <span className="min-w-0 truncate font-medium text-foreground">

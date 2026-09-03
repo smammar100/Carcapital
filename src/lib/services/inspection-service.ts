@@ -26,7 +26,7 @@ const SELECT = `
  * Does this check still need work? True for an explicitly negative result, an
  * unanswered check, or one deliberately parked as "Pending".
  */
-export function isOutstandingCheck(status: string): boolean {
+function isOutstandingCheck(status: string): boolean {
   const s = status.trim();
   if (!s) return true;
   if (s.toLowerCase() === "pending") return true;

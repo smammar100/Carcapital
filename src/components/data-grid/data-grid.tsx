@@ -15,7 +15,6 @@ import {
   Type,
   User as UserIcon,
 } from "lucide-react";
-import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { Card } from "@/components/ui/card";
@@ -463,7 +462,7 @@ interface CellProps<T> {
   index: number;
 }
 
-export function DataGridCell<T>({ col, row, index }: CellProps<T>) {
+function DataGridCell<T>({ col, row, index }: CellProps<T>) {
   if (col.render) return <>{col.render(row, index)}</>;
   const value = getValue(col, row);
   if (value === null || value === undefined || value === "") return <EmptyCell />;
@@ -520,36 +519,3 @@ export function DataGridCell<T>({ col, row, index }: CellProps<T>) {
 // Dummy import so TS doesn't grumble about unused MaintenanceStatusCell —
 // it's part of the public API even if no consumer uses it via dispatch.
 void MaintenanceStatusCell;
-
-// ────────────────────────────────────────────────────────────────────────────
-// Footer (+ New)
-// ────────────────────────────────────────────────────────────────────────────
-
-interface FooterProps {
-  label: string;
-  href?: string;
-  onClick?: () => void;
-  span: number;
-}
-
-export function DataGridFooterRow({ label, href, onClick, span }: FooterProps) {
-  const inner = (
-    <span className="flex h-13 items-center gap-1.5 px-3 text-xs text-muted-foreground hover:text-foreground">
-      <Plus className="h-3.5 w-3.5" />
-      {label}
-    </span>
-  );
-  return (
-    <tr>
-      <td colSpan={span} className="border-b bg-muted/30">
-        {href ? (
-          <Link href={href}>{inner}</Link>
-        ) : (
-          <button type="button" onClick={onClick} className="w-full text-left">
-            {inner}
-          </button>
-        )}
-      </td>
-    </tr>
-  );
-}

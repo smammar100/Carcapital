@@ -35,7 +35,6 @@ Located in `src/components/dashboard/`:
 |---|---|
 | `dashboard-greeting.tsx` | "Welcome back, <name>!" header |
 | `dashboard-kpi-row.tsx` | The 6-tile KPI grid (CSS `xl:grid-cols-6`) |
-| `dashboard-stat-card.tsx` | Individual KPI tile (label, icon, current value, trend) |
 | `dashboard-recent-deals.tsx` | Last-7-deals table with reg search + filter |
 | `dashboard-calendar.tsx` | Today + tomorrow calendar widget with event carousel |
 | `dashboard-deals-in-progress.tsx` | Open negotiations grouped by stage |

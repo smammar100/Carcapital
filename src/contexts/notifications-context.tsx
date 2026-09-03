@@ -36,7 +36,7 @@ export function useNotifications(): NotificationsContextValue {
 }
 
 /** Synthetic id so the header can tell a derived reminder from a real row. */
-export const BACKUP_REMINDER_ID = "derived:backup-due";
+const BACKUP_REMINDER_ID = "derived:backup-due";
 
 async function buildBackupReminder(
   companyId: string,

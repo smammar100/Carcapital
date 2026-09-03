@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -94,12 +94,11 @@ export function WarrantyDetailSheet({
       setUsers(u);
       setInvoice(inv);
     });
-  }, [warranty?.id]);
+  }, [warranty]);
 
-  const purchaserName = useMemo(() => {
-    if (!warranty?.purchasedBy) return null;
-    return users.find((u) => u.id === warranty.purchasedBy)?.name ?? null;
-  }, [warranty?.purchasedBy, users]);
+  const purchaserName = warranty?.purchasedBy
+    ? (users.find((u) => u.id === warranty.purchasedBy)?.name ?? null)
+    : null;
 
   const canEdit = can("warranty:edit");
 

@@ -199,6 +199,10 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
     setVehicle(vehicleProp);
   }, [vehicleProp]);
 
+  // Stamped when the movements land, so "overdue" is judged against the
+  // same instant as the data rather than a fresh clock read on every render.
+  const [now, setNow] = useState(() => Date.now());
+
   useEffect(() => {
     if (!company?.id) return;
     let cancelled = false;
@@ -213,6 +217,7 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
       .then(([fresh, m, v, u]) => {
         if (cancelled) return;
         if (fresh) setVehicle(fresh);
+        setNow(Date.now());
         setMovements(m);
         setVendors(v);
         setUsers(u);
@@ -373,7 +378,7 @@ export function LocationTab({ vehicle: vehicleProp }: LocationTabProps) {
               const overdue =
                 isOpenStay &&
                 m.expectedReturnAt != null &&
-                new Date(m.expectedReturnAt).getTime() < Date.now();
+                new Date(m.expectedReturnAt).getTime() < now;
               const hasBody =
                 !!context ||
                 !!m.expectedReturnAt ||

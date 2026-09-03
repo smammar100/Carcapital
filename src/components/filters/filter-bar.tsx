@@ -39,7 +39,7 @@ export interface SelectFilter {
   options: { value: string; label: string }[];
 }
 
-export const EMPTY_FILTER_STATE: FilterState = {
+const EMPTY_FILTER_STATE: FilterState = {
   search: "",
   date: { from: null, to: null },
   selects: {},

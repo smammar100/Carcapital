@@ -5,15 +5,11 @@ export {
   DataGridTable,
   DataGridHeaderRow,
   DataGridRow,
-  DataGridCell,
-  DataGridFooterRow,
 } from "./data-grid";
 // New v2 primitives (May 2026) — see /docs/case-studies/data-tables.md
-export { DataGridSkeletonRows } from "./skeleton-rows";
-export { DataGridPagination, usePagination } from "./pagination";
-export { DataGridSearchBar, useTableSearch } from "./search-bar";
+export { DataGridPagination } from "./pagination";
+export { DataGridSearchBar } from "./search-bar";
 export { DataGridColumnsButton, useColumnVisibility } from "./columns-button";
-export { DataGridBulkBar, type BulkAction } from "./bulk-bar";
 // Complex-table v3 primitives (Mobbin-pattern pass, May 2026)
 export {
   DataGridDensityToggle,
@@ -22,12 +18,7 @@ export {
   type Density,
 } from "./density";
 export { useSort, type Comparator, type UseSortResult } from "./sort";
-export {
-  DataGridGroupHeaderRow,
-  DataGridTotalsRow,
-  useRowGroups,
-  type RowGroup,
-} from "./grouping";
+export { DataGridGroupHeaderRow, useRowGroups, type RowGroup } from "./grouping";
 export {
   AppointmentOutcomeCell,
   AppointmentStatusCell,

@@ -38,6 +38,7 @@ function emit(level: Level, module: string, message: string, context?: LogContex
   // severity in its log UI.
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);
+  // eslint-disable-next-line no-console -- this is the one sanctioned console.log
   else console.log(line);
 }
 

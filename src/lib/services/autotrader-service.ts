@@ -388,17 +388,8 @@ function dropTokenCache() {
   tokenCache = null;
 }
 
-/** Exposed for the stock route so it can reuse the cached token. */
-export async function getAutotraderToken(): Promise<string> {
-  return getAccessToken();
-}
-
 export function autotraderAdvertiserId(): string | null {
   return process.env.AUTOTRADER_ADVERTISER_ID ?? null;
-}
-
-export function autotraderBaseUrl(): string {
-  return baseUrl();
 }
 
 // ---------------------------------------------------------------------------
@@ -630,30 +621,6 @@ export async function listAdvertisers(
   };
 }
 
-/**
- * Look up a single advertiser to check whether it's on this integration.
- * Uses the query form `?advertiserId=` (the path form /advertisers/{id}
- * returns 404 in the sandbox) and reads the first result. Returns null when
- * the advertiser isn't on the integration (empty results). A 403 throws
- * `forbidden_advertiser` — also "not on the integration".
- */
-export async function getAdvertiser(
-  advertiserId: string,
-): Promise<Advertiser | null> {
-  const params = new URLSearchParams({ advertiserId });
-  const res = await atFetch("advertisers", (token) => ({
-    url: `${baseUrl()}/advertisers?${params.toString()}`,
-    init: {
-      method: "GET",
-      headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-    },
-  }));
-  const data = (await res.json().catch(() => null)) as AtAdvertisersResponse | null;
-  const rows = data?.results ?? data?.advertisers ?? [];
-  if (rows.length === 0) return null;
-  return mapAdvertiser(rows[0]);
-}
-
 // ---------------------------------------------------------------------------
 // Stock create / update
 // ---------------------------------------------------------------------------
@@ -707,13 +674,4 @@ export async function createStock(
     );
   }
   return { stockId, advertisingStatus: "not_published" };
-}
-
-/** Test hook — clears the in-memory token cache and any active pauses. */
-export function __resetAutotraderTokenCacheForTests(): void {
-  tokenCache = null;
-  globalPauseUntil = 0;
-  for (const k of Object.keys(servicePauseUntil)) {
-    delete servicePauseUntil[k as AtService];
-  }
 }

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
 import type { UUID } from "@/lib/types";
 
 /**
@@ -30,8 +31,9 @@ export interface VehiclePhoto {
   uploadedAt: string;
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-function mapRow(r: any): VehiclePhoto {
+type VehiclePhotoRow = Database["public"]["Tables"]["vehicle_photos"]["Row"];
+
+function mapRow(r: VehiclePhotoRow): VehiclePhoto {
   return {
     id: r.id,
     vehicleId: r.vehicle_id,
@@ -45,13 +47,13 @@ function mapRow(r: any): VehiclePhoto {
 export const vehiclePhotoService = {
   /** All photos for a vehicle, ordered by `order` then upload time. */
   async list(vehicleId: UUID): Promise<VehiclePhoto[]> {
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("vehicle_photos")
       .select("*")
       .eq("vehicle_id", vehicleId);
     if (error) throw error;
-    return ((data ?? []) as any[])
+    return (data ?? [])
       .map(mapRow)
       .sort(
         (a, b) =>
@@ -80,7 +82,7 @@ export const vehiclePhotoService = {
     }
     const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, "_");
     const path = `${companyId}/${vehicleId}/${Date.now()}_${safeName}`;
-    const supabase = createClient() as any;
+    const supabase = createClient();
 
     const { error: upErr } = await supabase.storage
       .from(BUCKET)
@@ -101,7 +103,7 @@ export const vehiclePhotoService = {
 
   /** Persist a new display order. Pass the photo ids in their desired order. */
   async reorder(orderedIds: UUID[]): Promise<void> {
-    const supabase = createClient() as any;
+    const supabase = createClient();
     for (let i = 0; i < orderedIds.length; i++) {
       const { error } = await supabase
         .from("vehicle_photos")
@@ -113,7 +115,7 @@ export const vehiclePhotoService = {
 
   /** Delete the row + best-effort purge of the Storage object. */
   async remove(photo: VehiclePhoto): Promise<void> {
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { error } = await supabase
       .from("vehicle_photos")
       .delete()
@@ -133,4 +135,3 @@ export const vehiclePhotoService = {
     }
   },
 };
-/* eslint-enable @typescript-eslint/no-explicit-any */

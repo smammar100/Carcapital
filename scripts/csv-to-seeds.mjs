@@ -33,7 +33,6 @@ function parseCsv(text) {
 }
 
 const rows = parseCsv(raw);
-const header = rows[0]; // the header row
 const dataRows = rows.slice(1).filter(r => r.some(c => c.trim()));
 
 // ---- Mappers ----

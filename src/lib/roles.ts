@@ -300,9 +300,10 @@ export function rolesByGroup(group: RoleGroup): RoleDef[] {
  * Every profile-row insert must therefore supply a sensible legacy value.
  *
  * The mapping mirrors the seeded data exactly: owner / admin / inspector /
- * driver / inventory_manager keep their specific value; every sales-ish or
- * specialist role (sales_specialist, sales_manager, finance_admin,
- * aftercare_specialist, workshop_lead, view_only) falls back to "sales".
+ * driver / inventory_manager keep their specific value, workshop_lead maps to
+ * "workshop", and every sales-ish or specialist role (sales_specialist,
+ * sales_manager, finance_admin, aftercare_specialist, view_only) falls back
+ * to "sales".
  */
 export function legacyRoleForRoles(roles: RoleValue[]): string {
   if (roles.includes("owner")) return "owner";

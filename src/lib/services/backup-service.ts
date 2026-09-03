@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/client";
+import type { Database } from "@/lib/supabase/database.types";
 import type { UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
 import { downloadXlsx, type Sheet, type CellValue } from "@/lib/xlsx";
@@ -16,22 +17,33 @@ import { downloadXlsx, type Sheet, type CellValue } from "@/lib/xlsx";
  * point is reconstruction after a loss, not a tidy report.
  */
 
+type Tables = Database["public"]["Tables"];
+type TableName = keyof Tables;
+/** Tables that carry a `company_id`, so the export can be tenant-scoped. */
+type CompanyScopedTable = {
+  [K in TableName]: Tables[K]["Row"] extends { company_id: unknown } ? K : never;
+}[TableName];
+
+type BackupSpec =
+  | { table: CompanyScopedTable; sheet: string; scoped: true }
+  | { table: TableName; sheet: string; scoped: false };
+
 /** Tables included in a backup, in the order they appear as workbook tabs. */
-const BACKUP_TABLES = [
+const BACKUP_TABLES: BackupSpec[] = [
   { table: "vehicles", sheet: "Vehicles", scoped: true },
   { table: "customers", sheet: "Customers", scoped: true },
   { table: "leads", sheet: "Leads", scoped: true },
-  { table: "deals", sheet: "Deals", scoped: true },
+  { table: "sales_deals", sheet: "Deals", scoped: true },
   { table: "invoices", sheet: "Invoices", scoped: true },
   { table: "invoice_line_items", sheet: "Invoice Lines", scoped: false },
-  { table: "inspections", sheet: "Inspections", scoped: false },
+  { table: "inspection_checks", sheet: "Inspections", scoped: false },
   { table: "todo_items", sheet: "Things To Do", scoped: false },
   { table: "appointments", sheet: "Appointments", scoped: true },
   { table: "warranties", sheet: "Warranties", scoped: true },
   { table: "location_movements", sheet: "Location History", scoped: false },
   { table: "vendors", sheet: "Vendors", scoped: true },
   { table: "users", sheet: "Users", scoped: true },
-] as const;
+];
 
 /** Supabase rows are plain JSON; flatten anything nested for a cell. */
 function toCell(value: unknown): CellValue {
@@ -78,8 +90,7 @@ export const backupService = {
    */
   async getLastBackupAt(companyId: UUID): Promise<string | null> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("activity_log")
         .select("created_at")
@@ -103,17 +114,15 @@ export const backupService = {
    * gets their file, and `recorded: false` says the reminder cannot reset.
    */
   async createBackup(companyId: UUID, actorId: UUID, filename: string): Promise<BackupResult> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
 
     const sheets: Sheet[] = [];
     let totalRows = 0;
 
     for (const spec of BACKUP_TABLES) {
-      let query = supabase.from(spec.table).select("*");
-      if (spec.scoped) query = query.eq("company_id", companyId);
-
-      const { data, error } = await query;
+      const { data, error } = spec.scoped
+        ? await supabase.from(spec.table).select("*").eq("company_id", companyId)
+        : await supabase.from(spec.table).select("*");
       if (error) {
         // A table the schema does not have (or RLS blocks) should not sink the
         // whole backup — record it as an empty sheet so the gap is visible in

@@ -6,9 +6,6 @@ import path from "node:path";
  *  - unit:      node env, pure logic + services (src/lib/**, src/app/api/**)
  *  - component: jsdom env, React components (src/components/**) and hooks
  *               (src/hooks/**), both of which need a DOM to render into
- *
- * The legacy node:test file (src/lib/autotrader/*.test.mts) is excluded —
- * it runs under `pnpm test:node` until ported.
  */
 export default defineConfig({
   resolve: {

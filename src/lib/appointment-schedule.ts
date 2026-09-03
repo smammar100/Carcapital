@@ -10,7 +10,7 @@ import type { Appointment } from "@/lib/types";
  */
 
 /** Default slot length when an appointment has no explicit duration. */
-export const DEFAULT_SLOT_MINUTES = 60;
+const DEFAULT_SLOT_MINUTES = 60;
 
 /**
  * "09:30" → 570. Returns null for anything unparseable.

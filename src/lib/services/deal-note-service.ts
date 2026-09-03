@@ -22,8 +22,7 @@ const SELECT = `
 export const dealNoteService = {
   async getForDeal(dealId: UUID): Promise<DealNote[]> {
     return withCache(`${NS}deal:${dealId}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("deal_notes")
         .select(SELECT)
@@ -41,8 +40,7 @@ export const dealNoteService = {
   }): Promise<DealNote> {
     const content = input.content.trim();
     if (!content) throw new Error("Note can't be empty");
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("deal_notes")
       .insert({

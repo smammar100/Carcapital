@@ -18,7 +18,7 @@ import type {
   WarrantyStatus,
 } from "./types";
 
-export const COLOR_CLASSES: Record<string, string> = {
+const COLOR_CLASSES: Record<string, string> = {
   blue: "bg-sky-100 text-sky-900 border-sky-200 dark:bg-sky-950/40 dark:text-sky-200 dark:border-sky-900",
   yellow:
     "bg-yellow-100 text-yellow-900 border-yellow-200 dark:bg-yellow-950/40 dark:text-yellow-200 dark:border-yellow-900",

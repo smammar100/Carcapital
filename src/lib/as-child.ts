@@ -13,17 +13,17 @@ import * as React from "react";
  * if `asChild` is true and `children` is a single React element, that element
  * becomes the render target.
  *
- * Note: Base UI's `render` accepts both `ReactElement` and a render function
- * (`(props, state) => ReactElement`). Typed as `any` here because each
- * primitive's render signature is generic over its own State; consumers
- * still get accurate types at the call site via the primitive's wrapper.
+ * Base UI's `render` accepts both a `ReactElement` and a render function
+ * (`(props, state) => ReactElement`), and each primitive's render signature is
+ * generic over its own State. The helper is generic over the caller's render
+ * type so the primitive's own prop type flows through unchanged, and the
+ * `asChild` branch only ever adds a `ReactElement` to it.
  */
-// biome-ignore lint/suspicious/noExplicitAny: see file comment
-export function resolveRender(
+export function resolveRender<Render>(
   asChild: boolean | undefined,
   children: React.ReactNode,
-  render: any,
-): { render: any; children: React.ReactNode } {
+  render: Render | undefined,
+): { render: Render | React.ReactElement | undefined; children: React.ReactNode } {
   if (render) return { render, children: undefined };
   if (asChild && React.isValidElement(children)) {
     return { render: children, children: undefined };

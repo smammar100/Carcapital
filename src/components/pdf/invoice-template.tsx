@@ -35,7 +35,6 @@ interface Props {
   logoUrl?: string | null;
 }
 
-const TEAL = "#73AFA5";
 const LABEL = "#555555";
 const RULE = "#B0B0B0";
 const BOX = "#F4F4F4";
@@ -553,11 +552,11 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
 
         <View style={s.sigRow}>
           <View style={s.sigCell}>
-            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>SELLER'S SIGNATURE</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>SELLER&apos;S SIGNATURE</Text>
             <View style={s.sigLine} />
           </View>
           <View style={s.sigCell}>
-            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>BUYER'S SIGNATURE</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>BUYER&apos;S SIGNATURE</Text>
             <View style={s.sigLine} />
           </View>
         </View>
@@ -621,7 +620,6 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
             </View>
             <View style={s.badgeRow}>
               {CO.badges.map((b) => (
-                // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt prop
                 <Image key={b.src} src={b.src} style={s.badgeImg} />
               ))}
             </View>
@@ -711,7 +709,7 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
         <Banner title="PRE DELIVERY CHECK" />
 
         <Text style={{ fontSize: 8 }}>
-          <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>Buyer's Name: </Text>
+          <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>Buyer&apos;s Name: </Text>
           {invoice.buyerName ?? "—"}
         </Text>
         <Text style={{ fontSize: 8 }}>
@@ -802,11 +800,11 @@ function SalesInvoice({ invoice, vehicle, logoUrl }: Props) {
 
         <View style={s.sigRow}>
           <View style={s.sigCell}>
-            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>SELLER'S SIGNATURE</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>SELLER&apos;S SIGNATURE</Text>
             <View style={s.sigLine} />
           </View>
           <View style={s.sigCell}>
-            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>BUYER'S SIGNATURE</Text>
+            <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>BUYER&apos;S SIGNATURE</Text>
             <View style={s.sigLine} />
           </View>
         </View>

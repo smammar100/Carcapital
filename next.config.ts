@@ -16,13 +16,7 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: [
-      "lucide-react",
-      "@phosphor-icons/react",
-      "@hugeicons/react",
-      "@remixicon/react",
-      "date-fns",
-    ],
+    optimizePackageImports: ["lucide-react", "date-fns"],
   },
   async headers() {
     return [

@@ -1,4 +1,6 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
+
+type SupabaseClient = ReturnType<typeof createClient>;
 import { invalidate, withCache } from "@/lib/cache";
 import type { LocationMovement, UUID, VehicleLocation } from "@/lib/types";
 import { activityService } from "./activity-service";
@@ -71,8 +73,7 @@ export const locationService = {
   /** Full movement history for one vehicle, newest first. */
   async getMovementsForVehicle(vehicleId: UUID): Promise<LocationMovement[]> {
     return withCache(`${NS}vehicle:${vehicleId}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("location_movements")
         .select(SELECT)
@@ -91,8 +92,7 @@ export const locationService = {
     return withCache(
       `${NS}vehicle:${vehicleId}:recent:${limit}`,
       async () => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const supabase = createClient() as any;
+        const supabase = createClient();
         const { data, error } = await supabase
           .from("location_movements")
           .select(SELECT)
@@ -115,8 +115,7 @@ export const locationService = {
     location: VehicleLocation,
   ): Promise<VehicleAtLocationRow[]> {
     return withCache(`${NS}by:${companyId}:${location}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("vehicles")
         .select(
@@ -182,8 +181,7 @@ export const locationService = {
   /** Tab-header counts for the four locations. */
   async getCounts(companyId: UUID): Promise<LocationCounts> {
     return withCache(`${NS}counts:${companyId}`, async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("vehicles")
         .select("current_location, status")
@@ -226,8 +224,7 @@ export const locationService = {
       throw new Error("Staff moves require a staff member.");
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
 
     // 1. Read current location so we can populate from_location.
     const { data: vehicleRow, error: vErr } = await supabase
@@ -238,7 +235,7 @@ export const locationService = {
       .eq("id", input.vehicleId)
       .single();
     if (vErr) throw vErr;
-    const from: VehicleLocation = vehicleRow.current_location;
+    const from = vehicleRow.current_location as VehicleLocation;
     if (from === input.toLocation) {
       throw new Error(`Vehicle is already at ${input.toLocation}.`);
     }
@@ -314,8 +311,7 @@ export const locationService = {
     actorId: UUID,
     companyId?: UUID,
   ): Promise<LocationMovement> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("location_movements")
       .update({ actual_return_at: new Date().toISOString() })
@@ -355,8 +351,7 @@ export const locationService = {
     movementId: UUID,
     notes: string,
   ): Promise<LocationMovement> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("location_movements")
       .update({ notes })
@@ -389,10 +384,9 @@ export const locationService = {
     actorId: UUID,
     companyId?: UUID,
   ): Promise<LocationMovement> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
 
-    const row: Record<string, unknown> = {};
+    const row: TableUpdate<"location_movements"> = {};
     if (patch.toLocation !== undefined) row.to_location = patch.toLocation;
     if (patch.createdAt !== undefined) row.created_at = patch.createdAt;
     if (patch.expectedReturnAt !== undefined)
@@ -426,8 +420,7 @@ export const locationService = {
 
   /** Super-user only — hard-delete a movement (`can("locations:delete")`). */
   async deleteMovement(movementId: UUID, actorId?: UUID): Promise<void> {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
 
     // Read the owning vehicle first — after the delete there is no row to ask.
     const { data: existing } = await supabase
@@ -466,8 +459,10 @@ export const locationService = {
  * remaining movement history. A no-op when no movements are left — the
  * vehicle keeps whatever it had rather than being blanked.
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function syncVehicleLocation(supabase: any, vehicleId: UUID): Promise<void> {
+async function syncVehicleLocation(
+  supabase: SupabaseClient,
+  vehicleId: UUID,
+): Promise<void> {
   const { data } = await supabase
     .from("location_movements")
     .select(SELECT)
@@ -485,8 +480,10 @@ async function syncVehicleLocation(supabase: any, vehicleId: UUID): Promise<void
   invalidate("vehicles:");
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function resolveCompanyId(supabase: any, vehicleId: UUID): Promise<UUID> {
+async function resolveCompanyId(
+  supabase: SupabaseClient,
+  vehicleId: UUID,
+): Promise<UUID> {
   const { data } = await supabase
     .from("vehicles")
     .select("company_id")

@@ -149,7 +149,6 @@ Dynamic detail routes: `/vehicles/[id]/inspection/page.tsx`, `/warranties/[id]/p
 |---|---|
 | `dashboard-greeting.tsx` | "Welcome back" header |
 | `dashboard-kpi-row.tsx` | 6 KPI tiles grid |
-| `dashboard-stat-card.tsx` | Single KPI tile |
 | `dashboard-recent-deals.tsx` | Recent 7 deals table |
 | `dashboard-calendar.tsx` | Today + tomorrow event card with carousel |
 | `deals-in-progress.tsx` | Open deals grouped by stage |
@@ -243,7 +242,7 @@ Dynamic detail routes: `/vehicles/[id]/inspection/page.tsx`, `/warranties/[id]/p
 
 | File | Entity / domain | Data source |
 |---|---|---|
-| `_base.ts` | `delay`, `newId`, `nowIso` helpers | — |
+| `_base.ts` | `newId` and keyset-pagination helpers | — |
 | `vehicle-service.ts` | Vehicle | Supabase |
 | `customer-service.ts` | Customer | Supabase |
 | `enquiry-service.ts` | Enquiry | Supabase |
@@ -295,8 +294,8 @@ Dynamic detail routes: `/vehicles/[id]/inspection/page.tsx`, `/warranties/[id]/p
 | `cache.ts` | In-memory key-value cache (used by every service) |
 | `cache-warmup.ts` | Eager cache prefill after login |
 | `vat.ts` | `calculateVat`, `formatVatLabel`, margin scheme arithmetic |
-| `formatters.ts` | Currency / date / phone formatters |
-| `utils.ts` | `cn`, `formatRegPlate`, `delay`, generic helpers |
+| `formatters.ts` | UK postcode / phone validators and normalisers |
+| `utils.ts` | `cn`, `formatCurrency`, `formatDate`, `formatRegPlate`, generic helpers |
 | `constants.ts` | App-wide constants (`BODY_TYPES`, `DAYS_IN_STOCK_THRESHOLDS`, etc.) |
 | `enquiry-constants.ts` | Lead/enquiry-specific dropdown options |
 | `elevated.tsx` | `<Elevated>` component (surface ladder root) |

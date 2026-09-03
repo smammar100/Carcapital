@@ -15,7 +15,6 @@ export default function DashboardError({
   unstable_retry: () => void;
 }) {
   useEffect(() => {
-    // eslint-disable-next-line no-console
     console.error("[dashboard error]", error);
   }, [error]);
   return (

@@ -31,7 +31,6 @@ import {
 import type {
   AddonCategory,
   DepositMethod,
-  Invoice,
   InvoiceLineItem,
   InvoiceLineItemType,
   PreDeliveryCheck,

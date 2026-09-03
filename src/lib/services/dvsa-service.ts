@@ -293,12 +293,3 @@ export async function lookupMotHistory(
     clearTimeout(timer);
   }
 }
-
-/**
- * Test hook — clears the in-memory token cache. Used by integration tests
- * and the rare "force re-auth" admin action. Production code should not
- * call this directly.
- */
-export function __resetDvsaTokenCacheForTests(): void {
-  tokenCache = null;
-}

@@ -21,7 +21,7 @@ import { cn } from "@/lib/utils";
  */
 
 /** Fixed categorical order — brand tokens, never cycled past 5 (fold to Other). */
-export const CHART_COLORS = [
+const CHART_COLORS = [
   "var(--chart-1)",
   "var(--chart-2)",
   "var(--chart-3)",

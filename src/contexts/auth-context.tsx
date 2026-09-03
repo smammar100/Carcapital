@@ -201,7 +201,6 @@ export function AuthProvider({
         await hydrate(nextId);
       }
     } catch (e) {
-      // eslint-disable-next-line no-console
       console.warn("[auth] revalidate failed:", e);
     } finally {
       revalidatingRef.current = false;
@@ -292,7 +291,6 @@ export function AuthProvider({
           setTimeout(() => {
             if (!mounted) return;
             void hydrate(nextId).catch((e) => {
-              // eslint-disable-next-line no-console
               console.error("[auth] hydrate failed during state change:", e);
             });
           }, 0);
@@ -302,7 +300,6 @@ export function AuthProvider({
         if (!mounted) return;
         const msg =
           e instanceof Error ? e.message : "Failed to initialise auth";
-        // eslint-disable-next-line no-console
         console.error("[auth] init failed:", e);
         setError(msg);
       } finally {

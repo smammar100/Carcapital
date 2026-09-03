@@ -188,33 +188,6 @@ export function Panel({
 // explain what the tab tracks.
 // ============================================================
 
-interface InfoCardProps {
-  icon: ReactNode;
-  title: ReactNode;
-  children: ReactNode;
-}
-
-export function InfoCard({ icon, title, children }: InfoCardProps) {
-  return (
-    <Card
-      size="sm"
-      className="gap-3 border-violet-200/70 bg-violet-50/70 ring-violet-300/20 dark:border-violet-500/20 dark:bg-violet-500/5"
-    >
-      <CardContent className="flex items-start gap-3 p-0">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-card text-violet-600 dark:text-violet-300">
-          {icon}
-        </div>
-        <div className="min-w-0">
-          <div className="text-base font-semibold">{title}</div>
-          <div className="mt-1 max-w-3xl text-xs leading-relaxed text-muted-foreground">
-            {children}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 // ============================================================
 // FIELD GRID — labelled key/value list used in Overview, Listing,
 // Purchase Information, etc.

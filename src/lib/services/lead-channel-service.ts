@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/client";
+import { createClient, type TableUpdate } from "@/lib/supabase/client";
 import { invalidate, withCache } from "@/lib/cache";
 import type { LeadChannel, UUID } from "@/lib/types";
 import { activityService } from "./activity-service";
@@ -44,11 +44,7 @@ export const leadChannelService = {
   /** All channels for a company, ordered by sort_order. */
   async getAll(companyId: UUID): Promise<LeadChannel[]> {
     return withCache(`${NS}all:${companyId}`, async () => {
-      // `lead_channels` is added in migration 0009; Supabase types are
-    // regenerated separately (`supabase gen types`). Until then, cast
-    // to `any` so the file compiles. Removed after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("lead_channels")
         .select(SELECT)
@@ -62,11 +58,7 @@ export const leadChannelService = {
   /** Enabled-only channels — what dropdowns should show. */
   async getEnabled(companyId: UUID): Promise<LeadChannel[]> {
     return withCache(`${NS}enabled:${companyId}`, async () => {
-      // `lead_channels` is added in migration 0009; Supabase types are
-    // regenerated separately (`supabase gen types`). Until then, cast
-    // to `any` so the file compiles. Removed after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("lead_channels")
         .select(SELECT)
@@ -80,11 +72,7 @@ export const leadChannelService = {
 
   async getById(id: UUID): Promise<LeadChannel | null> {
     return withCache(`${NS}by-id:${id}`, async () => {
-      // `lead_channels` is added in migration 0009; Supabase types are
-    // regenerated separately (`supabase gen types`). Until then, cast
-    // to `any` so the file compiles. Removed after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+      const supabase = createClient();
       const { data, error } = await supabase
         .from("lead_channels")
         .select(SELECT)
@@ -96,11 +84,7 @@ export const leadChannelService = {
   },
 
   async create(input: CreateInput, actorId: UUID): Promise<LeadChannel> {
-    // `lead_channels` is added in migration 0009; Supabase types are
-    // regenerated separately (`supabase gen types`). Until then, cast
-    // to `any` so the file compiles. Removed after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     const { data, error } = await supabase
       .from("lead_channels")
       .insert({
@@ -132,12 +116,8 @@ export const leadChannelService = {
     patch: ChannelPatch,
     actorId: UUID,
   ): Promise<LeadChannel> {
-    // `lead_channels` is added in migration 0009; Supabase types are
-    // regenerated separately (`supabase gen types`). Until then, cast
-    // to `any` so the file compiles. Removed after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
-    const updates: Record<string, unknown> = {
+    const supabase = createClient();
+    const updates: TableUpdate<"lead_channels"> = {
       updated_at: new Date().toISOString(),
     };
     if (patch.label !== undefined) updates.label = patch.label;
@@ -179,11 +159,7 @@ export const leadChannelService = {
    */
   async reorder(orderedIds: UUID[], actorId: UUID): Promise<void> {
     if (orderedIds.length === 0) return;
-    // `lead_channels` is added in migration 0009; Supabase types are
-    // regenerated separately (`supabase gen types`). Until then, cast
-    // to `any` so the file compiles. Removed after the regen.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const supabase = createClient() as any;
+    const supabase = createClient();
     // Issue updates in parallel; the new sort_order is just the index + 1.
     await Promise.all(
       orderedIds.map((id, i) =>

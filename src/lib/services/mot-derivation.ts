@@ -60,7 +60,7 @@ export function deriveExpiryDate(tests: MotTest[]): string | null {
 // ─── GEN-75: inspection-queue MOT expiry flag ────────────────────────────
 
 /** A vehicle is flagged "expiring soon" inside this many days of its MOT date. */
-export const MOT_EXPIRING_SOON_DAYS = 30;
+const MOT_EXPIRING_SOON_DAYS = 30;
 
 export type MotFlagTone = "expired" | "expiring" | "ok" | "unknown";
 

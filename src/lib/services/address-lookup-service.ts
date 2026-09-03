@@ -68,7 +68,7 @@ interface PostcodesIoResult {
  * Free geographic provider. Returns at most one suggestion, because it has no
  * premise-level data — see the file header.
  */
-export const postcodesIoProvider: AddressProvider = {
+const postcodesIoProvider: AddressProvider = {
   name: "postcodes.io",
   hasPremiseData: false,
 
@@ -106,7 +106,7 @@ export const postcodesIoProvider: AddressProvider = {
 };
 
 /** The provider in use. Swap here when a PAF key is available. */
-export const activeProvider: AddressProvider = postcodesIoProvider;
+const activeProvider: AddressProvider = postcodesIoProvider;
 
 export const addressLookupService = {
   /** Suggestions for a postcode, newest provider semantics. */

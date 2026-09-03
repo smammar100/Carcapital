@@ -1,4 +1,4 @@
-import type { Step, Tour } from "onborda/dist/types";
+import type { Step } from "onborda/dist/types";
 import { navTourId, requiredCapsForPath } from "@/components/layout/sidebar-config";
 import type { Capability } from "@/lib/capabilities";
 
@@ -45,7 +45,7 @@ export interface GuidedStep extends Step {
  * Steps deliberately do NOT depend on any record existing. The database ships
  * empty, and a tour that says "open your first vehicle" breaks on day one.
  */
-export const GUIDED_STEPS: GuidedStep[] = [
+const GUIDED_STEPS: GuidedStep[] = [
   {
     icon: "👋",
     title: "Welcome to Car Capital",
@@ -255,8 +255,6 @@ export const GUIDED_STEPS: GuidedStep[] = [
     pointerRadius: 8,
   },
 ];
-
-export const TOURS: Tour[] = [{ tour: WELCOME_TOUR, steps: GUIDED_STEPS }];
 
 /**
  * The steps this particular user can actually complete.

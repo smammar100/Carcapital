@@ -62,11 +62,7 @@ export async function POST(request: Request) {
     );
   }
 
-  // Cast to `any`: the generated database.types.ts doesn't yet include the
-  // 0018/0019 columns (at_derivative_id, at_stock_id, …). Same pattern as
-  // external-invoice-service.ts until `supabase gen types` is re-run.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createAdminClient() as any;
+  const supabase = createAdminClient();
 
   // Load vehicle + listing.
   const [{ data: vRow, error: vErr }, { data: lRow, error: lErr }] =

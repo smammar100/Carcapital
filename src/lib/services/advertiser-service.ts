@@ -14,25 +14,25 @@
 
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Database, Json } from "@/lib/supabase/database.types";
 import type { Advertiser, AdvertiserRecord } from "@/lib/types";
 
-// The generated database.types.ts doesn't yet include `at_advertisers`
-// (re-run `supabase gen types` to drop these casts). Same pattern as the
-// autotrader-stock route.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function db(): any {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return createAdminClient() as any;
+type AdvertiserRow = Database["public"]["Tables"]["at_advertisers"]["Row"];
+
+function db() {
+  return createAdminClient();
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function mapRow(row: any): AdvertiserRecord {
+function mapRow(row: AdvertiserRow): AdvertiserRecord {
   return {
     advertiserId: row.advertiser_id,
     name: row.name ?? null,
     status: row.status ?? null,
     postcode: row.postcode ?? null,
-    products: Array.isArray(row.products) ? row.products : [],
+    // `products` is a jsonb column; keep only the string entries we expect.
+    products: Array.isArray(row.products)
+      ? row.products.filter((p): p is string => typeof p === "string")
+      : [],
     raw: (row.raw ?? {}) as Record<string, unknown>,
     syncedAt: row.synced_at ?? null,
     atUpdatedAt: row.at_updated_at ?? null,
@@ -92,7 +92,7 @@ export async function upsertSyncedAdvertisers(
       status: a.status,
       postcode: a.postcode,
       products: a.products,
-      raw: a.raw,
+      raw: a.raw as Json,
       synced_at: syncedAt,
       updated_at: syncedAt,
     }));
@@ -120,7 +120,7 @@ export async function upsertNotifiedAdvertiser(
         status: advertiser.status,
         postcode: advertiser.postcode,
         products: advertiser.products,
-        raw: advertiser.raw,
+        raw: advertiser.raw as Json,
         at_updated_at: updatedAt,
         updated_at: updatedAt,
       },

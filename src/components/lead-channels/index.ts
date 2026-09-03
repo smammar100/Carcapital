@@ -1,2 +1,2 @@
-export { ChannelChip, ChannelDot } from "./channel-chip";
+export { ChannelChip } from "./channel-chip";
 export { ChannelDropdown } from "./channel-dropdown";

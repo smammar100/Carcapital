@@ -13,7 +13,7 @@ let cached: ReturnType<typeof createBrowserClient<Database>> | null = null;
  * the JWT-based anon key. Accept either so a deployer who follows the
  * latest quickstart (and a project still on the old name) both work.
  */
-export function resolveSupabaseAnonKey(): string | undefined {
+function resolveSupabaseAnonKey(): string | undefined {
   return (
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ??
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY

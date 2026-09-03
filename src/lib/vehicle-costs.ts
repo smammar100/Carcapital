@@ -99,7 +99,7 @@ export function derivedCostPatch(
 }
 
 /** The twelve keys that feed the rollup — an edit to any of them re-derives. */
-export const COST_INPUT_KEYS = [
+const COST_INPUT_KEYS = [
   "buyingPrice",
   "buyersFee",
   "inspectionCharge",

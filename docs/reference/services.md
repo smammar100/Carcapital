@@ -38,10 +38,10 @@
 
 | Service file | Purpose |
 |---|---|
-| `pdf-service.ts` | Generate Invoice / Job Card / Warranty Certificate PDFs via `@react-pdf/renderer`. Helpers: `downloadBlob()`, `openBlobInNewTab()`. |
+| `pdf-service.ts` | Generate Invoice / Job Card / Warranty Certificate PDFs via `@react-pdf/renderer`. Helper: `downloadBlob()`. |
 | `photo-service.ts` | Build prompts for AI image generation; calls `/api/photo/generate` |
 | `photo-storage.ts` | Read / write vehicle photos in Supabase Storage |
-| `_base.ts` | Shared helpers: `delay(ms)`, `newId(prefix)`, `nowIso()` |
+| `_base.ts` | Shared helpers: `newId(prefix)`, keyset pagination (`toPage`, cursors) |
 
 ## Calling convention
 
